@@ -34,6 +34,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const t = useTranslations();
   const locale = asUiLocale(useLocale());
   const pathname = usePathname();
+  const isDossierWorkflow = pathname.startsWith("/admin/dossiers");
   const router = useRouter();
   const { isLoading, forbidden, user, isAuthenticated } = useAdminScreenGuard(ADMIN_ROLES);
   const canReadPilotage = hasRole(user?.role, PILOTAGE_READ_ROLES);
@@ -176,7 +177,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || t("adminLayout.defaultDisplayName");
 
   return (
-    <div className={`cam-admin${drawerOpen ? " is-menu-open" : ""}`}>
+    <div className={`cam-admin${drawerOpen ? " is-menu-open" : ""}${isDossierWorkflow ? " is-dossier-workflow" : ""}`}>
       <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
         <AdminSidebar
           role={user?.role}
@@ -212,6 +213,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             <Menu size={20} aria-hidden="true" />
           </button>
+          {isDossierWorkflow && (
+            <>
+              <div className="cam-admin-institutional-brand">
+                <span className="cam-admin-institutional-brand-name"><span aria-hidden="true">◉</span> CAMLEAP</span>
+                <span className="cam-admin-institutional-brand-subtitle">{t("adminSidebar.brandSubtitle")}</span>
+              </div>
+              <div className="cam-admin-institutional-account">
+                <span className="cam-admin-institutional-account-initials" aria-hidden="true">
+                  {displayName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}
+                </span>
+                <span className="cam-admin-institutional-account-copy">
+                  <strong>{displayName}</strong>
+                  <span>{user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel")}</span>
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         <main className="cam-admin-main">

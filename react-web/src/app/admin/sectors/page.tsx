@@ -8,8 +8,10 @@ import { useAuthStore } from "@/lib/auth-store";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function AdminSectorsPage() {
   const t = useTranslations();
@@ -83,15 +85,11 @@ export default function AdminSectorsPage() {
     <div className="cam-admin-page">
       {header}
 
-      <section className="cam-admin-section">
-        <div className="cam-admin-section-head">
-          {sectorsQuery.isSuccess && (
-            <span className="cam-admin-meta">
-              {t("adminSectorsPage.sectorCount", { count: filteredSectors.length })}
-            </span>
-          )}
-        </div>
-        <div className="cam-admin-section-body">
+      <AdminTablePanel
+        title={t("adminNav.routes.sectors")}
+        headingId="sectors-table-title"
+        meta={sectorsQuery.isSuccess ? t("adminSectorsPage.sectorCount", { count: filteredSectors.length }) : undefined}
+        toolbar={
           <div className="cam-admin-filters">
             <div className="cam-field">
               <label className="cam-admin-label" htmlFor="sector-category-filter">
@@ -110,18 +108,18 @@ export default function AdminSectorsPage() {
               </select>
             </div>
           </div>
-        </div>
-        <div className="cam-table-wrapper">
-          <table className="cam-table">
-            <thead>
-              <tr>
-                <th scope="col">{t("adminSectorsPage.columnName")}</th>
-                <th scope="col">{t("adminSectorsPage.columnNameEn")}</th>
-                <th scope="col">{t("adminSectorsPage.columnCategory")}</th>
-                <th scope="col">{t("adminSectorsPage.columnCode")}</th>
-              </tr>
-            </thead>
-            <tbody>
+        }
+      >
+        <Table className="cam-admin-data-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">{t("adminSectorsPage.columnName")}</TableHead>
+              <TableHead scope="col">{t("adminSectorsPage.columnNameEn")}</TableHead>
+              <TableHead scope="col">{t("adminSectorsPage.columnCategory")}</TableHead>
+              <TableHead scope="col">{t("adminSectorsPage.columnCode")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
               {/* Loading, failure and "no sector in this category" are three
                   distinct renders. */}
               <DataStateRow
@@ -139,23 +137,20 @@ export default function AdminSectorsPage() {
                         ? t("adminSectorsPage.emptyState")
                         : undefined
                 }
-              />
+            />
               {tableState === "ready" && filteredSectors.map((s) => (
-                <tr key={s.id}>
-                  <td className="cam-admin-strong">{s.name}</td>
-                  <td className="cam-admin-muted">{s.nameEn ?? NOT_PROVIDED}</td>
-                  <td>
+                <TableRow key={s.id}>
+                  <TableCell className="font-medium">{s.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{s.nameEn ?? NOT_PROVIDED}</TableCell>
+                  <TableCell>
                     <span className="cam-badge cam-badge-neutral">{s.category ? categoryLabel(s.category) : NOT_PROVIDED}</span>
-                  </td>
-                  <td>
-                    <span className="cam-admin-code">{s.code ?? NOT_PROVIDED}</span>
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell><span className="cam-admin-code">{s.code ?? NOT_PROVIDED}</span></TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          </TableBody>
+        </Table>
+      </AdminTablePanel>
     </div>
   );
 }

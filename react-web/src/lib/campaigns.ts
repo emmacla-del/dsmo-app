@@ -272,3 +272,20 @@ export function formatCampaignDisplayName(name: string): string {
   }
   return name;
 }
+
+/** Compact label for repeated campaign references inside data tables. */
+export function formatCampaignShortName(name: string): string {
+  if (!name) return "—";
+  const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+
+  if (normalized.includes("COLLECTE DES DONNEES SUR LES EMPLOIS") || (normalized.includes("COLLECTE") && normalized.includes("SECTEUR MODERNE"))) {
+    return "CDE-SM";
+  }
+  if (normalized.includes("DECLARATION SUR LA SITUATION DE LA MAIN D'OEUVRE") || normalized.includes("MAIN D'OEUVRE")) {
+    return "DSMO";
+  }
+
+  const displayName = formatCampaignDisplayName(name);
+  const acronym = displayName.match(/\(([A-Z0-9-]{2,10})\)$/)?.[1];
+  return acronym ?? displayName;
+}

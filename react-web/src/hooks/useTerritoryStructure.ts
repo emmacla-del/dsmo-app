@@ -50,8 +50,8 @@ export function useTerritoryStructure(enabled = true) {
 /**
  * Convenience hook returning the list of region names.
  */
-export function useTerritoryRegions() {
-  const query = useTerritoryStructure();
+export function useTerritoryRegions(enabled = true) {
+  const query = useTerritoryStructure(enabled);
   const regions = useMemo(() => {
     return query.data ? query.data.map((r) => r.name) : [];
   }, [query.data]);
@@ -65,8 +65,8 @@ export function useTerritoryRegions() {
 /**
  * Convenience hook returning the list of department names, optionally scoped to a region.
  */
-export function useTerritoryDepartments(regionName?: string | null) {
-  const query = useTerritoryStructure();
+export function useTerritoryDepartments(regionName?: string | null, enabled = true) {
+  const query = useTerritoryStructure(enabled);
   const departments = useMemo(() => {
     if (!query.data) return [];
     if (!regionName || regionName === "all" || regionName === "Toutes") {

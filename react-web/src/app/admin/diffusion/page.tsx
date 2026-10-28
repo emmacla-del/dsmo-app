@@ -24,6 +24,7 @@ import {
 import { useAuthStore } from "@/lib/auth-store";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
@@ -904,13 +905,11 @@ export default function DiffusionPage() {
       </div>
 
       {/* ── Recent export history ── */}
-      <section className="cam-admin-section" aria-labelledby="recent-exports-heading">
-        <div className="cam-admin-section-head">
-          <div>
-            <h2 id="recent-exports-heading" className="cam-admin-h2">{t("historyTitle")}</h2>
-            <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("historySubtitle")}</p>
-          </div>
-        </div>
+      <AdminTablePanel
+        headingId="recent-exports-heading"
+        title={t("historyTitle")}
+        description={t("historySubtitle")}
+      >
 
         {historyState !== "ready" ? (
           <div className="cam-admin-section-body">
@@ -956,7 +955,7 @@ export default function DiffusionPage() {
             </table>
           </div>
         )}
-      </section>
+      </AdminTablePanel>
     </div>
   );
 }

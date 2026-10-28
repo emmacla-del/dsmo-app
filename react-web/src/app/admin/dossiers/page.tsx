@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, X } from "lucide-react";
+import { Check, CircleX, Download, FileText, Percent, RotateCcw, X } from "lucide-react";
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -14,6 +14,7 @@ import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-nam
 import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
@@ -21,12 +22,14 @@ import { DataStateRow } from "@/components/admin/DataState";
 import { DossiersCoverage } from "@/components/admin/DossiersCoverage";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
-import { formatCampaignDisplayName } from "@/lib/campaigns";
+import { formatCampaignDisplayName, formatCampaignShortName } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
-import { getActiveCollectionCampaigns } from "@/lib/pilotage-targets";
+import { getActiveCollectionCampaigns, getCampaignReturns } from "@/lib/pilotage-targets";
 import {
   NOT_PROVIDED,
   count,
+  metricUnavailable,
+  percent,
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
@@ -81,6 +84,7 @@ interface DossierItem {
   reviewedBy: string | null;
   reviewedAt: string | null;
   rejectionReason: string | null;
+  supersededById?: string | null;
   updatedAt: string | null;
   blockingCount: number;
   warningCount: number;
@@ -108,6 +112,7 @@ interface QuestionnaireListItem extends NamedSubmission {
   reviewedBy?: string | null;
   reviewedAt?: string | null;
   rejectionReason?: string | null;
+  supersededById?: string | null;
   updatedAt?: string | null;
   submissionDate?: string | null;
   isLate?: boolean;
@@ -122,6 +127,12 @@ interface QuestionnaireListItem extends NamedSubmission {
 }
 
 const PAGE_SIZE = 10;
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function readableActor(value: string | null | undefined): string | null {
+  return value && !UUID_PATTERN.test(value) ? value : null;
+}
 
 /**
  * The tone each derived state maps to, as a Badge variant. The tone names on
@@ -190,12 +201,29 @@ const STATUS_VIEWS: Array<{ status: DossierStatus | ""; labelKey: string; noteKe
 export default function DossiersPage() {
   return (
     <Suspense fallback={null}>
-      <DossiersContent />
+      <DossiersSingleView />
     </Suspense>
   );
 }
 
-function DossiersContent() {
+function DossiersSingleView() {
+  const searchParams = useSearchParams();
+  const activeView = parseDossierVue(searchParams.get("vue"));
+
+  return (
+    <div className="cam-admin-page cam-dossier-page cam-dossier-page--single">
+      <DossiersContent key={activeView} view={activeView} showPageHeader />
+    </div>
+  );
+}
+
+function DossiersContent({
+  view,
+  showPageHeader = false,
+}: {
+  view: "submissions" | "completed" | "coverage";
+  showPageHeader?: boolean;
+}) {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   // Central agents consult: no selection column, no visa / reject / export
@@ -224,7 +252,7 @@ function DossiersContent() {
         : hasRole(user?.role, NATIONAL_READ_ROLES)
           ? t("scopeNational")
           : t("scopeUnassigned");
-  const { regions: territoryRegions } = useTerritoryRegions();
+  const { regions: territoryRegions } = useTerritoryRegions(view !== "coverage");
 
   // ADR-0001 / Phase 3: vue values will be renamed to registrations: queue |
   // organisations | coverage; declarations: submissions | completed | coverage.
@@ -234,35 +262,42 @@ function DossiersContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  // Filters that belong to a shared or bookmarked view live in the URL.
-  // The status filter is ?status=, written by setStatus.
-  const statusFilter = parseDossierStatus(searchParams.get("status"));
+  const activeView = parseDossierVue(searchParams.get("vue"));
+  const legacyFiltersApply = activeView === view;
+  // Keep each section's filters independently bookmarkable. Older generic
+  // filters still seed the section named by ?vue= (or submissions by default).
+  const filterParam = (key: string) =>
+    searchParams.get(`${view}${key[0].toUpperCase()}${key.slice(1)}`) ??
+    (legacyFiltersApply ? searchParams.get(key) : null);
+  const statusFilter = parseDossierStatus(filterParam("status"));
   // ?sort=oldest (the pilotage review-delay link) lists the longest-waiting
   // files first; URL state like the status, written by setSort.
-  const sortOrder = parseDossierSort(searchParams.get("sort"));
-  const companyIdFilter = searchParams.get("companyId") ?? "";
-  const regionFilter = searchParams.get("region") ?? "";
-  const departmentFilter = searchParams.get("department") ?? "";
+  const sortOrder = parseDossierSort(filterParam("sort"));
+  const companyIdFilter = filterParam("companyId") ?? "";
+  const regionFilter = filterParam("region") ?? "";
+  const departmentFilter = filterParam("department") ?? "";
   const campaignIdFilter = searchParams.get("campaignId")?.trim() ?? "";
-  const quarterCodeFilter = parseDossierQuarter(searchParams.get("quarterCode")) ?? "";
-  const lateFilter = parseDossierFlag(searchParams.get("late"));
-  const overdueFilter = parseDossierFlag(searchParams.get("overdue"));
-  const assignedToMeFilter = parseDossierFlag(searchParams.get("assignedToMe"));
-  const vue = parseDossierVue(searchParams.get("vue"));
-  const includeArchived = vue === "completed" && searchParams.get("includeArchived") !== "false";
+  const quarterCodeFilter = parseDossierQuarter(filterParam("quarterCode")) ?? "";
+  const lateFilter = parseDossierFlag(filterParam("late"));
+  const overdueFilter = parseDossierFlag(filterParam("overdue"));
+  const assignedToMeFilter = parseDossierFlag(filterParam("assignedToMe"));
+  const vue = view;
+  const archivedParam = searchParams.get("completedIncludeArchived") ??
+    (legacyFiltersApply ? searchParams.get("includeArchived") : null);
+  const includeArchived = vue === "completed" && archivedParam !== "false";
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
-  const requestedQuery = searchParams.get("search") ?? searchParams.get("q") ?? "";
+  const requestedQuery = filterParam("search") ?? (legacyFiltersApply ? searchParams.get("q") : null) ?? "";
   // /admin/questionnaires links here with ?formType= ("Voir dossiers").
-  const requestedFormType = searchParams.get("formType") ?? "";
-  const { departments: territoryDepartments } = useTerritoryDepartments(regionFilter || undefined);
+  const requestedFormType = filterParam("formType") ?? "";
+  const { departments: territoryDepartments } = useTerritoryDepartments(regionFilter || undefined, view !== "coverage");
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
   const [searchInput, setSearchInput] = useState(requestedQuery);
   const [search, setSearch] = useState(requestedQuery.trim());
   const typeFilter = FORM_TYPES.includes(requestedFormType) ? requestedFormType : "";
-  const periodFilter = searchParams.get("period") ?? "";
+  const periodFilter = filterParam("period") ?? "";
   const [offset, setOffset] = useState(0);
 
   // Any URL filter change, including the browser's back button, starts again
@@ -332,12 +367,20 @@ function DossiersContent() {
     refetchOnWindowFocus: false,
   });
   const campaigns = campaignsQuery.data ?? [];
+  const effectiveCampaignId = campaignIdFilter || campaigns[0]?.id || "";
+  const campaignReturnsQuery = useQuery({
+    queryKey: ["admin", "pilotage", "returns", effectiveCampaignId],
+    queryFn: () => getCampaignReturns(effectiveCampaignId),
+    enabled: vue === "submissions" && Boolean(effectiveCampaignId),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
   const campaignOptions = campaigns.map((campaign) => ({
     value: campaign.id,
     label: `${referencePeriodLabel(campaign.code, locale)} - ${formatCampaignDisplayName(campaign.name)}`,
   }));
-  if (campaignIdFilter && !campaignOptions.some((option) => option.value === campaignIdFilter)) {
-    campaignOptions.unshift({ value: campaignIdFilter, label: campaignIdFilter });
+  if (effectiveCampaignId && !campaignOptions.some((option) => option.value === effectiveCampaignId)) {
+    campaignOptions.unshift({ value: effectiveCampaignId, label: effectiveCampaignId });
   }
   const quarterOptions = [
     quarterCodeFilter,
@@ -348,7 +391,7 @@ function DossiersContent() {
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignIdFilter, quarterCodeFilter, lateFilter, overdueFilter, assignedToMeFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
+    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignId: effectiveCampaignId, quarterCodeFilter, lateFilter, overdueFilter, assignedToMeFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: vue === "completed" ? undefined : statusFilter || undefined,
@@ -361,7 +404,7 @@ function DossiersContent() {
         period: periodFilter || undefined,
         region: regionFilter || undefined,
         department: departmentFilter || undefined,
-        campaignId: campaignIdFilter || undefined,
+        campaignId: effectiveCampaignId || undefined,
         quarterCode: quarterCodeFilter || undefined,
         late: lateFilter || undefined,
         overdue: overdueFilter || undefined,
@@ -394,8 +437,17 @@ function DossiersContent() {
   const queuesQuery = useQuery({
     queryKey: ["admin", "pilotage", "queues", vue === "completed" ? "completed" : "queue", vue === "completed" ? includeArchived : false],
     queryFn: () => getPilotageQueuesForView(vue === "completed" ? "completed" : "queue", vue === "completed" ? includeArchived : undefined),
+    enabled: vue !== "coverage",
   });
   const queues = queuesQuery.data ?? null;
+  const queueStatusCounts = selectAdminViewCounts(
+    queues?.countsView,
+    "queue",
+    queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined,
+  );
+  const responseRateValue = campaignReturnsQuery.isError
+    ? metricUnavailable(locale)
+    : percent(campaignReturnsQuery.data?.totals.responseRate, 0, locale);
 
   /**
    * Queue counters for the tab row. Source: GET /admin/questionnaires/
@@ -465,13 +517,21 @@ function DossiersContent() {
     },
   });
 
-  // Writes a URL filter, keeping every other parameter, and drops a stale
-  // selection. The list follows from the URL, so a reload reopens the same view.
+  // Each section owns its filter state; campaignId remains shared.
   const setUrlFilter = useCallback((changes: Record<string, string | null>) => {
     setSelectedIds(new Set());
     setOffset(0);
-    router.replace(hrefWith(pathname, searchParams.toString(), changes));
-  }, [pathname, router, searchParams]);
+    const scoped: Record<string, string | null> = {};
+    for (const [key, value] of Object.entries(changes)) {
+      if (key === "campaignId") {
+        scoped[key] = value;
+        continue;
+      }
+      if (key !== "q") scoped[`${view}${key[0].toUpperCase()}${key.slice(1)}`] = value;
+      scoped[key] = null;
+    }
+    router.replace(hrefWith(pathname, searchParams.toString(), scoped));
+  }, [pathname, router, searchParams, view]);
 
   const setStatus = (status: DossierStatus | "") => setUrlFilter({ status });
   const setSort = (sort: DossierSort) => setUrlFilter({ sort });
@@ -512,7 +572,7 @@ function DossiersContent() {
   const dossiers: DossierItem[] = rawItems.map((sub: QuestionnaireListItem) => {
     const blockingCount = sub.anomalies?.filter((anomaly) => anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((anomaly) => !anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
-    const name = resolveEntityName(sub) ?? t("fileFallbackName", { id: sub.submissionId || sub.id });
+    const name = resolveEntityName(sub) ?? t("fileFallbackName");
 
     return {
       id: sub.id,
@@ -530,6 +590,7 @@ function DossiersContent() {
       reviewedBy: sub.reviewedBy ?? null,
       reviewedAt: sub.reviewedAt ?? null,
       rejectionReason: sub.rejectionReason ?? null,
+      supersededById: sub.supersededById ?? null,
       archivedAt: sub.archivedAt ?? null,
       archivedBy: sub.archivedBy ?? null,
       archiveReason: sub.archiveReason ?? null,
@@ -552,14 +613,13 @@ function DossiersContent() {
   if (periodFilter) activeFilterChips.push({ key: "period", label: `${t("periodLabel")}: ${t(PERIODS.find((p) => p.value === periodFilter)?.labelKey ?? "allPeriods")}`, remove: () => setPeriod("") });
   if (regionFilter) activeFilterChips.push({ key: "region", label: `${t("regionColumn")}: ${regionFilter}`, remove: () => setRegion("") });
   if (departmentFilter) activeFilterChips.push({ key: "department", label: `${t("departmentLabel")}: ${departmentFilter}`, remove: () => setDepartment("") });
-  if (campaignIdFilter) activeFilterChips.push({ key: "campaignId", label: `${t("campaignLabel")}: ${campaignOptions.find((o) => o.value === campaignIdFilter)?.label ?? campaignIdFilter}`, remove: () => setCampaign("") });
   if (quarterCodeFilter) activeFilterChips.push({ key: "quarterCode", label: `${t("quarterLabel")}: ${quarterCodeFilter}`, remove: () => setQuarter("") });
   if (lateFilter) activeFilterChips.push({ key: "late", label: t("lateOnly"), remove: () => setLate(false) });
   if (overdueFilter) activeFilterChips.push({ key: "overdue", label: t("overdueOnly"), remove: () => setOverdue(false) });
   if (assignedToMeFilter) activeFilterChips.push({ key: "assignedToMe", label: t("assignedToMeOnly"), remove: () => setAssignedToMe(false) });
   if (companyIdFilter) activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${companyIdFilter}`, remove: () => setUrlFilter({ companyId: null }) });
   if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
-  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, campaignId: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, companyId: null, sort: null, search: null, q: null });
+  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, companyId: null, sort: null, search: null, q: null });
 
   /**
    * Source: GET /admin/questionnaires → `total`.
@@ -670,7 +730,7 @@ function DossiersContent() {
       if (typeFilter) params.set("formType", typeFilter);
       if (regionFilter) params.set("region", regionFilter);
       if (departmentFilter) params.set("department", departmentFilter);
-      if (campaignIdFilter) params.set("campaignId", campaignIdFilter);
+      if (effectiveCampaignId) params.set("campaignId", effectiveCampaignId);
       if (quarterCodeFilter) params.set("quarterCode", quarterCodeFilter);
       if (lateFilter) params.set("late", "1");
       if (overdueFilter) params.set("overdue", "1");
@@ -704,28 +764,52 @@ function DossiersContent() {
     }
   }
 
+  const legacyFilterClear = {
+    status: null, sort: null, companyId: null, region: null, department: null,
+    quarterCode: null, late: null, overdue: null, assignedToMe: null,
+    formType: null, period: null, search: null, q: null, includeArchived: null,
+  };
+  const viewHref = (target: "submissions" | "completed" | "coverage") =>
+    hrefWith(pathname, searchParams.toString(), { ...legacyFilterClear, vue: target });
+
   const pageHeader = (
     <AdminPageHeader
-      breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations") }, { label: tRoot("adminNav.routes.dossiers") }]}
-      title={tRoot("adminNav.routes.dossiers")}
-      subtitle={vue === "coverage" ? t("subtitleCoverage") : vue === "completed" ? t("completedSubtitle") : t("subtitle")}
-      actions={<AdminHeaderActions />}
+      title={t("pageTitle")}
+      subtitle={t("pageSubtitle")}
+      actions={(
+        <div className="cam-dossier-header-actions">
+          <label className="cam-dossier-campaign">
+            <span>{t("campaignLabel")}</span>
+            <select
+              className="cam-admin-input"
+              value={effectiveCampaignId}
+              onChange={(event) => setCampaign(event.target.value)}
+              aria-label={t("campaignLabel")}
+            >
+              {campaignOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <AdminHeaderActions showCampaignPill={false} />
+        </div>
+      )}
       tabs={[
         {
           label: t("viewSubmissions"),
-          href: hrefWith(pathname, searchParams.toString(), { vue: "submissions", status: null }),
-          isActive: vue === "submissions",
+          href: viewHref("submissions"),
+          isActive: activeView === "submissions",
           badge: selectAdminViewCounts(queues?.countsView, "queue", queues?.totalSubmissionsCount) ?? undefined,
         },
         {
           label: t("viewCompleted"),
-          href: hrefWith(pathname, searchParams.toString(), { vue: "completed", status: null }),
-          isActive: vue === "completed",
+          href: viewHref("completed"),
+          isActive: activeView === "completed",
         },
         {
           label: t("viewCoverage"),
-          href: hrefWith(pathname, searchParams.toString(), { vue: "coverage", status: null }),
-          isActive: vue === "coverage",
+          href: viewHref("coverage"),
+          isActive: activeView === "coverage",
         },
       ]}
     />
@@ -733,19 +817,63 @@ function DossiersContent() {
 
   if (vue === "coverage") {
     return (
-      <div className="cam-admin-page">
-        {pageHeader}
-        <DossiersCoverage campaignId={campaignIdFilter} onCampaignChange={setCampaign} />
-      </div>
+      <>
+        {showPageHeader && pageHeader}
+        <section id="dossier-view-coverage" className="cam-dossier-view cam-dossier-view--coverage">
+          <div className="cam-dossier-section-heading"><h2 id="dossiers-coverage-heading">{t("viewCoverage")}</h2></div>
+          <AdminTablePanel
+            headingId="dossiers-coverage-heading"
+            showHeader={false}
+            cardClassName="cam-dossier-coverage-card"
+          >
+            <CardContent className="cam-dossier-coverage-table">
+              <DossiersCoverage
+                campaignId={effectiveCampaignId}
+                onCampaignChange={setCampaign}
+                regionFilter={regionFilter}
+                searchTerm={searchInput}
+                onRegionChange={setRegion}
+                onSearchChange={setSearchInput}
+                showCampaignControls={false}
+              />
+            </CardContent>
+          </AdminTablePanel>
+        </section>
+      </>
     );
   }
 
   return (
-    <div className="cam-admin-page">
-      {pageHeader}
+    <section id={`dossier-view-${vue}`} className={`cam-dossier-view cam-dossier-view--${vue}`}>
+      {showPageHeader && pageHeader}
       {reopenNotice && <Alert variant="success" className="my-4"><AlertDescription>{reopenNotice}</AlertDescription></Alert>}
       {assignNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{assignNotice}</AlertDescription></Alert>}
       {archiveNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{archiveNotice}</AlertDescription></Alert>}
+
+      {vue === "submissions" && (
+        <section className="cam-dossier-kpis" aria-label={t("viewSubmissions")}>
+          <div className="cam-dossier-kpi cam-dossier-kpi--blue">
+            <span className="cam-dossier-kpi-icon"><FileText size={17} aria-hidden="true" /></span>
+            <div><span>{t("statusPending")}</span><strong>{count(queueStatusCounts?.PENDING_REVIEW, locale)}</strong></div>
+          </div>
+          <div className="cam-dossier-kpi cam-dossier-kpi--green">
+            <span className="cam-dossier-kpi-icon"><Check size={17} aria-hidden="true" /></span>
+            <div><span>{t("statusEndorsed")}</span><strong>{count(queueStatusCounts?.APPROVED, locale)}</strong></div>
+          </div>
+          <div className="cam-dossier-kpi cam-dossier-kpi--red">
+            <span className="cam-dossier-kpi-icon"><CircleX size={17} aria-hidden="true" /></span>
+            <div><span>{t("statusRejected")}</span><strong>{count(queueStatusCounts?.REJECTED, locale)}</strong></div>
+          </div>
+          <div className="cam-dossier-kpi cam-dossier-kpi--amber">
+            <span className="cam-dossier-kpi-icon"><RotateCcw size={17} aria-hidden="true" /></span>
+            <div><span>{t("statusCorrections")}</span><strong>{count(queueStatusCounts?.CORRECTION_REQUESTED, locale)}</strong></div>
+          </div>
+          <div className="cam-dossier-kpi cam-dossier-kpi--blue" title={!effectiveCampaignId ? t("responseRateNeedsCampaign") : undefined}>
+            <span className="cam-dossier-kpi-icon"><Percent size={17} aria-hidden="true" /></span>
+            <div><span>{tRoot("adminTargets.responseRateColumn")}</span><strong>{responseRateValue}</strong></div>
+          </div>
+        </section>
+      )}
 
       <ViewSwitch
         label={t("statusFilterAriaLabel")}
@@ -765,7 +893,7 @@ function DossiersContent() {
         })}
       />
 
-      {queues && queues.reviewDelay.pendingOverThresholdCount > 0 && (
+      {vue !== "completed" && queues && queues.reviewDelay.pendingOverThresholdCount > 0 && (
         <Alert variant="warning" className="my-4">
           <AlertDescription>
             {t("reviewDelayBanner", { count: queues.reviewDelay.pendingOverThresholdCount })}{" "}
@@ -796,53 +924,78 @@ function DossiersContent() {
           belonging to the list they act on. The filter row wraps rather than
           overflowing, the way the fixed four-column grid it replaces did. ──
           Statut is not here: the control above sets it. */}
-      <Card>
-        {vue === "submissions" && !readOnly && (
+      <AdminTablePanel
+        headingId={`dossiers-${vue}-heading`}
+        showHeader={false}
+        cardClassName={vue === "submissions" ? "cam-dossier-submissions-card" : vue === "completed" ? "cam-dossier-completed-card" : undefined}
+      >
+        {vue === "submissions" && !readOnly && selectedIds.size > 0 && (
           <CardContent className="flex flex-wrap items-center gap-3 border-b pt-6" aria-live="polite">
-            {selectedIds.size > 0 ? <>
+            <>
               <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
               {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
               <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
               <Button type="button" size="sm" variant="outline" onClick={handleOpenCorrectionModal} disabled={correctableSelected.length === 0}>{t("requestCorrectionSelectionButton")}</Button>
               <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">×</span> {t("rejectSelectionButton")}</Button>
-            </> : <span className="text-sm text-muted-foreground">{t("selectionHint")}</span>}
+            </>
           </CardContent>
         )}
-        {!readOnly && <CardContent className="flex justify-end border-b pt-4"><Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button></CardContent>}
-        {vue === "completed" && <CardContent className="border-b pt-4"><label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
-        <CardContent className="border-b pt-5">
+        {vue === "submissions" && <CardContent className="cam-dossier-submissions-card-heading">
+          <h2 id={`dossiers-${vue}-heading`}>{t("queueHeading")}</h2>
+          {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button>}
+        </CardContent>}
+        {vue === "completed" && <CardContent className="cam-dossier-completed-heading">
+          <h2 id={`dossiers-${vue}-heading`}>{t("completedHeading")}</h2>
+          {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button>}
+        </CardContent>}
+        {vue !== "submissions" && vue !== "completed" && !readOnly && <CardContent className="flex justify-end border-b pt-4"><Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button></CardContent>}
+        {vue === "completed" && <CardContent className="cam-dossier-completed-archive-filter"><label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
+        <CardContent className={`border-b pt-5${vue === "submissions" ? " cam-dossier-submissions-filters" : vue === "completed" ? " cam-dossier-completed-filters" : ""}`}>
           <div className="grid gap-3 md:grid-cols-4">
-            <div className="md:col-span-2"><Label htmlFor="dossiers-search">{t("freeSearchLabel")}</Label><Input id="dossiers-search" type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} /></div>
-            <div><Label htmlFor="dossiers-status">{t("statusFilterAriaLabel")}</Label><select id="dossiers-status" className="cam-admin-input w-full" value={statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatus | "")}>
+            <div className="md:col-span-2"><Label className={vue === "submissions" ? "sr-only" : undefined} htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label><Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} /></div>
+            {vue !== "submissions" && vue !== "completed" && <div><Label htmlFor="dossiers-status">{t("statusFilterAriaLabel")}</Label><select id="dossiers-status" className="cam-admin-input w-full" value={statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatus | "")}>
               <option value="">{t("statusAll")}</option>
               {(vue === "completed" ? ["APPROVED", "REJECTED", "SUPERSEDED"] : ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED"]).map((status) => <option key={status} value={status}>{t(STATUS_VIEWS.find((view) => view.status === status)?.labelKey ?? "statusAll")}</option>)}
-            </select></div>
-            <div><Label htmlFor="dossiers-campaign">{t("campaignLabel")}</Label><select id="dossiers-campaign" className="cam-admin-input w-full" value={campaignIdFilter} onChange={(event) => setCampaign(event.target.value)}><option value="">{t("allCampaigns")}</option>{campaignOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
-            <div><Label htmlFor="dossiers-region">{t("regionLabel")}</Label><select id="dossiers-region" className="cam-admin-input w-full" value={regionFilter} onChange={(event) => setRegion(event.target.value)}><option value="">{t("allRegions")}</option>{territoryRegions.map((region) => <option key={region} value={region}>{region}</option>)}</select></div>
+            </select></div>}
+            <div><Label className={vue === "submissions" ? "sr-only" : undefined} htmlFor={`dossiers-region-${vue}`}>{t("regionLabel")}</Label><select id={`dossiers-region-${vue}`} className="cam-admin-input w-full" value={regionFilter} onChange={(event) => setRegion(event.target.value)}><option value="">{t("allRegions")}</option>{territoryRegions.map((region) => <option key={region} value={region}>{region}</option>)}</select></div>
+            {vue === "submissions" && <div className="cam-dossier-submissions-clear"><Button type="button" size="sm" variant="outline" disabled={activeFilterChips.length === 0} onClick={clearAllFilters}>{t("clearFilters")}</Button></div>}
           </div>
           <details className="mt-3"><summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary><div className="mt-3 grid gap-3 md:grid-cols-4">
-            <div><Label htmlFor="dossiers-type">{t("typeColumn")}</Label><select id="dossiers-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => setType(event.target.value)}><option value="">{t("allFormTypes")}</option>{FORM_TYPES.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}</select></div>
-            <div><Label htmlFor="dossiers-period">{t("periodLabel")}</Label><select id="dossiers-period" className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}><option value="">{t("allPeriods")}</option>{PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}</select></div>
-            <div><Label htmlFor="dossiers-department">{t("departmentLabel")}</Label><select id="dossiers-department" className="cam-admin-input w-full" value={departmentFilter} onChange={(event) => setDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((department) => <option key={department} value={department}>{department}</option>)}</select></div>
-            <div><Label htmlFor="dossiers-quarter">{t("quarterLabel")}</Label><select id="dossiers-quarter" className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select></div>
-            <div><Label htmlFor="dossiers-late">{t("lateLabel")}</Label><select id="dossiers-late" className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select></div>
-            <div><Label htmlFor="dossiers-overdue">{t("overdueLabel")}</Label><select id="dossiers-overdue" className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select></div>
-            <div><Label htmlFor="dossiers-assigned">{t("assignedLabel")}</Label><select id="dossiers-assigned" className="cam-admin-input w-full" value={assignedToMeFilter ? "1" : ""} onChange={(event) => setAssignedToMe(event.target.value === "1")}><option value="">{t("assignedAll")}</option><option value="1">{t("assignedToMeOnly")}</option></select></div>
-            <div><Label htmlFor="dossiers-sort">{t("sortLabel")}</Label><select id="dossiers-sort" className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select></div>
+            <div><Label htmlFor={`dossiers-type-${vue}`}>{t("typeColumn")}</Label><select id={`dossiers-type-${vue}`} className="cam-admin-input w-full" value={typeFilter} onChange={(event) => setType(event.target.value)}><option value="">{t("allFormTypes")}</option>{FORM_TYPES.map((type) => <option key={type} value={type}>{typeLabel(type)}</option>)}</select></div>
+            <div><Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label><select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}><option value="">{t("allPeriods")}</option>{PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}</select></div>
+            <div><Label htmlFor={`dossiers-department-${vue}`}>{t("departmentLabel")}</Label><select id={`dossiers-department-${vue}`} className="cam-admin-input w-full" value={departmentFilter} onChange={(event) => setDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((department) => <option key={department} value={department}>{department}</option>)}</select></div>
+            <div><Label htmlFor={`dossiers-quarter-${vue}`}>{t("quarterLabel")}</Label><select id={`dossiers-quarter-${vue}`} className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select></div>
+            <div><Label htmlFor={`dossiers-late-${vue}`}>{t("lateLabel")}</Label><select id={`dossiers-late-${vue}`} className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select></div>
+            <div><Label htmlFor={`dossiers-overdue-${vue}`}>{t("overdueLabel")}</Label><select id={`dossiers-overdue-${vue}`} className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select></div>
+            <div><Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label><select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignedToMeFilter ? "1" : ""} onChange={(event) => setAssignedToMe(event.target.value === "1")}><option value="">{t("assignedAll")}</option><option value="1">{t("assignedToMeOnly")}</option></select></div>
+            <div><Label htmlFor={`dossiers-sort-${vue}`}>{t("sortLabel")}</Label><select id={`dossiers-sort-${vue}`} className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select></div>
           </div></details>
-          {activeFilterChips.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}><span className="text-sm font-medium">{t("activeFiltersLabel")}</span>{activeFilterChips.map((chip) => <Button type="button" key={chip.key} variant="outline" size="sm" onClick={chip.remove} aria-label={t("removeFilterChip", { label: chip.label })}>{chip.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}<Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("clearFilters")}</Button></div>}
+          {activeFilterChips.length > 0 && <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}><span className="text-sm font-medium">{t("activeFiltersLabel")}</span>{activeFilterChips.map((chip) => <Button type="button" key={chip.key} variant="outline" size="sm" onClick={chip.remove} aria-label={t("removeFilterChip", { label: chip.label })}>{chip.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}{vue !== "submissions" && <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("clearFilters")}</Button>}</div>}
         </CardContent>
-        <CardContent className="overflow-x-auto pt-5">
+        <CardContent className={`overflow-x-auto pt-5${vue === "submissions" ? " cam-dossier-submissions-table" : vue === "completed" ? " cam-dossier-completed-table" : ""}`}>
           <Table>
             <TableHeader><TableRow>
-              <TableHead scope="col">{vue === "completed" ? t("organisationColumn") : t("organisationReferenceColumn")}</TableHead>
-              <TableHead scope="col">{vue === "completed" ? t("reviewDecisionColumn") : t("reviewDecisionColumn")}</TableHead>
-              <TableHead scope="col">{vue === "completed" ? t("decisionDateColumn") : <>{t("dataIssuesColumn")}<span className="block text-xs font-normal text-muted-foreground">{t("dataIssuesHelp")}</span></>}</TableHead>
-              <TableHead scope="col">{vue === "completed" ? t("campaignPeriodColumn") : t("statisticalEligibilityColumn")}</TableHead>
-              <TableHead scope="col">{vue === "completed" ? t("historyColumn") : t("submittedAtColumn")}</TableHead>
+              {vue === "completed" ? <>
+                <TableHead scope="col">{t("organisationColumn")}</TableHead>
+                <TableHead scope="col">{t("decisionColumn")}</TableHead>
+                <TableHead scope="col">{t("decisionDateColumn")}</TableHead>
+                <TableHead scope="col">{t("decidedByColumn")}</TableHead>
+                <TableHead scope="col">{t("campaignPeriodColumn")}</TableHead>
+                <TableHead scope="col">{t("actionsColumn")}</TableHead>
+              </> : <>
+                <TableHead className="cam-dossier-select-column"><span className="sr-only">{t("actionsColumn")}</span></TableHead>
+                <TableHead scope="col">{t("organisationReferenceColumn")}</TableHead>
+                <TableHead scope="col">{t("submissionPeriodColumn")}</TableHead>
+                <TableHead scope="col">{t("adminStatusColumn")}</TableHead>
+                <TableHead scope="col" title={t("dataIssuesHelp")}>{t("dataQualityColumn")}</TableHead>
+                <TableHead scope="col">{t("statisticalEligibilityColumn")}</TableHead>
+                <TableHead scope="col">{t("submittedOnColumn")}</TableHead>
+                <TableHead scope="col">{t("assignedToColumn")}</TableHead>
+                <TableHead scope="col">{t("actionsColumn")}</TableHead>
+              </>}
             </TableRow></TableHeader>
             <TableBody>
-              <DataStateRow colSpan={5} state={tableState} resource={t("filesResource")} error={questionnairesQuery.error} onRetry={() => questionnairesQuery.refetch()} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
+              <DataStateRow colSpan={vue === "completed" ? 6 : 9} state={tableState} resource={t("filesResource")} error={questionnairesQuery.error} onRetry={() => questionnairesQuery.refetch()} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
               {dossiers.map((d) => {
                 const visaBadge: { label: string; tone: ToneName } = d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } : d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } : d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } : d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } : d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } : { label: t("badgeNoStatus"), tone: "neutral" };
                 const qualityTone: ToneName = d.blockingCount > 0 ? "error" : d.warningCount > 0 ? "warning" : "neutral";
@@ -851,24 +1004,33 @@ function DossiersContent() {
                 const eligibilityText = eligibility === "eligible" ? t("eligible") : eligibility === "notEligible" ? t("notEligible") : t("eligibilityPending");
                 const orgStatus = d.companyRegistrationStatus ? ORG_STATUS_BADGE[d.companyRegistrationStatus] : null;
                 const orgStatusNode = d.companyRegistrationStatus ? <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">{t("orgStatusLabel")} :{orgStatus ? <Badge variant={BADGE_VARIANT[orgStatus.tone]}>{t(orgStatus.textKey)}</Badge> : <Badge variant="neutral">{d.companyRegistrationStatus}</Badge>}</span> : null;
+                const reviewerName = readableActor(d.reviewedBy);
+                const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
+                const shortCampaignName = d.campaignName ? formatCampaignShortName(d.campaignName) : NOT_PROVIDED;
+                const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
                 return vue === "completed" ? <TableRow key={d.id}>
-                  <TableCell className="font-medium"><span className="block">{d.companyName ?? NOT_PROVIDED}</span>{orgStatusNode}<Link href={`/admin/dossiers/${encodeURIComponent(d.id)}${includeArchived ? "?includeArchived=true" : ""}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
-                  <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>{d.archivedAt && <Badge className="ms-2" variant="neutral">{t("archivedBadge")}</Badge>}{d.archivedAt && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{t("archivedMeta", { actor: [d.archivedByUser?.firstName, d.archivedByUser?.lastName].filter(Boolean).join(" ") || d.archivedBy || "—", date: stamp(d.archivedAt, true, locale), reason: d.archiveReason || "—" })}</span>}{d.rejectionReason && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{d.rejectionReason}</span>}<ArchiveActions archived={!!d.archivedAt} canManage={hasRole(user?.role, DOSSIER_ARCHIVE_ROLES)} resourceName={d.companyName ?? d.submissionId} archiveLabel={t("archiveButton")} restoreLabel={t("restoreButton")} confirmTitle={t("archiveConfirmTitle")} reasonLabel={t("archiveReasonLabel")} cancelLabel={tRoot("common.cancel")} onArchive={(reason) => archiveMutation.mutate({ item: d, reason })} onRestore={() => restoreMutation.mutate(d.id)} />{canReopen && d.adminStatus === "APPROVED" && <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => { setReopenNotice(""); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</Button>}</TableCell>
-                  <TableCell className="whitespace-nowrap">{d.reviewedAt ? <>{stamp(d.reviewedAt, true, locale)}<span className="block text-xs text-muted-foreground">{d.reviewedBy ?? NOT_PROVIDED}</span></> : NOT_PROVIDED}</TableCell>
-                  <TableCell>{d.campaignName ?? NOT_PROVIDED}<span className="block text-xs text-muted-foreground">{d.quarterCode ?? NOT_PROVIDED}</span></TableCell>
-                  <TableCell>{canReadAudit ? <Link className="underline" href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link> : NOT_PROVIDED}</TableCell>
+                  <TableCell className="align-top whitespace-normal p-3 font-medium"><span className="line-clamp-1" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>{orgStatusNode}</TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>{d.rejectionReason && <span className="line-clamp-2 max-w-[200px] text-xs text-muted-foreground" title={d.rejectionReason}>{d.rejectionReason}</span>}</TableCell>
+                  <TableCell className="align-top whitespace-normal p-3">{stamp(d.reviewedAt, true, locale)}</TableCell>
+                  <TableCell className="align-top whitespace-normal p-3">{reviewerName ?? NOT_PROVIDED}</TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><span className="line-clamp-2" title={campaignName}>{shortCampaignName}</span><span className="block text-sm text-muted-foreground">{periodLabel}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><div className="flex flex-wrap items-center gap-3"><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}${includeArchived ? "?includeArchived=true" : ""}`} className="text-sm underline">{t("openFileButton")}</Link>{canReadAudit && <Link className="text-sm underline" href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link>}<ArchiveActions archived={!!d.archivedAt} canManage={hasRole(user?.role, DOSSIER_ARCHIVE_ROLES)} resourceName={d.companyName ?? d.submissionId} archiveLabel={t("archiveButton")} restoreLabel={t("restoreButton")} confirmTitle={t("archiveConfirmTitle")} reasonLabel={t("archiveReasonLabel")} cancelLabel={tRoot("common.cancel")} onArchive={(reason) => archiveMutation.mutate({ item: d, reason })} onRestore={() => restoreMutation.mutate(d.id)} />{canReopen && d.adminStatus === "APPROVED" && <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => { setReopenNotice(""); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</Button>}</div></TableCell>
                 </TableRow> : <TableRow key={d.id}>
-                  <TableCell className="font-medium">{!readOnly && <Checkbox className="me-2 align-middle" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}<span>{d.companyName ?? d.submissionId}</span>{orgStatusNode}<div className="text-xs text-muted-foreground">{d.respondentName ?? NOT_PROVIDED} · {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</div><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{d.assigneeId ? <span>{t("assignedTo", { name: d.assigneeName ?? NOT_PROVIDED })}</span> : <span>{t("unassigned")}</span>}{!readOnly && !d.archivedAt && (d.assigneeId == null || d.assigneeId === user?.id) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: d.assigneeId ? null : user?.id ?? null })}>{d.assigneeId ? t("unclaimButton") : t("claimButton")}</Button>}</div><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
-                  <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge></TableCell>
-                  <TableCell><Badge variant={BADGE_VARIANT[qualityTone]}>{qualityText}</Badge></TableCell>
-                  <TableCell><Badge variant={eligibility === "eligible" ? "success" : eligibility === "pending" ? "warning" : "neutral"}>{eligibilityText}</Badge></TableCell>
-                  <TableCell className="whitespace-nowrap">{stamp(d.submittedAt, true, locale)}{d.isLate && <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>}</TableCell>
+                  <TableCell className="cam-dossier-select-column align-top">{!readOnly && <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}</TableCell>
+                  <TableCell className="align-top whitespace-normal p-3 font-medium"><div className="min-w-0"><span className="line-clamp-1" title={d.companyName ?? d.submissionId}>{d.companyName ?? d.submissionId}</span>{orgStatusNode}<div className="line-clamp-1 text-xs text-muted-foreground" title={`${d.respondentName ?? NOT_PROVIDED} · ${d.formType ? typeLabel(d.formType) : NOT_PROVIDED}`}>{d.respondentName ?? NOT_PROVIDED} · {d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</div></div></TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><span className="line-clamp-1 break-all" title={d.submissionId}>{d.submissionId}</span><span className="line-clamp-2 text-sm text-muted-foreground" title={`${campaignName} · ${periodLabel}`}>{shortCampaignName} · {periodLabel}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge></TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><Badge variant={BADGE_VARIANT[qualityTone]}>{qualityText}</Badge></TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><Badge variant={eligibility === "eligible" ? "success" : eligibility === "pending" ? "warning" : "neutral"}>{eligibilityText}</Badge></TableCell>
+                  <TableCell className="align-top whitespace-normal p-3">{stamp(d.submittedAt, true, locale)}{d.isLate && <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>}</TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><div className="flex flex-wrap items-center gap-2">{d.assigneeId ? <span>{t("assignedTo", { name: d.assigneeName ?? NOT_PROVIDED })}</span> : <span>{t("unassigned")}</span>}{!readOnly && !d.archivedAt && (d.assigneeId == null || d.assigneeId === user?.id) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: d.assigneeId ? null : user?.id ?? null })}>{d.assigneeId ? t("unclaimButton") : t("claimButton")}</Button>}</div></TableCell>
+                  <TableCell className="align-top whitespace-normal p-3"><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`} className="text-sm underline">{t("openFileButton")}</Link></TableCell>
                 </TableRow>;
               })}
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+      </AdminTablePanel>
       {/* Pagination driven by the server-reported `total` for the same
           filtered query. The range reflects the rows actually returned, and
           the page count is whatever the real total implies. */}
@@ -1195,6 +1357,6 @@ function DossiersContent() {
           {reopenMutation.isError && <Alert variant="destructive"><AlertDescription>{t("reopenFailed", { message: (reopenMutation.error as Error)?.message ?? t("unknownError") })}</AlertDescription></Alert>}
         </div>
       </AdminDialog>
-    </div>
+    </section>
   );
 }

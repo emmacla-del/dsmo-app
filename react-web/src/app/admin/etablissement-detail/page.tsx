@@ -19,6 +19,7 @@ import {
   listAuditLog,
 } from "@/lib/audit-log";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { formatApiError } from "@/lib/pilotage-targets";
@@ -362,15 +363,12 @@ function EtablissementDetail() {
           </Card>
 
           {/* Submission history for this company */}
-          <Card><CardHeader className="flex flex-row items-center justify-between gap-4"><CardTitle id="etab-submissions-title" className="text-base">
-                {t("submissionHistoryTitle")}{submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total, locale)})` : ""}
-              </CardTitle>
-              <Button asChild variant="link" size="sm"><Link href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}>
-                {t("allFilesLink")}
-              </Link></Button>
-            </CardHeader>
-
-            <CardContent><Table>
+          <AdminTablePanel
+            title={`${t("submissionHistoryTitle")}${submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total, locale)})` : ""}`}
+            headingId="etab-submissions-title"
+            actions={<Button asChild variant="link" size="sm"><Link href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}>{t("allFilesLink")}</Link></Button>}
+          >
+            <Table>
                 <TableHeader><TableRow>
                     <TableHead scope="col">{t("submissionColumn.reference")}</TableHead>
                     <TableHead scope="col">{t("submissionColumn.type")}</TableHead>
@@ -407,8 +405,8 @@ function EtablissementDetail() {
                       </TableRow>
                     ))}
                 </TableBody>
-              </Table></CardContent>
-          </Card>
+            </Table>
+          </AdminTablePanel>
         </div>
 
         {/* ── Right column ── */}

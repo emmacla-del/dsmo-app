@@ -20,16 +20,39 @@ export function CampaignReturnsTable({
   expanded,
   onToggle,
   territoryHref,
+  regionFilter = "",
+  searchTerm = "",
+  showTotals = true,
+  emptyMessage,
 }: {
   data: CampaignReturnsResponse;
   expanded: Set<string>;
   onToggle: (regionId: string) => void;
   /** When given, each territory name links to its files under the campaign. */
   territoryHref?: (target: CampaignTerritoryTarget) => string;
+  /** Optional client-side view filters over names already returned by the API. */
+  regionFilter?: string;
+  searchTerm?: string;
+  showTotals?: boolean;
+  emptyMessage?: string;
 }) {
   const t = useTranslations("adminTargets");
   const tDossiers = useTranslations("adminDossiersPage");
-  const national = data.central != null || data.unassigned != null;
+  const locale = asUiLocale(useLocale());
+  const normalizedSearch = searchTerm.trim().toLocaleLowerCase(locale);
+  const filtered = Boolean(regionFilter || normalizedSearch);
+  const regions = data.regions.flatMap((region) => {
+    if (regionFilter && region.regionId !== regionFilter) return [];
+    if (!normalizedSearch) return [region];
+    const regionMatches = region.name.toLocaleLowerCase(locale).includes(normalizedSearch);
+    const departments = regionMatches
+      ? region.departments
+      : region.departments.filter((department) => department.name.toLocaleLowerCase(locale).includes(normalizedSearch));
+    return regionMatches || departments.length > 0 ? [{ ...region, departments }] : [];
+  });
+  const central = filtered ? null : data.central;
+  const unassigned = filtered ? null : data.unassigned;
+  const national = central != null || unassigned != null;
   const scopeLink = (target: CampaignTerritoryTarget, name: string) =>
     territoryHref ? (
       <Link
@@ -41,8 +64,8 @@ export function CampaignReturnsTable({
       </Link>
     ) : null;
 
-  if (data.regions.length === 0 && !national) {
-    return <p className="cam-admin-lede">{t("noTerritory")}</p>;
+  if (regions.length === 0 && !national) {
+    return <p className="cam-admin-lede">{emptyMessage ?? t("noTerritory")}</p>;
   }
 
   return (
@@ -51,19 +74,19 @@ export function CampaignReturnsTable({
         <thead>
           <tr>
             <th scope="col">{t("territoryColumn")}</th>
-            <th scope="col" className="is-num">{t("quotaColumn")}</th>
-            <th scope="col" className="is-num">{t("receivedColumn")}</th>
-            <th scope="col" className="is-num">{t("validatedColumn")}</th>
-            <th scope="col" className="is-num">{t("onTimeColumn")}</th>
-            <th scope="col" className="is-num">{t("lateColumn")}</th>
-            <th scope="col" className="is-num">{t("gapColumn")}</th>
-            <th scope="col" className="is-num">{t("quotaRateColumn")}</th>
-            <th scope="col" className="is-num">{t("responseRateColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("quotaColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("receivedColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("validatedColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("onTimeColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("lateColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("gapColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("quotaRateColumn")}</th>
+            <th scope="col" className="is-num text-right">{t("responseRateColumn")}</th>
           </tr>
         </thead>
         <tbody>
-          {data.regions.map((region) => {
-            const open = expanded.has(region.regionId);
+          {regions.map((region) => {
+            const open = Boolean(normalizedSearch) || expanded.has(region.regionId);
             return (
               <Fragment key={region.regionId}>
                 <tr className="cam-target-region">
@@ -73,6 +96,7 @@ export function CampaignReturnsTable({
                       className="cam-target-expand"
                       onClick={() => onToggle(region.regionId)}
                       aria-expanded={open}
+                      title={region.name}
                     >
                       <span aria-hidden="true">{open ? "▾" : "▸"}</span>
                       {region.name}
@@ -97,26 +121,26 @@ export function CampaignReturnsTable({
         </tbody>
         {national && (
           <tbody>
-            {data.central && (
+            {central && (
               <tr className="cam-target-region">
                 <th scope="row">{t("centralAdministrations")}</th>
-                <MetricCells metrics={data.central} />
+                <MetricCells metrics={central} />
               </tr>
             )}
-            {data.unassigned && data.unassigned.received > 0 && (
+            {unassigned && unassigned.received > 0 && (
               <tr className="cam-target-region">
                 <th scope="row">{t("unassigned")}</th>
-                <MetricCells metrics={data.unassigned} />
+                <MetricCells metrics={unassigned} />
               </tr>
             )}
           </tbody>
         )}
-        <tfoot>
+        {showTotals && !filtered && <tfoot>
           <tr className="cam-target-region">
             <th scope="row">{t("total")}</th>
             <MetricCells metrics={data.totals} />
           </tr>
-        </tfoot>
+        </tfoot>}
       </table>
     </div>
   );
@@ -129,11 +153,11 @@ function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
   const fmtRate = (rate: number | null | undefined) => formatRate(rate, locale);
   return (
     <>
-      <td className="is-num">{fmt(metrics.quota)}</td>
-      <td className="is-num">{fmt(metrics.received)}</td>
-      <td className="is-num">{fmt(metrics.approved)}</td>
-      <td className="is-num">{fmt(metrics.onTime)}</td>
-      <td className="is-num">
+      <td className="is-num text-right">{fmt(metrics.quota)}</td>
+      <td className="is-num text-right">{fmt(metrics.received)}</td>
+      <td className="is-num text-right">{fmt(metrics.approved)}</td>
+      <td className="is-num text-right">{fmt(metrics.onTime)}</td>
+      <td className="is-num text-right">
         {fmt(metrics.late)}
         {metrics.late > 0 && (
           <span
@@ -145,8 +169,8 @@ function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
           </span>
         )}
       </td>
-      <td className="is-num">{fmt(metrics.gap)}</td>
-      <td className="is-num">
+      <td className="is-num text-right">{fmt(metrics.gap)}</td>
+      <td className="is-num text-right">
         {metrics.quotaRate != null ? (
           <span className={`cam-badge ${quotaRateBadge(metrics.quotaRate)}`}>
             {fmtRate(metrics.quotaRate)}
@@ -155,7 +179,7 @@ function MetricCells({ metrics }: { metrics: ReturnMetrics }) {
           "—"
         )}
       </td>
-      <td className="is-num" title={t("responseRateTitle", { received: fmt(metrics.received), stock: fmt(metrics.registeredStock) })}>
+      <td className="is-num text-right" title={t("responseRateTitle", { received: fmt(metrics.received), stock: fmt(metrics.registeredStock) })}>
         {fmtRate(metrics.responseRate)}
       </td>
     </>

@@ -20,6 +20,7 @@ import { InviteAgentDialog } from "@/components/admin/InviteAgentDialog";
 import { PendingStaffRequests } from "@/components/admin/PendingStaffRequests";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -259,15 +260,13 @@ export default function OnefopUsersPage() {
       {/* Agent table.
           Columns are sourced directly from GET /auth/users (AuthService.listUsers),
           including authoritative lastLoginAt and submissionsCount relations. */}
-      <section className="cam-admin-section" aria-labelledby="agents-table-title">
-        <div className="cam-admin-section-head">
-          <h2 id="agents-table-title" className="cam-admin-h2">{t("tableTitle")}</h2>
-          <span className="cam-admin-meta">
-            {tableState === "ready"
-              ? t("shownOf", { shown: count(agents.length, locale), total: count(agentsQuery.data?.total ?? null, locale) })
-              : NOT_PROVIDED}
-          </span>
-        </div>
+      <AdminTablePanel
+        title={t("tableTitle")}
+        headingId="agents-table-title"
+        meta={tableState === "ready"
+          ? t("shownOf", { shown: count(agents.length, locale), total: count(agentsQuery.data?.total ?? null, locale) })
+          : NOT_PROVIDED}
+      >
         <div className="cam-table-wrapper">
           <table className="cam-table">
             <thead>
@@ -370,7 +369,7 @@ export default function OnefopUsersPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </AdminTablePanel>
 
       {/* Accounts requested through a group link wait here for approval;
           the links themselves are managed in the section below. */}

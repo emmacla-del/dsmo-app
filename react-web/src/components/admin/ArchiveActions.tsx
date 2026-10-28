@@ -31,9 +31,9 @@ export function ArchiveActions({
   return (
     <>
       {archived ? (
-        <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={onRestore}>{restoreLabel}</Button>
+        <Button type="button" variant="link" size="sm" className="h-auto px-0 underline" onClick={onRestore}>{restoreLabel}</Button>
       ) : (
-        <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => { setReason(""); setOpen(true); }}>{archiveLabel}</Button>
+        <Button type="button" variant="link" size="sm" className="h-auto px-0 underline" onClick={() => { setReason(""); setOpen(true); }}>{archiveLabel}</Button>
       )}
       <AdminDialog
         open={open}

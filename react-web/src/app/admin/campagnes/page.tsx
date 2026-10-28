@@ -35,6 +35,7 @@ import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
 import { count } from "@/lib/admin-data-state";
 import { formatCampaignDisplayName } from "@/lib/campaigns";
@@ -296,11 +297,12 @@ export default function CampagnesPage() {
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-4)", alignItems: "flex-start" }}>
         {/* ── History ── */}
-        <section className="cam-pilot-panel" style={{ flex: "3 1 640px", minWidth: 0, overflow: "hidden" }} aria-labelledby="campagnes-history-title">
-          <div className="cam-pilot-panel-head">
-            <h2 className="cam-admin-h2" id="campagnes-history-title">{t("historyTitle")}</h2>
-            <span className="cam-admin-meta">{t("campaignCount", { count: otherCampaigns.length })}</span>
-          </div>
+        <div style={{ flex: "3 1 640px", minWidth: 0, overflow: "hidden" }}>
+          <AdminTablePanel
+            title={t("historyTitle")}
+            headingId="campagnes-history-title"
+            meta={t("campaignCount", { count: otherCampaigns.length })}
+          >
           <div className="cam-pilot-panel-body" style={otherCampaigns.length > 0 && !allQuery.isError ? { padding: 0 } : undefined}>
             {allQuery.isLoading ? (
               <DataState dense state="loading" resource={tRoot("adminNav.routes.campagnes")} title={tRoot("common.loading")} />
@@ -433,7 +435,8 @@ export default function CampagnesPage() {
               </div>
             )}
           </div>
-        </section>
+          </AdminTablePanel>
+        </div>
 
         {/* ── Side panels (first active campaign) ── */}
         {activeCampaigns[0] && (

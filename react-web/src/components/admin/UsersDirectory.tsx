@@ -24,6 +24,7 @@ import {
 import { ADMIN_ROLES } from "@/lib/roles";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
 import { useAuthStore } from "@/lib/auth-store";
 import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
@@ -166,6 +167,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
   });
 
   return (
+    <AdminTablePanel title={t("homeAnnuairePage.usersTabLabel")} headingId="users-directory-table-heading">
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
       <div className="cam-admin-filters">
         <div className="cam-field">
@@ -487,6 +489,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
           />
         )}
     </div>
+    </AdminTablePanel>
   );
 }
 

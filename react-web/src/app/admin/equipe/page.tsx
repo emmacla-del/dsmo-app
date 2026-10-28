@@ -10,6 +10,7 @@ import { AUDIT_ROLES, MONITORING_ROLES, hasRole } from "@/lib/roles";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -187,13 +188,11 @@ function EquipeContent() {
       {/* Filters and roster are one section: a national view lists every
           territorial actor as one row, so they can be compared column by
           column. */}
-      <section className="cam-admin-section" aria-labelledby="equipe-roster-title">
-        <div className="cam-admin-section-head">
-          <h2 className="cam-admin-h2" id="equipe-roster-title">{t("adminEquipePage.rosterTitle")}</h2>
-          {summaryState === "ready" && (
-            <span className="cam-admin-meta">{t("adminEquipePage.rosterCount", { count: actors.length })}</span>
-          )}
-        </div>
+      <AdminTablePanel
+        title={t("adminEquipePage.rosterTitle")}
+        headingId="equipe-roster-title"
+        meta={summaryState === "ready" ? t("adminEquipePage.rosterCount", { count: actors.length }) : undefined}
+      >
         <div className="cam-admin-section-body">
           <div className="cam-admin-filters" role="group" aria-label={t("adminEquipePage.filtersAriaLabel")}>
             <div className="cam-field">
@@ -295,7 +294,7 @@ function EquipeContent() {
             </tbody>
           </table>
         </div>
-      </section>
+      </AdminTablePanel>
 
       {/* ── Relancer Modal ── */}
       <AdminDialog

@@ -18,6 +18,7 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { getDataManagementStats } from "@/lib/api-client";
 import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { DataStateRow } from "@/components/admin/DataState";
 import {
@@ -32,7 +33,6 @@ import { YEAR_MIN } from "@/lib/pilotage-targets";
 import { doualaIsoDate, doualaYear } from "@/lib/douala-date";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -420,9 +420,11 @@ export default function EtablissementsPage() {
         items={volume.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label, hint: k.hint }))}
       />
 
-      <Card>
-
-        <CardContent className="border-t pt-6">
+      <AdminTablePanel
+        title={t("registerResource")}
+        headingId="establishments-register-title"
+        meta={tableState === "ready" ? count(filteredRows.length, locale) : NOT_PROVIDED}
+      >
           <Table>
             <TableHeader>
               <TableRow>
@@ -645,8 +647,7 @@ export default function EtablissementsPage() {
               })}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+      </AdminTablePanel>
 
       {/* Pager figures, all from the response GET /companies returned. The
           current page is text, not a button: it is where the reader already is. */}

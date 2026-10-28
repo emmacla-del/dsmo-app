@@ -13,10 +13,12 @@ import { localized } from "@/lib/onefop-schema";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
 import { count, NOT_PROVIDED, metricUnavailable } from "@/lib/admin-data-state";
 import { SURVEY_ROLES } from "@/lib/roles";
 import { formatApiError } from "@/lib/pilotage-targets";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // UI for the "Questionnaires" frame (collecte/questionnaires.png).
 // Every figure here is read from the generated schema or the submission
@@ -82,32 +84,27 @@ export default function QuestionnairesPage() {
 
       {/* One register: the seven questionnaires as rows. The schema version
           is the same for all of them, so it is stated once, in the head. */}
-      <section className="cam-admin-section" aria-labelledby="q-register-title">
-        <div className="cam-admin-section-head">
-          <h2 id="q-register-title" className="cam-admin-h2">{t("registerTitle")}</h2>
-          {schemaQuery.data && (
-            <span className="cam-admin-meta">
-              {t("activeSchema", {
+      <AdminTablePanel
+        title={t("registerTitle")}
+        headingId="q-register-title"
+        meta={schemaQuery.data ? t("activeSchema", {
                 version: schemaQuery.data.schemaVersion,
                 sections: schemaQuery.data.astTotals.sections,
                 questions: schemaQuery.data.astTotals.questions,
-              })}
-            </span>
-          )}
-        </div>
-        <div className="cam-table-wrapper">
-          <table className="cam-table">
-            <thead>
-              <tr>
-                <th scope="col">{t("questionnaireColumn")}</th>
-                <th scope="col" className="is-num">{t("sectionsColumn")}</th>
-                <th scope="col" className="is-num" title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}>
+              }) : undefined}
+      >
+        <Table className="cam-admin-data-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">{t("questionnaireColumn")}</TableHead>
+              <TableHead scope="col" className="text-right">{t("sectionsColumn")}</TableHead>
+              <TableHead scope="col" className="text-right" title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}>
                   {t("totalDeclarations")}
-                </th>
-                <th scope="col" className="text-right">{t("actionsColumn")}</th>
-              </tr>
-            </thead>
-            <tbody>
+              </TableHead>
+              <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
               {QUESTIONNAIRES.map((q, i) => {
                 const entity = schemaQuery.data?.entities[q.schemaKey];
                 const totalQuery = totals[i];
@@ -117,21 +114,21 @@ export default function QuestionnairesPage() {
                   ? NOT_PROVIDED
                   : count(totalQuery.data.total, locale);
                 return (
-                  <tr key={q.formType}>
-                    <td className="cam-admin-strong">{typeLabel(q.formType)}</td>
-                    <td className="is-num" aria-busy={schemaQuery.isLoading || undefined}>
+                <TableRow key={q.formType}>
+                    <TableCell className="font-medium">{typeLabel(q.formType)}</TableCell>
+                    <TableCell className="text-right tabular-nums" aria-busy={schemaQuery.isLoading || undefined}>
                       {entity
                         ? count(entity.sectionCount, locale)
                         : schemaQuery.isLoading ? NOT_PROVIDED : metricUnavailable(locale)}
-                    </td>
-                    <td
-                      className="is-num"
+                    </TableCell>
+                    <TableCell
+                      className="text-right tabular-nums"
                       title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}
                       aria-busy={totalLoading || undefined}
                     >
                       {total}
-                    </td>
-                    <td className="text-right" style={{ whiteSpace: "nowrap" }}>
+                    </TableCell>
+                    <TableCell className="text-right" style={{ whiteSpace: "nowrap" }}>
                       <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
                         {canReadSubmissions ? (
                           <Link
@@ -153,14 +150,13 @@ export default function QuestionnairesPage() {
                           {t("preview")}
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          </TableBody>
+        </Table>
+      </AdminTablePanel>
 
       {/* Preview Modal */}
       {selectedPreview && (

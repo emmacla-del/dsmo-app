@@ -9,6 +9,7 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { CampaignNonRespondentsTable } from "@/components/admin/CampaignNonRespondentsTable";
@@ -308,6 +309,7 @@ function TargetsPanel({
         </p>
       )}
 
+      <AdminTablePanel title={t("adminCiblesPage.viewQuotas")} headingId="campaign-targets-table-heading">
       <TargetGrid
         regions={regions}
         drafts={drafts}
@@ -336,6 +338,7 @@ function TargetsPanel({
           </button>
         </div>
       )}
+      </AdminTablePanel>
 
       <AdminDialog
         open={confirmOpen}
@@ -619,18 +622,20 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
       <p className="cam-admin-lede">
         {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(tRoot, query.data.campaign.status)}
       </p>
-      <CampaignReturnsTable
-        data={query.data}
-        expanded={expanded}
-        onToggle={(regionId) =>
-          setExpanded((current) => {
-            const next = new Set(current);
-            if (next.has(regionId)) next.delete(regionId);
-            else next.add(regionId);
-            return next;
-          })
-        }
-      />
+      <AdminTablePanel title={t("viewReturns")} headingId="campaign-returns-table-heading">
+        <CampaignReturnsTable
+          data={query.data}
+          expanded={expanded}
+          onToggle={(regionId) =>
+            setExpanded((current) => {
+              const next = new Set(current);
+              if (next.has(regionId)) next.delete(regionId);
+              else next.add(regionId);
+              return next;
+            })
+          }
+        />
+      </AdminTablePanel>
     </>
   );
 }
@@ -670,7 +675,9 @@ function NonRespondentsContent({ campaignId }: { campaignId: string }) {
       <p className="cam-admin-lede">
         {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(tRoot, query.data.campaign.status)}
       </p>
-      <CampaignNonRespondentsTable data={query.data} canOpenDetail={canOpenDetail} />
+      <AdminTablePanel title={t("viewNonRespondents")} headingId="campaign-follow-up-table-heading">
+        <CampaignNonRespondentsTable data={query.data} canOpenDetail={canOpenDetail} />
+      </AdminTablePanel>
     </>
   );
 }

@@ -27,6 +27,7 @@ import {
 } from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import {
@@ -363,16 +364,12 @@ function CentreQualiteContent() {
           of this same query, following its filters — sat beside the rules;
           it is folded into the register rather than shown twice. ── */}
       {vue === "registre" && (
-        <section id="registre-anomalies" className="cam-admin-section" aria-labelledby="anomalies-registry-title">
-          <div className="cam-admin-section-head">
-            <div>
-              <h2 id="anomalies-registry-title" className="cam-admin-h2">
-                {t("registerTitle")}{totalCount === null ? "" : ` (${count(totalCount, locale)})`}
-              </h2>
-              <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{t("registerSubtitle")}</p>
-            </div>
-          </div>
-
+        <AdminTablePanel
+          id="registre-anomalies"
+          headingId="anomalies-registry-title"
+          title={totalCount === null ? t("registerTitle") : `${t("registerTitle")} (${count(totalCount, locale)})`}
+          description={t("registerSubtitle")}
+        >
           <div className="cam-admin-section-body">
             <div className="cam-admin-filters">
               <div className="cam-field">
@@ -531,7 +528,7 @@ function CentreQualiteContent() {
               </tbody>
             </table>
           </div>
-        </section>
+        </AdminTablePanel>
       )}
 
       {/* ── Modal: Résolution d'Anomalie (Retained Functional Widget) ── */}

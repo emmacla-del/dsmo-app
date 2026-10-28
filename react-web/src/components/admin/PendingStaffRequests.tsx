@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { registrationMethodLabel } from "@/lib/inscriptions";
@@ -64,12 +65,12 @@ export function PendingStaffRequests({ roles }: { roles: readonly string[] }) {
   const name = (u: DirectoryUser) => [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email;
 
   return (
-    <section className="cam-admin-section" aria-labelledby="pending-staff-title">
-      <div className="cam-admin-section-head">
-        <h2 id="pending-staff-title" className="cam-admin-h2">{t("title")}</h2>
-        <span className="cam-admin-meta">{query.data ? t("count", { count: query.data.total }) : NOT_PROVIDED}</span>
-      </div>
-      <p className="cam-admin-meta">{t("intro")}</p>
+    <AdminTablePanel
+      title={t("title")}
+      headingId="pending-staff-title"
+      description={t("intro")}
+      meta={query.data ? t("count", { count: query.data.total }) : NOT_PROVIDED}
+    >
 
       {approveMutation.isError && (
         <div role="alert" className="cam-admin-notice cam-admin-notice--error">
@@ -174,7 +175,7 @@ export function PendingStaffRequests({ roles }: { roles: readonly string[] }) {
           </div>
         </AdminDialog>
       )}
-    </section>
+    </AdminTablePanel>
   );
 }
 

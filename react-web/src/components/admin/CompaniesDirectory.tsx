@@ -17,6 +17,7 @@ import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { respondentFunctionLabel, sectorLabel } from "@/lib/display-labels";
 import { formatApiError } from "@/lib/pilotage-targets";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 
@@ -140,6 +141,10 @@ export function CompaniesDirectory() {
 
   return (
     <div>
+      <AdminTablePanel
+        title={t("homeAnnuairePage.companiesTabLabel")}
+        headingId="companies-directory-table-heading"
+      >
       {/* Search row */}
       <div style={{ display: "flex", gap: "var(--cam-space-3)", marginBottom: "var(--cam-space-3)" }}>
         <div className="cam-admin-search" style={{ flex: 1 }}>
@@ -262,6 +267,7 @@ export function CompaniesDirectory() {
           </div>
         </>
       )}
+      </AdminTablePanel>
 
       {selected && (
         <AdminDialog

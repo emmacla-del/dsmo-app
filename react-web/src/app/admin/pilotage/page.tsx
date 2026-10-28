@@ -10,6 +10,7 @@ import { getPilotageQueues } from "@/lib/api-client";
 import { formatCampaignDate, formatCampaignDisplayName } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { CampaignActivityTrendChart } from "@/components/admin/CampaignActivityTrendChart";
 import { CoverageBarChart } from "@/components/admin/CoverageBarChart";
 import { CampaignReviewStatusChart } from "@/components/admin/CampaignReviewStatusChart";
@@ -73,7 +74,7 @@ function DashboardCard({
     <Card
       role="region"
       aria-labelledby={labelledBy}
-      className={`gap-0 p-6 ${className}`}
+      className={`cam-admin-panel-surface gap-0 p-6 ${className}`}
     >
       {children}
     </Card>
@@ -325,15 +326,15 @@ function CampaignCoverage({
       {/* The timeline and category breakdown answer different questions. */}
       <div className="cam-dash-coverage-analysis">
         {totals && (
-          <DashboardCard className="cam-dash-coverage-breakdown" labelledBy="campaign-coverage-heading">
-            <div className="cam-dash-card-header">
-              <h3 id="campaign-coverage-heading" className="cam-dash-card-heading">{collectionComplete ? t("reviewStatusTitle") : t("coverageTitle")}</h3>
-              {!collectionComplete && coverageBreakdown === "territory" && canAccessSurveyDetails && (
-                <DashboardActionLink href={detailHref}>
-                  {t("coverageDetailLink")} &rarr;
-                </DashboardActionLink>
-              )}
-            </div>
+          <AdminTablePanel
+            className="cam-dash-coverage-breakdown"
+            title={collectionComplete ? t("reviewStatusTitle") : t("coverageTitle")}
+            headingId="campaign-coverage-heading"
+            actions={!collectionComplete && coverageBreakdown === "territory" && canAccessSurveyDetails ? (
+              <DashboardActionLink href={detailHref}>{t("coverageDetailLink")} &rarr;</DashboardActionLink>
+            ) : undefined}
+          >
+            <div className="cam-admin-table-panel-body">
             {/* Radix renders role="tab" / aria-selected itself, so
                 .cam-dash-coverage-tabs keeps styling these unchanged; only the
                 hand-rolled roles, ids and aria-controls wiring are gone. The
@@ -383,7 +384,8 @@ function CampaignCoverage({
                 )}
               </TabsContent>
             </Tabs>
-          </DashboardCard>
+            </div>
+          </AdminTablePanel>
         )}
         <CampaignActivityTrendChart campaignId={campaign.id} />
       </div>

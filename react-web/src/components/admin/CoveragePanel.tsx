@@ -10,6 +10,7 @@ import { formatCampaignDisplayName, listCampaigns } from "@/lib/campaigns";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
 import { CoverageBarChart, type CoverageBarItem } from "@/components/admin/CoverageBarChart";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { CoveragePeriodSelector } from "@/components/admin/CoveragePeriodSelector";
 import { CoverageEntityTypeTable, CoverageTable, CoverageTableHelp, type CoverageColumns } from "@/components/admin/CoverageTable";
 import { DataState } from "@/components/admin/DataState";
@@ -288,7 +289,9 @@ function CoverageContent({
           {periodSelector}
           {tableTools("territory")}
         </div>
-        {territoryTable}
+        <AdminTablePanel title={tTargets("byTerritoryTab")} headingId="registration-coverage-territory-heading">
+          {territoryTable}
+        </AdminTablePanel>
         <CoverageAnnualTrend year={year} />
         {quotaRanking}
       </div>
@@ -311,15 +314,21 @@ function CoverageContent({
           {periodSelector}
           {tableTools(tab)}
         </div>
-        <TabsContent value="territory" className="mt-0">{territoryTable}</TabsContent>
+        <TabsContent value="territory" className="mt-0">
+          <AdminTablePanel title={tTargets("byTerritoryTab")} headingId="registration-coverage-territory-heading">
+            {territoryTable}
+          </AdminTablePanel>
+        </TabsContent>
         <TabsContent value="type" className="mt-0">
-          <CoverageEntityTypeTable
-            rows={byEntityType}
-            overdueDays={query.data.overdueDays}
-            overdueHref={overdueQueueHref
-              ? (entityType) => overdueQueueHref({ entityType })
-              : undefined}
-          />
+          <AdminTablePanel title={tTargets("byEntityTypeTab")} headingId="registration-coverage-type-heading">
+            <CoverageEntityTypeTable
+              rows={byEntityType}
+              overdueDays={query.data.overdueDays}
+              overdueHref={overdueQueueHref
+                ? (entityType) => overdueQueueHref({ entityType })
+                : undefined}
+            />
+          </AdminTablePanel>
         </TabsContent>
       </Tabs>
       {quotaRanking}

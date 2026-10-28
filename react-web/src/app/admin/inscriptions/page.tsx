@@ -48,6 +48,7 @@ import {
 } from "@/lib/inscriptions";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
@@ -57,7 +58,6 @@ import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -694,8 +694,8 @@ function InscriptionsContent() {
 
       {vue === "organisations" && <>
         {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="my-4">{notice.text}</Alert>}
-        <Card className="cam-registration-organisations-card">
-          <CardContent>
+        <AdminTablePanel title={t("viewOrganisations")} headingId="registration-organisations-table-title">
+          <div className="cam-admin-table-panel-body">
             <div className="grid gap-3 pb-5 md:grid-cols-4">
               <div className="md:col-span-2"><Label htmlFor="organisations-search">{t("searchLabel")}</Label><Input id="organisations-search" type="search" value={organisationInput} placeholder={t("searchPlaceholder")} onChange={(event) => setOrganisationInput(event.target.value)} /></div>
               <div><Label htmlFor="organisations-status">{t("registrationStatusColumn")}</Label><select id="organisations-status" className="cam-admin-input w-full" value={statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ALL"} onChange={(event) => applyStatus(event.target.value === "ALL" ? "" : event.target.value)}><option value="ALL">{t("bothStatuses")}</option><option value="ACTIVE">{t("statusApproved")}</option><option value="REJECTED">{t("statusRejected")}</option></select></div>
@@ -727,8 +727,8 @@ function InscriptionsContent() {
               })}
             </TableBody></Table>
             {organisationsResult && organisationsResult.total > PAGE_SIZE && <div className="flex justify-end gap-3 py-4"><Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((n) => n - 1)}>{t("previousButton")}</Button><span className="self-center text-sm">{t("showingRange", { start: (page - 1) * PAGE_SIZE + 1, end: Math.min(page * PAGE_SIZE, organisationsResult.total), total: organisationsResult.total })}</span><Button type="button" variant="outline" size="sm" disabled={page * PAGE_SIZE >= organisationsResult.total} onClick={() => setPage((n) => n + 1)}>{t("nextButton")}</Button></div>}
-          </CardContent>
-        </Card>
+          </div>
+        </AdminTablePanel>
       </>}
 
       {vue === "queue" && (<>
@@ -844,8 +844,8 @@ function InscriptionsContent() {
 
       {vue === "queue" && (<>
 
-      <Card className="cam-registration-queue-card" aria-busy={queueUpdating}>
-        <CardContent>
+      <AdminTablePanel title={t("viewQueue")} headingId="registration-queue-table-title" busy={queueUpdating}>
+        <div className="cam-admin-table-panel-body">
           <div className="grid gap-3 pb-5">
             <div className="grid gap-3 md:grid-cols-4">
               <div className="md:col-span-2">
@@ -904,8 +904,9 @@ function InscriptionsContent() {
                 </TableRow>;
               })}
             </TableBody>
-          </Table></CardContent>
-      </Card>
+          </Table>
+        </div>
+      </AdminTablePanel>
 
       {/* Only once the queue has answered (G10) and has rows: "0–0 sur 0"
           read as a count nobody had read while loading, and repeats the

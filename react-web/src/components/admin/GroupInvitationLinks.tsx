@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { NOT_PROVIDED, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -94,14 +95,14 @@ export function GroupInvitationLinks() {
   });
 
   return (
-    <section className="cam-admin-section" aria-labelledby="group-links-title">
-      <div className="cam-admin-section-head">
-        <h2 id="group-links-title" className="cam-admin-h2">{t("title")}</h2>
-        <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setCreateOpen(true)}>
+    <AdminTablePanel
+      title={t("title")}
+      headingId="group-links-title"
+      description={t("intro")}
+      actions={<button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setCreateOpen(true)}>
           {t("createButton")}
-        </button>
-      </div>
-      <p className="cam-admin-meta">{t("intro")}</p>
+        </button>}
+    >
 
       <div className="cam-table-wrapper">
         <table className="cam-table">
@@ -194,7 +195,7 @@ export function GroupInvitationLinks() {
           <p>{t("revokeBody", { used: revoking.useCount })}</p>
         </AdminDialog>
       )}
-    </section>
+    </AdminTablePanel>
   );
 }
 

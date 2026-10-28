@@ -22,6 +22,7 @@ import {
 import { listUsers } from "@/lib/user-directory";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AUDIT_ROLES } from "@/lib/roles";
@@ -29,7 +30,7 @@ import { ALL, fromAll, toAll } from "@/lib/select-sentinel";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -277,7 +278,7 @@ function JournalAuditContent() {
     <div className="cam-admin-page">
       {header}
 
-      <Card>
+      <AdminTablePanel title={t("registerAriaLabel")} headingId="audit-register-heading">
         <CardContent>
           <FilterBar>
           <div className="grid gap-2">
@@ -439,7 +440,7 @@ function JournalAuditContent() {
             </Table>
           </div>
         </CardContent>
-      </Card>
+      </AdminTablePanel>
 
       {/* Pagination driven by the server-reported `total` for the same
           filtered query. No fixed page buttons: the number of pages is
