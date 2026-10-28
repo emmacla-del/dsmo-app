@@ -174,15 +174,7 @@ export function CampaignNonRespondentsTable({
         {data.registered === 0
           ? t("nonRespNoRegistered")
           : t("nonRespSummary", { count: data.establishments.length, registered: count(data.registered, appLocale) })}
-        {" "}
-        {data.lastReminder
-          ? t("nonRespLastReminder", {
-              date: formatCampaignDate(data.lastReminder.sentAt),
-              count: data.lastReminder.recipientCount,
-            })
-          : t("nonRespNoReminder")}
       </p>
-      {canShowContacts && <p className="cam-admin-quiet-note">{tRoot("adminDossiersPage.followUpEmailHistoryNote")}</p>}
       {canShowContacts && savedFollowUp && (
         <p role="status" className="cam-admin-notice cam-admin-notice--success">{t("nonRespFollowUpSaved")}</p>
       )}

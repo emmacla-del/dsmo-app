@@ -1,4 +1,4 @@
-﻿-- Per-establishment follow-up history, separate from campaign-wide email reminders.
+-- Per-establishment follow-up history, separate from campaign-wide email reminders.
 -- Actor snapshots preserve the identity that was shown when a manual action was logged.
 CREATE TABLE IF NOT EXISTS "campaign_follow_up_attempts" (
     "id" TEXT NOT NULL,
