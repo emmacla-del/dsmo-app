@@ -3,6 +3,8 @@ export type FollowUpMessageLanguage = "en" | "fr";
 export interface FollowUpMessageFields {
   establishment: string;
   establishmentId: string;
+  contactName: string | null;
+  contactFunction: string | null;
   campaign: string;
   period: string;
   deadline: string | null;
@@ -15,7 +17,10 @@ export interface FollowUpMessageFields {
 
 const COPY = {
   en: {
-    opening: "Hello. ONEFOP is following up with {establishment} (Establishment ID {establishmentId}) about the {campaign} collection campaign ({period}).",
+    greeting: "Dear {contactName},",
+    genericGreeting: "Hello,",
+    roleLine: "We are contacting you in your capacity as {contactFunction} at {establishment}.",
+    opening: "ONEFOP is following up about the {campaign} collection campaign ({period}) for {establishment} (Establishment ID {establishmentId}).",
     submitBy: "Please submit your declaration by {deadline} through the official CAMLEAP portal: {portalUrl}.",
     submit: "Please submit your declaration through the official CAMLEAP portal: {portalUrl}.",
     submitWithoutUrl: "Please submit your declaration through CAMLEAP. Open the portal using the official address you already use; do not follow unfamiliar links.",
@@ -28,7 +33,10 @@ const COPY = {
     genericPost: "Follow-up officer",
   },
   fr: {
-    opening: "Bonjour. ONEFOP assure le suivi de la déclaration de {establishment} (identifiant établissement {establishmentId}) pour la campagne de collecte {campaign} ({period}).",
+    greeting: "Bonjour {contactName},",
+    genericGreeting: "Bonjour,",
+    roleLine: "Nous vous contactons en votre qualité de {contactFunction} au sein de {establishment}.",
+    opening: "ONEFOP assure le suivi de la déclaration de {establishment} (identifiant établissement {establishmentId}) pour la campagne de collecte {campaign} ({period}).",
     submitBy: "Veuillez soumettre votre déclaration avant le {deadline} sur le portail officiel CAMLEAP : {portalUrl}.",
     submit: "Veuillez soumettre votre déclaration sur le portail officiel CAMLEAP : {portalUrl}.",
     submitWithoutUrl: "Veuillez soumettre votre déclaration sur CAMLEAP. Ouvrez le portail à l’adresse officielle que vous utilisez habituellement ; ne suivez pas de lien inconnu.",
@@ -58,6 +66,8 @@ export function buildCampaignFollowUpMessage(
   const values = {
     establishment: singleLine(fields.establishment),
     establishmentId: singleLine(fields.establishmentId),
+    contactName: singleLine(fields.contactName),
+    contactFunction: singleLine(fields.contactFunction),
     campaign: singleLine(fields.campaign),
     period: singleLine(fields.period),
     deadline: singleLine(fields.deadline),
@@ -68,7 +78,11 @@ export function buildCampaignFollowUpMessage(
     office: singleLine(fields.office) ? `, ${singleLine(fields.office)}` : "",
   };
 
-  const lines = [interpolate(copy.opening, values)];
+  const lines = [
+    values.contactName ? interpolate(copy.greeting, values) : copy.genericGreeting,
+  ];
+  if (values.contactFunction) lines.push(interpolate(copy.roleLine, values));
+  lines.push(interpolate(copy.opening, values));
   if (fields.portalUrl) {
     lines.push(
       interpolate(fields.deadline ? copy.submitBy : copy.submit, values),

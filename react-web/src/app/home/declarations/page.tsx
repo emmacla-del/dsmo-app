@@ -103,7 +103,9 @@ function formatDate(d: Date | null, t: Translator): string {
     t("homeDeclarationsPage.month11"),
     t("homeDeclarationsPage.month12"),
   ];
-  return `${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth() + 1]} ${d.getFullYear()}`;
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth() + 1]} ${d.getFullYear()} ${hours}:${minutes}`;
 }
 
 function mapDsmo(d: DsmoDeclaration, t: Translator): HistoryEntry {

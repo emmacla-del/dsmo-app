@@ -20,6 +20,7 @@ import { APPROVAL_ROLES, DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/role
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { AdminFilterDisclosure } from "@/components/admin/AdminFilterDisclosure";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { DataStateRow } from "@/components/admin/DataState";
 import {
@@ -29,10 +30,8 @@ import {
   stamp,
 } from "@/lib/admin-data-state";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { YEAR_MIN } from "@/lib/pilotage-targets";
 import { doualaIsoDate, doualaYear } from "@/lib/douala-date";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +59,7 @@ function registrationPeriod(value: string | null): { year: number | null; semest
 
 /**
  * The seven live OnefopEntityType values, labelled through the shared
- * entityTypeLabel() helper so this list and the row badges can never
+ * entityTypeLabel() helper so this list and the row labels can never
  * disagree.
  *
  * Replaces a hand-written array that offered a type absent from the enum —
@@ -121,6 +120,8 @@ interface EtabItem {
   department: string | null;
   subdivision: string | null;
   responsable: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
   dateInscription: string | null;
   year: number | null;
   semester: Semester | null;
@@ -128,24 +129,13 @@ interface EtabItem {
   status: "ACTIF" | "EN_ATTENTE" | "REJETE" | "SUSPENDU" | "INCONNU";
 }
 
-// French status values for the CSV export. On screen the status renders
-// through adminEtablissementsPage.status.<code>.
+// French status values for the CSV export.
 const STATUS_LABELS: Record<EtabItem["status"], string> = {
   ACTIF: "Actif",
   EN_ATTENTE: "En attente",
   REJETE: "Rejeté",
   SUSPENDU: "Suspendu",
   INCONNU: "Aucun compte lié",
-};
-
-// The derived account state decides the badge tone. A company with no linked
-// account is neutral, not folded into "suspendu".
-const STATUS_TONE: Record<EtabItem["status"], "success" | "warning" | "danger" | "neutral"> = {
-  ACTIF: "success",
-  EN_ATTENTE: "warning",
-  REJETE: "danger",
-  SUSPENDU: "danger",
-  INCONNU: "neutral",
 };
 
 export default function EtablissementsPage() {
@@ -267,6 +257,8 @@ export default function EtablissementsPage() {
       [c.respondentFirstName, c.respondentLastName].filter(Boolean).join(" ").trim() ||
       c.user?.email ||
       null,
+    contactEmail: c.user?.email ?? null,
+    contactPhone: c.respondentPhone ?? c.phone ?? null,
     dateInscription: c.createdAt ?? null,
     ...registrationPeriod(c.createdAt),
     // Derived from the linked account's own stored state. A company with no
@@ -332,6 +324,13 @@ export default function EtablissementsPage() {
     error: companiesQuery.error,
     rowCount: companiesQuery.data ? filteredRows.length : null,
   });
+
+  const hasActiveAdvancedFilters =
+    periodYear != null ||
+    periodSemester != null ||
+    periodQuarter != null ||
+    selectedStatus !== "ALL" ||
+    sortOrder !== "newest";
 
   /**
    * Exports exactly the rows on screen — one page of the server's filtered
@@ -434,168 +433,148 @@ export default function EtablissementsPage() {
         description={t("scopeNote")}
         headingId="establishments-register-title"
         meta={tableState === "ready" ? count(filteredRows.length, locale) : NOT_PROVIDED}
+        toolbar={
+          <div className="grid gap-3 md:grid-cols-5">
+            <div className="md:col-span-2">
+              <Label htmlFor="etab-search">{t("searchLabel")}</Label>
+              <Input
+                id="etab-search"
+                type="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder={t("searchPlaceholder")}
+              />
+            </div>
+            <div>
+              <Label htmlFor="etab-type">{tRoot("companiesDirectory.typeColumn")}</Label>
+              <select
+                id="etab-type"
+                className="cam-admin-input w-full"
+                value={selectedType}
+                onChange={(event) => setSelectedType(event.target.value)}
+              >
+                <option value="ALL">{t("allMasculine")}</option>
+                {ENTITY_TYPE_VALUES.map((value) => (
+                  <option key={value} value={value}>{typeDisplay(value)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="etab-region">{tRoot("companiesDirectory.regionColumn")}</Label>
+              <select
+                id="etab-region"
+                className="cam-admin-input w-full"
+                value={selectedRegion}
+                onChange={(event) => setSelectedRegion(event.target.value)}
+              >
+                {CAMEROON_REGIONS.map((region) => (
+                  <option key={region} value={region}>{region === "Toutes" ? t("allRegions") : region}</option>
+                ))}
+              </select>
+            </div>
+            <AdminFilterDisclosure label={t("moreFilters")} active={hasActiveAdvancedFilters}>
+              <div>
+                <Label htmlFor="etab-year">{t("yearColumn")}</Label>
+                <select
+                  id="etab-year"
+                  className="cam-admin-input w-full"
+                  value={periodYear == null ? "all" : String(periodYear)}
+                  onChange={(event) => {
+                    setPeriodYear(event.target.value === "all" ? null : Number(event.target.value));
+                    setPage(1);
+                  }}
+                >
+                  <option value="all">{t("allYears")}</option>
+                  {yearOptions.map((year) => (
+                    <option key={year} value={String(year)}>{year}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="etab-semester">{t("semesterColumn")}</Label>
+                <select
+                  id="etab-semester"
+                  className="cam-admin-input w-full"
+                  value={periodSemester == null ? "all" : String(periodSemester)}
+                  onChange={(event) => {
+                    setPeriodSemester(event.target.value === "all" ? null : event.target.value === "1" ? 1 : 2);
+                    setPeriodQuarter(null);
+                    setPage(1);
+                  }}
+                >
+                  <option value="all">{t("allSemesters")}</option>
+                  <option value="1">S1</option>
+                  <option value="2">S2</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="etab-quarter">{t("quarterColumn")}</Label>
+                <select
+                  id="etab-quarter"
+                  className="cam-admin-input w-full"
+                  value={periodQuarter == null ? "all" : String(periodQuarter)}
+                  onChange={(event) => {
+                    setPeriodQuarter(event.target.value === "all" ? null : Number(event.target.value) as Quarter);
+                    setPage(1);
+                  }}
+                >
+                  <option value="all">{t("allQuarters")}</option>
+                  {quarterOptions.map((quarter) => (
+                    <option key={quarter} value={String(quarter)}>Q{quarter}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="etab-status">{t("statusFilterLabel")}</Label>
+                <select
+                  id="etab-status"
+                  className="cam-admin-input w-full"
+                  value={selectedStatus}
+                  onChange={(event) => setSelectedStatus(event.target.value)}
+                >
+                  {ACCOUNT_STATUSES.map((status) => (
+                    <option key={status.value} value={status.value}>{t(status.labelKey)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="etab-sort">{tRoot("adminDossiersPage.sortLabel")}</Label>
+                <select
+                  id="etab-sort"
+                  className="cam-admin-input w-full"
+                  value={sortOrder}
+                  onChange={(event) => {
+                    setSortOrder(event.target.value === "oldest" ? "oldest" : "newest");
+                    setPage(1);
+                  }}
+                >
+                  <option value="newest">{tRoot("adminDossiersPage.sortNewest")}</option>
+                  <option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option>
+                </select>
+              </div>
+            </AdminFilterDisclosure>
+          </div>
+        }
       >
-          <Table>
+          <Table className="w-full min-w-[880px] table-fixed">
+            <colgroup>
+              {[225, 110, 165, 145, 135, 100].map((width, index) => (
+                <col key={`etab-column-${index}`} style={{ width }} />
+              ))}
+            </colgroup>
             <TableHeader>
               <TableRow>
-                <FilterTableHead
-                  label={t("establishmentColumn")}
-                  filterLabel={t("filterColumn", { column: t("establishmentColumn") })}
-                      active={!!searchInput.trim()}
-                  contentClassName="w-72 p-3"
-                >
-                  {(close) => (
-                    <div className="grid gap-3">
-                      <div className="grid gap-2">
-                        <Label htmlFor="etab-search">{t("searchLabel")}</Label>
-                        <Input
-                          id="etab-search"
-                          value={searchInput}
-                          onChange={(event) => setSearchInput(event.target.value)}
-                          placeholder={t("searchPlaceholder")}
-                          onKeyDown={(event) => { if (event.key === "Enter") close(); }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </FilterTableHead>
-                <TableHead scope="col">{t("idColumn")}</TableHead>
-                <FilterTableHead label={tRoot("companiesDirectory.typeColumn")} filterLabel={t("filterColumn", { column: tRoot("companiesDirectory.typeColumn") })} active={selectedType !== "ALL"}>
-                  {(close) => <FilterTableOptions label={t("typeFilterLabel")} value={selectedType} onChange={setSelectedType} onSelect={close} options={[{ value: "ALL", label: t("allMasculine") }, ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: typeDisplay(value) }))]} />}
-                </FilterTableHead>
-                <FilterTableHead
-                  label={tRoot("companiesDirectory.regionColumn")}
-                  filterLabel={t("filterColumn", { column: tRoot("companiesDirectory.regionColumn") })}
-                  active={selectedRegion !== "Toutes"}
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("regionFilterLabel")}
-                      value={selectedRegion}
-                      onChange={setSelectedRegion}
-                      onSelect={close}
-                      options={CAMEROON_REGIONS.map((region) => ({
-                        value: region,
-                        label: region === "Toutes" ? t("allRegions") : region,
-                      }))}
-                    />
-                  )}
-                </FilterTableHead>
-                <TableHead scope="col">{tRoot("companiesDirectory.departmentColumn")}</TableHead>
-                <TableHead scope="col">{tRoot("companiesDirectory.subdivisionLabel")}</TableHead>
+                <TableHead scope="col">{t("establishmentColumn")}</TableHead>
+                <TableHead scope="col">{tRoot("companiesDirectory.typeColumn")}</TableHead>
+                <TableHead scope="col">{t("territoryColumn")}</TableHead>
                 <TableHead scope="col">{t("contactColumn")}</TableHead>
-                <FilterTableHead
-                  label={t("registrationDateColumn")}
-                  filterLabel={t("filterColumn", { column: t("registrationDateColumn") })}
-                  active={sortOrder !== "newest"}
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={tRoot("adminDossiersPage.sortLabel")}
-                      value={sortOrder}
-                      onChange={(value) => {
-                        setSortOrder(value === "oldest" ? "oldest" : "newest");
-                        setPage(1);
-                      }}
-                      onSelect={close}
-                      options={[
-                        { value: "newest", label: tRoot("adminDossiersPage.sortNewest") },
-                        { value: "oldest", label: tRoot("adminDossiersPage.sortOldest") },
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                <FilterTableHead
-                  label={t("yearColumn")}
-                  filterLabel={t("filterColumn", { column: t("yearColumn") })}
-                  active={periodYear != null}
-                  centered
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("yearColumn")}
-                      value={periodYear == null ? "all" : String(periodYear)}
-                      onChange={(value) => {
-                        setPeriodYear(value === "all" ? null : Number(value));
-                        setPage(1);
-                      }}
-                      onSelect={close}
-                      options={[
-                        { value: "all", label: t("allYears") },
-                        ...yearOptions.map((year) => ({ value: String(year), label: String(year) })),
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                <FilterTableHead
-                  label={t("semesterColumn")}
-                  filterLabel={t("filterColumn", { column: t("semesterColumn") })}
-                  active={periodSemester != null}
-                  centered
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("semesterColumn")}
-                      value={periodSemester == null ? "all" : String(periodSemester)}
-                      onChange={(value) => {
-                        setPeriodSemester(value === "all" ? null : value === "1" ? 1 : 2);
-                        setPeriodQuarter(null);
-                        setPage(1);
-                      }}
-                      onSelect={close}
-                      options={[
-                        { value: "all", label: t("allSemesters") },
-                        { value: "1", label: "S1" },
-                        { value: "2", label: "S2" },
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                <FilterTableHead
-                  label={t("quarterColumn")}
-                  filterLabel={t("filterColumn", { column: t("quarterColumn") })}
-                  active={periodQuarter != null}
-                  centered
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("quarterColumn")}
-                      value={periodQuarter == null ? "all" : String(periodQuarter)}
-                      onChange={(value) => {
-                        setPeriodQuarter(value === "all" ? null : Number(value) as Quarter);
-                        setPage(1);
-                      }}
-                      onSelect={close}
-                      options={[
-                        { value: "all", label: t("allQuarters") },
-                        ...quarterOptions.map((quarter) => ({ value: String(quarter), label: `Q${quarter}` })),
-                      ]}
-                    />
-                  )}
-                </FilterTableHead>
-                {/* "Créé par" removed: the Company model records no creator,
-                    so the column could only ever be filled with a guess. */}
-                <FilterTableHead
-                  label={t("accountStatusColumn")}
-                  filterLabel={t("filterColumn", { column: t("accountStatusColumn") })}
-                  active={selectedStatus !== "ALL"}
-                >
-                  {(close) => (
-                    <FilterTableOptions
-                      label={t("statusFilterLabel")}
-                      value={selectedStatus}
-                      onChange={setSelectedStatus}
-                      onSelect={close}
-                      options={ACCOUNT_STATUSES.map((status) => ({ value: status.value, label: t(status.labelKey) }))}
-                    />
-                  )}
-                </FilterTableHead>
+                <TableHead scope="col">{t("registrationDateColumn")}</TableHead>
                 <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <DataStateRow
-                colSpan={13}
+                colSpan={6}
                 state={tableState}
                 resource={t("registerResource")}
                 error={companiesQuery.error}
@@ -606,54 +585,43 @@ export default function EtablissementsPage() {
               {filteredRows.map((item) => {
                 const detailIdentifier = item.identifier || item.registrationNumber;
                 const detailHref = detailIdentifier ? `/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}` : null;
+                const territory = [item.region, item.department, item.subdivision].filter(Boolean).join(" / ") || NOT_PROVIDED;
+                const contactDisplay = item.responsable ?? item.contactEmail ?? item.contactPhone ?? NOT_PROVIDED;
+                const contactTitle = Array.from(new Set(
+                  [item.responsable, item.contactEmail, item.contactPhone].filter((value): value is string => Boolean(value)),
+                )).join(" · ") || NOT_PROVIDED;
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="w-[260px] max-w-[260px]">
-                      <div
-                        className="block max-w-[260px] truncate font-medium text-foreground"
-                        title={item.name ?? NOT_PROVIDED}
-                      >
+                    <TableCell className="align-top whitespace-normal py-3">
+                      <span className="block truncate font-medium text-foreground" title={item.name ?? NOT_PROVIDED}>
                         {item.name ?? NOT_PROVIDED}
-                      </div>
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground" title={item.identifier ?? NOT_PROVIDED}>
+                        {item.identifier ?? NOT_PROVIDED}
+                      </span>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <span className="cam-admin-code font-medium text-foreground">{item.identifier ?? NOT_PROVIDED}</span>
-                    </TableCell>
-                    <TableCell className="max-w-[240px]">
-                      <div
-                        className="block max-w-[240px] truncate"
-                        title={item.type ? typeDisplay(item.type) : NOT_PROVIDED}
-                      >
+                    <TableCell className="align-top whitespace-normal py-3">
+                      <span className="block truncate" title={item.type ? typeDisplay(item.type) : NOT_PROVIDED}>
                         {item.type ? typeDisplay(item.type) : NOT_PROVIDED}
-                      </div>
+                      </span>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{item.region ?? NOT_PROVIDED}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.department ?? NOT_PROVIDED}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.subdivision ?? NOT_PROVIDED}</TableCell>
-                    <TableCell className="whitespace-nowrap">{item.responsable ?? NOT_PROVIDED}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {stamp(item.dateInscription, true, locale)}
+                    <TableCell className="align-top whitespace-normal py-3">
+                      <span className="block truncate" title={territory}>{territory}</span>
                     </TableCell>
-                    <TableCell className="text-center tabular-nums">{item.year ?? NOT_PROVIDED}</TableCell>
-                    <TableCell className="text-center tabular-nums">{item.semester == null ? NOT_PROVIDED : `S${item.semester}`}</TableCell>
-                    <TableCell className="text-center tabular-nums">{item.quarter == null ? NOT_PROVIDED : `Q${item.quarter}`}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_TONE[item.status]}>{t(`status.${item.status}`)}</Badge>
+                    <TableCell className="align-top whitespace-normal py-3">
+                      <span className="block truncate" title={contactTitle}>{contactDisplay}</span>
                     </TableCell>
-                    {/* Two plain links. They replace a "···" popover that had no
-                        menu role, no Escape, no outside-click close and no focus
-                        handling. */}
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-3 whitespace-nowrap">
-                        {detailHref ? <Button asChild variant="link" size="sm" className="h-auto px-0">
+                    <TableCell className="align-top whitespace-normal py-3">
+                      <span className="whitespace-nowrap text-muted-foreground">{stamp(item.dateInscription, true, locale)}</span>
+                    </TableCell>
+                    <TableCell className="align-top whitespace-normal py-3 text-right">
+                      {detailHref ? (
+                        <Button asChild variant="link" size="sm" className="h-auto px-0">
                           <Link href={detailHref}>{t("viewDetails")}</Link>
-                        </Button> : <span aria-disabled="true" className="text-sm text-muted-foreground">{t("viewDetails")}</span>}
-                        {!readOnly && detailHref && (
-                          <Button asChild variant="link" size="sm" className="h-auto px-0">
-                            <Link href={`${detailHref}&manage=true`}>{t("manageUsers")}</Link>
-                          </Button>
-                        )}
-                      </div>
+                        </Button>
+                      ) : (
+                        <span aria-disabled="true" className="text-sm text-muted-foreground">{t("viewDetails")}</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

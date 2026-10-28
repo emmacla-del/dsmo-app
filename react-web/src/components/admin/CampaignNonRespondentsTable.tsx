@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -55,11 +54,9 @@ function formatFollowUpTimestamp(value: string, locale: "en" | "fr"): string {
  */
 export function CampaignNonRespondentsTable({
   data,
-  canOpenDetail,
   canShowContacts,
 }: {
   data: CampaignNonRespondentsResponse;
-  canOpenDetail: boolean;
   canShowContacts: boolean;
 }) {
   const t = useTranslations("adminCiblesPage");
@@ -122,6 +119,8 @@ export function CampaignNonRespondentsTable({
     ? {
         establishment: dialogRow.name,
         establishmentId: dialogRow.establishmentId,
+        contactName: dialogRow.contactName ?? null,
+        contactFunction: dialogRow.contactFunction ?? null,
         campaign: data.campaign.name,
         period: referencePeriodLabel(data.campaign.code, messageLanguage) || data.campaign.code,
         deadline: data.campaign.deadline ? formatCampaignDate(data.campaign.deadline) : null,
@@ -193,7 +192,6 @@ export function CampaignNonRespondentsTable({
                 <th scope="col">{t("nonRespFileColumn")}</th>
                 {canShowContacts && <th scope="col">{t("nonRespFollowUpColumn")}</th>}
                 {canShowContacts && <th scope="col">{t("nonRespPrepareFollowUp")}</th>}
-                {canOpenDetail && <th scope="col">{t("actionsColumn")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -221,6 +219,11 @@ export function CampaignNonRespondentsTable({
                         ) : (
                           t("nonRespNoPhone")
                         )}
+                        {(row.contactName || row.contactFunction) && (
+                          <span className="cam-admin-quiet-note">
+                            {t("nonRespContactLabel")}: {[row.contactName, row.contactFunction].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
                       </td>
                     )}
                     <td>
@@ -247,16 +250,6 @@ export function CampaignNonRespondentsTable({
                         >
                           {t("nonRespPrepareFollowUp")}
                         </button>
-                      </td>
-                    )}
-                    {canOpenDetail && (
-                      <td>
-                        <Link
-                          href={`/admin/etablissement-detail?id=${encodeURIComponent(row.establishmentId)}`}
-                          className="cam-text-button"
-                        >
-                          {t("nonRespOpenEstablishment")}
-                        </Link>
                       </td>
                     )}
                   </tr>

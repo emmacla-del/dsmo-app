@@ -162,6 +162,9 @@ function createHarness() {
           .sort((a, b) => (b.sentAt as Date).getTime() - (a.sentAt as Date).getTime())[0] ?? null,
       ),
     },
+    campaignFollowUpAttempt: {
+      findMany: jest.fn(async () => []),
+    },
     auditLog: {
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
         audits.push(data);
@@ -2052,6 +2055,7 @@ describe('PilotageService.getCampaignNonRespondents', () => {
       regionName: 'Centre',
       departmentId: 'd-lekie',
       departmentName: 'Lékié',
+      latestFollowUp: null,
       fileState: 'DRAFT',
     });
     expect(result.campaign).toMatchObject({ id: 'c1', code: 'ONEFOP-2026-T4' });

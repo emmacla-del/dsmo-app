@@ -19,7 +19,7 @@ export function OnefopSubmittedNotice({ submission }: { submission: OnefopSubmis
   const ref = String(submission.submissionId ?? submission.id);
   const values = {
     period: referencePeriodLabel(submission.quarterCode, locale),
-    date: stamp(submission.submittedAt ?? submission.createdAt, false, locale),
+    date: stamp(submission.submittedAt ?? submission.createdAt, true, locale),
     ref: shortRecordId(ref),
   };
   return (

@@ -70,7 +70,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -680,6 +679,7 @@ function DossiersContent({
     };
   });
 
+  const typeColumnLabel = vue === "completed" ? t("typeColumn") : t("entityTypeColumn");
   const activeFilterChips: Array<{ key: string; label: string; remove: () => void }> = [];
   if (search) activeFilterChips.push({ key: "search", label: `${t("freeSearchLabel")}: ${search}`, remove: () => { setSearchInput(""); setSearch(""); setUrlFilter({ search: null, q: null }); } });
   if (campaignIdFilter) {
@@ -687,7 +687,7 @@ function DossiersContent({
     activeFilterChips.push({ key: "campaignId", label: `${t("campaignLabel")}: ${selectedCampaignLabel}`, remove: () => setCampaign("") });
   }
   if (statusFilter) activeFilterChips.push({ key: "status", label: `${t("statusFilterAriaLabel")}: ${t(STATUS_VIEWS.find((v) => v.status === statusFilter)?.labelKey ?? "statusAll")}`, remove: () => setStatus("") });
-  if (typeFilter) activeFilterChips.push({ key: "formType", label: `${t("typeColumn")}: ${typeLabel(typeFilter)}`, remove: () => setType("") });
+  if (typeFilter) activeFilterChips.push({ key: "formType", label: `${typeColumnLabel}: ${typeLabel(typeFilter)}`, remove: () => setType("") });
   if (periodFilter) activeFilterChips.push({ key: "period", label: `${t("periodLabel")}: ${t(PERIODS.find((p) => p.value === periodFilter)?.labelKey ?? "allPeriods")}`, remove: () => setPeriod("") });
   if (regionFilter) activeFilterChips.push({ key: "region", label: `${t("regionColumn")}: ${regionFilter}`, remove: () => setRegion("") });
   if (departmentFilter) activeFilterChips.push({ key: "department", label: `${t("departmentLabel")}: ${departmentFilter}`, remove: () => setDepartment("") });
@@ -930,7 +930,6 @@ function DossiersContent({
           ) : nonRespondentsQuery.data ? (
             <CampaignNonRespondentsTable
               data={nonRespondentsQuery.data}
-              canOpenDetail={hasRole(user?.role, NATIONAL_READ_ROLES)}
               canShowContacts={hasRole(user?.role, SURVEY_ROLES)}
             />
           ) : null}
@@ -1060,7 +1059,7 @@ function DossiersContent({
             <colgroup>
               {(vue === "completed"
                 ? [210, 130, 145, 175, 160, 210, 135, 105, 110]
-                : [36, 205, 130, 135, 150, 145, 140, 130, 145, 115, 95, 110]
+                : [36, 185, 130, 118, 107, 103, 140, 150, 130]
               ).map((width, index) => <col key={`${vue}-column-${index}`} style={{ width }} />)}
             </colgroup>
             <TableHeader>
@@ -1084,11 +1083,9 @@ function DossiersContent({
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </> : <>
                   <TableHead className="cam-dossier-select-column"><span className="sr-only">{t("selectionColumnLabel")}</span></TableHead>
-                  <TableHead scope="col">{t("organisationColumn")}</TableHead>
-                  <TableHead scope="col">{t("establishmentIdColumn")}</TableHead>
-                  <TableHead scope="col">{t("submittedByColumn")}</TableHead>
-                  <FilterTableHead label={t("typeColumn")} filterLabel={t("filterColumn", { column: t("typeColumn") })} active={!!typeFilter}>
-                    {(close) => <FilterTableOptions label={t("typeColumn")} value={typeFilter} options={[{ value: "", label: t("allFormTypes") }, ...FORM_TYPES.map((value) => ({ value, label: typeLabel(value) }))]} onChange={setType} onSelect={close} />}
+                  <TableHead scope="col">{t("entityColumn")}</TableHead>
+                  <FilterTableHead label={t("entityTypeColumn")} filterLabel={t("filterColumn", { column: t("entityTypeColumn") })} active={!!typeFilter}>
+                    {(close) => <FilterTableOptions label={t("entityTypeColumn")} value={typeFilter} options={[{ value: "", label: t("allEntityTypes") }, ...FORM_TYPES.map((value) => ({ value, label: typeLabel(value) }))]} onChange={setType} onSelect={close} />}
                   </FilterTableHead>
                   <FilterTableHead label={t("territoryColumn")} filterLabel={t("filterColumn", { column: t("territoryColumn") })} active={!!regionFilter || !!departmentFilter} contentClassName="w-72 p-3">
                     {() => <div className="grid gap-3">
@@ -1096,37 +1093,50 @@ function DossiersContent({
                       <FilterTableOptions label={t("departmentLabel")} value={departmentFilter} options={[{ value: "", label: t("allDepartments") }, ...territoryDepartments.map((value) => ({ value, label: value }))]} onChange={setDepartment} onSelect={() => {}} />
                     </div>}
                   </FilterTableHead>
-                  <TableHead scope="col">{t("campaignPeriodColumn")}</TableHead>
+                  <TableHead scope="col">{t("periodColumn")}</TableHead>
                   <TableHead scope="col">{t("adminStatusColumn")}</TableHead>
-                  <TableHead scope="col" title={t("dataIssuesHelp")}>{t("dataQualityColumn")}</TableHead>
-                  <TableHead scope="col">{t("submittedOnColumn")}</TableHead>
-                  <TableHead scope="col">{t("waitingColumn")}</TableHead>
+                  <TableHead scope="col" title={t("dataIssuesHelp")}>{t("controlsColumn")}</TableHead>
+                  <TableHead scope="col">{t("submissionWaitingColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              <DataStateRow colSpan={vue === "completed" ? 9 : 12} state={tableState} resource={t("filesResource")} error={questionnairesQuery.error} onRetry={() => questionnairesQuery.refetch()} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
+              <DataStateRow colSpan={9} state={tableState} resource={t("filesResource")} error={questionnairesQuery.error} onRetry={() => questionnairesQuery.refetch()} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
               {dossiers.map((d) => {
                 const visaBadge: { label: string; tone: ToneName } = d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } : d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } : d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } : d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } : d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } : { label: t("badgeNoStatus"), tone: "neutral" };
-                const qualityTone: ToneName = d.blockingCount > 0 ? "error" : d.warningCount > 0 ? "warning" : "neutral";
+                const qualityTone: ToneName = d.blockingCount > 0 ? "error" : "warning";
                 const qualityText = [
                   d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : null,
                   d.warningCount > 0 ? t("warnings", { count: d.warningCount }) : null,
-                ].filter(Boolean).join(" · ") || t("noAnomaly");
+                ].filter(Boolean).join(" · ");
+                const qualityBadge = d.blockingCount > 0
+                  ? t("blockingAnomalies", { count: d.blockingCount })
+                  : d.warningCount > 0
+                    ? t("warnings", { count: d.warningCount })
+                    : null;
+                const qualityTitle = qualityText ? `${qualityText} — ${t("dataIssuesHelp")}` : t("dataIssuesHelp");
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
                 const shortCampaignName = d.campaignName ? formatCampaignShortName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
+                const periodCell = effectiveCampaignId
+                  ? periodLabel
+                  : [campaignName, periodLabel].filter((value) => value !== NOT_PROVIDED).join(" · ") || NOT_PROVIDED;
+                const entityMetaTitle = [d.establishmentId, d.respondentName].filter((value): value is string => Boolean(value)).join(" · ") || NOT_PROVIDED;
                 const territoryTitle = [d.region, d.department, d.subdivision].filter(Boolean).join(" / ") || NOT_PROVIDED;
                 const territoryLabel = [d.region, d.department].filter(Boolean).join(" / ") || NOT_PROVIDED;
                 const waiting = d.adminStatus === "PENDING_REVIEW" && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
                 const isReviewOverdue = d.adminStatus === "PENDING_REVIEW" && nowMs !== null && elapsedMoreThanDays(d.submittedAt, nowMs, 7);
                 const canManageArchive = hasRole(user?.role, DOSSIER_ARCHIVE_ROLES);
                 const canAssign = !readOnly && !d.archivedAt && (d.assigneeId == null || d.assigneeId === user?.id);
+                const hasQueueMenu = canAssign;
                 const hasCompletedActions = (canReadAudit || canManageArchive || (canReopen && d.adminStatus === "APPROVED"));
                 const actionsLabel = t("rowActionsAria", { name: d.companyName ?? d.submissionId });
                 const openFile = <Button asChild size="sm" variant="default" className="whitespace-nowrap">
                   <Link href={`/admin/dossiers/${encodeURIComponent(d.id)}${vue === "completed" && includeArchived ? "?includeArchived=true" : ""}`}>{t("openFileButton")}</Link>
+                </Button>;
+                const openQueueFile = <Button asChild size="sm" variant="default" className="whitespace-nowrap">
+                  <Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`}>{t("openButton")}</Link>
                 </Button>;
                 const rowMenu = (menuItems: ReactNode) => (
                   <DropdownMenu>
@@ -1170,33 +1180,41 @@ function DossiersContent({
                 </TableRow> : <TableRow key={d.id}>
                   <TableCell className="cam-dossier-select-column align-top">{!readOnly && <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}</TableCell>
                   <TableCell className="align-top whitespace-normal">
-                    <span className="block max-w-[190px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
+                    <span className="block max-w-[240px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
+                    <span className="mt-0.5 block max-w-[240px] truncate text-sm text-muted-foreground" title={entityMetaTitle}>
+                      {d.establishmentId && <span className="cam-admin-code" title={d.establishmentId}>{d.establishmentId}</span>}
+                      {d.establishmentId && d.respondentName && " · "}
+                      {d.respondentName && <span title={d.respondentName}>{d.respondentName}</span>}
+                      {!d.establishmentId && !d.respondentName && NOT_PROVIDED}
+                    </span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap"><span className="cam-admin-code" title={d.establishmentId ?? undefined}>{d.establishmentId ?? NOT_PROVIDED}</span></TableCell>
-                  <TableCell className="max-w-[150px] whitespace-normal"><span className="block line-clamp-2" title={d.respondentName ?? NOT_PROVIDED}>{d.respondentName ?? NOT_PROVIDED}</span></TableCell>
-                  <TableCell className="max-w-[150px] whitespace-normal"><span className="block line-clamp-2" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</span></TableCell>
+                  <TableCell className="max-w-[120px] whitespace-normal"><span className="block line-clamp-2" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</span></TableCell>
                   <TableCell title={territoryTitle}>{territoryLabel}</TableCell>
                   <TableCell className="align-top whitespace-normal">
-                    <span className="block line-clamp-1" title={campaignName}>{shortCampaignName}</span>
-                    <span className="block text-sm text-muted-foreground">{periodLabel}</span>
+                    <span className="block" title={campaignName}>{periodCell}</span>
                   </TableCell>
-                  <TableCell><Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge></TableCell>
-                  <TableCell title={t("dataIssuesHelp")}><Badge variant={BADGE_VARIANT[qualityTone]}>{qualityText}</Badge></TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {stamp(d.submittedAt, false, locale)}
-                    {d.isLate && <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>}
+                  <TableCell title={d.assigneeId ? t("assignedTo", { name: d.assigneeName ?? NOT_PROVIDED }) : undefined}>
+                    <Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
                   </TableCell>
-                  <TableCell className={isReviewOverdue ? "font-semibold text-destructive" : "text-muted-foreground"}>
-                    {waiting === null ? NOT_PROVIDED : t("waitingDays", { count: waiting })}
+                  <TableCell title={qualityTitle}>
+                    {qualityBadge ? <Badge variant={BADGE_VARIANT[qualityTone]}>{qualityBadge}</Badge> : <span className="text-muted-foreground">{NOT_PROVIDED}</span>}
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap">
+                    <span className="block">
+                      {stamp(d.submittedAt, true, locale)}
+                      {d.isLate && <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>}
+                    </span>
+                    {waiting !== null && (
+                      <span className={`mt-0.5 block text-sm ${isReviewOverdue ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
+                        {t("waitingDays", { count: waiting })}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {rowMenu(<>
-                        <DropdownMenuItem asChild><Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`}>{t("openFileButton")}</Link></DropdownMenuItem>
-                        {d.assigneeId && <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel>{t("assignedTo", { name: d.assigneeName ?? NOT_PROVIDED })}</DropdownMenuLabel>
-                        </>}
+                      {openQueueFile}
+                      {hasQueueMenu && rowMenu(<>
+                        {d.assigneeId && <DropdownMenuLabel>{t("assignedTo", { name: d.assigneeName ?? NOT_PROVIDED })}</DropdownMenuLabel>}
                         {canAssign && <DropdownMenuItem disabled={assignMutation.isPending} onSelect={() => assignMutation.mutate({ id: d.id, assigneeId: d.assigneeId ? null : user?.id ?? null })}>{d.assigneeId ? t("unclaimButton") : t("claimButton")}</DropdownMenuItem>}
                       </>)}
                     </div>

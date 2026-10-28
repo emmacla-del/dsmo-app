@@ -5524,8 +5524,8 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-select-column {
-  width: 32px;
-  min-width: 32px;
+  width: 36px;
+  min-width: 36px;
   padding-inline: 7px;
 }
 
@@ -5713,7 +5713,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table table {
   width: 100%;
-  min-width: 1760px;
+  min-width: 1101px;
   table-layout: fixed;
   border-collapse: collapse;
   color: #172b43;
@@ -5736,19 +5736,15 @@ a.cam-dash-review-row:hover {
   white-space: normal;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(1) { width: 32px; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(2) { width: 14%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(3) { width: 7%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(4) { width: 10%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(5) { width: 11%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(6) { width: 9%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(7) { width: 10%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(8) { width: 6%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(9) { width: 6%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(10) { width: 6%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(11) { width: 7%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(12) { width: 6%; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(13) { width: 5%; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(1) { width: 36px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(2) { width: 185px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(3) { width: 130px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(4) { width: 118px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(5) { width: 107px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(6) { width: 103px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(7) { width: 140px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(8) { width: 150px; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(9) { width: 130px; }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(7) span {
   display: -webkit-box;
@@ -5773,13 +5769,13 @@ a.cam-dash-review-row:hover {
   background: #fbfdff;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(8) [data-slot="badge"] {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(6) [data-slot="badge"] {
   white-space: normal;
   text-align: center;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(9) [data-slot="badge"],
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(10) [data-slot="badge"] {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(7) [data-slot="badge"],
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(8) [data-slot="badge"] {
   display: inline-block;
   max-width: 100%;
   white-space: normal;
@@ -5787,7 +5783,7 @@ a.cam-dash-review-row:hover {
   text-align: center;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(12) button {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(9) button {
   font-size: 13px;
   white-space: normal;
 }
@@ -6042,7 +6038,7 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-dossier-submissions-table table {
-    min-width: 1760px;
+    min-width: 1101px;
   }
 
   .cam-admin.is-dossier-workflow .cam-dossier-completed-filters > .grid {
@@ -6064,8 +6060,8 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-select-column {
-  width: 32px;
-  min-width: 32px;
+  width: 36px;
+  min-width: 36px;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-page--single .cam-dossier-submissions-clear {
@@ -6093,7 +6089,7 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-dossier-submissions-table table {
-    min-width: 1760px;
+    min-width: 1101px;
   }
 }
 
@@ -6809,9 +6805,8 @@ a.cam-dash-review-row:hover {
   font-size: 14px !important;
 }
 
-/* The submissions register now has 16 distinct columns. The previous 13-column
-   percentage rules squeezed assignment and action cells until their text
-   wrapped vertically, stretching individual rows across the viewport. */
+/* The queue has nine purpose-driven columns: identity, status, quality, and
+   the submitted/waiting pair stay explicit instead of repeating details. */
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table [data-slot="table-container"] {
   max-width: 100%;
   overflow-x: auto !important;
@@ -6819,12 +6814,12 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table table {
-  width: 2313px !important;
-  min-width: 2313px !important;
+  width: 1101px !important;
+  min-width: 1101px !important;
   table-layout: fixed !important;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(-n + 16) {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(-n + 9) {
   width: auto !important;
   min-width: 0;
   overflow-wrap: normal;
@@ -6850,23 +6845,20 @@ a.cam-dash-review-row:hover {
 /* Purpose-driven dossier tables: keep explicit, readable widths as identity
    details move into their own columns. */
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table table {
-  width: max(100%, 1536px) !important;
-  min-width: 1536px !important;
+  width: max(100%, 1101px) !important;
+  min-width: 1101px !important;
   table-layout: fixed !important;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(1) { width: 36px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(2) { width: 205px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(2) { width: 185px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(3) { width: 130px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(4) { width: 135px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(5) { width: 150px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(6) { width: 145px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(4) { width: 118px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(5) { width: 107px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(6) { width: 103px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(7) { width: 140px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(8) { width: 130px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(9) { width: 145px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(10) { width: 115px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(11) { width: 95px !important; }
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(12) { width: 110px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(8) { width: 150px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th:nth-child(9) { width: 130px !important; }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table table {
   width: max(100%, 1380px) !important;

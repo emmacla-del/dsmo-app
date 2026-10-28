@@ -444,6 +444,10 @@ export interface NonRespondentRow {
   departmentName: string | null;
   /** Linked company account email, only for roles allowed to contact the establishment. */
   contactEmail?: string;
+  /** Registered respondent's name, only for roles allowed to contact the establishment. */
+  contactName?: string;
+  /** Registered respondent's function, only for roles allowed to contact the establishment. */
+  contactFunction?: string;
   /** Primary respondent or establishment phone, only for roles allowed to contact the establishment. */
   contactPhone?: string;
   latestFollowUp?: CampaignFollowUpSummary | null;

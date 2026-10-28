@@ -972,7 +972,7 @@ export class PilotageService {
    * minus its received, as a list to chase. Same predicates: registered is
    * isRegistered, received is a file in a received status (a resubmission
    * counts once). Files are matched to the company by companyId, not by the
-   * file's own territory. Contact email and phone are returned only to survey
+   * file's own territory. Contact details are returned only to survey
    * roles that may use the follow-up contact columns.
    */
   async getCampaignNonRespondents(
@@ -1009,6 +1009,9 @@ export class PilotageService {
           createdAt: true,
           phone: true,
           phone2: true,
+          respondentFirstName: true,
+          respondentLastName: true,
+          respondentFunction: true,
           respondentPhone: true,
           respondentPhone2: true,
           regionRef: { select: { name: true } },
@@ -1044,6 +1047,13 @@ export class PilotageService {
       if (own.some((file) => isReceivedStatus(file.status))) continue;
       const bucket = classifyBucket(toStockRow(company));
       const contactEmail = canIncludeContactDetails ? company.user?.email?.trim() || undefined : undefined;
+      const contactName = canIncludeContactDetails
+        ? [company.respondentFirstName, company.respondentLastName]
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+            .map((value) => value.trim())
+            .join(' ') || undefined
+        : undefined;
+      const contactFunction = canIncludeContactDetails ? company.respondentFunction?.trim() || undefined : undefined;
       const contactPhone = canIncludeContactDetails
         ? [company.respondentPhone, company.respondentPhone2, company.phone, company.phone2]
             .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
@@ -1060,6 +1070,8 @@ export class PilotageService {
         departmentId: company.departmentId,
         departmentName: company.departmentRef?.name ?? null,
         ...(contactEmail ? { contactEmail } : {}),
+        ...(contactName ? { contactName } : {}),
+        ...(contactFunction ? { contactFunction } : {}),
         ...(contactPhone ? { contactPhone } : {}),
         fileState: nonRespondentFileState(own),
       });

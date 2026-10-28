@@ -160,6 +160,10 @@ export interface NonRespondentRow {
   departmentName: string | null;
   /** Linked company account email; omitted for roles without contact access. */
   contactEmail?: string;
+  /** Registered respondent's name; omitted for roles without contact access. */
+  contactName?: string;
+  /** Registered respondent's function; omitted for roles without contact access. */
+  contactFunction?: string;
   contactPhone?: string;
   latestFollowUp?: CampaignFollowUpSummary | null;
   fileState: NonRespondentFileState;

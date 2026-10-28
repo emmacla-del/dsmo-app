@@ -91,7 +91,9 @@ function sameCampaign(entry: SubmissionSummary, code: string): boolean {
 
 function formatSubmissionDate(d: Date | null): string {
   if (!d) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${hours}:${minutes}`;
 }
 
 function wizardHref(entry: SubmissionSummary): string {
