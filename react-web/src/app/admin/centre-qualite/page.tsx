@@ -28,6 +28,7 @@ import {
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import {
@@ -372,47 +373,6 @@ function CentreQualiteContent() {
         >
           <div className="cam-admin-section-body">
             <div className="cam-admin-filters">
-              <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="registre-status">{t("statusColumn")}</label>
-                <select
-                  id="registre-status"
-                  className="cam-select"
-                  value={filterStatus}
-                  onChange={(e) => setRegisterFilter("status", e.target.value)}
-                >
-                  <option value="ALL">{t("allStatuses")}</option>
-                  <option value="OPEN">{t("statusOpen")}</option>
-                  <option value="RESOLVED">{t("statusResolved")}</option>
-                  <option value="WAIVED">{t("statusWaived")}</option>
-                </select>
-              </div>
-              <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="registre-severity">{t("severityColumn")}</label>
-                <select
-                  id="registre-severity"
-                  className="cam-select"
-                  value={filterSeverity}
-                  onChange={(e) => setRegisterFilter("severity", e.target.value)}
-                >
-                  <option value="ALL">{t("allSeverities")}</option>
-                  <option value="BLOCKING">{t("blockingOnly")}</option>
-                  <option value="WARNING">{t("warningsOnly")}</option>
-                </select>
-              </div>
-              <div className="cam-field">
-                <label className="cam-admin-label" htmlFor="registre-family">{t("familyColumn")}</label>
-                <select
-                  id="registre-family"
-                  className="cam-select"
-                  value={filterFamily}
-                  onChange={(e) => setRegisterFilter("family", e.target.value)}
-                >
-                  <option value="ALL">{t("allFamilies")}</option>
-                  {ANOMALY_RULE_FAMILIES.map((family) => (
-                    <option key={family} value={family}>{ruleFamilyLabel(family, locale)}</option>
-                  ))}
-                </select>
-              </div>
               <div>
                 <button
                   type="button"
@@ -430,11 +390,17 @@ function CentreQualiteContent() {
               <thead>
                 <tr>
                   <th scope="col">{t("declarationColumn")}</th>
-                  <th scope="col">{t("ruleColumn")}</th>
+                  <FilterTableHead label={t("ruleColumn")} filterLabel={t("familyColumn")} active={filterFamily !== "ALL"}>
+                    {(close) => <FilterTableOptions label={t("familyColumn")} value={filterFamily} options={[{ value: "ALL", label: t("allFamilies") }, ...ANOMALY_RULE_FAMILIES.map((value) => ({ value, label: ruleFamilyLabel(value, locale) }))]} onChange={(value) => setRegisterFilter("family", value)} onSelect={close} />}
+                  </FilterTableHead>
                   <th scope="col">{t("descriptionColumn")}</th>
-                  <th scope="col">{t("severityColumn")}</th>
+                  <FilterTableHead label={t("severityColumn")} filterLabel={t("severityColumn")} active={filterSeverity !== "ALL"}>
+                    {(close) => <FilterTableOptions label={t("severityColumn")} value={filterSeverity} options={[{ value: "ALL", label: t("allSeverities") }, { value: "BLOCKING", label: t("blockingOnly") }, { value: "WARNING", label: t("warningsOnly") }]} onChange={(value) => setRegisterFilter("severity", value)} onSelect={close} />}
+                  </FilterTableHead>
                   <th scope="col">{t("detectedColumn")}</th>
-                  <th scope="col">{t("statusColumn")}</th>
+                  <FilterTableHead label={t("statusColumn")} filterLabel={t("statusColumn")} active={filterStatus !== "ALL"}>
+                    {(close) => <FilterTableOptions label={t("statusColumn")} value={filterStatus} options={[{ value: "ALL", label: t("allStatuses") }, { value: "OPEN", label: t("statusOpen") }, { value: "RESOLVED", label: t("statusResolved") }, { value: "WAIVED", label: t("statusWaived") }]} onChange={(value) => setRegisterFilter("status", value)} onSelect={close} />}
+                  </FilterTableHead>
                   <th scope="col" className="text-right">{t("actionColumn")}</th>
                 </tr>
               </thead>

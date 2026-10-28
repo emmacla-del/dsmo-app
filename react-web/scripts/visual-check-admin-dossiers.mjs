@@ -41,6 +41,53 @@ async function readTypography(page, reference = false) {
     }),
   ), { selectors: typographySelectors, reference });
 }
+async function verifyFilterDisclosure(page, { active = false, locale = "fr" } = {}) {
+  const disclosure = page.locator(".cam-admin-filter-disclosure").first();
+  await disclosure.waitFor();
+  const summary = disclosure.locator(":scope > summary");
+  const metrics = await summary.evaluate((element) => ({
+    height: element.getBoundingClientRect().height,
+    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+  }));
+  if (metrics.height < 40 || metrics.fontSize < 14) {
+    throw new Error(`Filter disclosure trigger is too small: ${JSON.stringify(metrics)}.`);
+  }
+  const expectedLabel = locale === "fr" ? "Plus de filtres" : "More filters";
+  if (!(await summary.innerText()).includes(expectedLabel)) {
+    throw new Error(`Filter disclosure label is not translated for ${locale}.`);
+  }
+  const initiallyOpen = await disclosure.evaluate((element) => element.open);
+  if (active && !initiallyOpen) throw new Error("An active advanced filter did not open its disclosure.");
+  if (!active && initiallyOpen) throw new Error("The disclosure should stay closed when no advanced filter is active.");
+  if (!initiallyOpen) {
+    await summary.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.querySelector(".cam-admin-filter-disclosure")?.open === true);
+  }
+  const fieldMetrics = await disclosure.locator(".cam-admin-filter-disclosure-panel label").first().evaluate((label) => {
+    const field = label.parentElement?.querySelector("select, input");
+    if (!field) return null;
+    const style = getComputedStyle(field);
+    return {
+      labelFontSize: Number.parseFloat(getComputedStyle(label).fontSize),
+      fieldFontSize: Number.parseFloat(style.fontSize),
+      fieldHeight: field.getBoundingClientRect().height,
+    };
+  });
+  if (!fieldMetrics || fieldMetrics.labelFontSize < 14 || fieldMetrics.fieldFontSize < 14 || fieldMetrics.fieldHeight < 40) {
+    throw new Error(`Expanded filter fields are not legible: ${JSON.stringify(fieldMetrics)}.`);
+  }
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.querySelector(".cam-admin-filter-disclosure")?.open === false);
+  if (initiallyOpen) {
+    await page.waitForTimeout(150);
+    if (await disclosure.evaluate((element) => element.open)) {
+      throw new Error("Users could not close the disclosure while advanced filters were active.");
+    }
+  }
+  await summary.evaluate((element) => element.blur());
+}
 const campaign = {
   id: "fixture-campaign",
   name: "Collecte ONEFOP",
@@ -122,6 +169,7 @@ try {
     localStorage.setItem("camleap.access_token", "visual-fixture-token");
     localStorage.setItem("camleap.cached_user", JSON.stringify(user));
   }, { user: adminUser });
+  await page.context().addCookies([{ name: "NEXT_LOCALE", value: "fr", url: baseUrl }]);
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/\/api$/, "");
@@ -151,6 +199,7 @@ try {
             department: index === 1 ? "Mfoundi" : null,
             formType: "PROJECT_PROGRAM",
             status: completed ? completedStatuses[index] : queueStatuses[index],
+            companyRegistrationStatus: index % 2 === 0 ? "ACTIVE" : "PENDING_APPROVAL",
             campaignName: "Collecte ONEFOP",
             quarterCode: "T4 2026",
             reviewedBy: completed ? "Fixture reviewer" : null,
@@ -166,6 +215,15 @@ try {
         counts: {},
       };
     }
+    else if (path.endsWith("/auth/company-registrations")) body = {
+      items: [],
+      total: 0,
+      page: Number(url.searchParams.get("page") ?? 1),
+      pageSize: 8,
+      counts: { pending: 0, complements: 0, approved: 0, rejected: 0, overdue: 0 },
+      countsView: url.searchParams.get("view") ?? "queue",
+      overdueDays: 7,
+    };
     else if (path.endsWith("/locations/structure") || path.endsWith("/locations")) body = [];
     else if (path.endsWith("/auth/me/notifications/unread-count")) body = { count: 0 };
     else if (path.endsWith("/auth/me/notifications")) body = [];
@@ -191,16 +249,60 @@ try {
   }
   const unsupportedControls = page.getByLabel(/qualité des données|data quality|éligibilité statistique|statistical eligibility/i);
   if (await unsupportedControls.count()) throw new Error("Unsupported derived-field filters are visible.");
+  const queueColumnCount = await page.locator(".cam-dossier-submissions-table thead th").count();
+  const queueFirstRowCells = await page.locator(".cam-dossier-submissions-table tbody tr").first().locator("td").count();
+  if (queueColumnCount !== 10 || queueFirstRowCells !== queueColumnCount) {
+    throw new Error(`Expected 10 purpose-driven submission columns; found ${queueColumnCount} headers and ${queueFirstRowCells} row cells.`);
+  }
+  await verifyFilterDisclosure(page, { locale: "fr" });
   const appBaseline = resolve(outputDir, "app-1440x900.png");
   const appTypography = await readTypography(page);
   await page.screenshot({ path: appBaseline });
+  await page.locator(".cam-admin-filter-disclosure > summary").click();
+  await page.screenshot({ path: resolve(outputDir, "app-filter-expanded-1440x900.png") });
+  await page.locator(".cam-admin-filter-disclosure > summary").click();
+  await page.locator(".cam-admin-filter-disclosure > summary").evaluate((element) => element.blur());
   await page.setViewportSize({ width: 1150, height: 900 });
+  await page.waitForTimeout(350);
   await page.screenshot({ path: resolve(outputDir, "app-1150.png"), fullPage: true });
   await page.setViewportSize({ width: 800, height: 900 });
+  await page.waitForTimeout(350);
   await page.screenshot({ path: resolve(outputDir, "app-800.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(350);
   await page.screenshot({ path: resolve(outputDir, "app-mobile.png"), fullPage: true });
+  await page.locator(".cam-admin-filter-disclosure > summary").click();
+  const mobileFilterColumns = await page.locator(".cam-admin-filter-disclosure-panel").evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length);
+  if (mobileFilterColumns !== 1) throw new Error(`Expanded filters did not collapse to one mobile column: ${mobileFilterColumns}.`);
+  await page.screenshot({ path: resolve(outputDir, "app-filter-expanded-mobile.png"), fullPage: true });
+  await page.locator(".cam-admin-filter-disclosure > summary").click();
+  await page.locator(".cam-admin-filter-disclosure > summary").evaluate((element) => element.blur());
   await page.setViewportSize({ width: 1440, height: 900 });
+
+  for (const [view, path] of [["queue", "admin/inscriptions?vue=queue"], ["organisations", "admin/inscriptions?vue=organisations"]]) {
+    await page.goto(`${baseUrl}/${path}`, { waitUntil: "networkidle" });
+    if (view === "queue") await verifyFilterDisclosure(page, { locale: "fr" });
+    const filterHeaderCount = await page.locator(view === "queue" ? ".cam-registration-queue-table thead th button" : ".cam-registration-organisations-table thead th button").count();
+    const expectedFilterHeaders = view === "queue" ? 7 : 5;
+    if (filterHeaderCount !== expectedFilterHeaders) throw new Error(`${view} should have ${expectedFilterHeaders} column filters; found ${filterHeaderCount}.`);
+    await page.screenshot({ path: resolve(outputDir, `app-registrations-${view}-1440x900.png`) });
+    if (view === "queue") {
+      await page.locator(".cam-admin-filter-disclosure > summary").click();
+      await page.screenshot({ path: resolve(outputDir, "app-registration-queue-filters-expanded-1440x900.png") });
+      await page.locator(".cam-admin-filter-disclosure > summary").click();
+    }
+  }
+
+  await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseUrl }]);
+  await page.goto(`${baseUrl}/admin/inscriptions?vue=queue`, { waitUntil: "networkidle" });
+  await verifyFilterDisclosure(page, { locale: "en" });
+  await page.context().addCookies([{ name: "NEXT_LOCALE", value: "fr", url: baseUrl }]);
+  await page.goto(`${baseUrl}/admin/dossiers?formType=PROJECT_PROGRAM`, { waitUntil: "networkidle" });
+  if (!(await page.locator(".cam-dossier-submissions-table thead th").filter({ hasText: "Type" }).locator("button").count())) throw new Error("Dossier type filter is not attached to its column header.");
+  await page.goto(`${baseUrl}/admin/inscriptions?vue=queue&department=Centre`, { waitUntil: "networkidle" });
+  if (!(await page.locator(".cam-registration-queue-table thead th").filter({ hasText: "Département" }).locator("button").count())) throw new Error("Registration department filter is not attached to its column header.");
+  await page.goto(`${baseUrl}/admin/inscriptions?vue=organisations&department=Centre`, { waitUntil: "networkidle" });
+  if (!(await page.locator(".cam-registration-organisations-table thead th").filter({ hasText: "Département" }).locator("button").count())) throw new Error("Organisation department filter is not attached to its column header.");
 
   for (const view of ["completed", "coverage"]) {
     await page.goto(`${baseUrl}/admin/dossiers?vue=${view}`, { waitUntil: "networkidle" });

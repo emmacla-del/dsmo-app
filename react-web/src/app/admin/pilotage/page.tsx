@@ -105,7 +105,7 @@ function DashboardMetricLink({
       href={href}
       className="cam-dash-action-metric group rounded-xl focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
-      <Card className="cam-dash-action-metric-card grid h-full grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1 p-3 transition-colors group-hover:bg-accent">
+      <Card className="cam-admin-panel-surface cam-dash-action-metric-card grid h-full grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1 p-3 transition-colors group-hover:bg-accent">
         <span>{label}</span>
         <strong>{value}</strong>
         <small>{caption}</small>

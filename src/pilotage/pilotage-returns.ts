@@ -442,11 +442,25 @@ export interface NonRespondentRow {
   regionName: string | null;
   departmentId: string | null;
   departmentName: string | null;
+  /** Linked company account email, only for roles allowed to contact the establishment. */
+  contactEmail?: string;
+  /** Primary respondent or establishment phone, only for roles allowed to contact the establishment. */
+  contactPhone?: string;
+  latestFollowUp?: CampaignFollowUpSummary | null;
   fileState: NonRespondentFileState;
 }
 
+export interface CampaignFollowUpSummary {
+  channel: string;
+  outcome: string;
+  messageLanguage: string | null;
+  createdAt: string;
+  actorName: string;
+  actorTitle: string | null;
+}
+
 export interface CampaignNonRespondentsResponse {
-  campaign: CampaignReturnsSummary;
+  campaign: CampaignReturnsSummary & { deadline: string | null };
   /**
    * The campaign's latest reminder send. Reminders are recorded per send,
    * not per establishment, so this is campaign-wide.
@@ -455,6 +469,18 @@ export interface CampaignNonRespondentsResponse {
   /** Registered establishments in the caller's territory. */
   registered: number;
   establishments: NonRespondentRow[];
+}
+
+export interface RecordCampaignFollowUpInput {
+  channel: "WHATSAPP" | "PHONE" | "EMAIL";
+  outcome:
+    | "SENT_CONFIRMED"
+    | "NO_ANSWER"
+    | "WRONG_NUMBER"
+    | "CALLBACK_REQUESTED"
+    | "ALREADY_SUBMITTED"
+    | "DO_NOT_CONTACT";
+  messageLanguage?: "fr" | "en";
 }
 
 /**

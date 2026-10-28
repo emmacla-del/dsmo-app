@@ -3597,7 +3597,7 @@ export class QuestionnairesService {
           projectProgramDetail: true,
           vocationalTrainingDetail: true,
           campaign: { select: { name: true } },
-          company: { select: { user: { select: { status: true } } } },
+          company: { select: { establishmentId: true, user: { select: { status: true } } } },
           archivedByUser: { select: { id: true, firstName: true, lastName: true } },
           assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
           anomalies: true,
@@ -3608,6 +3608,9 @@ export class QuestionnairesService {
     const projectedItems = items.map(({ campaign, assignee, company, ...item }: any) => ({
       ...item,
       campaignName: campaign?.name ?? null,
+      // The submission's establishmentId is a database FK. Expose the
+      // company's public identifier separately for admin tables.
+      companyEstablishmentId: company?.establishmentId ?? null,
       companyRegistrationStatus: company?.user?.status ?? null,
       assigneeId: item.assigneeId ?? null,
       assigneeName: assigneeName(assignee),

@@ -370,6 +370,10 @@ export class AuthService {
         role: user.role,
         region: user.region,
         department: user.department,
+        poste: user.poste,
+        serviceCode: user.serviceCode,
+        positionType: user.positionType,
+        positionTitle: user.positionTitle,
         stream: user.stream,
         emailVerified: user.emailVerified,
         mustChangePassword: user.mustChangePassword,
@@ -1903,7 +1907,12 @@ export class AuthService {
     const regionScope = territoryWhere(actor);
     let userFilter: any = { role: 'COMPANY', ...archiveFilter };
     const statusesParam = filters.statuses ?? filters.status;
-    if (filters.view === 'organisations' || (!filters.view && statusesParam === 'ALL')) {
+    if (filters.view === 'organisations') {
+      const organisationStatuses = typeof statusesParam === 'string' && statusesParam !== 'ALL'
+        ? statusesParam.split(',').map((value: string) => value.trim()).filter(Boolean)
+        : ['ACTIVE', 'REJECTED'];
+      userFilter = { role: 'COMPANY', status: { in: organisationStatuses }, ...archiveFilter };
+    } else if (!filters.view && statusesParam === 'ALL') {
       userFilter = { role: 'COMPANY', ...archiveFilter };
     } else if (filters.view === 'queue' || (statusesParam && String(statusesParam).includes('PENDING'))) {
       const statusList = typeof statusesParam === 'string'
@@ -1925,7 +1934,7 @@ export class AuthService {
     };
     if (filters.entityType) where.entityType = filters.entityType;
     if (filters.department) where.department = { equals: filters.department, mode: 'insensitive' };
-    if (filters.region && !(actor as any)?.region) where.region = { equals: filters.region, mode: 'insensitive' };
+    if (filters.region) where.region = { equals: filters.region, mode: 'insensitive' };
     if (filters.from || filters.to) {
       where.createdAt = {};
       if (filters.from) where.createdAt.gte = new Date(filters.from);
@@ -1937,7 +1946,8 @@ export class AuthService {
       where.OR = [
         { name: contains },
         { taxNumber: contains },
-        { establishmentId: contains },
+        { cnpsNumber: contains },
+        { user: { is: { email: contains } } },
       ];
     }
     const companies = await this.prisma.company.findMany({
@@ -2283,6 +2293,7 @@ export class AuthService {
     companies: Array<{
       id: string;
       name: string;
+      establishmentId: string | null;
       taxNumber: string;
       cnpsNumber: string | null;
       subdivisionId: string | null;
@@ -2362,6 +2373,7 @@ export class AuthService {
       return {
         id: row.user.id,
         companyId: row.id,
+        establishmentId: row.establishmentId ?? null,
         organisation: row.name,
         email: row.user.email,
         entityType: row.entityType,

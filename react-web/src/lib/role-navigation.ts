@@ -113,7 +113,7 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
   ],
   ADMIN_ONEFOP_REGISTRATIONS: [
     { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
-    { slug: "inscriptions", labelKey: "homeNav.item.establishmentRegister", route: "/admin/inscriptions" },
+    { slug: "inscriptions", labelKey: "homeNav.item.registrationQueue", route: "/admin/inscriptions" },
     { slug: "annuaire", labelKey: "homeNav.item.establishmentRegister", route: "/admin/etablissements" },
   ],
   ADMIN_ONEFOP_SUBMISSIONS: [

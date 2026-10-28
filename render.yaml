@@ -24,6 +24,12 @@ services:
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://dsmo-app-2.onrender.com/api
+      - key: NEXT_PUBLIC_CAMLEAP_OFFICIAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_ONEFOP_SUPPORT_PHONE
+        sync: false
+      - key: NEXT_PUBLIC_ONEFOP_SUPPORT_EMAIL
+        sync: false
     buildFilter:
       paths:
         - react-web/**

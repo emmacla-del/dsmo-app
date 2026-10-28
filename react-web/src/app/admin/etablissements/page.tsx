@@ -16,8 +16,9 @@ import {
 } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { getDataManagementStats } from "@/lib/api-client";
-import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
+import { APPROVAL_ROLES, DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -83,8 +84,8 @@ const ENTITY_TYPE_VALUES = [
 // User.isActive. "Incomplet" was offered but no record ever carries it, so
 // that filter could only ever return nothing.
 //
-// ACTIVE and PENDING_APPROVAL are literal UserStatus values and go to the
-// server as-is. SUSPENDED is not a UserStatus at all — suspension is
+// ACTIVE, PENDING_APPROVAL and REJECTED are literal UserStatus values and go
+// to the server as-is. SUSPENDED is not a UserStatus at all — suspension is
 // User.isActive === false — so GET /companies has no way to express it and
 // it stays a page-local narrowing. See SERVER_FILTERABLE_STATUSES.
 // `labelKey` is under adminEtablissementsPage.
@@ -92,10 +93,11 @@ const ACCOUNT_STATUSES = [
   { value: "ALL", labelKey: "allMasculine" },
   { value: "ACTIVE", labelKey: "status.ACTIF" },
   { value: "PENDING_APPROVAL", labelKey: "status.EN_ATTENTE" },
+  { value: "REJECTED", labelKey: "status.REJETE" },
   { value: "SUSPENDED", labelKey: "status.SUSPENDU" },
 ];
 
-const SERVER_FILTERABLE_STATUSES = ["ACTIVE", "PENDING_APPROVAL"];
+const SERVER_FILTERABLE_STATUSES = ["ACTIVE", "PENDING_APPROVAL", "REJECTED"];
 
 /**
  * One establishment row.
@@ -114,13 +116,16 @@ interface EtabItem {
   /** French label, for the CSV export (whose columns do not follow the locale). */
   typeLabel: string | null;
   identifier: string | null;
-  regionCity: string | null;
+  registrationNumber: string | null;
+  region: string | null;
+  department: string | null;
+  subdivision: string | null;
   responsable: string | null;
   dateInscription: string | null;
   year: number | null;
   semester: Semester | null;
   quarter: Quarter | null;
-  status: "ACTIF" | "EN_ATTENTE" | "SUSPENDU" | "INCONNU";
+  status: "ACTIF" | "EN_ATTENTE" | "REJETE" | "SUSPENDU" | "INCONNU";
 }
 
 // French status values for the CSV export. On screen the status renders
@@ -128,6 +133,7 @@ interface EtabItem {
 const STATUS_LABELS: Record<EtabItem["status"], string> = {
   ACTIF: "Actif",
   EN_ATTENTE: "En attente",
+  REJETE: "Rejeté",
   SUSPENDU: "Suspendu",
   INCONNU: "Aucun compte lié",
 };
@@ -137,6 +143,7 @@ const STATUS_LABELS: Record<EtabItem["status"], string> = {
 const STATUS_TONE: Record<EtabItem["status"], "success" | "warning" | "danger" | "neutral"> = {
   ACTIF: "success",
   EN_ATTENTE: "warning",
+  REJETE: "danger",
   SUSPENDU: "danger",
   INCONNU: "neutral",
 };
@@ -252,7 +259,10 @@ export default function EtablissementsPage() {
     type: c.entityType?.toUpperCase() ?? null,
     typeLabel: c.entityType ? entityTypeLabel(c.entityType) : null,
     identifier: c.establishmentId ?? null,
-    regionCity: [c.region, c.department ?? c.subdivision].filter(Boolean).join(" / ") || null,
+    registrationNumber: c.registrationNumber ?? null,
+    region: c.region ?? null,
+    department: c.department ?? null,
+    subdivision: c.subdivision ?? null,
     responsable:
       [c.respondentFirstName, c.respondentLastName].filter(Boolean).join(" ").trim() ||
       c.user?.email ||
@@ -263,7 +273,9 @@ export default function EtablissementsPage() {
     // linked account yields "INCONNU" rather than being called suspended.
     status: !c.user
       ? "INCONNU"
-      : c.user.status === "PENDING_APPROVAL"
+      : c.user.status === "REJECTED"
+        ? "REJETE"
+        : c.user.status === "PENDING_APPROVAL"
         ? "EN_ATTENTE"
         : c.user.isActive
           ? "ACTIF"
@@ -341,7 +353,7 @@ export default function EtablissementsPage() {
           cell(r.name),
           cell(r.identifier),
           cell(r.typeLabel),
-          cell(r.regionCity),
+          cell([r.region, r.department, r.subdivision].filter(Boolean).join(" / ")),
           cell(r.responsable),
           cell(r.dateInscription ? stamp(r.dateInscription, true) : null),
           cell(r.year == null ? null : String(r.year)),
@@ -381,11 +393,7 @@ export default function EtablissementsPage() {
       <AdminPageHeader
         title={tRoot("adminNav.hubs.inscriptions")}
         subtitle={t("subtitle")}
-        tabs={[
-          { label: tRoot("adminInscriptionsPage.viewQueue"), href: "/admin/inscriptions" },
-          { label: tRoot("adminInscriptionsPage.viewCoverage"), href: "/admin/inscriptions?vue=coverage" },
-          { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements", isActive: true },
-        ]}
+        hideTabs
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {!readOnly && (
@@ -410,6 +418,7 @@ export default function EtablissementsPage() {
           </div>
         }
       />
+      <RegistrationsHubTabs activeTab="register" canReviewRegistrations={!!role && APPROVAL_ROLES.includes(role)} />
 
       <StatStrip
         label={tStats("keyFigures")}
@@ -422,6 +431,7 @@ export default function EtablissementsPage() {
 
       <AdminTablePanel
         title={t("registerResource")}
+        description={t("scopeNote")}
         headingId="establishments-register-title"
         meta={tableState === "ready" ? count(filteredRows.length, locale) : NOT_PROVIDED}
       >
@@ -431,7 +441,7 @@ export default function EtablissementsPage() {
                 <FilterTableHead
                   label={t("establishmentColumn")}
                   filterLabel={t("filterColumn", { column: t("establishmentColumn") })}
-                  active={!!searchInput.trim() || selectedType !== "ALL"}
+                      active={!!searchInput.trim()}
                   contentClassName="w-72 p-3"
                 >
                   {(close) => (
@@ -446,25 +456,16 @@ export default function EtablissementsPage() {
                           onKeyDown={(event) => { if (event.key === "Enter") close(); }}
                         />
                       </div>
-                      <div className="border-t pt-2">
-                        <FilterTableOptions
-                          label={t("typeFilterLabel")}
-                          value={selectedType}
-                          onChange={setSelectedType}
-                          onSelect={close}
-                          options={[
-                            { value: "ALL", label: t("allMasculine") },
-                            ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: typeDisplay(value) })),
-                          ]}
-                        />
-                      </div>
                     </div>
                   )}
                 </FilterTableHead>
                 <TableHead scope="col">{t("idColumn")}</TableHead>
+                <FilterTableHead label={tRoot("companiesDirectory.typeColumn")} filterLabel={t("filterColumn", { column: tRoot("companiesDirectory.typeColumn") })} active={selectedType !== "ALL"}>
+                  {(close) => <FilterTableOptions label={t("typeFilterLabel")} value={selectedType} onChange={setSelectedType} onSelect={close} options={[{ value: "ALL", label: t("allMasculine") }, ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: typeDisplay(value) }))]} />}
+                </FilterTableHead>
                 <FilterTableHead
-                  label={t("regionCityColumn")}
-                  filterLabel={t("filterColumn", { column: t("regionCityColumn") })}
+                  label={tRoot("companiesDirectory.regionColumn")}
+                  filterLabel={t("filterColumn", { column: tRoot("companiesDirectory.regionColumn") })}
                   active={selectedRegion !== "Toutes"}
                 >
                   {(close) => (
@@ -480,6 +481,8 @@ export default function EtablissementsPage() {
                     />
                   )}
                 </FilterTableHead>
+                <TableHead scope="col">{tRoot("companiesDirectory.departmentColumn")}</TableHead>
+                <TableHead scope="col">{tRoot("companiesDirectory.subdivisionLabel")}</TableHead>
                 <TableHead scope="col">{t("contactColumn")}</TableHead>
                 <FilterTableHead
                   label={t("registrationDateColumn")}
@@ -592,7 +595,7 @@ export default function EtablissementsPage() {
             </TableHeader>
             <TableBody>
               <DataStateRow
-                colSpan={10}
+                colSpan={13}
                 state={tableState}
                 resource={t("registerResource")}
                 error={companiesQuery.error}
@@ -601,22 +604,32 @@ export default function EtablissementsPage() {
                 hint={tableState === "empty" ? t("noEstablishmentHint") : undefined}
               />
               {filteredRows.map((item) => {
-                const detailHref = `/admin/etablissement-detail?id=${encodeURIComponent(item.id)}`;
+                const detailIdentifier = item.identifier || item.registrationNumber;
+                const detailHref = detailIdentifier ? `/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}` : null;
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="max-w-[260px]">
-                      <Button asChild variant="link" size="sm" className="block h-auto px-0 py-0 text-left">
-                        <Link href={detailHref}>{item.name ?? NOT_PROVIDED}</Link>
-                      </Button>
-                      {/* Entity type badge only when the record carries one. */}
-                      {item.type && item.typeLabel && (
-                        <Badge variant="neutral">{typeDisplay(item.type)}</Badge>
-                      )}
+                    <TableCell className="w-[260px] max-w-[260px]">
+                      <div
+                        className="block max-w-[260px] truncate font-medium text-foreground"
+                        title={item.name ?? NOT_PROVIDED}
+                      >
+                        {item.name ?? NOT_PROVIDED}
+                      </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <span className="cam-admin-code font-medium text-foreground">{item.identifier ?? NOT_PROVIDED}</span>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{item.regionCity ?? NOT_PROVIDED}</TableCell>
+                    <TableCell className="max-w-[240px]">
+                      <div
+                        className="block max-w-[240px] truncate"
+                        title={item.type ? typeDisplay(item.type) : NOT_PROVIDED}
+                      >
+                        {item.type ? typeDisplay(item.type) : NOT_PROVIDED}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{item.region ?? NOT_PROVIDED}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.department ?? NOT_PROVIDED}</TableCell>
+                    <TableCell className="whitespace-nowrap">{item.subdivision ?? NOT_PROVIDED}</TableCell>
                     <TableCell className="whitespace-nowrap">{item.responsable ?? NOT_PROVIDED}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {stamp(item.dateInscription, true, locale)}
@@ -632,10 +645,10 @@ export default function EtablissementsPage() {
                         handling. */}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-3 whitespace-nowrap">
-                        <Button asChild variant="link" size="sm" className="h-auto px-0">
+                        {detailHref ? <Button asChild variant="link" size="sm" className="h-auto px-0">
                           <Link href={detailHref}>{t("viewDetails")}</Link>
-                        </Button>
-                        {!readOnly && (
+                        </Button> : <span aria-disabled="true" className="text-sm text-muted-foreground">{t("viewDetails")}</span>}
+                        {!readOnly && detailHref && (
                           <Button asChild variant="link" size="sm" className="h-auto px-0">
                             <Link href={`${detailHref}&manage=true`}>{t("manageUsers")}</Link>
                           </Button>

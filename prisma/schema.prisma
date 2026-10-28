@@ -261,6 +261,7 @@ model User {
   campaignQuotasCreated            CampaignQuota[]            @relation("CampaignQuotaCreatedBy")
   campaignQuotasUpdated            CampaignQuota[]            @relation("CampaignQuotaUpdatedBy")
   staffInvitationLinks             StaffInvitationLink[]      @relation("StaffInvitationLinkCreatedBy")
+  campaignFollowUpAttempts         CampaignFollowUpAttempt[]  @relation("CampaignFollowUpActor")
 
   @@index([role])
   @@index([serviceCode])
@@ -352,6 +353,7 @@ model Company {
   attestationUrl             String?
   attestationGeneratedAt     DateTime?               @db.Timestamp(6)
   campaignSubmissions        CampaignSubmission[]
+  campaignFollowUpAttempts   CampaignFollowUpAttempt[]
   departmentRef              Department?             @relation(fields: [departmentId], references: [id])
   regionRef                  Region?                 @relation(fields: [regionId], references: [id])
   sector                     Sector?                 @relation(fields: [sectorId], references: [id])
@@ -683,6 +685,7 @@ model DataCampaign {
   // creation time. Not yet exposed on the wire.
   publishedAt       DateTime?
   reminders         CampaignReminder[]
+  followUpAttempts  CampaignFollowUpAttempt[]
   submissions       CampaignSubmission[]
   freezes           CampaignFreeze[]
   creator           User?                @relation("CampaignCreatedBy", fields: [createdBy], references: [id])
@@ -729,6 +732,28 @@ model CampaignReminder {
 
   @@index([campaignId])
   @@map("campaign_reminders")
+}
+
+model CampaignFollowUpAttempt {
+  id              String       @id @default(uuid())
+  campaignId      String
+  companyId       String
+  actorId         String?
+  actorName       String
+  actorTitle      String?
+  actorRegion     String?
+  actorDepartment String?
+  channel         String
+  outcome         String
+  messageLanguage String?
+  createdAt       DateTime     @default(now())
+  campaign        DataCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  company         Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actor           User?        @relation("CampaignFollowUpActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId, companyId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("campaign_follow_up_attempts")
 }
 
 model Report {

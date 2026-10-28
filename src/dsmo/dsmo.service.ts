@@ -364,10 +364,18 @@ export class DsmoService {
       params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
 
     const baseWhere: any = territoryWhere(territory);
-    const where: any = { ...baseWhere };
+    // The establishment register and its stat strip both represent
+    // non-archived entities. Keep the account relation predicate here so
+    // list totals and page rows agree with getCompanyStats().
+    const accountWhere: Record<string, unknown> = { archivedAt: null };
+    const where: any = {
+      ...baseWhere,
+      user: { is: accountWhere },
+    };
+
 
     if (params.status && params.status !== 'ALL') {
-      where.user = { status: params.status as any };
+      accountWhere.status = params.status as any;
     }
     if (params.region && params.region !== 'Toutes') {
       where.region = { equals: params.region.trim(), mode: 'insensitive' };
@@ -402,6 +410,7 @@ export class DsmoService {
             { name: { contains: term, mode: 'insensitive' } },
             { taxNumber: { contains: term, mode: 'insensitive' } },
             { establishmentId: { contains: term, mode: 'insensitive' } },
+            { registrationNumber: { contains: term, mode: 'insensitive' } },
             { region: { contains: term, mode: 'insensitive' } },
           ],
         },

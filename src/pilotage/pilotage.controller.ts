@@ -5,6 +5,7 @@ import {
   Get,
   GoneException,
   Param,
+  Post,
   Put,
   Query,
   Req,
@@ -23,6 +24,15 @@ export const PILOTAGE_WRITE_ROLES = [
   UserRole.ADMIN_ONEFOP,
   UserRole.SUPER_ADMIN,
   UserRole.ADMIN_ONEFOP_SUBMISSIONS,
+] as const;
+
+/** Survey staff who may see contacts and record manual follow-up outcomes. */
+export const PILOTAGE_FOLLOW_UP_ROLES = [
+  UserRole.ADMIN_ONEFOP,
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
+  UserRole.REGIONAL_ADMIN,
+  UserRole.DIVISIONAL_ADMIN,
 ] as const;
 
 export const PILOTAGE_READ_ROLES = [
@@ -170,6 +180,23 @@ export class PilotageController {
   @Roles(...PILOTAGE_READ_ROLES)
   getCampaignNonRespondents(@Param('id') id: string, @Req() req: any) {
     return this.pilotage.getCampaignNonRespondents(territoryFromUser(req.user), id);
+  }
+
+  @Post('campaigns/:id/non-respondents/:companyId/follow-ups')
+  @Roles(...PILOTAGE_FOLLOW_UP_ROLES)
+  recordCampaignFollowUp(
+    @Param('id') id: string,
+    @Param('companyId') companyId: string,
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    return this.pilotage.recordCampaignFollowUp(
+      req.user.id,
+      territoryFromUser(req.user),
+      id,
+      companyId,
+      body,
+    );
   }
 
   @Put('campaigns/:id/quotas')

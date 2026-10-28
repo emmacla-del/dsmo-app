@@ -9,6 +9,7 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -89,33 +90,15 @@ export default function AdminSectorsPage() {
         title={t("adminNav.routes.sectors")}
         headingId="sectors-table-title"
         meta={sectorsQuery.isSuccess ? t("adminSectorsPage.sectorCount", { count: filteredSectors.length }) : undefined}
-        toolbar={
-          <div className="cam-admin-filters">
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="sector-category-filter">
-                {t("adminSectorsPage.categoryFilterLabel")}
-              </label>
-              <select
-                id="sector-category-filter"
-                className="cam-select"
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
-                <option value="">{t("adminSectorsPage.allCategoriesOption")}</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>{categoryLabel(c)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        }
       >
         <Table className="cam-admin-data-table">
           <TableHeader>
             <TableRow>
               <TableHead scope="col">{t("adminSectorsPage.columnName")}</TableHead>
               <TableHead scope="col">{t("adminSectorsPage.columnNameEn")}</TableHead>
-              <TableHead scope="col">{t("adminSectorsPage.columnCategory")}</TableHead>
+              <FilterTableHead label={t("adminSectorsPage.columnCategory")} filterLabel={t("adminSectorsPage.categoryFilterLabel")} active={!!categoryFilter}>
+                {(close) => <FilterTableOptions label={t("adminSectorsPage.categoryFilterLabel")} value={categoryFilter} options={[{ value: "", label: t("adminSectorsPage.allCategoriesOption") }, ...categories.map((value) => ({ value, label: categoryLabel(value) }))]} onChange={setCategoryFilter} onSelect={close} />}
+              </FilterTableHead>
               <TableHead scope="col">{t("adminSectorsPage.columnCode")}</TableHead>
             </TableRow>
           </TableHeader>

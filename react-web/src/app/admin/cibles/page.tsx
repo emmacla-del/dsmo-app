@@ -12,10 +12,9 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
-import { CampaignNonRespondentsTable } from "@/components/admin/CampaignNonRespondentsTable";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
-import { NATIONAL_READ_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
+import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import { formatCampaignDisplayName, isRegistrationCampaign, listCampaigns, type Campaign } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -33,7 +32,6 @@ import {
   canWritePilotageTargets,
   formatApiError,
   getCampaignQuotas,
-  getCampaignNonRespondents,
   getCampaignReturns,
   coverageHref,
   putCampaignQuotas,
@@ -46,7 +44,6 @@ type Vue = "quotas" | "retours" | "relances";
 const VUES: { id: Vue; labelKey: string }[] = [
   { id: "quotas", labelKey: "viewQuotas" },
   { id: "retours", labelKey: "viewReturns" },
-  { id: "relances", labelKey: "viewNonRespondents" },
 ];
 
 export default function CiblesPage() {
@@ -88,14 +85,26 @@ function CiblesContent() {
     router.replace(coverageHref(searchParams.get("annee")));
   }, [rawVue, searchParams, router]);
 
+  // Keep saved campaign follow-up links working while the workflow lives with
+  // survey submissions. Convert Campaign targets' `campagne` parameter to
+  // the dossiers hub's shared `campaignId` parameter.
+  useEffect(() => {
+    if (rawVue !== "relances") return;
+    const params = new URLSearchParams({ vue: "followup" });
+    if (campagneParam) params.set("campaignId", campagneParam);
+    router.replace(`/admin/dossiers?${params.toString()}`);
+  }, [campagneParam, rawVue, router]);
+
   // A retired or unknown vue (e.g. the former ?vue=inscriptions tab) normalizes
   // to the default tab, so the deep link lands on Quotas rather than an empty panel.
   useEffect(() => {
-    if (rawVue == null || rawVue === vue || rawVue === "couverture") return;
+    if (rawVue == null || rawVue === vue || rawVue === "couverture" || rawVue === "relances") return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("vue", vue);
     router.replace(`${pathname}?${params.toString()}`);
   }, [rawVue, vue, searchParams, pathname, router]);
+
+  if (rawVue === "relances") return null;
 
   return (
     <div className="cam-admin-page">
@@ -135,12 +144,11 @@ function CiblesContent() {
           showCentral={isNational(user?.role)}
         />
       )}
-      {(vue === "retours" || vue === "relances") && (
+      {vue === "retours" && (
         <ReturnsPanel
           canList={canList}
           campagneParam={campagneParam}
           onCampagneChange={(id) => setParams({ campagne: id || null })}
-          content={vue === "relances" ? "nonRespondents" : "returns"}
         />
       )}
     </div>
@@ -485,20 +493,15 @@ function QuotasPanel({
   );
 }
 
-/**
- * The collection-campaign picker shared by Suivi des retours and À relancer:
- * both read a collection campaign, so they share its fallback rules.
- */
+/** Campaign picker and canonical campaign returns table. */
 function ReturnsPanel({
   canList,
   campagneParam,
   onCampagneChange,
-  content,
 }: {
   canList: boolean;
   campagneParam: string;
   onCampagneChange: (id: string) => void;
-  content: "returns" | "nonRespondents";
 }) {
   const t = useTranslations("adminCiblesPage");
   const tRoot = useTranslations();
@@ -578,8 +581,7 @@ function ReturnsPanel({
           </select>
         </label>
       )}
-      {campaignId && content === "returns" && <ReturnsContent campaignId={campaignId} />}
-      {campaignId && content === "nonRespondents" && <NonRespondentsContent campaignId={campaignId} />}
+      {campaignId && <ReturnsContent campaignId={campaignId} />}
     </>
   );
 }
@@ -635,48 +637,6 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
             })
           }
         />
-      </AdminTablePanel>
-    </>
-  );
-}
-
-function NonRespondentsContent({ campaignId }: { campaignId: string }) {
-  const t = useTranslations("adminCiblesPage");
-  const tRoot = useTranslations();
-  const locale = asUiLocale(useLocale());
-  // The establishment page reads nationally only (NATIONAL_READ_ROLES), so a
-  // territorial reader gets the name without a link that would show nothing.
-  const canOpenDetail = hasRole(useAuthStore((s) => s.user?.role), NATIONAL_READ_ROLES);
-  const query = useQuery({
-    queryKey: ["admin", "pilotage", "non-respondents", campaignId],
-    queryFn: () => getCampaignNonRespondents(campaignId),
-    enabled: !!campaignId,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  });
-
-  if (query.isLoading) {
-    return <DataState state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingNonRespondents")} />;
-  }
-  if (query.isError) {
-    return (
-      <DataState
-        state="error"
-        resource={tRoot("adminNav.routes.cibles")}
-        title={formatApiError(query.error, locale)}
-        onRetry={() => query.refetch()}
-      />
-    );
-  }
-  if (!query.data) return null;
-
-  return (
-    <>
-      <p className="cam-admin-lede">
-        {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(tRoot, query.data.campaign.status)}
-      </p>
-      <AdminTablePanel title={t("viewNonRespondents")} headingId="campaign-follow-up-table-heading">
-        <CampaignNonRespondentsTable data={query.data} canOpenDetail={canOpenDetail} />
       </AdminTablePanel>
     </>
   );

@@ -41,14 +41,14 @@ export function CampaignReturnsTable({
   const locale = asUiLocale(useLocale());
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase(locale);
   const filtered = Boolean(regionFilter || normalizedSearch);
-  const regions = data.regions.flatMap((region) => {
+  const regions = data.regions.flatMap((region): Array<typeof region & { departmentOnly: boolean }> => {
     if (regionFilter && region.regionId !== regionFilter) return [];
-    if (!normalizedSearch) return [region];
+    if (!normalizedSearch) return [{ ...region, departmentOnly: false }];
     const regionMatches = region.name.toLocaleLowerCase(locale).includes(normalizedSearch);
     const departments = regionMatches
       ? region.departments
       : region.departments.filter((department) => department.name.toLocaleLowerCase(locale).includes(normalizedSearch));
-    return regionMatches || departments.length > 0 ? [{ ...region, departments }] : [];
+    return regionMatches || departments.length > 0 ? [{ ...region, departments, departmentOnly: !regionMatches && departments.length > 0 }] : [];
   });
   const central = filtered ? null : data.central;
   const unassigned = filtered ? null : data.unassigned;
@@ -103,7 +103,7 @@ export function CampaignReturnsTable({
                     </button>
                     {scopeLink({ region: region.name }, region.name)}
                   </th>
-                  <MetricCells metrics={region} />
+                  {region.departmentOnly ? <td colSpan={8} className="text-muted-foreground">{tDossiers("departmentMatchesOnly")}</td> : <MetricCells metrics={region} />}
                 </tr>
                 {open &&
                   region.departments.map((department) => (

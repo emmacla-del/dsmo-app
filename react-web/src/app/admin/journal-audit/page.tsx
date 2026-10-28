@@ -23,6 +23,7 @@ import { listUsers } from "@/lib/user-directory";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AUDIT_ROLES } from "@/lib/roles";
@@ -74,7 +75,8 @@ interface DisplayAuditItem {
   actorRole: string | null;
   action: string;
   actionTone: "neutral" | "success" | "warn" | "danger";
-  object: string;
+  resourceType: string;
+  resourceId: string;
   details: string;
   transition: string | null;
   transitionTone?: "neutral" | "success" | "warn" | "danger";
@@ -231,7 +233,8 @@ function JournalAuditContent() {
         actorRole: e.user ? directoryRoleLabel(e.user.role, locale) : null,
         action: auditActionLabel(e.action, locale),
         actionTone: tone,
-        object: e.resourceId ?? auditResourceLabel(e.resourceType, locale),
+        resourceType: auditResourceLabel(e.resourceType, locale),
+        resourceId: e.resourceId ?? NOT_PROVIDED,
         details: auditDetailsSummary(e, locale),
         transition,
         transitionTone: transition ? tone : undefined,
@@ -295,81 +298,6 @@ function JournalAuditContent() {
             </Select>
           </div>
 
-          {/* Acteur — real accounts from GET /auth/users, filtered by id */}
-          <div className="grid gap-2">
-            <Label htmlFor="filter-actor">{t("actorLabel")}</Label>
-            <Select
-              value={toAll(actor)}
-              onValueChange={(v) => { setActor(fromAll(v)); setCurrentPage(1); }}
-              disabled={actorsQuery.isLoading}
-            >
-              <SelectTrigger id="filter-actor" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {actorOptions.map((a) => (
-                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Type d'action — only actions the backend actually writes */}
-          <div className="grid gap-2">
-            <Label htmlFor="filter-action">{t("actionTypeLabel")}</Label>
-            <Select
-              value={toAll(action)}
-              onValueChange={(v) => { setAction(fromAll(v)); setCurrentPage(1); }}
-            >
-              <SelectTrigger id="filter-action" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t("allActions")}</SelectItem>
-                {ACTION_VALUES.map((value) => (
-                  <SelectItem key={value} value={value}>{auditActionLabel(value, locale)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="filter-resource">{t("resourceLabel")}</Label>
-            <Select
-              value={toAll(resourceType)}
-              onValueChange={(v) => { setResourceType(fromAll(v)); setCurrentPage(1); }}
-            >
-              <SelectTrigger id="filter-resource" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{t("allResources")}</SelectItem>
-                {RESOURCE_TYPE_VALUES.map((value) => (
-                  <SelectItem key={value} value={value}>{auditResourceLabel(value, locale)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Identifiant de la ressource — exact match, server-side */}
-          <div className="grid gap-2">
-            <Label htmlFor="filter-resource-id">{t("idLabel")}</Label>
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                id="filter-resource-id"
-                type="text"
-                className="pl-9"
-                placeholder={t("idPlaceholder")}
-                value={resourceIdInput}
-                onChange={(e) => setResourceIdInput(e.target.value)}
-              />
-            </div>
-          </div>
-
           <div>
             <Button type="button" variant="outline" onClick={handleResetFilters}>
               {t("reset")}
@@ -383,10 +311,26 @@ function JournalAuditContent() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead scope="col">{t("timestampColumn")}</TableHead>
-                  <TableHead scope="col">{t("actorColumn")}</TableHead>
-                  <TableHead scope="col">{t("actionColumn")}</TableHead>
-                  <TableHead scope="col">{t("objectColumn")}</TableHead>
+                  <FilterTableHead label={t("timestampColumn")} filterLabel={t("periodLabel")} active={period !== "7d"}>
+                    {(close) => <FilterTableOptions label={t("periodLabel")} value={period} options={PERIOD_VALUES.map((value) => ({ value, label: t(`period.${value}`) }))} onChange={(value) => { setPeriod(value); setCurrentPage(1); }} onSelect={close} />}
+                  </FilterTableHead>
+                  <FilterTableHead label={t("actorColumn")} filterLabel={t("actorLabel")} active={!!actor}>
+                    {(close) => <FilterTableOptions label={t("actorLabel")} value={actor || ALL} options={actorOptions} onChange={(value) => { setActor(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
+                  </FilterTableHead>
+                  <FilterTableHead label={t("actionColumn")} filterLabel={t("actionTypeLabel")} active={!!action}>
+                    {(close) => <FilterTableOptions label={t("actionTypeLabel")} value={action || ALL} options={[{ value: ALL, label: t("allActions") }, ...ACTION_VALUES.map((value) => ({ value, label: auditActionLabel(value, locale) }))]} onChange={(value) => { setAction(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
+                  </FilterTableHead>
+                  <FilterTableHead label={t("resourceLabel")} filterLabel={t("resourceLabel")} active={!!resourceType}>
+                    {(close) => <FilterTableOptions label={t("resourceLabel")} value={resourceType || ALL} options={[{ value: ALL, label: t("allResources") }, ...RESOURCE_TYPE_VALUES.map((value) => ({ value, label: auditResourceLabel(value, locale) }))]} onChange={(value) => { setResourceType(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
+                  </FilterTableHead>
+                  <FilterTableHead label={t("idLabel")} filterLabel={t("idLabel")} active={!!resourceId} contentClassName="w-72 p-3">
+                    {() => (
+                      <div className="grid gap-2">
+                        <Label htmlFor="filter-resource-id">{t("idPlaceholder")}</Label>
+                        <Input id="filter-resource-id" value={resourceIdInput} onChange={(event) => setResourceIdInput(event.target.value)} placeholder={t("idPlaceholder")} />
+                      </div>
+                    )}
+                  </FilterTableHead>
                   <TableHead scope="col">{t("detailsColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("transitionColumn")}</TableHead>
                 </TableRow>
@@ -395,7 +339,7 @@ function JournalAuditContent() {
                 {/* Loading, error, authorization refusal and "no records" stay
                     distinct. There is no branch that renders sample rows. */}
                 <DataStateRow
-                  colSpan={6}
+                  colSpan={7}
                   state={tableState}
                   resource={t("resource")}
                   error={auditQuery.error}
@@ -421,9 +365,8 @@ function JournalAuditContent() {
                     <TableCell className="whitespace-nowrap">
                       <Badge variant={TONE_VARIANT[row.actionTone]}>{row.action}</Badge>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap font-medium text-foreground">
-                      {row.object}
-                    </TableCell>
+                    <TableCell className="whitespace-nowrap font-medium text-foreground">{row.resourceType}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs">{row.resourceId}</TableCell>
                     <TableCell title={row.details} className="max-w-md truncate">
                       {row.details}
                     </TableCell>

@@ -869,8 +869,16 @@ export function restoreDossier(id: string, reason?: string) {
   });
 }
 
+export interface AdminQuestionnaireListItem {
+  id: string;
+  submissionId?: string | null;
+  /** Public Company identifier; distinct from the submission's Establishment FK UUID. */
+  companyEstablishmentId?: string | null;
+  [key: string]: any;
+}
+
 export interface AdminQuestionnairesPage {
-  items: any[];
+  items: AdminQuestionnaireListItem[];
   /** Count of the whole filtered query (territory + status + type + period + region + search, drafts excluded), not of this page. */
   total: number;
   countsView?: "queue" | "completed" | "all";

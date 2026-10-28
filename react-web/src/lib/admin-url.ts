@@ -54,7 +54,7 @@ export function parseRegistrationVue(raw: string | null): RegistrationVue {
 }
 
 /** Dossier views. Legacy values remain parser aliases for saved links. */
-export const DOSSIER_VUES = ["submissions", "completed", "coverage"] as const;
+export const DOSSIER_VUES = ["submissions", "completed", "followup", "coverage"] as const;
 export type DossierVue = (typeof DOSSIER_VUES)[number];
 
 export function parseDossierVue(raw: string | null): DossierVue {

@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { Plus, X } from "lucide-react";
+import { MoreHorizontal, Plus, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { useAuthStore } from "@/lib/auth-store";
 import { API_BASE_URL, getToken, localeHeader } from "@/lib/api-client";
@@ -48,7 +48,11 @@ import {
 } from "@/lib/inscriptions";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
+import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
+import { AdminFilterDisclosure } from "@/components/admin/AdminFilterDisclosure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
@@ -71,6 +75,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const PAGE_SIZE = 8;
 
@@ -131,6 +141,31 @@ const REGISTRATION_METHOD_VALUES = [
   "ADMIN_CREATED",
   "ASSISTED",
 ];
+
+function buildOrganisationsRequestParams(filters: {
+  search: string;
+  statusFilter: string;
+  typeFilter: string;
+  region: string;
+  department: string;
+  from?: string;
+  to?: string;
+  includeArchived: boolean;
+}): Parameters<typeof listCompanyRegistrations>[0] {
+  return {
+    search: filters.search || undefined,
+    statuses: filters.statusFilter === "ACTIVE" || filters.statusFilter === "REJECTED"
+      ? filters.statusFilter
+      : "ACTIVE,REJECTED",
+    view: "organisations",
+    includeArchived: filters.includeArchived,
+    entityType: filters.typeFilter || undefined,
+    region: filters.region || undefined,
+    department: filters.department || undefined,
+    from: filters.from,
+    to: filters.to,
+  };
+}
 
 function daysAgo(days: number): string {
   const date = new Date();
@@ -265,9 +300,9 @@ function InscriptionsContent() {
   const [organisation, setOrganisation] = useState(requestedSearch.trim());
   const [region, setRegion] = useState(initialRegion);
   const [department, setDepartment] = useState(initialDepartment);
-  // The department list follows the chosen region; unscoped it is every
-  // department, and the server narrows to the reader's territory regardless.
-  const { departments: territoryDepartments } = useTerritoryDepartments(region || null);
+  // Region and department are independent server filters. Keep all department
+  // choices available when a region is selected rather than coupling the UI.
+  const { departments: territoryDepartments } = useTerritoryDepartments(null);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const requestedAssignedToMe = searchParams.get("assignedToMe") === "1" || searchParams.get("assignedToMe") === "true";
   const [assignedToMe, setAssignedToMe] = useState(requestedAssignedToMe);
@@ -283,6 +318,7 @@ function InscriptionsContent() {
   const [pendingDateRange, setPendingDateRange] = useState<DateRange | undefined>();
   const [page, setPage] = useState(1);
   const [reviewing, setReviewing] = useState<CompanyRegistrationItem | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<CompanyRegistrationItem | null>(null);
   const reviewingIdRef = useRef<string | null>(null);
   const [decision, setDecision] = useState<"APPROVE" | "REJECT" | "REQUEST_COMPLEMENTS">("APPROVE");
   const [comment, setComment] = useState("");
@@ -294,7 +330,7 @@ function InscriptionsContent() {
 
   const applyStatus = (value: string) => { setStatusFilter(value); setUrlFilters({ status: value || null }); };
   const applyType = (value: string) => { setTypeFilter(value); setUrlFilters({ type: value || null }); };
-  const applyRegion = (value: string) => { setRegion(value); setDepartment(""); setUrlFilters({ region: value || null, department: null }); };
+  const applyRegion = (value: string) => { setRegion(value); setUrlFilters({ region: value || null }); };
   const applyDepartment = (value: string) => { setDepartment(value); setUrlFilters({ department: value || null }); };
   const applyMethod = (value: string) => { setRegistrationMethod(value); setUrlFilters({ registrationMethod: value || null }); };
   const applyAssignedToMe = (value: boolean) => { setAssignedToMe(value); setUrlFilters({ assignedToMe: value ? "1" : null }); };
@@ -415,21 +451,19 @@ function InscriptionsContent() {
     staleTime: 15_000,
   });
 
+  const organisationsRequestParams = buildOrganisationsRequestParams({
+    search: organisation,
+    statusFilter,
+    typeFilter,
+    region,
+    department,
+    from,
+    to,
+    includeArchived,
+  });
   const organisationsQuery = useQuery({
-    queryKey: ["auth", "company-registrations", "organisations", organisation, typeFilter, region, department, statusFilter, from, to, page, includeArchived],
-    queryFn: () => listCompanyRegistrations({
-      search: organisation || undefined,
-      statuses: statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ACTIVE,REJECTED",
-      view: "organisations",
-      includeArchived,
-      entityType: typeFilter || undefined,
-      region: region || undefined,
-      department: department || undefined,
-      from,
-      to,
-      page,
-      pageSize: PAGE_SIZE,
-    }),
+    queryKey: ["auth", "company-registrations", "organisations", organisationsRequestParams, page],
+    queryFn: () => listCompanyRegistrations({ ...organisationsRequestParams, page, pageSize: PAGE_SIZE }),
     enabled: canReadQueue && vue === "organisations",
     placeholderData: keepPreviousData,
     staleTime: 15_000,
@@ -453,6 +487,27 @@ function InscriptionsContent() {
     mutationFn: (target: { id: string; active: boolean }) => target.active ? suspendUser(target.id) : activateUser(target.id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
   });
+
+  const exportOrganisations = async () => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(organisationsRequestParams)) {
+      if (value !== undefined) params.set(key, String(value));
+    }
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/auth/company-registrations/export?${params}`, {
+      headers: { ...localeHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!response.ok) {
+      setNotice({ tone: "error", text: t("exportFailed") });
+      return;
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `registrations_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const assignMutation = useMutation({
     mutationFn: (target: { id: string; assigneeId: string | null }) => assignRegistrationUser(target.id, target.assigneeId),
@@ -606,7 +661,7 @@ function InscriptionsContent() {
     activeQueueFilters.push({ key: "search", label: `${t("searchLabel")}: ${organisation || organisationInput.trim()}`, clear: () => { setOrganisationInput(""); setOrganisation(""); setUrlFilters({ search: null, organisation: null }); } });
   }
   if (typeFilter) activeQueueFilters.push({ key: "type", label: `${t("establishmentTypeColumn")}: ${entityLabel(typeFilter)}`, clear: () => { setTypeFilter(""); setUrlFilters({ type: null }); } });
-  if (region) activeQueueFilters.push({ key: "region", label: `${t("regionColumn")}: ${region}`, clear: () => { setRegion(""); setDepartment(""); setUrlFilters({ region: null, department: null }); } });
+  if (region) activeQueueFilters.push({ key: "region", label: `${t("regionColumn")}: ${region}`, clear: () => { setRegion(""); setUrlFilters({ region: null }); } });
   if (department) activeQueueFilters.push({ key: "department", label: `${t("departmentColumn")}: ${department}`, clear: () => { setDepartment(""); setUrlFilters({ department: null }); } });
   if (dateRange !== "all") {
     const dateLabel = dateRange === "30"
@@ -644,10 +699,17 @@ function InscriptionsContent() {
   if (sortOrder !== "newest") {
     activeQueueFilters.push({ key: "sort", label: `${t("submissionDateColumn")}: ${tRoot("adminDossiersPage.sortOldest")}`, clear: () => applySort("newest") });
   }
+  if (includeArchived) {
+    activeQueueFilters.push({ key: "includeArchived", label: t("showArchived"), clear: () => setUrlFilters({ includeArchived: null }) });
+  }
+  const visibleActiveFilters = vue === "organisations"
+    ? activeQueueFilters.filter((filter) => ["search", "type", "region", "department", "dateRange", "status", "includeArchived"].includes(filter.key))
+    : activeQueueFilters;
   const hasActiveQueueFilters = Boolean(
     organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
     registrationMethod || dateRange !== "all" || createdBy || assignedToMe || sortOrder !== "newest",
   );
+  const hasActiveAdvancedQueueFilters = Boolean(dateRange === "custom" || sortOrder !== "newest");
   const clearQueueFilters = () => {
     setOrganisationInput("");
     setOrganisation("");
@@ -669,19 +731,15 @@ function InscriptionsContent() {
       {/* Keep the registration action alongside its destinations, not in the sidebar. */}
       <AdminPageHeader
         title={tRoot("adminNav.hubs.inscriptions")}
-        tabsAction={vue === "queue" && role && DIRECTORY_ROLES.includes(role) ? (
+        hideTabs
+        actions={vue === "queue" && role && DIRECTORY_ROLES.includes(role) ? (
           <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm">
             <Plus aria-hidden="true" />
             {tRoot("adminNav.routes.nouvelleInscription")}
           </Link>
         ) : undefined}
-        tabs={[
-          { label: t("viewQueue"), href: inscriptionsHref(currentQuery, "queue"), isActive: vue === "queue" },
-          { label: t("viewOrganisations"), href: inscriptionsHref(currentQuery, "organisations"), isActive: vue === "organisations" },
-          { label: t("viewCoverage"), href: inscriptionsHref(currentQuery, "coverage"), isActive: vue === "coverage" },
-          { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
-        ]}
       />
+      <RegistrationsHubTabs activeTab={vue} canReviewRegistrations={canReadQueue} />
 
       {vue === "coverage" && (
         <CoveragePanel year={year} semester={semester} quarter={quarter} onPeriodChange={(next) => router.replace(inscriptionsHref(currentQuery, "coverage", {
@@ -694,41 +752,68 @@ function InscriptionsContent() {
 
       {vue === "organisations" && <>
         {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="my-4">{notice.text}</Alert>}
-        <AdminTablePanel title={t("viewOrganisations")} headingId="registration-organisations-table-title">
+        <AdminTablePanel title={t("viewOrganisations")} description={t("organisationsScopeNote")} headingId="registration-organisations-table-title">
           <div className="cam-admin-table-panel-body">
-            <div className="grid gap-3 pb-5 md:grid-cols-4">
+            <div className="cam-registration-organisations-primary-filters grid gap-3 pb-3 md:grid-cols-4">
               <div className="md:col-span-2"><Label htmlFor="organisations-search">{t("searchLabel")}</Label><Input id="organisations-search" type="search" value={organisationInput} placeholder={t("searchPlaceholder")} onChange={(event) => setOrganisationInput(event.target.value)} /></div>
-              <div><Label htmlFor="organisations-status">{t("registrationStatusColumn")}</Label><select id="organisations-status" className="cam-admin-input w-full" value={statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ALL"} onChange={(event) => applyStatus(event.target.value === "ALL" ? "" : event.target.value)}><option value="ALL">{t("bothStatuses")}</option><option value="ACTIVE">{t("statusApproved")}</option><option value="REJECTED">{t("statusRejected")}</option></select></div>
-              <div><Label htmlFor="organisations-region">{t("regionColumn")}</Label><select id="organisations-region" className="cam-admin-input w-full" value={region} onChange={(event) => applyRegion(event.target.value)}><option value="">{t("allRegions")}</option>{territoryRegions.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
+              <div><Label htmlFor="organisations-date-range">{t("submissionDateColumn")}</Label><select id="organisations-date-range" className="cam-admin-input w-full" value={dateRange} onChange={(event) => applyDateRange(event.target.value)}><option value="all">{t("allDates")}</option><option value="30">{t("last30Days")}</option><option value="90">{t("last90Days")}</option></select></div>
+              <label className="flex min-h-10 items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilters({ includeArchived: checked === true ? "true" : null })} />{t("showArchived")}</label>
             </div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilters({ includeArchived: checked === true ? "true" : null })} />{t("showArchived")}</label>
-              <Button type="button" size="sm" variant="outline" onClick={async () => { const token = getToken(); const params = new URLSearchParams(); if (includeArchived) params.set("includeArchived", "true"); const response = await fetch(`${API_BASE_URL}/auth/company-registrations/export?${params}`, { headers: { ...localeHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) } }); if (!response.ok) { setNotice({ tone: "error", text: t("exportFailed") }); return; } const url = URL.createObjectURL(await response.blob()); const link = document.createElement("a"); link.href = url; link.download = `registrations_${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url); }}>{t("exportRegistrations")}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={exportOrganisations}>{t("exportRegistrations")}</Button>
             </div>
-            <details className="mb-4"><summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary><div className="mt-3 grid gap-3 md:grid-cols-3">
-              <div><Label htmlFor="organisations-department">{t("departmentColumn")}</Label><select id="organisations-department" className="cam-admin-input w-full" value={department} onChange={(event) => applyDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-              <div><Label htmlFor="organisations-type">{t("establishmentTypeColumn")}</Label><select id="organisations-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => applyType(event.target.value)}><option value="">{t("allTypes")}</option>{ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}</select></div>
-              <div><Label htmlFor="organisations-date">{t("dateFilterLabel")}</Label><select id="organisations-date" className="cam-admin-input w-full" value={dateRange} onChange={(event) => applyDateRange(event.target.value)}><option value="all">{t("allDates")}</option><option value="30">{t("last30Days")}</option><option value="90">{t("last90Days")}</option></select></div>
-            </div></details>
-            {hasActiveQueueFilters && <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}><span className="text-sm font-medium">{t("activeFiltersLabel")}</span>{activeQueueFilters.map((filter) => <Button type="button" key={filter.key} variant="outline" size="sm" onClick={filter.clear} aria-label={t("removeFilterChip", { label: filter.label })}>{filter.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}<Button type="button" variant="ghost" size="sm" onClick={clearQueueFilters}>{t("clearFilters")}</Button></div>}
-            <Table><TableHeader><TableRow><TableHead scope="col">{t("organisationColumn")}</TableHead><TableHead scope="col">{t("registrationStatusColumn")}</TableHead><TableHead scope="col">{t("territoryColumn")}</TableHead><TableHead scope="col">{t("decisionDateColumn")}</TableHead></TableRow></TableHeader><TableBody>
-              <DataStateRow colSpan={4} state={organisationsTableState} resource={t("viewOrganisations")} error={organisationsQuery.error} onRetry={() => organisationsQuery.refetch()} title={organisationsTableState === "empty" ? t("emptyTitle") : undefined} />
+            <AdminActiveFilterChips filters={visibleActiveFilters.map(({ key, label, clear }) => ({ key, label, onClear: clear }))} label={t("activeFiltersLabel")} clearAllLabel={t("clearFilters")} onClearAll={clearQueueFilters} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
+            <Table className="cam-registration-organisations-table"><TableHeader><TableRow>
+              <TableHead scope="col" className="whitespace-normal">{t("organisationColumn")}</TableHead>
+              <FilterTableHead label={t("registrationStatusColumn")} filterLabel={t("registrationStatusColumn")} active={!!statusFilter}>{(close) => <FilterTableOptions label={t("registrationStatusColumn")} value={statusFilter === "ACTIVE" || statusFilter === "REJECTED" ? statusFilter : "ALL"} options={[{ value: "ALL", label: t("bothStatuses") }, { value: "ACTIVE", label: t("statusApproved") }, { value: "REJECTED", label: t("statusRejected") }]} onChange={(value) => applyStatus(value === "ALL" ? "" : value)} onSelect={close} />}</FilterTableHead>
+              <FilterTableHead label={`${t("regionColumn")} / ${t("departmentColumn")}`} filterLabel={t("filterColumn", { column: `${t("regionColumn")} / ${t("departmentColumn")}` })} active={!!region || !!department} contentClassName="w-72 p-3">{(close) => <div className="grid gap-3"><FilterTableOptions label={t("regionColumn")} value={region} options={[{ value: "", label: t("allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={applyRegion} onSelect={() => {}} /><FilterTableOptions label={t("departmentColumn")} value={department} options={[{ value: "", label: t("allDepartments") }, ...territoryDepartments.map((value) => ({ value, label: value }))]} onChange={applyDepartment} onSelect={close} /></div>}</FilterTableHead>
+              <FilterTableHead label={t("establishmentTypeColumn")} filterLabel={t("filterColumn", { column: t("establishmentTypeColumn") })} active={!!typeFilter}>{(close) => <FilterTableOptions label={t("establishmentTypeColumn")} value={typeFilter} options={[{ value: "", label: t("allTypes") }, ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: entityLabel(value) }))]} onChange={applyType} onSelect={close} />}</FilterTableHead>
+              <TableHead scope="col" className="whitespace-normal">{t("actionsColumn")}</TableHead>
+            </TableRow></TableHeader><TableBody>
+              <DataStateRow colSpan={5} state={organisationsTableState} resource={t("viewOrganisations")} error={organisationsQuery.error} onRetry={() => organisationsQuery.refetch()} title={organisationsTableState === "empty" ? t("emptyTitle") : undefined} />
               {organisationItems.map((item) => {
-                const isRejected = item.status === "REJECTED";
-                const decisionAt = isRejected ? item.rejectedAt : item.approvedAt;
-                const actorId = isRejected ? item.rejectedBy : item.approvedBy;
                 const badge = STATUS_BADGE[item.status];
+                const detailIdentifier = item.establishmentId || item.registrationNumber;
                 return <TableRow key={item.id}>
-                  <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground"><span className="block">{item.organisation}</span><span className="block text-xs text-muted-foreground">{item.registrationNumber || item.companyId}</span><div className="mt-1 flex flex-wrap gap-3"><Link className="text-sm underline" href={`/admin/etablissement-detail?id=${encodeURIComponent(item.companyId)}`}>{t("openButton")}</Link><Link className="text-sm underline" href={`/admin/dossiers?vue=submissions&companyId=${encodeURIComponent(item.companyId)}`}>{t("declarationsLink")}</Link></div></TableHead>
-                  <TableCell><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.archivedAt && <Badge className="ms-2" variant="neutral">{t("archivedBadge")}</Badge>}{item.archivedAt && <span className="mt-1 block max-w-xs text-xs text-muted-foreground">{t("archivedMeta", { actor: [item.archivedByUser?.firstName, item.archivedByUser?.lastName].filter(Boolean).join(" ") || item.archivedBy || t("notRecorded"), date: stamp(item.archivedAt, true, locale), reason: item.archiveReason || t("notRecorded") })}</span>}</TableCell>
-                  <TableCell>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</TableCell>
-                  <TableCell className="whitespace-nowrap">{decisionAt ? <>{stamp(decisionAt, true, locale)}<span className="block text-xs text-muted-foreground">{actorId ? t("decisionByLabel", { actor: actorId }) : t("notRecorded")}</span></> : NOT_PROVIDED}<div className="mt-2 flex flex-wrap gap-2"><ArchiveActions archived={!!item.archivedAt} canManage={hasRole(role, USER_ARCHIVE_ROLES)} resourceName={item.organisation} archiveLabel={t("archiveButton")} restoreLabel={t("restoreButton")} confirmTitle={t("archiveConfirmTitle")} reasonLabel={t("archiveReasonLabel")} cancelLabel={tRoot("common.cancel")} onArchive={(reason) => archiveMutation.mutate({ item, reason })} onRestore={() => restoreMutation.mutate(item.id)} />{!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES) && <Button size="sm" variant="outline" onClick={() => lifecycleMutation.mutate({ id: item.id, active: item.isActive })}>{item.isActive ? t("suspendButton") : t("activateButton")}</Button>}</div></TableCell>
+                  <TableHead scope="row" className="sticky left-0 z-10 h-auto whitespace-normal border-r bg-white font-medium text-foreground shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)]"><span className="block max-w-[250px] truncate font-semibold" title={item.organisation}>{item.organisation}</span><span className="block max-w-[250px] truncate text-xs text-muted-foreground" title={item.establishmentId ?? undefined}>{item.establishmentId || NOT_PROVIDED}</span></TableHead>
+                  <TableCell className="align-top whitespace-normal py-2"><span className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal py-2"><span className="block truncate" title={[item.region, item.department].filter(Boolean).join(" / ")}>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal py-2"><span className="block max-w-[250px] truncate" title={entityLabel(item.entityType)}>{entityLabel(item.entityType)}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal py-2"><div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {detailIdentifier
+                      ? <Link className="text-sm underline" href={`/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}`}>{t("openButton")}</Link>
+                      : <span aria-disabled="true" className="cursor-not-allowed text-sm text-muted-foreground">{t("openButton")}</span>}
+                    {(hasRole(role, USER_ARCHIVE_ROLES) || (!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES))) && <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" className="shrink-0" aria-label={t("actionsColumn")} title={t("actionsColumn")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild><Link href={`/admin/dossiers?vue=submissions&companyId=${encodeURIComponent(item.companyId)}`}>{t("declarationsLink")}</Link></DropdownMenuItem>
+                        {hasRole(role, USER_ARCHIVE_ROLES) && !item.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(item)}>{t("archiveButton")}</DropdownMenuItem>}
+                        {hasRole(role, USER_ARCHIVE_ROLES) && item.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => restoreMutation.mutate(item.id)}>{t("restoreButton")}</DropdownMenuItem>}
+                        {!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES) && <DropdownMenuItem disabled={lifecycleMutation.isPending} onSelect={() => lifecycleMutation.mutate({ id: item.id, active: item.isActive })}>{item.isActive ? t("suspendButton") : t("activateButton")}</DropdownMenuItem>}
+                      </DropdownMenuContent>
+                    </DropdownMenu>}
+                  </div></TableCell>
                 </TableRow>;
               })}
             </TableBody></Table>
             {organisationsResult && organisationsResult.total > PAGE_SIZE && <div className="flex justify-end gap-3 py-4"><Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((n) => n - 1)}>{t("previousButton")}</Button><span className="self-center text-sm">{t("showingRange", { start: (page - 1) * PAGE_SIZE + 1, end: Math.min(page * PAGE_SIZE, organisationsResult.total), total: organisationsResult.total })}</span><Button type="button" variant="outline" size="sm" disabled={page * PAGE_SIZE >= organisationsResult.total} onClick={() => setPage((n) => n + 1)}>{t("nextButton")}</Button></div>}
           </div>
         </AdminTablePanel>
+        {archiveTarget && <ArchiveActions
+          archived={false}
+          canManage={hasRole(role, USER_ARCHIVE_ROLES)}
+          resourceName={archiveTarget.organisation}
+          archiveLabel={t("archiveButton")}
+          restoreLabel={t("restoreButton")}
+          confirmTitle={t("archiveConfirmTitle")}
+          reasonLabel={t("archiveReasonLabel")}
+          cancelLabel={tRoot("common.cancel")}
+          hideTrigger
+          dialogOpen
+          onDialogOpenChange={(open) => { if (!open) setArchiveTarget(null); }}
+          onArchive={(reason) => { archiveMutation.mutate({ item: archiveTarget, reason }); setArchiveTarget(null); }}
+          onRestore={() => {}}
+        />}
       </>}
 
       {vue === "queue" && (<>
@@ -847,60 +932,47 @@ function InscriptionsContent() {
       <AdminTablePanel title={t("viewQueue")} headingId="registration-queue-table-title" busy={queueUpdating}>
         <div className="cam-admin-table-panel-body">
           <div className="grid gap-3 pb-5">
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="cam-registration-queue-primary-filters grid gap-3 md:grid-cols-4">
               <div className="md:col-span-2">
                 <Label htmlFor="registrations-search">{t("searchLabel")}</Label>
                 <Input id="registrations-search" type="search" value={organisationInput} placeholder={t("searchPlaceholder")} onChange={(event) => setOrganisationInput(event.target.value)} />
               </div>
-              <div>
-                <Label htmlFor="registrations-status">{t("registrationStatusColumn")}</Label>
-                <select id="registrations-status" className="cam-admin-input w-full" value={statusFilter} onChange={(event) => applyStatus(event.target.value)}>
-                  <option value="">{t("statusInQueue")}</option><option value="ALL">{t("statusAll")}</option>
-                  <option value="PENDING_APPROVAL">{t("statusPending")}</option><option value="COMPLEMENTS_REQUESTED">{t("statusComplements")}</option>
-                  <option value="OVERDUE">{t("statusOverdue", { days: overdueDays })}</option><option value="ACTIVE">{t("statusApproved")}</option><option value="REJECTED">{t("statusRejected")}</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="registrations-region">{t("regionColumn")}</Label>
-                <select id="registrations-region" className="cam-admin-input w-full" value={region} onChange={(event) => applyRegion(event.target.value)}>
-                  <option value="">{t("allRegions")}</option>{territoryRegions.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </div>
-            </div>
-            <details>
-              <summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary>
-              <div className="mt-3 grid gap-3 md:grid-cols-4">
-                <div><Label htmlFor="registrations-department">{t("departmentColumn")}</Label><select id="registrations-department" className="cam-admin-input w-full" value={department} onChange={(event) => applyDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((item) => <option key={item} value={item}>{item}</option>)}</select></div>
-                <div><Label htmlFor="registrations-type">{t("establishmentTypeColumn")}</Label><select id="registrations-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => applyType(event.target.value)}><option value="">{t("allTypes")}</option>{ENTITY_TYPE_VALUES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}</select></div>
-                <div><Label htmlFor="registrations-date-range">{t("dateFilterLabel")}</Label><select id="registrations-date-range" className="cam-admin-input w-full" value={dateRange} onChange={(event) => applyDateRange(event.target.value)}><option value="all">{t("allDates")}</option><option value="30">{t("last30Days")}</option><option value="90">{t("last90Days")}</option><option value="custom">{t("customDateRange")}</option></select></div>
+              <AdminFilterDisclosure label={t("moreFilters")} active={hasActiveAdvancedQueueFilters || !!registrationMethod}>
+                {dateRange === "custom" && <div className="col-span-full"><RegistrationQueueDatePicker selected={pendingDateRange ?? customDateRange} onSelect={setPendingDateRange} locale={locale} /><Button type="button" size="sm" className="mt-2" disabled={!pendingDateRange?.from || !pendingDateRange.to} onClick={() => { if (!pendingDateRange?.from || !pendingDateRange.to) return; setCustomDateRange(pendingDateRange); setDateRange("custom"); setUrlFilters({ dateRange: "custom", from: dateBoundary(pendingDateRange.from), to: dateBoundary(pendingDateRange.to, true) }); }}>{t("applyDateRange")}</Button></div>}
                 <div><Label htmlFor="registrations-method">{t("registrationMethodFilterLabel")}</Label><select id="registrations-method" className="cam-admin-input w-full" value={registrationMethod} onChange={(event) => applyMethod(event.target.value)}><option value="">{t("allRegistrationMethods")}</option>{REGISTRATION_METHOD_VALUES.map((value) => <option key={value} value={value}>{registrationMethodLabel(value, locale) ?? value}</option>)}</select></div>
-                {dateRange === "custom" && <div className="md:col-span-4"><RegistrationQueueDatePicker selected={pendingDateRange ?? customDateRange} onSelect={setPendingDateRange} locale={locale} /><Button type="button" size="sm" className="mt-2" disabled={!pendingDateRange?.from || !pendingDateRange.to} onClick={() => { if (!pendingDateRange?.from || !pendingDateRange.to) return; setCustomDateRange(pendingDateRange); setDateRange("custom"); setUrlFilters({ dateRange: "custom", from: dateBoundary(pendingDateRange.from), to: dateBoundary(pendingDateRange.to, true) }); }}>{t("applyDateRange")}</Button></div>}
                 <div><Label htmlFor="registrations-sort">{tRoot("adminDossiersPage.sortLabel")}</Label><select id="registrations-sort" className="cam-admin-input w-full" value={sortOrder} onChange={(event) => applySort(event.target.value)}><option value="newest">{tRoot("adminDossiersPage.sortNewest")}</option><option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option></select></div>
-                <div><Label htmlFor="registrations-assigned">{tRoot("adminDossiersPage.assignedLabel")}</Label><select id="registrations-assigned" className="cam-admin-input w-full" value={assignedToMe ? "1" : ""} onChange={(event) => applyAssignedToMe(event.target.value === "1")}><option value="">{tRoot("adminDossiersPage.assignedAll")}</option><option value="1">{tRoot("adminDossiersPage.assignedToMeOnly")}</option></select></div>
-              </div>
-            </details>
+              </AdminFilterDisclosure>
+            </div>
           </div>
           {hasActiveQueueFilters && <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label={t("activeFiltersLabel")}>
             <span className="text-sm font-medium">{t("activeFiltersLabel")}</span>
             {activeQueueFilters.map((filter) => <Button type="button" key={filter.key} variant="outline" size="sm" onClick={filter.clear} aria-label={t("removeFilterChip", { label: filter.label })}>{filter.label}<X className="ms-2 size-3" aria-hidden="true" /></Button>)}
             <Button type="button" variant="ghost" size="sm" onClick={clearQueueFilters}>{t("clearFilters")}</Button>
           </div>}
-          <Table>
+          <Table className="cam-registration-queue-table">
             <TableHeader><TableRow>
-              <TableHead scope="col">{t("organisationReferenceColumn")}</TableHead>
-              <TableHead scope="col">{t("registrationStatusColumn")}</TableHead>
+              <TableHead scope="col" className="whitespace-normal sticky left-0 z-20">{t("organisationReferenceColumn")}</TableHead>
+              <FilterTableHead label={t("registrationStatusColumn")} filterLabel={t("registrationStatusColumn")} active={!!statusFilter}>{(close) => <FilterTableOptions label={t("registrationStatusColumn")} value={statusFilter} options={[{ value: "", label: t("statusInQueue") }, { value: "ALL", label: t("statusAll") }, { value: "PENDING_APPROVAL", label: t("statusPending") }, { value: "COMPLEMENTS_REQUESTED", label: t("statusComplements") }, { value: "OVERDUE", label: t("statusOverdue", { days: overdueDays }) }, { value: "ACTIVE", label: t("statusApproved") }, { value: "REJECTED", label: t("statusRejected") }]} onChange={applyStatus} onSelect={close} />}</FilterTableHead>
               <TableHead scope="col">{t("duplicatesColumn")}</TableHead>
-              <TableHead scope="col">{t("submissionDateColumn")}</TableHead>
+              <FilterTableHead label={`${t("regionColumn")} / ${t("departmentColumn")}`} filterLabel={t("filterColumn", { column: `${t("regionColumn")} / ${t("departmentColumn")}` })} active={!!region || !!department} contentClassName="w-72 p-3">{(close) => <div className="grid gap-3"><FilterTableOptions label={t("regionColumn")} value={region} options={[{ value: "", label: t("allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={applyRegion} onSelect={() => {}} /><FilterTableOptions label={t("departmentColumn")} value={department} options={[{ value: "", label: t("allDepartments") }, ...territoryDepartments.map((value) => ({ value, label: value }))]} onChange={applyDepartment} onSelect={close} /></div>}</FilterTableHead>
+              <FilterTableHead label={t("establishmentTypeColumn")} filterLabel={t("filterColumn", { column: t("establishmentTypeColumn") })} active={!!typeFilter}>{(close) => <FilterTableOptions label={t("establishmentTypeColumn")} value={typeFilter} options={[{ value: "", label: t("allTypes") }, ...ENTITY_TYPE_VALUES.map((value) => ({ value, label: entityLabel(value) }))]} onChange={applyType} onSelect={close} />}</FilterTableHead>
+              <FilterTableHead label={t("submissionDateColumn")} filterLabel={t("filterColumn", { column: t("submissionDateColumn") })} active={dateRange !== "all" || sortOrder !== "newest"} contentClassName="w-72 p-2">{(close) => <div className="grid gap-2"><FilterTableOptions label={t("dateFilterLabel")} value={dateRange} options={[{ value: "all", label: t("allDates") }, { value: "30", label: t("last30Days") }, { value: "90", label: t("last90Days") }, { value: "custom", label: t("customDateRange") }]} onChange={applyDateRange} onSelect={close} /><FilterTableOptions label={tRoot("adminDossiersPage.sortLabel")} value={sortOrder} options={[{ value: "newest", label: tRoot("adminDossiersPage.sortNewest") }, { value: "oldest", label: tRoot("adminDossiersPage.sortOldest") }]} onChange={applySort} onSelect={close} /></div>}</FilterTableHead>
+              <FilterTableHead label={t("assignmentColumn")} filterLabel={t("filterColumn", { column: t("assignmentColumn") })} active={assignedToMe}>{(close) => <FilterTableOptions label={t("assignmentColumn")} value={assignedToMe ? "1" : ""} options={[{ value: "", label: tRoot("adminDossiersPage.assignedAll") }, { value: "1", label: tRoot("adminDossiersPage.assignedToMeOnly") }]} onChange={(value) => applyAssignedToMe(value === "1")} onSelect={close} />}</FilterTableHead>
+              <TableHead scope="col">{t("actionsColumn")}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              <DataStateRow colSpan={4} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error} onRetry={() => queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
+              <DataStateRow colSpan={8} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error} onRetry={() => queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
               {items.map((item) => {
                 const badge = STATUS_BADGE[item.status];
                 return <TableRow key={item.id}>
-                  <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground"><span className="block">{item.organisation}</span><span className="block text-xs text-muted-foreground">{item.registrationNumber || item.companyId}</span><span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{item.assigneeId ? <span>{tRoot("adminDossiersPage.assignedTo", { name: item.assigneeName ?? NOT_PROVIDED })}</span> : <span>{tRoot("adminDossiersPage.unassigned")}</span>}{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}{item.status === "ACTIVE" && (item.hasSubmitted ? <Badge variant="success">{t("reportingBadge")}</Badge> : <Badge variant="neutral">{t("noReportingBadge")}</Badge>)}</span><Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={queueUpdating} onClick={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}>{t("openButton")}</Button></TableHead>
-                  <TableCell><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="danger" className="mt-1 flex w-fit">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}</TableCell>
-                  <TableCell>{item.duplicateHints.length > 0 ? <details><summary className="cursor-pointer">{t("possibleMatches", { count: item.duplicateHints.length })}</summary><ul className="mt-1 list-disc ps-5">{item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}</ul></details> : NOT_PROVIDED}</TableCell>
-                  <TableCell className="whitespace-nowrap">{stamp(item.submittedAt, true, locale)}</TableCell>
+                  <TableHead scope="row" className="sticky left-0 z-10 h-auto whitespace-normal border-r bg-white font-medium text-foreground shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)]"><span className="block max-w-[250px] truncate font-semibold" title={item.organisation}>{item.organisation}</span><span className="block max-w-[250px] truncate text-xs text-muted-foreground" title={item.establishmentId ?? undefined}>{item.establishmentId || NOT_PROVIDED}</span></TableHead>
+                  <TableCell className="align-top whitespace-normal py-3"><div className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="danger">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}</div></TableCell>
+                  <TableCell className="align-top whitespace-normal py-3">{item.duplicateHints.length > 0 ? <details><summary className="cursor-pointer">{t("possibleMatches", { count: item.duplicateHints.length })}</summary><ul className="mt-1 list-disc break-words ps-5">{item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}</ul></details> : NOT_PROVIDED}</TableCell>
+                  <TableCell className="align-top whitespace-normal py-3"><span className="block truncate" title={[item.region, item.department].filter(Boolean).join(" / ")}>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal py-3"><span className="block truncate" title={entityLabel(item.entityType)}>{entityLabel(item.entityType)}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal py-3">{stamp(item.submittedAt, false, locale)}</TableCell>
+                  <TableCell className="align-top whitespace-normal py-3"><div className="flex flex-col items-start gap-1"><span className="truncate" title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? tRoot("adminDossiersPage.assignedTo", { name: item.assigneeName ?? NOT_PROVIDED }) : tRoot("adminDossiersPage.unassigned")}</span>{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}</div></TableCell>
+                  <TableCell className="align-top whitespace-normal py-3"><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={queueUpdating} onClick={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}>{t("openButton")}</Button></div></TableCell>
                 </TableRow>;
               })}
             </TableBody>

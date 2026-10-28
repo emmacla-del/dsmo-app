@@ -161,6 +161,7 @@ export function requestComplements(id: string, message: string, expectedRevision
 export interface CompanyRegistrationItem {
   id: string;
   companyId: string;
+  establishmentId: string | null;
   organisation: string;
   email: string;
   entityType: string | null;

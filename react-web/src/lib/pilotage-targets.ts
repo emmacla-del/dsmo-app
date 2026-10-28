@@ -124,6 +124,29 @@ export interface EntityTypeReturnRow {
 /** Where a registered establishment that has not declared stands with its file. */
 export type NonRespondentFileState = "NONE" | "DRAFT" | "REJECTED";
 export type NonRespondentBucket = "department" | "central" | "unassigned" | "nullEntityType";
+export type CampaignFollowUpChannel = "WHATSAPP" | "PHONE" | "EMAIL";
+export type CampaignFollowUpOutcome =
+  | "SENT_CONFIRMED"
+  | "NO_ANSWER"
+  | "WRONG_NUMBER"
+  | "CALLBACK_REQUESTED"
+  | "ALREADY_SUBMITTED"
+  | "DO_NOT_CONTACT";
+
+export interface CampaignFollowUpSummary {
+  channel: CampaignFollowUpChannel;
+  outcome: CampaignFollowUpOutcome;
+  messageLanguage: "fr" | "en" | null;
+  createdAt: string;
+  actorName: string;
+  actorTitle: string | null;
+}
+
+export interface RecordCampaignFollowUpInput {
+  channel: CampaignFollowUpChannel;
+  outcome: CampaignFollowUpOutcome;
+  messageLanguage?: "fr" | "en";
+}
 
 export interface NonRespondentRow {
   companyId: string;
@@ -135,11 +158,15 @@ export interface NonRespondentRow {
   regionName: string | null;
   departmentId: string | null;
   departmentName: string | null;
+  /** Linked company account email; omitted for roles without contact access. */
+  contactEmail?: string;
+  contactPhone?: string;
+  latestFollowUp?: CampaignFollowUpSummary | null;
   fileState: NonRespondentFileState;
 }
 
 export interface CampaignNonRespondentsResponse {
-  campaign: CampaignReturnsSummary;
+  campaign: CampaignReturnsSummary & { deadline: string | null };
   /** Campaign-wide: reminders are not recorded per establishment. */
   lastReminder: { sentAt: string; reminderType: string; recipientCount: number } | null;
   registered: number;
@@ -405,5 +432,16 @@ export function getCampaignReturns(campaignId: string) {
 export function getCampaignNonRespondents(campaignId: string) {
   return apiFetch<CampaignNonRespondentsResponse>(
     `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/non-respondents`,
+  );
+}
+
+export function recordCampaignFollowUp(
+  campaignId: string,
+  companyId: string,
+  body: RecordCampaignFollowUpInput,
+) {
+  return apiFetch<CampaignFollowUpSummary>(
+    `/admin/pilotage/campaigns/${encodeURIComponent(campaignId)}/non-respondents/${encodeURIComponent(companyId)}/follow-ups`,
+    { method: "POST", body: JSON.stringify(body) },
   );
 }

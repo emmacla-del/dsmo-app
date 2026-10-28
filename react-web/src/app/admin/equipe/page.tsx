@@ -11,6 +11,7 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -209,42 +210,8 @@ function EquipeContent() {
               </select>
             </div>
 
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-role">{t("adminEquipePage.roleLabel")}</label>
-              <select
-                id="filter-role"
-                className="cam-select"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-              >
-                <option value="">{t("adminEquipePage.allTerritorialRoles")}</option>
-                {MONITORED_ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>{t(`adminEquipePage.roleOption.${r.value}`)}</option>
-                ))}
-              </select>
-            </div>
-
             {/* A regional admin's scope is fixed server-side, so the region
                 is shown but cannot be changed. */}
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-region">{t("adminEquipePage.regionLabel")}</label>
-              <select
-                id="filter-region"
-                className="cam-select"
-                value={isRegional ? user?.region ?? "" : regionFilter}
-                onChange={(e) => setRegionFilter(e.target.value)}
-                disabled={isRegional}
-              >
-                {!isRegional && <option value="">{t("adminEquipePage.allRegions")}</option>}
-                {isRegional ? (
-                  <option value={user?.region ?? ""}>{user?.region ?? t("adminEquipePage.myRegion")}</option>
-                ) : (
-                  territoryRegions.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))
-                )}
-              </select>
-            </div>
           </div>
         </div>
 
@@ -253,7 +220,13 @@ function EquipeContent() {
             <thead>
               <tr>
                 <th scope="col">{t("adminEquipePage.column.actor")}</th>
-                <th scope="col">{t("adminEquipePage.column.territory")}</th>
+                <FilterTableHead label={t("adminEquipePage.roleLabel")} filterLabel={t("adminEquipePage.roleLabel")} active={!!roleFilter}>
+                  {(close) => <FilterTableOptions label={t("adminEquipePage.roleLabel")} value={roleFilter} options={[{ value: "", label: t("adminEquipePage.allTerritorialRoles") }, ...MONITORED_ROLES.map((r) => ({ value: r.value, label: t(`adminEquipePage.roleOption.${r.value}`) }))]} onChange={setRoleFilter} onSelect={close} />}
+                </FilterTableHead>
+                <FilterTableHead label={t("adminEquipePage.regionLabel")} filterLabel={t("adminEquipePage.regionLabel")} active={!!regionFilter || isRegional}>
+                  {(close) => <FilterTableOptions label={t("adminEquipePage.regionLabel")} value={isRegional ? user?.region ?? "" : regionFilter} options={isRegional ? [{ value: user?.region ?? "", label: user?.region ?? t("adminEquipePage.myRegion") }] : [{ value: "", label: t("adminEquipePage.allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={setRegionFilter} onSelect={close} />}
+                </FilterTableHead>
+                <th scope="col">{t("adminEquipePage.departmentLabel")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.registrations")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.conversions")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.coverage")}</th>
@@ -272,7 +245,7 @@ function EquipeContent() {
               {/* Loading, failure and "no one matches these filters" stay
                   three distinct renders. */}
               <DataStateRow
-                colSpan={10}
+                colSpan={12}
                 state={summaryState}
                 resource={t("adminNav.routes.equipe")}
                 error={summaryQuery.error}
@@ -408,20 +381,20 @@ function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =>
         ? t("roleDepartmentalAdmin")
         : actor.role;
 
-  const territoryLabel = [actor.region, actor.department].filter(Boolean).join(" — ") || t("unassigned");
   const { decisions } = actor.processing;
 
   return (
     <tr>
       <td>
         <span className="cam-admin-strong">{actor.displayName}</span>
-        <span className="cam-admin-meta" style={{ display: "block" }}>{roleLabel}</span>
         <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "nowrap" }}>
           {t("lastSystemAction")}{" "}
           {actor.lastActionAt ? stamp(actor.lastActionAt, true, locale) : t("noActionRecorded")}
         </span>
       </td>
-      <td>{territoryLabel}</td>
+      <td>{roleLabel}</td>
+      <td>{actor.region ?? t("unassigned")}</td>
+      <td>{actor.department ?? t("unassigned")}</td>
       <td className="is-num">
         {count(actor.field.registrationsMade, locale)}
         <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "nowrap" }}>

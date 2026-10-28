@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CampaignPurpose, OnefopStatus, Prisma, SubmissionModule } from '@prisma/client';
+import { CampaignPurpose, OnefopStatus, Prisma, SubmissionModule, UserRole } from '@prisma/client';
 import { Territory } from '../auth/territory';
 import { PrismaService } from '../prisma/prisma.service';
 import { isOverdue, overdueCutoff, overdueDaysFrom } from '../auth/registration-overdue';
@@ -28,6 +28,7 @@ import {
   buildMetrics,
   emptyMetrics,
   CampaignReturnsTimeline,
+  RecordCampaignFollowUpInput,
   CampaignReturnsActivity,
   buildTimelineDays,
   doualaDay,
@@ -63,6 +64,14 @@ export const PilotageAuditAction = {
   CAMPAIGN_QUOTA_UPSERT: 'CAMPAIGN_QUOTA_UPSERT',
   CAMPAIGN_QUOTA_DELETE: 'CAMPAIGN_QUOTA_DELETE',
 } as const;
+
+const NON_RESPONDENT_CONTACT_ROLES = new Set<string>([
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_ONEFOP,
+  UserRole.ADMIN_ONEFOP_SUBMISSIONS,
+  UserRole.REGIONAL_ADMIN,
+  UserRole.DIVISIONAL_ADMIN,
+]);
 
 type ScopeKey = { campaignId: string };
 
@@ -963,8 +972,8 @@ export class PilotageService {
    * minus its received, as a list to chase. Same predicates: registered is
    * isRegistered, received is a file in a received status (a resubmission
    * counts once). Files are matched to the company by companyId, not by the
-   * file's own territory. No contact data: each row leads to the
-   * establishment's page, which keeps its own access rules.
+   * file's own territory. Contact email and phone are returned only to survey
+   * roles that may use the follow-up contact columns.
    */
   async getCampaignNonRespondents(
     territory: Territory | null | undefined,
@@ -976,8 +985,12 @@ export class PilotageService {
         "Le suivi des retours concerne uniquement les campagnes de collecte : une campagne d'inscription porte des cibles, pas une collecte.",
       );
     }
-    const summary = returnsSummary(campaign);
+    const summary = {
+      ...returnsSummary(campaign),
+      deadline: (campaign.extendedDeadline ?? campaign.deadline)?.toISOString() ?? null,
+    };
     const scope = await resolveTargetScope(this.prisma, territory);
+    const canIncludeContactDetails = NON_RESPONDENT_CONTACT_ROLES.has(territory?.role ?? '');
     if (scope.kind === 'none') {
       return { campaign: summary, lastReminder: null, registered: 0, establishments: [] };
     }
@@ -994,9 +1007,13 @@ export class PilotageService {
           establishmentId: true,
           establishmentIdGeneratedAt: true,
           createdAt: true,
+          phone: true,
+          phone2: true,
+          respondentPhone: true,
+          respondentPhone2: true,
           regionRef: { select: { name: true } },
           departmentRef: { select: { regionId: true, name: true } },
-          user: { select: { status: true, isActive: true, approvedAt: true } },
+          user: { select: { email: true, status: true, isActive: true, approvedAt: true } },
         },
       }),
       this.prisma.campaignReminder.findFirst({
@@ -1026,6 +1043,12 @@ export class PilotageService {
       const own = filesByCompany.get(company.id) ?? [];
       if (own.some((file) => isReceivedStatus(file.status))) continue;
       const bucket = classifyBucket(toStockRow(company));
+      const contactEmail = canIncludeContactDetails ? company.user?.email?.trim() || undefined : undefined;
+      const contactPhone = canIncludeContactDetails
+        ? [company.respondentPhone, company.respondentPhone2, company.phone, company.phone2]
+            .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+            ?.trim()
+        : undefined;
       establishments.push({
         companyId: company.id,
         name: company.name,
@@ -1036,8 +1059,44 @@ export class PilotageService {
         regionName: company.regionRef?.name ?? null,
         departmentId: company.departmentId,
         departmentName: company.departmentRef?.name ?? null,
+        ...(contactEmail ? { contactEmail } : {}),
+        ...(contactPhone ? { contactPhone } : {}),
         fileState: nonRespondentFileState(own),
       });
+    }
+    const followUps = canIncludeContactDetails && registered.length > 0
+      ? await this.prisma.campaignFollowUpAttempt.findMany({
+          where: { campaignId, companyId: { in: registered.map((company) => company.id) } },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: {
+            companyId: true,
+            channel: true,
+            outcome: true,
+            messageLanguage: true,
+            createdAt: true,
+            actorName: true,
+            actorTitle: true,
+          },
+        })
+      : [];
+    const latestFollowUpByCompany = new Map<string, (typeof followUps)[number]>();
+    for (const attempt of followUps) {
+      if (!latestFollowUpByCompany.has(attempt.companyId)) {
+        latestFollowUpByCompany.set(attempt.companyId, attempt);
+      }
+    }
+    for (const establishment of establishments) {
+      const latest = latestFollowUpByCompany.get(establishment.companyId);
+      establishment.latestFollowUp = latest
+        ? {
+            channel: latest.channel,
+            outcome: latest.outcome,
+            messageLanguage: latest.messageLanguage,
+            createdAt: latest.createdAt.toISOString(),
+            actorName: latest.actorName,
+            actorTitle: latest.actorTitle,
+          }
+        : null;
     }
     const label = (value: string | null) => value ?? '￿';
     establishments.sort(
@@ -1059,6 +1118,99 @@ export class PilotageService {
       registered: registered.length,
       establishments,
     };
+  }
+
+  async recordCampaignFollowUp(
+    actorId: string,
+    territory: Territory | null | undefined,
+    campaignId: string,
+    companyId: string,
+    body: unknown,
+  ) {
+    const input = parseCampaignFollowUpInput(body);
+    requireActor(actorId);
+    const campaign = await this.requireOnefopCampaign(campaignId);
+    if (campaign.purpose !== CampaignPurpose.COLLECTION) {
+      throw new BadRequestException('Les relances concernent uniquement les campagnes de collecte.');
+    }
+    const scope = await resolveTargetScope(this.prisma, territory);
+    if (scope.kind === 'none') throw new NotFoundException('Établissement introuvable.');
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, ...companyWhere(scope) },
+      select: {
+        id: true,
+        name: true,
+        establishmentId: true,
+        user: { select: { status: true, isActive: true } },
+      },
+    });
+    if (
+      !company ||
+      company.user.status !== 'ACTIVE' ||
+      !company.user.isActive ||
+      !company.establishmentId?.trim()
+    ) {
+      throw new NotFoundException('Établissement introuvable.');
+    }
+    const currentFiles = await this.prisma.onefopSubmission.findMany({
+      where: { campaignId, companyId },
+      select: { status: true },
+    });
+    if (
+      input.outcome !== 'ALREADY_SUBMITTED' &&
+      currentFiles.some((file) => isReceivedStatus(file.status))
+    ) {
+      throw new ConflictException('Cet établissement a déjà soumis sa déclaration pour cette campagne.');
+    }
+    const previous = await this.prisma.campaignFollowUpAttempt.findFirst({
+      where: { campaignId, companyId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { outcome: true },
+    });
+    if (previous?.outcome === 'DO_NOT_CONTACT' && input.outcome !== 'DO_NOT_CONTACT') {
+      throw new BadRequestException("Cet établissement a demandé à ne plus être contacté pour cette campagne.");
+    }
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: {
+        firstName: true,
+        lastName: true,
+        positionTitle: true,
+        poste: true,
+        region: true,
+        department: true,
+      },
+    });
+    if (!actor) throw new UnauthorizedException('Authentification requise.');
+    const actorName = [actor.firstName, actor.lastName]
+      .filter((part): part is string => Boolean(part?.trim()))
+      .map((part) => part.trim())
+      .join(' ') || 'ONEFOP agent';
+    const actorTitle = actor.positionTitle?.trim() || actor.poste?.trim() || null;
+    return this.prisma.campaignFollowUpAttempt.create({
+      data: {
+        campaignId,
+        companyId,
+        actorId,
+        actorName,
+        actorTitle,
+        actorRegion: actor.region,
+        actorDepartment: actor.department,
+        channel: input.channel,
+        outcome: input.outcome,
+        messageLanguage: input.channel === 'WHATSAPP' ? input.messageLanguage ?? null : null,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        channel: true,
+        outcome: true,
+        messageLanguage: true,
+        createdAt: true,
+        actorName: true,
+        actorTitle: true,
+      },
+    });
   }
 
   async putCampaignQuotas(
@@ -1453,6 +1605,46 @@ function sumTargets(rows: Array<{ submissionTarget: number }>): number | null {
 
 function requireActor(actorId: string): void {
   if (typeof actorId !== 'string' || actorId.trim() === '') throw new UnauthorizedException('Authentification requise.');
+}
+
+function parseCampaignFollowUpInput(value: unknown): RecordCampaignFollowUpInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new BadRequestException('Le corps de la requête de relance est invalide.');
+  }
+  const record = value as Record<string, unknown>;
+  const channels = ['WHATSAPP', 'PHONE', 'EMAIL'] as const;
+  const outcomes = [
+    'SENT_CONFIRMED',
+    'NO_ANSWER',
+    'WRONG_NUMBER',
+    'CALLBACK_REQUESTED',
+    'ALREADY_SUBMITTED',
+    'DO_NOT_CONTACT',
+  ] as const;
+  if (!channels.includes(record.channel as (typeof channels)[number])) {
+    throw new BadRequestException('Le canal de relance est invalide.');
+  }
+  if (!outcomes.includes(record.outcome as (typeof outcomes)[number])) {
+    throw new BadRequestException('Le résultat de relance est invalide.');
+  }
+  const messageLanguage = record.messageLanguage;
+  if (
+    messageLanguage !== undefined &&
+    messageLanguage !== null &&
+    messageLanguage !== 'fr' &&
+    messageLanguage !== 'en'
+  ) {
+    throw new BadRequestException('La langue du message est invalide.');
+  }
+  if (record.channel !== 'WHATSAPP' && messageLanguage != null) {
+    throw new BadRequestException('La langue ne concerne que les relances WhatsApp.');
+  }
+  const parsedLanguage = messageLanguage === 'fr' || messageLanguage === 'en' ? messageLanguage : undefined;
+  return {
+    channel: record.channel as RecordCampaignFollowUpInput['channel'],
+    outcome: record.outcome as RecordCampaignFollowUpInput['outcome'],
+    ...(parsedLanguage ? { messageLanguage: parsedLanguage } : {}),
+  };
 }
 
 /**

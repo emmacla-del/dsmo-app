@@ -26,6 +26,7 @@ export interface User {
   department?: string | null;
   subdivision?: string | null;
   matricule?: string | null;
+  poste?: string | null;
   serviceCode?: string | null;
   positionType?: string | null;
   positionTitle?: string | null;

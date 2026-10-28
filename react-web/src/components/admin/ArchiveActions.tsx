@@ -17,24 +17,35 @@ interface ArchiveActionsProps {
   cancelLabel: string;
   onArchive: (reason: string) => void;
   onRestore: () => void;
+  /** Render only the confirmation dialog when another control opens it. */
+  hideTrigger?: boolean;
+  /** Optional controlled state for menus that must close before the dialog opens. */
+  dialogOpen?: boolean;
+  onDialogOpenChange?: (open: boolean) => void;
 }
 
 /** Shared archive/restore row control used by both admin modules. */
 export function ArchiveActions({
   archived, canManage, resourceName, archiveLabel, restoreLabel,
   confirmTitle, reasonLabel, cancelLabel, onArchive, onRestore,
+  hideTrigger = false, dialogOpen, onDialogOpenChange,
 }: ArchiveActionsProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const open = dialogOpen ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    if (dialogOpen === undefined) setInternalOpen(next);
+    onDialogOpenChange?.(next);
+  };
   if (!canManage) return null;
 
   return (
     <>
-      {archived ? (
+      {!hideTrigger && (archived ? (
         <Button type="button" variant="link" size="sm" className="h-auto px-0 underline" onClick={onRestore}>{restoreLabel}</Button>
       ) : (
         <Button type="button" variant="link" size="sm" className="h-auto px-0 underline" onClick={() => { setReason(""); setOpen(true); }}>{archiveLabel}</Button>
-      )}
+      ))}
       <AdminDialog
         open={open}
         onClose={() => setOpen(false)}
