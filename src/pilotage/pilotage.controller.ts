@@ -17,6 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ActiveCompanyGuard } from '../auth/active-company.guard';
 import { territoryFromUser } from '../auth/territory';
+import { REGISTRATION_ADMIN_ROLES } from '../auth/staff-scope';
 import { PilotageService } from './pilotage.service';
 import { parseYear } from './pilotage-validation';
 
@@ -41,6 +42,12 @@ export const PILOTAGE_READ_ROLES = [
   UserRole.ADMIN_ONEFOP_SUBMISSIONS,
   UserRole.REGIONAL_ADMIN,
   UserRole.DIVISIONAL_ADMIN,
+  UserRole.CENTRAL_AGENT,
+] as const;
+
+/** Registration workflow readers for the registration-specific coverage roll-ups. */
+export const PILOTAGE_COVERAGE_READ_ROLES = [
+  ...REGISTRATION_ADMIN_ROLES,
   UserRole.CENTRAL_AGENT,
 ] as const;
 
@@ -89,7 +96,7 @@ export class PilotageController {
    * QUARTER coverage: one registration campaign quarter and its approvals.
    */
   @Get('coverage/quarter')
-  @Roles(...PILOTAGE_READ_ROLES)
+  @Roles(...PILOTAGE_COVERAGE_READ_ROLES)
   getQuarterCoverage(
     @Query('year') year: string,
     @Query('quarter') quarter: string,
@@ -111,7 +118,7 @@ export class PilotageController {
    * routes reject the same years with the same message.
    */
   @Get('coverage/semester')
-  @Roles(...PILOTAGE_READ_ROLES)
+  @Roles(...PILOTAGE_COVERAGE_READ_ROLES)
   getSemesterCoverage(
     @Query('year') year: string,
     @Query('semester') semester: string,
@@ -130,7 +137,7 @@ export class PilotageController {
    * on the bare route meaning "annual".
    */
   @Get('coverage/annual')
-  @Roles(...PILOTAGE_READ_ROLES)
+  @Roles(...PILOTAGE_COVERAGE_READ_ROLES)
   getAnnualCoverage(@Query('year') year: string, @Req() req: any) {
     return this.pilotage.getCoverage(territoryFromUser(req.user), year);
   }

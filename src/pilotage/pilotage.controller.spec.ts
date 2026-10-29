@@ -3,7 +3,12 @@ import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../auth/roles.guard';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import { UserRole } from '../types/prisma.types';
-import { PILOTAGE_READ_ROLES, PILOTAGE_WRITE_ROLES, PilotageController } from './pilotage.controller';
+import {
+  PILOTAGE_COVERAGE_READ_ROLES,
+  PILOTAGE_READ_ROLES,
+  PILOTAGE_WRITE_ROLES,
+  PilotageController,
+} from './pilotage.controller';
 
 // The values UserRole actually holds. The role collapse folded five of the
 // old eleven into ADMIN_ONEFOP and two into SUPER_ADMIN, so this list carried
@@ -33,6 +38,7 @@ describe('PilotageController roles', () => {
   const settings = { getSettings: jest.fn().mockResolvedValue({ maintenanceMode: false }) } as unknown as SystemSettingsService;
   const guard = new RolesGuard(new Reflector(), settings);
   const read = new Set<string>(PILOTAGE_READ_ROLES);
+  const coverageRead = new Set<string>(PILOTAGE_COVERAGE_READ_ROLES);
   const write = new Set<string>(PILOTAGE_WRITE_ROLES);
 
   it('is built from the UserRole enum actually stored in the schema', () => {
@@ -46,8 +52,9 @@ describe('PilotageController roles', () => {
     const handlers = [
       ['getInscriptionTargets', read],
       ['getCoverage', read],
-      ['getSemesterCoverage', read],
-      ['getAnnualCoverage', read],
+      ['getQuarterCoverage', coverageRead],
+      ['getSemesterCoverage', coverageRead],
+      ['getAnnualCoverage', coverageRead],
       ['getActiveCollectionCampaigns', read],
       ['getCampaignQuotas', read],
       ['getCampaignReturns', read],
@@ -61,6 +68,8 @@ describe('PilotageController roles', () => {
     expect(write.has(UserRole.ADMIN_ONEFOP)).toBe(true);
     expect(read.has(UserRole.REGIONAL_ADMIN)).toBe(true);
     expect(read.has(UserRole.DIVISIONAL_ADMIN)).toBe(true);
+    expect(coverageRead.has(UserRole.ADMIN_ONEFOP_REGISTRATIONS)).toBe(true);
+    expect(coverageRead.has(UserRole.ADMIN_ONEFOP_SUBMISSIONS)).toBe(false);
     // Central staff read the pilotage figures nationally and change nothing.
     expect(read.has(UserRole.CENTRAL_AGENT)).toBe(true);
     expect(write.has(UserRole.CENTRAL_AGENT)).toBe(false);
