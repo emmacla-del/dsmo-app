@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
@@ -57,14 +56,14 @@ import { departmentInRegion, regionInTree, useTerritoryDepartments, useTerritory
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
 import { AdminFilterDisclosure } from "@/components/admin/AdminFilterDisclosure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
-import type { CoverageSelection } from "@/components/admin/CoveragePanel";
-import { doualaCalendarYear, parseYearParam } from "@/lib/pilotage-targets";
+import { coverageHref } from "@/lib/pilotage-targets";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,13 +88,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const PAGE_SIZE = 8;
-
-const CoveragePanel = dynamic(
-  () => import("@/components/admin/CoveragePanel").then((module) => module.CoveragePanel),
-  {
-    loading: () => <InlineLoading className="cam-admin-section cam-registration-coverage-loading" />,
-  },
-);
 
 /** The console tones, as Badge variants. */
 type Tone = "neutral" | "success" | "warning" | "danger" | "info";
@@ -216,15 +208,6 @@ function InscriptionsLoading() {
   );
 }
 
-function InlineLoading({ className }: { className: string }) {
-  const t = useTranslations("common");
-  return (
-    <div className={className} role="status" aria-live="polite" aria-busy="true">
-      <span className="sr-only">{t("loading")}</span>
-    </div>
-  );
-}
-
 function InscriptionsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -247,33 +230,22 @@ function InscriptionsContent() {
   // with no way to see why.
   const requestedType = searchParams.get("type")?.trim() ?? "";
   const initialType = REGISTRATION_ENTITY_TYPES.includes(requestedType as (typeof REGISTRATION_ENTITY_TYPES)[number]) ? requestedType : "";
-  const requestedSemester = searchParams.get("semestre");
-  const requestedQuarter = searchParams.get("trimestre");
-  const validSemester = requestedSemester === "1" || requestedSemester === "2"
-    ? Number(requestedSemester) as 1 | 2
-    : null;
-  const validQuarter = ["1", "2", "3", "4"].includes(requestedQuarter ?? "")
-    ? Number(requestedQuarter) as 1 | 2 | 3 | 4
-    : null;
-  const semester: CoverageSelection["semester"] = validQuarter != null
-    ? validSemester ?? (validQuarter <= 2 ? 1 : 2)
-    : validSemester;
-  const quarter: CoverageSelection["quarter"] = validQuarter != null
-    && semester != null
-    && (validQuarter <= 2 ? 1 : 2) === semester
-    ? validQuarter
-    : null;
-  // Two views of registrations: the review queue, and coverage against the
-  // registration-campaign targets (moved here from /admin/cibles, which
-  // forwards its old ?vue=couverture links). Both live in the URL, so a
-  // reload keeps the view and the year.
+  // Keep old registration-coverage URLs working while the view lives with
+  // the other campaign views under /admin/cibles.
   // ADR-0001 / Phase 3: vue values will be renamed to registrations: queue |
   // organisations | coverage; declarations: submissions | completed | coverage.
   // vue is presentation only and grants no permission. Update parsers, tabs,
   // link helpers, and labels together. See docs/plans/admin-modules-refactor.md
   // Phase 3.
-  const year = parseYearParam(searchParams.get("annee")) ?? doualaCalendarYear();
   const currentQuery = searchParams.toString();
+  useEffect(() => {
+    if (vue !== "coverage") return;
+    router.replace(coverageHref(
+      searchParams.get("annee"),
+      searchParams.get("semestre"),
+      searchParams.get("trimestre"),
+    ));
+  }, [router, searchParams, vue]);
   const establishmentReturnTo = buildRegistrationReturnTo(currentQuery);
   const page = parseAdminListPage(searchParams.get("page"));
   const setPage = useCallback((nextPage: number) => {
@@ -321,12 +293,27 @@ function InscriptionsContent() {
       : "all";
   const [organisationInput, setOrganisationInput] = useState(requestedSearch);
   const [organisation, setOrganisation] = useState(requestedSearch.trim());
-  const [region, setRegion] = useState(initialRegion);
-  const [department, setDepartment] = useState(initialDepartment);
+  const [regionInput, setRegion] = useState(initialRegion);
+  const [departmentInput, setDepartment] = useState(initialDepartment);
   // A chosen region narrows the department list. Clearing the region keeps a
   // department that is still valid. An impossible pair is removed only after
   // the territory tree has loaded.
   const territoryStructure = useTerritoryStructure();
+  const validRequestedRegion = !regionInput || !territoryStructure.isSuccess
+    || regionInTree(territoryStructure.data, regionInput) !== false;
+  const region = territoryStructure.isSuccess && !validRequestedRegion ? "" : regionInput;
+  const validRequestedDepartment = !departmentInput || !territoryStructure.isSuccess || (
+    region
+      ? departmentInRegion(territoryStructure.data, region, departmentInput) !== false
+      : territoryStructure.data.some((item) => item.departments.some((department) => department.name === departmentInput))
+  );
+  const department = territoryStructure.isSuccess && (!validRequestedRegion || !validRequestedDepartment)
+    ? ""
+    : departmentInput;
+  const hasTerritoryFilters = Boolean(regionInput || departmentInput);
+  const territoryFiltersValid = !hasTerritoryFilters || (
+    territoryStructure.isSuccess && validRequestedRegion && validRequestedDepartment
+  );
   const { departments: territoryDepartments } = useTerritoryDepartments(region || undefined);
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const requestedAssignedToMe = vue === "queue" && (searchParams.get("assignedToMe") === "1" || searchParams.get("assignedToMe") === "true");
@@ -395,22 +382,27 @@ function InscriptionsContent() {
   const currentHref = `/admin/inscriptions${currentQuery ? `?${currentQuery}` : ""}`;
 
   useEffect(() => {
+    if (vue === "coverage") return;
     if (normalizedViewHref !== currentHref) {
       router.replace(normalizedViewHref, { scroll: false });
       return;
     }
     if (!territoryStructure.isSuccess) return;
     const tree = territoryStructure.data;
-    if (region && regionInTree(tree, region) === false) {
+    if (regionInput && regionInTree(tree, regionInput) === false) {
       router.replace(inscriptionsHref(currentQuery, vue, { region: null, department: null }));
       return;
     }
-    if (!region || !department) return;
-    if (departmentInRegion(tree, region, department) !== false) return;
+    if (!departmentInput) return;
+    const departmentIsValid = regionInput
+      ? departmentInRegion(tree, regionInput, departmentInput) !== false
+      : tree.some((item) => item.departments.some((department) => department.name === departmentInput));
+    if (departmentIsValid) return;
     router.replace(inscriptionsHref(currentQuery, vue, { department: null }));
-  }, [normalizedViewHref, currentHref, territoryStructure.isSuccess, territoryStructure.data, region, department, currentQuery, vue, router]);
+  }, [normalizedViewHref, currentHref, territoryStructure.isSuccess, territoryStructure.data, regionInput, departmentInput, currentQuery, vue, router]);
 
   useEffect(() => {
+    if (vue === "coverage") return;
     const next = organisationInput.trim();
     if (next === organisation) return;
     const timer = setTimeout(() => {
@@ -423,12 +415,10 @@ function InscriptionsContent() {
   /**
    * The filters the URL carries, re-applied whenever its own values change.
    *
-   * The state initialisers above run on the first render only, and the
-   * coverage view is this same route: a ranked region, a ranked type and an
-   * overdue count all link to /admin/inscriptions?status=…&region=…&type=…,
-   * which switches `vue` (derived per render) without remounting. Without
-   * this the queue opened on whatever filter it already had — the default
-   * pending + complements — and the chips said nothing was filtered.
+   * The state initialisers above run on the first render only. Coverage
+   * rankings link back to this list with status/region/type filters, which can
+   * switch the current route without remounting. Without this, the queue
+   * opened on its previous filter state and the chips said nothing was filtered.
    *
    * Keyed on the four values, not on the query string, so the period selector
    * and the view toggle (both of which keep every other parameter) leave a
@@ -535,7 +525,7 @@ function InscriptionsContent() {
         page,
         pageSize: PAGE_SIZE,
       }),
-    enabled: canReadQueue && vue === "queue",
+    enabled: canReadQueue && vue === "queue" && territoryFiltersValid,
     placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
@@ -555,17 +545,17 @@ function InscriptionsContent() {
   const organisationsQuery = useQuery({
     queryKey: ["auth", "company-registrations", "organisations", organisationsRequestParams, page],
     queryFn: () => listCompanyRegistrations({ ...organisationsRequestParams, page, pageSize: PAGE_SIZE }),
-    enabled: canReadQueue && vue === "organisations",
+    enabled: canReadQueue && vue === "organisations" && territoryFiltersValid,
     placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
 
   const activeListQuery = vue === "organisations" ? organisationsQuery : queueQuery;
   useEffect(() => {
-    if (vue === "coverage" || activeListQuery.data === undefined || activeListQuery.isPlaceholderData) return;
+    if (vue === "coverage" || !territoryFiltersValid || activeListQuery.data === undefined || activeListQuery.isPlaceholderData) return;
     const validPage = clampAdminListPage(page, activeListQuery.data.total, PAGE_SIZE);
     if (validPage !== page) setPage(validPage);
-  }, [activeListQuery.data, activeListQuery.isPlaceholderData, page, setPage, vue]);
+  }, [activeListQuery.data, activeListQuery.isPlaceholderData, page, setPage, territoryFiltersValid, vue]);
 
   const archiveMutation = useMutation({
     mutationFn: (target: { item: CompanyRegistrationItem; reason: string }) => archiveUser(target.item.id, target.reason),
@@ -587,6 +577,7 @@ function InscriptionsContent() {
   });
 
   const exportRegistrations = async (targetView: "organisations" | "queue" = vue === "queue" ? "queue" : "organisations") => {
+    if (!territoryFiltersValid) return;
     const params = new URLSearchParams();
     if (targetView === "organisations") {
       for (const [key, value] of Object.entries(organisationsRequestParams)) {
@@ -739,39 +730,41 @@ function InscriptionsContent() {
 
   // The region filter is applied by the API, inside the reviewer's own
   // territory scope, so paging and the totals stay consistent with it.
-  const items = queueQuery.data?.items ?? [];
+  const territoryValidationError = hasTerritoryFilters && territoryStructure.isError;
+  const territoryValidationPending = hasTerritoryFilters && !territoryFiltersValid && !territoryValidationError;
+  const items = territoryFiltersValid ? queueQuery.data?.items ?? [] : [];
   // null until the queue answers: a tile never shows a zero it has not read.
-  const counts = selectAdminViewCounts(queueQuery.data?.countsView, "queue", queueQuery.data?.counts);
-  const organisationsResult = organisationsQuery.data;
+  const counts = territoryFiltersValid ? selectAdminViewCounts(queueQuery.data?.countsView, "queue", queueQuery.data?.counts) : null;
+  const organisationsResult = territoryFiltersValid ? organisationsQuery.data : undefined;
   const organisationItems = organisationsResult?.items ?? [];
   const organisationCounts = selectAdminViewCounts(organisationsResult?.countsView, "organisations", organisationsResult?.counts);
   // The threshold the server applied, so the labels match the flags.
-  const overdueDays = queueQuery.data?.overdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS;
-  const total = queueQuery.data?.total ?? 0;
-  const queueUpdating = queueQuery.isFetching && queueQuery.data !== undefined;
-  const organisationsUpdating = isBackgroundRefreshing(organisationsQuery.isFetching, organisationsQuery.data);
+  const overdueDays = territoryFiltersValid ? queueQuery.data?.overdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS : REGISTRATION_OVERDUE_DEFAULT_DAYS;
+  const total = territoryFiltersValid ? queueQuery.data?.total ?? 0 : 0;
+  const queueUpdating = territoryFiltersValid && queueQuery.isFetching && queueQuery.data !== undefined;
+  const organisationsUpdating = territoryFiltersValid && isBackgroundRefreshing(organisationsQuery.isFetching, organisationsQuery.data);
   const pendingMutation = approveMutation.isPending || rejectMutation.isPending || complementsMutation.isPending;
 
-  const displayedPage = queueQuery.data?.page ?? page;
+  const displayedPage = territoryFiltersValid ? queueQuery.data?.page ?? page : 1;
   const start = items.length === 0 ? 0 : (displayedPage - 1) * PAGE_SIZE + 1;
   const end = items.length === 0 ? 0 : start + items.length - 1;
 
   const tableState = resolveDataState({
     roleAllowed: canReadQueue,
-    isLoading: queueQuery.isLoading,
-    isError: queueQuery.isError,
-    error: queueQuery.error,
-    rowCount: queueQuery.data ? items.length : null,
+    isLoading: queueQuery.isLoading || territoryValidationPending,
+    isError: queueQuery.isError || territoryValidationError,
+    error: queueQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined),
+    rowCount: territoryFiltersValid && queueQuery.data ? items.length : null,
   });
   const organisationsTableState = resolveDataState({
     roleAllowed: canReadQueue,
-    isLoading: organisationsQuery.isLoading,
-    isError: organisationsQuery.isError,
-    error: organisationsQuery.error,
-    rowCount: organisationsResult ? organisationItems.length : null,
+    isLoading: organisationsQuery.isLoading || territoryValidationPending,
+    isError: organisationsQuery.isError || territoryValidationError,
+    error: organisationsQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined),
+    rowCount: territoryFiltersValid && organisationsResult ? organisationItems.length : null,
   });
 
-  const statusSource = vue === "organisations" ? organisationCounts : counts;
+  const statusSource = territoryFiltersValid ? (vue === "organisations" ? organisationCounts : counts) : null;
   const registrationStatusSegments = statusSource ? (vue === "organisations" ? [
     { key: "approved", label: t("statusApproved"), value: statusSource.approved, tone: "approved" },
     { key: "rejected", label: t("statusRejected"), value: statusSource.rejected, tone: "rejected" },
@@ -877,49 +870,36 @@ function InscriptionsContent() {
     </div>
   );
 
-  const registrationStatusPanel = canReadQueue ? (
-    <section className="cam-registration-status-panel" aria-labelledby="registration-status-title" aria-busy={vue === "organisations" ? organisationsUpdating : queueUpdating}>
+  const registrationStatusSummary = canReadQueue && statusSource && registrationStatusTotal > 0 ? (
+    <section className="cam-registration-status-summary" aria-labelledby="registration-status-title">
       <div className="cam-registration-status-head">
         <h2 id="registration-status-title">{t("statusDistributionTitle")}</h2>
         <span>{t("statusDistributionContext")}</span>
       </div>
-      {(vue === "organisations" ? organisationsQuery.isError : queueQuery.isError) ? (
-        <DataState
-          state="error"
-          resource={t("registrationStatusResource")}
-          error={vue === "organisations" ? organisationsQuery.error : queueQuery.error}
-          onRetry={() => (vue === "organisations" ? organisationsQuery.refetch() : queueQuery.refetch())}
-        />
-      ) : (vue === "organisations" ? organisationsQuery.isLoading || !organisationCounts : queueQuery.isLoading || !counts) ? (
-        <DataState state="loading" resource={t("registrationStatusResource")} dense />
-      ) : registrationStatusTotal === 0 ? (
-        <DataState state="empty" resource={t("registrationStatusResource")} dense />
-      ) : (
-        <ul className="cam-registration-status-list" aria-label={t("statusDistributionAria", {
-          pending: statusSource?.pending ?? 0,
-          complements: statusSource?.complements ?? 0,
-          approved: statusSource?.approved ?? 0,
-          rejected: statusSource?.rejected ?? 0,
-        })}>
-          {registrationStatusSegments.map((segment) => (
-            <li key={segment.key}>
-              <button type="button" className="cam-registration-status-button" onClick={() => applyStatus(segment.key === "approved" ? "ACTIVE" : segment.key === "rejected" ? "REJECTED" : segment.key === "pending" ? "PENDING_APPROVAL" : "COMPLEMENTS_REQUESTED")} aria-pressed={statusFilter === (segment.key === "approved" ? "ACTIVE" : segment.key === "rejected" ? "REJECTED" : segment.key === "pending" ? "PENDING_APPROVAL" : "COMPLEMENTS_REQUESTED")}>
-                <span className={`cam-dash-status-swatch is-${segment.tone}`} aria-hidden="true" />
-                <span className="cam-dash-status-label">{segment.label}</span>
-                <strong>{count(segment.value, locale)}</strong>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="cam-registration-status-list" aria-label={t("statusDistributionAria", {
+        pending: statusSource.pending ?? 0,
+        complements: statusSource.complements ?? 0,
+        approved: statusSource.approved ?? 0,
+        rejected: statusSource.rejected ?? 0,
+      })}>
+        {registrationStatusSegments.map((segment) => (
+          <li key={segment.key}>
+            <span className={`cam-dash-status-swatch is-${segment.tone}`} aria-hidden="true" />
+            <span className="cam-dash-status-label">{segment.label}</span>
+            <strong>{count(segment.value, locale)}</strong>
+          </li>
+        ))}
+      </ul>
       <p className="cam-admin-help-text" role="note">{t("statusCountsScopeNote")}</p>
-      {statusSource && registrationStatusTotal > 0 && vue === "queue" && (
+      {vue === "queue" && (
         <p className="cam-dash-context cam-registration-overdue-summary">
-          {t("overdueSummary", { count: count(statusSource.overdue, locale), days: overdueDays })}
+          {t("overdueSummary", { count: count(statusSource.overdue ?? 0, locale), days: overdueDays })}
         </p>
       )}
     </section>
   ) : null;
+
+  if (vue === "coverage") return null;
 
   return (
     <div className="cam-admin-page cam-admin-workflow-page cam-registration-hub-page">
@@ -936,20 +916,11 @@ function InscriptionsContent() {
       />
       <RegistrationsHubTabs activeTab={vue} canReviewRegistrations={canReadQueue} currentQuery={currentQuery} />
 
-      {vue === "coverage" && (
-        <CoveragePanel year={year} semester={semester} quarter={quarter} onPeriodChange={(next) => router.push(inscriptionsHref(currentQuery, "coverage", {
-          annee: next.year,
-          semestre: next.semester,
-          trimestre: next.quarter,
-          periode: null,
-        }), { scroll: false })} />
-      )}
-
       {vue === "organisations" && <>
         {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="my-4">{notice.text}</Alert>}
-        {registrationStatusPanel}
         <AdminTablePanel title={t("viewOrganisations")} description={t("organisationsScopeNote")} headingId="registration-organisations-table-title" busy={organisationsUpdating} busyLabel={t("updatingOrganisations")}>
           <div className="cam-admin-table-panel-body">
+            {registrationStatusSummary}
             <div className="cam-registration-organisations-primary-filters grid gap-3 pb-3 md:grid-cols-4">
               <div className="md:col-span-2"><Label htmlFor="organisations-search">{t("searchLabel")}</Label><Input id="organisations-search" type="search" value={organisationInput} placeholder={t("searchPlaceholder")} onChange={(event) => setOrganisationInput(event.target.value)} /></div>
               <div><Label htmlFor="organisations-date-range">{t("submissionDateColumn")}</Label><select id="organisations-date-range" className="cam-admin-input w-full" value={dateRange} onChange={(event) => applyDateRange(event.target.value)}><option value="all">{t("allDates")}</option><option value="30">{t("last30Days")}</option><option value="90">{t("last90Days")}</option><option value="custom">{t("customDateRange")}</option></select></div>
@@ -1005,7 +976,7 @@ function InscriptionsContent() {
               </div>
             </AdminFilterDisclosure>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <Button type="button" size="sm" variant="outline" onClick={exportOrganisations}>{t("exportRegistrations")}</Button>
+            <Button type="button" size="sm" variant="outline" onClick={exportOrganisations} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>
             </div>
             <AdminActiveFilterChips filters={visibleActiveFilters.map(({ key, label, clear }) => ({ key, label, onClear: clear }))} label={t("activeFiltersLabel")} clearAllLabel={t("clearFilters")} onClearAll={clearQueueFilters} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
             <Table className="cam-registration-organisations-table"><TableHeader><TableRow>
@@ -1015,7 +986,7 @@ function InscriptionsContent() {
               <TableHead scope="col">{t("establishmentTypeColumn")}</TableHead>
               <TableHead scope="col" className="whitespace-normal">{t("actionsColumn")}</TableHead>
             </TableRow></TableHeader><TableBody>
-              <DataStateRow colSpan={5} state={organisationsTableState} resource={t("viewOrganisations")} error={organisationsQuery.error} onRetry={() => organisationsQuery.refetch()} title={organisationsTableState === "empty" ? t("emptyTitle") : undefined} />
+              <DataStateRow colSpan={5} state={organisationsTableState} resource={t("viewOrganisations")} error={organisationsQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined)} onRetry={() => territoryValidationError ? territoryStructure.refetch() : organisationsQuery.refetch()} title={organisationsTableState === "empty" ? t("emptyTitle") : undefined} />
               {organisationItems.map((item) => {
                 const badge = STATUS_BADGE[item.status];
                 const detailIdentifier = item.establishmentId || item.registrationNumber;
@@ -1041,7 +1012,7 @@ function InscriptionsContent() {
                 </TableRow>;
               })}
             </TableBody></Table>
-            {organisationsResult && organisationsResult.total > 0 && <div className="flex justify-end gap-3 py-4"><Button type="button" variant="outline" size="sm" disabled={page <= 1 || organisationsQuery.isFetching} onClick={() => setPage(page - 1)}>{t("previousButton")}</Button><span className="self-center text-sm">{t("showingRange", { start: (page - 1) * PAGE_SIZE + 1, end: Math.min(page * PAGE_SIZE, organisationsResult.total), total: organisationsResult.total })}</span><Button type="button" variant="outline" size="sm" disabled={page * PAGE_SIZE >= organisationsResult.total || organisationsQuery.isFetching} onClick={() => setPage(page + 1)}>{t("nextButton")}</Button></div>}
+            {organisationsResult && organisationsResult.total > 0 && <div className="flex justify-end gap-3 py-4"><Button type="button" variant="outline" size="sm" disabled={page <= 1 || organisationsQuery.isFetching} onClick={() => setPage(page - 1)}>{t("previousButton")}</Button><AdminLiveResultCount announce={!organisationsQuery.isPlaceholderData} className="self-center text-sm">{t("showingRange", { start: (page - 1) * PAGE_SIZE + 1, end: Math.min(page * PAGE_SIZE, organisationsResult.total), total: organisationsResult.total })}</AdminLiveResultCount><Button type="button" variant="outline" size="sm" disabled={page * PAGE_SIZE >= organisationsResult.total || organisationsQuery.isFetching} onClick={() => setPage(page + 1)}>{t("nextButton")}</Button></div>}
           </div>
         </AdminTablePanel>
         {archiveTarget && <ArchiveActions
@@ -1129,12 +1100,11 @@ function InscriptionsContent() {
 
       </>)}
 
-      {vue === "queue" && registrationStatusPanel}
-
       {vue === "queue" && (<>
 
       <AdminTablePanel title={t("viewQueue")} headingId="registration-queue-table-title" busy={queueUpdating}>
         <div className="cam-admin-table-panel-body">
+          {registrationStatusSummary}
           <div className="grid gap-3 pb-5">
             <div className="cam-registration-queue-primary-filters grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div>
@@ -1218,7 +1188,7 @@ function InscriptionsContent() {
             </AdminFilterDisclosure>
           </div>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <Button type="button" size="sm" variant="outline" onClick={exportQueue}>{t("exportRegistrations")}</Button>
+            <Button type="button" size="sm" variant="outline" onClick={exportQueue} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>
           </div>
           {hasActiveQueueFilters && (
             <AdminActiveFilterChips
@@ -1241,7 +1211,7 @@ function InscriptionsContent() {
               <TableHead scope="col">{t("actionsColumn")}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              <DataStateRow colSpan={8} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error} onRetry={() => queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
+              <DataStateRow colSpan={8} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined)} onRetry={() => territoryValidationError ? territoryStructure.refetch() : queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
               {items.map((item) => {
                 const badge = STATUS_BADGE[item.status];
                 return <TableRow key={item.id}>

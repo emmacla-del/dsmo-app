@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
@@ -69,9 +69,11 @@ function formatFollowUpTimestamp(value: string, locale: "en" | "fr"): string {
 export function CampaignNonRespondentsTable({
   data,
   canShowContacts,
+  territories,
 }: {
   data: CampaignNonRespondentsResponse;
   canShowContacts: boolean;
+  territories: readonly { name: string; departments: readonly { name: string }[] }[];
 }) {
   const t = useTranslations("adminCiblesPage");
   const tRoot = useTranslations();
@@ -88,29 +90,21 @@ export function CampaignNonRespondentsTable({
   const [outcome, setOutcome] = useState<CampaignFollowUpOutcome | "">("");
   const [saveError, setSaveError] = useState(false);
   const [savedFollowUp, setSavedFollowUp] = useState(false);
-  const regions = useMemo(() => {
-    const set = new Set<string>();
-    for (const est of data.establishments) {
-      if (est.regionName) set.add(est.regionName);
-    }
-    return Array.from(set).sort();
-  }, [data.establishments]);
+  const regions = useMemo(() => territories.map((region) => region.name).sort(), [territories]);
 
   const allDepartments = useMemo(() => {
-    const found = new Map<string, string | null>();
-    for (const est of data.establishments) {
-      if (est.departmentName && !found.has(`${est.regionName ?? ""}\u0000${est.departmentName}`)) {
-        found.set(`${est.regionName ?? ""}\u0000${est.departmentName}`, est.regionName ?? null);
-      }
-    }
-    return Array.from(found, ([key, region]) => ({ name: key.split("\u0000")[1] ?? "", region }));
-  }, [data.establishments]);
+    return territories.flatMap((region) => region.departments.map((department) => ({
+      name: department.name,
+      region: region.name,
+    })));
+  }, [territories]);
 
   const types = useMemo(() => {
     const set = new Set<string>();
     for (const est of data.establishments) {
       if (est.entityType) set.add(est.entityType);
     }
+    for (const type of Object.keys(ENTITY_TYPE_OPTION_KEYS)) set.add(type);
     return Array.from(set).sort();
   }, [data.establishments]);
 
@@ -133,37 +127,31 @@ export function CampaignNonRespondentsTable({
   const selectedType = filters.type;
   const selectedOutcome = filters.outcome;
 
-  const departments = useMemo(() => {
-    const set = new Set<string>();
-    for (const est of data.establishments) {
-      if (selectedRegion && est.regionName !== selectedRegion) continue;
-      if (est.departmentName) set.add(est.departmentName);
-    }
-    return Array.from(set).sort();
-  }, [data.establishments, selectedRegion]);
+  const departments = allDepartments
+    .filter((department) => !selectedRegion || department.region === selectedRegion)
+    .map((department) => department.name)
+    .sort();
 
-  const filteredEstablishments = useMemo(() => {
-    return data.establishments.filter((row) => {
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = row.name.toLowerCase().includes(q);
-        const matchesId = row.establishmentId?.toLowerCase().includes(q);
-        const matchesContact = row.contactName?.toLowerCase().includes(q);
-        if (!matchesName && !matchesId && !matchesContact) return false;
+  const filteredEstablishments = data.establishments.filter((row) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesName = row.name.toLowerCase().includes(q);
+      const matchesId = row.establishmentId?.toLowerCase().includes(q);
+      const matchesContact = row.contactName?.toLowerCase().includes(q);
+      if (!matchesName && !matchesId && !matchesContact) return false;
+    }
+    if (selectedRegion && row.regionName !== selectedRegion) return false;
+    if (selectedDepartment && row.departmentName !== selectedDepartment) return false;
+    if (selectedType && row.entityType !== selectedType) return false;
+    if (canShowContacts) {
+      if (selectedOutcome === "NONE" && row.latestFollowUp) return false;
+      if (selectedOutcome === "CONTACTED" && !row.latestFollowUp) return false;
+      if (selectedOutcome && selectedOutcome !== "NONE" && selectedOutcome !== "CONTACTED") {
+        if (row.latestFollowUp?.outcome !== selectedOutcome) return false;
       }
-      if (selectedRegion && row.regionName !== selectedRegion) return false;
-      if (selectedDepartment && row.departmentName !== selectedDepartment) return false;
-      if (selectedType && row.entityType !== selectedType) return false;
-      if (canShowContacts) {
-        if (selectedOutcome === "NONE" && row.latestFollowUp) return false;
-        if (selectedOutcome === "CONTACTED" && !row.latestFollowUp) return false;
-        if (selectedOutcome && selectedOutcome !== "NONE" && selectedOutcome !== "CONTACTED") {
-          if (row.latestFollowUp?.outcome !== selectedOutcome) return false;
-        }
-      }
-      return true;
-    });
-  }, [data.establishments, searchQuery, selectedRegion, selectedDepartment, selectedType, selectedOutcome, canShowContacts]);
+    }
+    return true;
+  });
 
   const outcomeFilter = canShowContacts ? selectedOutcome : "";
   const filtersActive = !!(
@@ -176,7 +164,7 @@ export function CampaignNonRespondentsTable({
   const totalPages = Math.max(1, Math.ceil(totalFiltered / FOLLOW_UP_PAGE_SIZE));
   const publicConfig = getFollowUpPublicConfig();
 
-  const updateFilters = useCallback((
+  const updateFilters = (
     changes: Parameters<typeof updateFollowUpQuery>[1],
     history: "push" | "replace" = "push",
     resetPage = true,
@@ -185,7 +173,7 @@ export function CampaignNonRespondentsTable({
     const href = followUpHref(pathname, nextQuery);
     const currentHref = followUpHref(pathname, currentQuery);
     if (href !== currentHref) router[history](href, { scroll: false });
-  }, [currentQuery, pathname, router]);
+  };
 
   const normalizedQuery = normalizeFollowUpQuery(currentQuery, filterOptions);
   const clampedQuery = currentPage > 1
@@ -200,9 +188,13 @@ export function CampaignNonRespondentsTable({
   useEffect(() => {
     const search = searchInput.trim();
     if (search === filters.search) return;
-    const timer = window.setTimeout(() => updateFilters({ search: search || null }, "replace"), 300);
+    const timer = window.setTimeout(() => {
+      const nextQuery = updateFollowUpQuery(currentQuery, { search: search || null });
+      const href = followUpHref(pathname, nextQuery);
+      if (href !== followUpHref(pathname, currentQuery)) router.replace(href, { scroll: false });
+    }, 300);
     return () => window.clearTimeout(timer);
-  }, [filters.search, searchInput, updateFilters]);
+  }, [currentQuery, filters.search, pathname, router, searchInput]);
 
   const followUpMutation = useMutation({
     mutationFn: ({ companyId, input }: { companyId: string; input: RecordCampaignFollowUpInput }) =>
@@ -512,7 +504,11 @@ export function CampaignNonRespondentsTable({
         {totalFiltered > FOLLOW_UP_PAGE_SIZE && (
           <div className="flex flex-wrap items-center justify-end gap-3 py-4 text-sm text-muted-foreground">
             <span>
-              {startIdx + 1}–{Math.min(startIdx + FOLLOW_UP_PAGE_SIZE, totalFiltered)} sur {totalFiltered}
+              {t("nonRespShowingRange", {
+                start: count(startIdx + 1, appLocale),
+                end: count(Math.min(startIdx + FOLLOW_UP_PAGE_SIZE, totalFiltered), appLocale),
+                total: totalFiltered,
+              })}
             </span>
             <Button
               type="button"
@@ -521,10 +517,10 @@ export function CampaignNonRespondentsTable({
               disabled={currentPage <= 1}
               onClick={() => updateFilters({ page: Math.max(1, currentPage - 1) }, "push", false)}
             >
-              {tRoot("common.previous") || "Précédent"}
+              {t("nonRespPreviousButton")}
             </Button>
             <span>
-              Page {currentPage} sur {totalPages}
+              {t("nonRespPageOf", { page: currentPage, pages: totalPages })}
             </span>
             <Button
               type="button"
@@ -533,7 +529,7 @@ export function CampaignNonRespondentsTable({
               disabled={currentPage >= totalPages}
               onClick={() => updateFilters({ page: Math.min(totalPages, currentPage + 1) }, "push", false)}
             >
-              {tRoot("common.next") || "Suivant"}
+              {t("nonRespNextButton")}
             </Button>
           </div>
         )}

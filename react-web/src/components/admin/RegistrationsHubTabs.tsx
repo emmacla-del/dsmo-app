@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { inscriptionsViewHref } from "@/lib/inscriptions";
 
-export type RegistrationsHubTab = "queue" | "organisations" | "register" | "coverage";
+export type RegistrationsHubTab = "queue" | "organisations" | "register";
 
 /** Shared navigation for the registration workflow and establishment register. */
 export function RegistrationsHubTabs({
@@ -24,7 +24,6 @@ export function RegistrationsHubTabs({
       { id: "organisations" as const, label: t("viewOrganisations"), href: inscriptionsViewHref(currentQuery, "organisations") },
     ] : []),
     { id: "register" as const, label: tNav("routes.etablissements"), href: "/admin/etablissements" },
-    { id: "coverage" as const, label: t("viewCoverage"), href: inscriptionsViewHref(currentQuery, "coverage") },
   ];
 
   return (

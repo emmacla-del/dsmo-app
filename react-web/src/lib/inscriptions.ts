@@ -291,7 +291,7 @@ export function registrationMethodBadgeClass(method: string | null | undefined):
   return "cam-badge-neutral";
 }
 
-/** The two views of /admin/inscriptions: the review queue and registration coverage. */
+/** Registration-list views plus the legacy coverage alias, which hands off to Campaign targets. */
 export type InscriptionsView = "queue" | "organisations" | "coverage";
 
 export const REGISTRATION_ENTITY_TYPES = [
@@ -310,10 +310,9 @@ export const REGISTRATION_METHOD_VALUES = ["SELF_REGISTRATION", "ADMIN_CREATED",
 /**
  * URL of an /admin/inscriptions view, built from the current query string.
  *
- * Every other parameter is kept — ?createdBy= (the équipe deep link), ?annee=
- * (the coverage year) — so toggling between the two views never drops an
- * active filter; each view ignores the parameters it does not use. Queue is
- * emitted explicitly as the canonical ?vue=queue.
+ * Relevant list parameters are scoped to the destination. The legacy
+ * registration-coverage value is retained for old URLs and redirected by the
+ * page to Campaign targets. Queue is emitted explicitly as ?vue=queue.
  *
  * `changes` sets a parameter (a year) or removes one (null).
  */

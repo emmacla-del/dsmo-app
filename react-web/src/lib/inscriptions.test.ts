@@ -74,10 +74,10 @@ test("parameter values are encoded, not concatenated", () => {
 test("registration tab transitions keep shared filters and unrelated context, but remove incompatible state", () => {
   assert.equal(
     inscriptionsViewHref(
-      "vue=queue&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=FIELD&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&status=PENDING_APPROVAL&createdBy=agent-1&assignedToMe=1&duplicates=with&page=3&annee=2025&context=dashboard",
+      "vue=queue&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=ASSISTED&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&status=PENDING_APPROVAL&createdBy=agent-1&assignedToMe=1&duplicates=with&page=3&annee=2025&context=dashboard",
       "organisations",
     ),
-    "/admin/inscriptions?vue=organisations&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=FIELD&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&context=dashboard",
+    "/admin/inscriptions?vue=organisations&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=ASSISTED&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&context=dashboard",
   );
 });
 
@@ -100,6 +100,23 @@ test("direct registration URLs remove unsupported filters and invalid pages whil
   assert.equal(
     inscriptionsViewHref("vue=organisations&status=REJECTED&page=4", "queue"),
     "/admin/inscriptions?vue=queue&status=REJECTED",
+  );
+});
+
+test("registration URL normalization removes unsupported enum values and malformed date ranges", () => {
+  assert.equal(
+    normalizeInscriptionsHref(
+      "vue=organisations&registrationMethod=FIELD&type=UNKNOWN&sort=newest&dateRange=custom&from=2026-02-31&to=2026-02-01&page=03&context=dashboard",
+      "organisations",
+    ),
+    "/admin/inscriptions?vue=organisations&page=3&context=dashboard",
+  );
+  assert.equal(
+    normalizeInscriptionsHref(
+      "vue=organisations&registrationMethod=ASSISTED&type=ONG&sort=oldest&dateRange=90&from=2026-01-01&to=2026-02-01",
+      "organisations",
+    ),
+    "/admin/inscriptions?vue=organisations&registrationMethod=ASSISTED&type=ONG&sort=oldest&dateRange=90",
   );
 });
 
