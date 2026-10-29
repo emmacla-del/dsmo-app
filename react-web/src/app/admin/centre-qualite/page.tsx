@@ -391,15 +391,15 @@ function CentreQualiteContent() {
                 <tr>
                   <th scope="col">{t("declarationColumn")}</th>
                   <FilterTableHead label={t("ruleColumn")} filterLabel={t("familyColumn")} active={filterFamily !== "ALL"}>
-                    {(close) => <FilterTableOptions label={t("familyColumn")} value={filterFamily} options={[{ value: "ALL", label: t("allFamilies") }, ...ANOMALY_RULE_FAMILIES.map((value) => ({ value, label: ruleFamilyLabel(value, locale) }))]} onChange={(value) => setRegisterFilter("family", value)} onSelect={close} />}
+                    {(close) => <FilterTableOptions label={t("familyColumn")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("familyColumn").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={filterFamily} options={[{ value: "ALL", label: t("allFamilies") }, ...ANOMALY_RULE_FAMILIES.map((value) => ({ value, label: ruleFamilyLabel(value, locale) }))]} onChange={(value) => setRegisterFilter("family", value)} onSelect={close} />}
                   </FilterTableHead>
                   <th scope="col">{t("descriptionColumn")}</th>
                   <FilterTableHead label={t("severityColumn")} filterLabel={t("severityColumn")} active={filterSeverity !== "ALL"}>
-                    {(close) => <FilterTableOptions label={t("severityColumn")} value={filterSeverity} options={[{ value: "ALL", label: t("allSeverities") }, { value: "BLOCKING", label: t("blockingOnly") }, { value: "WARNING", label: t("warningsOnly") }]} onChange={(value) => setRegisterFilter("severity", value)} onSelect={close} />}
+                    {(close) => <FilterTableOptions label={t("severityColumn")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("severityColumn").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={filterSeverity} options={[{ value: "ALL", label: t("allSeverities") }, { value: "BLOCKING", label: t("blockingOnly") }, { value: "WARNING", label: t("warningsOnly") }]} onChange={(value) => setRegisterFilter("severity", value)} onSelect={close} />}
                   </FilterTableHead>
                   <th scope="col">{t("detectedColumn")}</th>
                   <FilterTableHead label={t("statusColumn")} filterLabel={t("statusColumn")} active={filterStatus !== "ALL"}>
-                    {(close) => <FilterTableOptions label={t("statusColumn")} value={filterStatus} options={[{ value: "ALL", label: t("allStatuses") }, { value: "OPEN", label: t("statusOpen") }, { value: "RESOLVED", label: t("statusResolved") }, { value: "WAIVED", label: t("statusWaived") }]} onChange={(value) => setRegisterFilter("status", value)} onSelect={close} />}
+                    {(close) => <FilterTableOptions label={t("statusColumn")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("statusColumn").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={filterStatus} options={[{ value: "ALL", label: t("allStatuses") }, { value: "OPEN", label: t("statusOpen") }, { value: "RESOLVED", label: t("statusResolved") }, { value: "WAIVED", label: t("statusWaived") }]} onChange={(value) => setRegisterFilter("status", value)} onSelect={close} />}
                   </FilterTableHead>
                   <th scope="col" className="text-right">{t("actionColumn")}</th>
                 </tr>

@@ -9,7 +9,13 @@ import test from "node:test";
 
 import {
   anomalyRegisterHref,
+  clampAdminListPage,
   hrefWith,
+  normalizeDossierListHref,
+  parseAdminListPage,
+  parseDossierAssignment,
+  parseDossierPeriod,
+  parseDossierQuality,
   parseAnomalyFamilyFilter,
   parseAnomalyStatusFilter,
   parseDossierFlag,
@@ -22,6 +28,78 @@ import {
   parseSeverityFilter,
   recentDossierQuarters,
 } from "./admin-url";
+
+test("admin list pages parse positive integers and clamp to the available range", () => {
+  assert.equal(parseAdminListPage("1"), 1);
+  assert.equal(parseAdminListPage("03"), 3);
+  for (const raw of [null, "", "0", "-1", "2.5", "999999999999999999999"]) {
+    assert.equal(parseAdminListPage(raw), 1);
+  }
+  assert.equal(clampAdminListPage(3, 21, 10), 3);
+  assert.equal(clampAdminListPage(9, 21, 10), 3);
+  assert.equal(clampAdminListPage(5, 0, 10), 1);
+});
+
+test("Dossiers URL normalization removes unsupported filter values and preserves unrelated context", () => {
+  const formTypes = ["ENTREPRISE", "ONG"];
+  const normalized = normalizeDossierListHref(
+    "vue=submissions&submissionsQuality=broken&submissionsPeriod=lastYear&submissionsFormType=OTHER&submissionsSort=sideways&submissionsLate=yes&submissionsOverdue=1&submissionsPage=0&campaignId=round-1&submissionsQuarterCode=2026-T3&returnTo=%2Fadmin%2Fhome",
+    "submissions",
+    formTypes,
+    [{ name: "Centre", departments: [{ name: "Mfoundi" }] }],
+  );
+
+  assert.equal(
+    normalized,
+    "/admin/dossiers?vue=submissions&submissionsOverdue=1&campaignId=round-1&returnTo=%2Fadmin%2Fhome",
+  );
+  assert.equal(
+    normalizeDossierListHref(new URLSearchParams(normalized.split("?")[1]).toString(), "submissions", formTypes, [{ name: "Centre", departments: [{ name: "Mfoundi" }] }]),
+    normalized,
+    "canonicalization is idempotent",
+  );
+});
+
+test("Dossiers assignment uses explicit valid assignment before the legacy assignedToMe flag", () => {
+  const types = ["ENTREPRISE"];
+  assert.equal(
+    normalizeDossierListHref("vue=submissions&assignment=other&assignedToMe=1", "submissions", types),
+    "/admin/dossiers?vue=submissions&submissionsAssignment=other",
+  );
+  assert.equal(
+    normalizeDossierListHref("vue=submissions&assignment=unknown&assignedToMe=true", "submissions", types),
+    "/admin/dossiers?vue=submissions&submissionsAssignment=me",
+  );
+  assert.equal(parseDossierAssignment("other"), "other");
+  assert.equal(parseDossierAssignment("unknown"), "");
+});
+
+test("Dossiers normalization removes invalid territory pairs and keeps valid department-only filters", () => {
+  const types = ["ENTREPRISE"];
+  const territories = [
+    { name: "Centre", departments: [{ name: "Mfoundi" }] },
+    { name: "Littoral", departments: [{ name: "Wouri" }] },
+  ];
+  assert.equal(
+    normalizeDossierListHref("vue=submissions&submissionsRegion=Unknown&submissionsDepartment=Mfoundi", "submissions", types, territories),
+    "/admin/dossiers?vue=submissions",
+  );
+  assert.equal(
+    normalizeDossierListHref("vue=submissions&submissionsRegion=Centre&submissionsDepartment=Wouri", "submissions", types, territories),
+    "/admin/dossiers?vue=submissions&submissionsRegion=Centre",
+  );
+  assert.equal(
+    normalizeDossierListHref("vue=submissions&submissionsDepartment=Wouri", "submissions", types, territories),
+    "/admin/dossiers?vue=submissions&submissionsDepartment=Wouri",
+  );
+});
+
+test("Dossiers normalizers whitelist periods and qualities", () => {
+  assert.equal(parseDossierPeriod("30d"), "30d");
+  assert.equal(parseDossierPeriod("last-month"), "");
+  assert.equal(parseDossierQuality("warnings"), "warnings");
+  assert.equal(parseDossierQuality("warning"), "");
+});
 
 test("hrefWith sets and removes parameters and keeps the rest", () => {
   assert.equal(

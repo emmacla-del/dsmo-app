@@ -7,6 +7,7 @@ type ListArgs = {
   status?: string; statuses?: string; limit?: string; offset?: string; region?: string;
   search?: string; formType?: string; period?: string; companyId?: string; sort?: string;
   department?: string; campaignId?: string; quarterCode?: string; late?: string; overdue?: string;
+  view?: string; includeArchived?: string; assignedToMe?: string; quality?: string; assignment?: string;
 };
 
 describe('AdminQuestionnairesController.getAll — list params', () => {
@@ -17,7 +18,7 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
     controller.getAll(
       a.status, a.statuses, a.limit, a.offset, a.region, a.search, a.formType, a.period,
       a.companyId, a.sort, a.department, a.campaignId, a.quarterCode,
-      a.late, a.overdue, req,
+      a.late, a.overdue, req, a.view, a.includeArchived, a.assignedToMe, a.quality, a.assignment,
     );
 
   beforeEach(() => {
@@ -118,6 +119,66 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
     expect(service.listForAdmin).not.toHaveBeenCalled();
   });
 
+  it('keeps assignedToMe=1 as assignment me for the signed-in officer', async () => {
+    await getAll({ assignedToMe: '1' });
+    const filters = service.listForAdmin.mock.calls[0][0];
+    expect(filters).toMatchObject({ assignment: 'me', assigneeId: 'a1' });
+    expect(buildAdminListWhere(filters, service.listForAdmin.mock.calls[0][1]).AND)
+      .toContainEqual({ assigneeId: 'a1' });
+  });
+
+  it('accepts assignment=me together with assignedToMe=1, since both mean the same officer', async () => {
+    await getAll({ assignedToMe: '1', assignment: 'me' });
+    expect(service.listForAdmin.mock.calls[0][0]).toMatchObject({ assignment: 'me', assigneeId: 'a1' });
+  });
+
+  it('rejects an assignment that contradicts assignedToMe with 400', async () => {
+    await expect(getAll({ assignedToMe: '1', assignment: 'unassigned' })).rejects.toThrow(
+      'Les paramètres assignment et assignedToMe sont contradictoires.',
+    );
+    await expect(getAll({ assignedToMe: '1', assignment: 'other' })).rejects.toThrow(
+      'Les paramètres assignment et assignedToMe sont contradictoires.',
+    );
+    expect(service.listForAdmin).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown quality and assignment values with 400', async () => {
+    await expect(getAll({ quality: 'dirty' })).rejects.toThrow('Qualité inconnue.');
+    await expect(getAll({ assignment: 'everyone' })).rejects.toThrow('Affectation inconnue.');
+    await expect(getAll({ quality: 'CLEAN' })).rejects.toThrow('Qualité inconnue.');
+    expect(service.listForAdmin).not.toHaveBeenCalled();
+  });
+
+  it('passes each quality and assignment through to the same where the export uses', async () => {
+    await getAll({ quality: 'clean', assignment: 'unassigned' });
+    await getAll({ quality: 'warnings', assignment: 'other' });
+    await getAll({ quality: 'blocking', assignment: 'me' });
+    const calls = service.listForAdmin.mock.calls;
+    expect(buildAdminListWhere(calls[0][0]).AND).toEqual(expect.arrayContaining([
+      { anomalies: { none: { status: 'OPEN' } } },
+      { assigneeId: null },
+    ]));
+    expect(buildAdminListWhere(calls[1][0]).AND).toEqual(expect.arrayContaining([
+      { anomalies: { some: { status: 'OPEN', isBlocking: false } } },
+      { anomalies: { none: { status: 'OPEN', isBlocking: true } } },
+      { AND: [{ assigneeId: { not: null } }, { assigneeId: { not: 'a1' } }] },
+    ]));
+    expect(buildAdminListWhere(calls[2][0]).AND).toEqual(expect.arrayContaining([
+      { anomalies: { some: { status: 'OPEN', isBlocking: true } } },
+      { assigneeId: 'a1' },
+    ]));
+  });
+
+  it('does not invent a campaign when campaignId is empty', async () => {
+    await getAll();
+    await getAll({ campaignId: '' });
+    await getAll({ campaignId: '   ' });
+    for (const call of service.listForAdmin.mock.calls) {
+      expect(call[0].campaignId).toBeUndefined();
+      expect(buildAdminListWhere(call[0], call[1]).AND.some((clause: { campaignId?: unknown }) => 'campaignId' in clause)).toBe(false);
+    }
+  });
+
   it('treats blank filters as absent', async () => {
     await getAll({
       status: '', limit: '', offset: '', region: '   ', search: '   ', formType: ' ',
@@ -160,6 +221,48 @@ describe('AdminQuestionnairesController.exportDossiers', () => {
       res,
       false,
     );
+  });
+
+  it('exports the same quality, assignment and campaign selection as the list', async () => {
+    await controller.exportDossiers(
+      'csv', undefined, 'Centre', undefined, undefined, undefined, undefined,
+      undefined, 'campaign-9', undefined, undefined, undefined, undefined,
+      req, res as any, undefined, undefined, 'warnings', 'other',
+    );
+    const exported = service.streamDossiersExport.mock.calls[0][0];
+    expect(exported).toMatchObject({
+      region: 'Centre', campaignId: 'campaign-9', quality: 'warnings', assignment: 'other', assigneeId: 'a1',
+    });
+    expect(buildAdminListWhere(exported)).toEqual(buildAdminListWhere({
+      region: 'Centre', campaignId: 'campaign-9', quality: 'warnings', assignment: 'other', assigneeId: 'a1',
+    }));
+    expect(buildAdminListWhere(exported).AND).toEqual(expect.arrayContaining([
+      { campaignId: 'campaign-9' },
+      { anomalies: { some: { status: 'OPEN', isBlocking: false } } },
+      { AND: [{ assigneeId: { not: null } }, { assigneeId: { not: 'a1' } }] },
+    ]));
+  });
+
+  it('does not default an empty campaign on the export', async () => {
+    await controller.exportDossiers(
+      'csv', undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, '', undefined, undefined, undefined, undefined,
+      req, res as any,
+    );
+    const exported = service.streamDossiersExport.mock.calls[0][0];
+    expect(exported.campaignId).toBeUndefined();
+    expect(buildAdminListWhere(exported).AND.some((clause) => 'campaignId' in clause)).toBe(false);
+  });
+
+  it('refuses an unknown quality on export rather than streaming a wider file', async () => {
+    await expect(
+      controller.exportDossiers(
+        'csv', undefined, undefined, undefined, undefined, undefined, undefined,
+        undefined, undefined, undefined, undefined, undefined, undefined,
+        req, res as any, undefined, undefined, 'dirty',
+      ),
+    ).rejects.toThrow('Qualité inconnue.');
+    expect(service.streamDossiersExport).not.toHaveBeenCalled();
   });
 
   it('refuses an invalid filter rather than streaming a wider export', async () => {

@@ -1291,7 +1291,8 @@
 
 .cam-admin .cam-registration-queue-primary-filters,
 .cam-admin .cam-registration-organisations-primary-filters {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) max-content;
+  /* Four equal columns: the old disclosure occupied a fifth max-content track. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
 }
 
@@ -1432,6 +1433,36 @@
   border-color: var(--cam-border-strong);
 }
 
+/* Native controls used by admin filters need an explicit border: Tailwind's
+   reset removes the browser border, and this class had no shared base rule.
+   Keep it on the same CAM tokens and 40px baseline as .cam-input/.cam-select. */
+.cam-admin .cam-admin-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--cam-form-field-height);
+  min-width: 0;
+  padding: 0 var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-family: inherit;
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-admin .cam-admin-input:focus-visible {
+  border-color: var(--cam-focus);
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 1px;
+}
+
+.cam-admin .cam-admin-input:disabled {
+  background: var(--cam-bg);
+  color: var(--cam-text-muted);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .cam-admin .cam-select:disabled,
 .cam-admin .cam-input:disabled,
 .cam-admin-dialog .cam-select:disabled,
@@ -1468,6 +1499,7 @@
 @media (max-width: 640px) {
   .cam-admin .cam-input,
   .cam-admin .cam-select,
+  .cam-admin .cam-admin-input,
   .cam-admin-dialog .cam-input,
   .cam-admin-dialog .cam-select,
   .cam-admin-textarea {
@@ -5666,7 +5698,9 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters > .grid {
-  grid-template-columns: repeat(4, minmax(120px, 1fr)) max-content max-content;
+  /* Both filter rows are four equal columns. The extra max-content tracks
+     held the old disclosure and clear control. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
   gap: 8px;
 }
@@ -5842,7 +5876,7 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-filters > .grid {
-  grid-template-columns: minmax(240px, 1.7fr) minmax(170px, 1.1fr) minmax(145px, 1fr) max-content;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
   gap: 8px;
 }
@@ -5852,7 +5886,7 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-main-coverage-filters > .grid {
-  grid-template-columns: repeat(4, minmax(120px, 1fr)) max-content;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
   gap: 8px;
 }
@@ -6690,10 +6724,10 @@ a.cam-dash-review-row:hover {
   min-height: 40px;
   min-width: 0;
   padding: 8px 11px;
-  border: 1px solid #b9c7d6;
-  border-radius: 5px;
-  background-color: #fff;
-  color: #26384d;
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-control);
+  background-color: var(--cam-surface);
+  color: var(--cam-text);
   font-size: 14px;
   line-height: 1.35;
   box-shadow: 0 1px 2px rgb(25 42 62 / 5%);
@@ -6709,7 +6743,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-completed-filters select:hover,
 .cam-admin.is-dossier-workflow .cam-dossier-main-coverage-filters input:hover,
 .cam-admin.is-dossier-workflow .cam-dossier-main-coverage-filters select:hover {
-  border-color: #8498ad;
+  border-color: var(--cam-border-strong);
 }
 
 .cam-admin .cam-registration-queue-primary-filters input:focus-visible,
@@ -6722,8 +6756,8 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-completed-filters select:focus-visible,
 .cam-admin.is-dossier-workflow .cam-dossier-main-coverage-filters input:focus-visible,
 .cam-admin.is-dossier-workflow .cam-dossier-main-coverage-filters select:focus-visible {
-  border-color: #0b827a;
-  outline: 3px solid rgb(11 130 122 / 20%);
+  border-color: var(--cam-focus);
+  outline: 3px solid color-mix(in srgb, var(--cam-focus) 22%, transparent);
   outline-offset: 1px;
 }
 
@@ -6732,15 +6766,19 @@ a.cam-dash-review-row:hover {
   max-width: 100%;
 }
 
+.cam-admin .cam-admin-filter-disclosure.cam-admin-filter-disclosure--full {
+  width: 100%;
+}
+
 .cam-admin .cam-admin-filter-disclosure > summary {
   min-width: 132px;
-  border-color: #aebdcd;
+  border-color: var(--cam-border-strong);
   box-shadow: 0 1px 2px rgb(25 42 62 / 6%);
 }
 
 .cam-admin .cam-admin-filter-disclosure[open] > summary {
-  border-color: #0b827a;
-  box-shadow: 0 0 0 2px rgb(11 130 122 / 10%);
+  border-color: var(--cam-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cam-focus) 16%, transparent);
 }
 
 .cam-admin .cam-admin-filter-disclosure-panel {
@@ -6758,7 +6796,7 @@ a.cam-dash-review-row:hover {
 .cam-admin .cam-admin-filter-disclosure-panel input,
 .cam-admin .cam-admin-filter-disclosure-panel select,
 .cam-admin .cam-admin-filter-disclosure-panel [data-slot="select-trigger"] {
-  border-color: #b9c7d6;
+  border-color: var(--cam-border-strong);
   box-shadow: 0 1px 2px rgb(25 42 62 / 5%);
 }
 

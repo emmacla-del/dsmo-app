@@ -9,6 +9,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { activateUser, deleteUser, suspendUser } from "@/lib/user-directory";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel, hasRealNiu, listCompanies, type Company } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
+import { resolveEstablishmentReturnTo } from "@/lib/admin-return";
 import { respondentFunctionLabel, sectorLabel } from "@/lib/display-labels";
 import { listAdminQuestionnaires } from "@/lib/api-client";
 import {
@@ -87,6 +88,7 @@ function EtablissementDetail() {
   // No default identifier: without one there is no establishment to show, and
   // substituting a known RCCM would load an unrelated real company.
   const id = searchParams.get("id")?.trim() ?? "";
+  const returnTo = resolveEstablishmentReturnTo(searchParams.get("returnTo"));
 
   const role = useAuthStore((s) => s.user?.role);
   // Establishment registration staff need direct detail access too; survey
@@ -219,7 +221,7 @@ function EtablissementDetail() {
     return (
       <div className="cam-admin-page">
         <AdminPageHeader
-          backHref="/admin/etablissements"
+          backHref={returnTo}
           breadcrumb={[
             { label: tRoot("adminNav.hubs.inscriptions") },
             { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },
@@ -270,7 +272,7 @@ function EtablissementDetail() {
       {/* The header carries what the hero card used to: the name as the
           title, the account state as the badge, and the one account action. */}
       <AdminPageHeader
-        backHref="/admin/etablissements"
+        backHref={returnTo}
         breadcrumb={[
           { label: tRoot("adminNav.hubs.inscriptions") },
           { label: tRoot("adminNav.routes.etablissements"), href: "/admin/etablissements" },

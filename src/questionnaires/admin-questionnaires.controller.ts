@@ -27,12 +27,16 @@ import { AssignRecordDto } from '../common/assign.dto';
 import { territoryFromUser } from '../auth/territory';
 import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
 import {
+  ADMIN_LIST_ASSIGNMENTS,
   ADMIN_LIST_FORM_TYPES,
   ADMIN_LIST_PERIODS,
+  ADMIN_LIST_QUALITIES,
   ADMIN_LIST_SORTS,
   ADMIN_LIST_STATUSES,
+  AdminListAssignment,
   AdminListFilters,
   AdminListPeriod,
+  AdminListQuality,
   AdminListSort,
 } from './admin-list-filter';
 
@@ -94,7 +98,12 @@ function parseAdminListFilters(params: {
   quarterCode?: unknown;
   late?: unknown;
   overdue?: unknown;
-  assigneeId?: unknown;
+  /** Legacy flag. True means assignment=me. It conflicts with any other assignment. */
+  assignedToMe?: unknown;
+  /** Signed-in officer. Required to resolve assignment=me or assignment=other. */
+  actorId?: unknown;
+  quality?: unknown;
+  assignment?: unknown;
 }): AdminListFilters {
   const statusFilter = optionalText(params.status);
   if (statusFilter && !ADMIN_LIST_STATUSES.includes(statusFilter)) {
@@ -126,6 +135,22 @@ function parseAdminListFilters(params: {
   if (periodFilter && !(ADMIN_LIST_PERIODS as readonly string[]).includes(periodFilter)) {
     throw new BadRequestException('Période inconnue.');
   }
+  const qualityFilter = optionalText(params.quality);
+  if (qualityFilter && !(ADMIN_LIST_QUALITIES as readonly string[]).includes(qualityFilter)) {
+    throw new BadRequestException('Qualité inconnue.');
+  }
+  const assignmentText = optionalText(params.assignment);
+  if (assignmentText && !(ADMIN_LIST_ASSIGNMENTS as readonly string[]).includes(assignmentText)) {
+    throw new BadRequestException('Affectation inconnue.');
+  }
+  const assignedToMe = optionalFlag(params.assignedToMe, 'Le paramètre « assignedToMe » doit valoir true ou false.');
+  // assignedToMe=1 is assignment=me. Any other assignment beside it disagrees.
+  if (assignedToMe && assignmentText && assignmentText !== 'me') {
+    throw new BadRequestException('Les paramètres assignment et assignedToMe sont contradictoires.');
+  }
+  const assignment = (assignmentText as AdminListAssignment | undefined) ?? (assignedToMe ? 'me' : undefined);
+  const actorId = optionalText(params.actorId);
+  const needsActor = assignment === 'me' || assignment === 'other';
   return {
     status: statusFilter,
     ...(statusesFilter ? { statuses: statusesFilter } : {}),
@@ -135,11 +160,14 @@ function parseAdminListFilters(params: {
     department: optionalText(params.department),
     search: optionalText(params.search),
     companyId: optionalText(params.companyId),
+    // Blank campaignId stays absent. The list then covers every campaign.
     campaignId: optionalText(params.campaignId),
     quarterCode: optionalText(params.quarterCode),
     late: optionalFlag(params.late, 'Le paramètre « late » doit valoir true ou false.'),
     overdue: optionalFlag(params.overdue, 'Le paramètre « overdue » doit valoir true ou false.'),
-    assigneeId: optionalText(params.assigneeId),
+    ...(qualityFilter ? { quality: qualityFilter as AdminListQuality } : {}),
+    ...(assignment ? { assignment } : {}),
+    assigneeId: needsActor ? actorId : undefined,
   };
 }
 
@@ -270,8 +298,8 @@ export class AdminQuestionnairesController {
   /**
    * Paginated dossier list: { items, total }. `total` counts the filtered
    * query (territory + status + type + region + department + campaign +
-   * quarter + late/overdue + period + search, drafts excluded), not the whole
-   * table.
+   * quarter + quality + assignment + late/overdue + period + search, drafts
+   * excluded), not the whole table. An empty campaignId is every campaign.
    */
   @Get()
   @Roles(...DOSSIER_READ_ROLES)
@@ -295,6 +323,8 @@ export class AdminQuestionnairesController {
     @Query('view') view?: string,
     @Query('includeArchived') includeArchived?: string,
     @Query('assignedToMe') assignedToMe?: string,
+    @Query('quality') quality?: string,
+    @Query('assignment') assignment?: string,
   ) {
     const sortOrder = optionalText(sort);
     if (sortOrder && !(ADMIN_LIST_SORTS as readonly string[]).includes(sortOrder)) {
@@ -302,10 +332,8 @@ export class AdminQuestionnairesController {
     }
     const filters = parseAdminListFilters({
       status, statuses, formType, period, region, department, search, companyId,
-      campaignId, quarterCode, late, overdue,
-      assigneeId: optionalFlag(assignedToMe, 'Le paramètre « assignedToMe » doit valoir true ou false.')
-        ? req?.user?.id
-        : undefined,
+      campaignId, quarterCode, late, overdue, assignedToMe, quality, assignment,
+      actorId: req?.user?.id,
     });
     return this.service.listForAdmin(
       {
@@ -366,14 +394,14 @@ export class AdminQuestionnairesController {
     @Res() res?: Response,
     @Query('includeArchived') includeArchived?: string,
     @Query('assignedToMe') assignedToMe?: string,
+    @Query('quality') quality?: string,
+    @Query('assignment') assignment?: string,
   ) {
     const exportFormat: 'csv' | 'xlsx' = format === 'xlsx' ? 'xlsx' : 'csv';
     const filters = parseAdminListFilters({
       status, statuses, formType, period, region, department, search, companyId,
-      campaignId, quarterCode, late, overdue,
-      assigneeId: optionalFlag(assignedToMe, 'Le paramètre « assignedToMe » doit valoir true ou false.')
-        ? req?.user?.id
-        : undefined,
+      campaignId, quarterCode, late, overdue, assignedToMe, quality, assignment,
+      actorId: req?.user?.id,
     });
     await this.service.streamDossiersExport(
       filters,

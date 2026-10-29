@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getLocationStructure } from "@/lib/api-client";
 import {
+  departmentInRegion,
+  regionInTree,
   findDepartmentInTree,
   findRegionInTree,
   findSubdivisionInTree,
@@ -21,6 +23,8 @@ import {
 } from "@/lib/territory";
 
 export {
+  departmentInRegion,
+  regionInTree,
   findDepartmentInTree,
   findRegionInTree,
   findSubdivisionInTree,

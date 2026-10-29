@@ -11,8 +11,12 @@ import {
   approvalGate,
   buildAssistedRegistrationPayload,
   daysWaiting,
+  inscriptionsViewHref,
   inscriptionsHref,
   isValidSocialCapital,
+  normalizeInscriptionsHref,
+  normalizeRegistrationStatus,
+  organisationsStatusesForFilter,
   registrationTerritoryChoice,
   verificationFlags,
   verificationRows,
@@ -64,6 +68,45 @@ test("parameter values are encoded, not concatenated", () => {
   assert.equal(
     inscriptionsHref("createdBy=a%26vue%3Dx", "coverage"),
     "/admin/inscriptions?createdBy=a%26vue%3Dx&vue=coverage",
+  );
+});
+
+test("registration tab transitions keep shared filters and unrelated context, but remove incompatible state", () => {
+  assert.equal(
+    inscriptionsViewHref(
+      "vue=queue&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=FIELD&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&status=PENDING_APPROVAL&createdBy=agent-1&assignedToMe=1&duplicates=with&page=3&annee=2025&context=dashboard",
+      "organisations",
+    ),
+    "/admin/inscriptions?vue=organisations&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=FIELD&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&context=dashboard",
+  );
+});
+
+test("organisation status normalization keeps the control, chip, and request scope aligned", () => {
+  assert.equal(normalizeRegistrationStatus("PENDING_APPROVAL", "organisations"), "");
+  assert.equal(normalizeRegistrationStatus("active", "organisations"), "ACTIVE");
+  assert.equal(organisationsStatusesForFilter(""), "ACTIVE,REJECTED");
+  assert.equal(organisationsStatusesForFilter("ACTIVE"), "ACTIVE");
+  assert.equal(organisationsStatusesForFilter("PENDING_APPROVAL"), "ACTIVE,REJECTED");
+});
+
+test("direct registration URLs remove unsupported filters and invalid pages while preserving valid context", () => {
+  assert.equal(
+    normalizeInscriptionsHref(
+      "vue=organisations&status=PENDING_APPROVAL&assignedToMe=1&duplicates=with&createdBy=agent-1&page=bogus&search=atelier&context=dashboard",
+      "organisations",
+    ),
+    "/admin/inscriptions?vue=organisations&search=atelier&context=dashboard",
+  );
+  assert.equal(
+    inscriptionsViewHref("vue=organisations&status=REJECTED&page=4", "queue"),
+    "/admin/inscriptions?vue=queue&status=REJECTED",
+  );
+});
+
+test("coverage transition retains its period but removes list filters and pagination", () => {
+  assert.equal(
+    inscriptionsViewHref("vue=queue&search=atelier&region=Centre&page=2&periode=2025", "coverage"),
+    "/admin/inscriptions?vue=coverage&annee=2025",
   );
 });
 

@@ -23,6 +23,8 @@ export interface AdminTablePanelProps {
   /** Keeps the shared card, table, and responsive frame when a page provides its own heading. */
   showHeader?: boolean;
   busy?: boolean;
+  /** Localized, polite feedback shown while retained results are refreshing. */
+  busyLabel?: ReactNode;
 }
 
 /**
@@ -44,10 +46,12 @@ export function AdminTablePanel({
   cardClassName = "",
   showHeader = true,
   busy,
+  busyLabel,
 }: AdminTablePanelProps) {
   return (
     <section id={id} className={`cam-admin-table-panel ${className}`.trim()} aria-labelledby={headingId} aria-busy={busy || undefined}>
       <Card className={`cam-admin-panel-surface cam-admin-table-panel-card ${cardClassName}`.trim()}>
+        {busy && busyLabel && <p className="px-4 pt-3 text-sm text-muted-foreground" role="status" aria-live="polite" aria-atomic="true">{busyLabel}</p>}
         {showHeader && (
           <div className="cam-admin-table-panel-head">
             <div className="cam-admin-table-panel-heading">

@@ -23,10 +23,11 @@ import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-mess
 import { ARCHIVED_ONLY, ANY_ARCHIVE_STATE, NOT_ARCHIVED } from '../common/archive-predicate';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
 import { TERRITORIAL_APPROVER_ROLES, REGISTRATION_ADMIN_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor, staffApprovalScope } from './staff-scope';
-import { assertTerritorialAuthority, territoryWhere, type Territory } from './territory';
+import { assertTerritorialAuthority, companyInTerritory, territoryWhere, type Territory } from './territory';
 import { resolveAssignee } from './assignee';
 import { toPublicUser } from './public-user';
 import { isOverdue, overdueCutoff, overdueDaysFrom, waitingSince } from './registration-overdue';
+import { registrationDuplicateIds } from './registration-duplicates';
 import { resolveAndValidateTerritory, resolveStaffTerritory } from '../territory/territory-resolver';
 import { ResubmitRegistrationDto } from './dto/resubmit-registration.dto';
 import {
@@ -1591,7 +1592,14 @@ export class AuthService {
     });
   }
 
-  async listCompanyRegistrations(
+  /**
+   * The single Prisma `where` of the registration list and its CSV. Territory
+   * is applied first; a requested region or department is ANDed onto that
+   * scope after assertTerritorialAuthority, so it can never replace the
+   * actor's ressort. Assignment, overdue, status=ALL and duplicates have the
+   * same meaning on both paths.
+   */
+  private async buildCompanyRegistrationWhere(
     actor: Territory,
     params: {
       entityType?: string;
@@ -1607,18 +1615,11 @@ export class AuthService {
       view?: string;
       includeArchived?: boolean;
       createdBy?: string;
-      // Only files the reviewers have left waiting past
-      // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
       overdue?: boolean;
-      // Only files assigned to this staff agent (phase 5, team workflow).
       assigneeId?: string;
-      sortOrder?: 'oldest' | 'newest';
-      page?: number;
-      pageSize?: number;
+      duplicates?: string;
     },
   ) {
-    const page = params.page && params.page > 0 ? params.page : 1;
-    const pageSize = params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
     if (params.status !== undefined && params.statuses !== undefined) {
       throw new BadRequestException('status and statuses are mutually exclusive.');
     }
@@ -1660,7 +1661,7 @@ export class AuthService {
         region: regionFilter,
         department: actor.department,
         departmentId: actor.departmentId,
-      });
+      }, { requireRegionMatch: actor.role === 'DIVISIONAL_ADMIN' });
       territoryAnd.push({ region: { equals: regionFilter, mode: 'insensitive' } });
     }
 
@@ -1764,6 +1765,47 @@ export class AuthService {
         { user: { is: { email: { contains: term, mode: 'insensitive' } } } },
       ];
     }
+    // Before count and pagination. The id clause is ANDed onto `where`:
+    // a match may sit outside this territory, but the list never widens
+    // to include it, and a fail-closed `{ id: { in: [] } }` stays closed.
+    const duplicateClause = await this.duplicateCompanyClause(params.duplicates);
+    if (duplicateClause) this.pushWhereAnd(where, duplicateClause);
+    return { where, regionScope, overdueDays, cutoff, countsView, includeArchived };
+  }
+
+  async listCompanyRegistrations(
+    actor: Territory,
+    params: {
+      entityType?: string;
+      region?: string;
+      department?: string;
+      from?: string;
+      to?: string;
+      organisation?: string;
+      registrationMethod?: string;
+      search?: string;
+      status?: string;
+      statuses?: string;
+      view?: string;
+      includeArchived?: boolean;
+      createdBy?: string;
+      // Only files the reviewers have left waiting past
+      // REGISTRATION_OVERDUE_DAYS (registration-overdue.ts).
+      overdue?: boolean;
+      // Only files assigned to this staff agent (phase 5, team workflow).
+      assigneeId?: string;
+      sortOrder?: 'oldest' | 'newest';
+      // with: files that share an NIU, a CNPS number or a name in one
+      // subdivision. without: the files that share none. Absent: no change.
+      duplicates?: string;
+      page?: number;
+      pageSize?: number;
+    },
+  ) {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const pageSize = params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
+    const { where, regionScope, overdueDays, cutoff, countsView, includeArchived } =
+      await this.buildCompanyRegistrationWhere(actor, params);
 
     // ADR-0001 / Phase 1: approvedAt/approvedBy/rejectedAt/rejectedBy are
     // part of the vue=organisations list contract. Null when not applicable;
@@ -1816,7 +1858,7 @@ export class AuthService {
       }),
     ]);
 
-    const items = await this.withDuplicateHints(companies);
+    const items = await this.withDuplicateHints(companies, actor);
     const resubmissions = await this.lastResubmissionByUser(companies.map((row) => row.user.id));
     const itemsWithResubmission = items.map((item) => {
       const lastResubmission = resubmissions.get(item.id) ?? null;
@@ -1903,53 +1945,24 @@ export class AuthService {
     includeArchived = false,
     filters: Record<string, any> = {},
   ): Promise<string> {
-    const archiveFilter = includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED;
-    const regionScope = territoryWhere(actor);
-    let userFilter: any = { role: 'COMPANY', ...archiveFilter };
-    const statusesParam = filters.statuses ?? filters.status;
-    if (filters.view === 'organisations') {
-      const organisationStatuses = typeof statusesParam === 'string' && statusesParam !== 'ALL'
-        ? statusesParam.split(',').map((value: string) => value.trim()).filter(Boolean)
-        : ['ACTIVE', 'REJECTED'];
-      userFilter = { role: 'COMPANY', status: { in: organisationStatuses }, ...archiveFilter };
-    } else if (!filters.view && statusesParam === 'ALL') {
-      userFilter = { role: 'COMPANY', ...archiveFilter };
-    } else if (filters.view === 'queue' || (statusesParam && String(statusesParam).includes('PENDING'))) {
-      const statusList = typeof statusesParam === 'string'
-        ? statusesParam.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'];
-      userFilter = { role: 'COMPANY', status: { in: statusList }, ...archiveFilter };
-    } else if (statusesParam && statusesParam !== 'ALL') {
-      const statusList = typeof statusesParam === 'string'
-        ? statusesParam.split(',').map((s: string) => s.trim()).filter(Boolean)
-        : [statusesParam];
-      userFilter = { role: 'COMPANY', status: { in: statusList }, ...archiveFilter };
-    } else {
-      userFilter = { role: 'COMPANY', status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] }, ...archiveFilter };
-    }
-    if (filters.createdBy) userFilter.createdBy = filters.createdBy.trim();
-    const where: any = {
-      ...regionScope,
-      user: { is: userFilter },
-    };
-    if (filters.entityType) where.entityType = filters.entityType;
-    if (filters.department) where.department = { equals: filters.department, mode: 'insensitive' };
-    if (filters.region) where.region = { equals: filters.region, mode: 'insensitive' };
-    if (filters.from || filters.to) {
-      where.createdAt = {};
-      if (filters.from) where.createdAt.gte = new Date(filters.from);
-      if (filters.to) where.createdAt.lte = new Date(filters.to);
-    }
-    const search = filters.search || filters.organisation;
-    if (search) {
-      const contains = { contains: search, mode: 'insensitive' };
-      where.OR = [
-        { name: contains },
-        { taxNumber: contains },
-        { cnpsNumber: contains },
-        { user: { is: { email: contains } } },
-      ];
-    }
+    const { where } = await this.buildCompanyRegistrationWhere(actor, {
+      entityType: filters.entityType,
+      region: filters.region,
+      department: filters.department,
+      from: filters.from,
+      to: filters.to,
+      organisation: filters.organisation,
+      registrationMethod: filters.registrationMethod,
+      duplicates: filters.duplicates,
+      search: filters.search,
+      status: filters.status,
+      statuses: filters.statuses,
+      view: filters.view,
+      createdBy: filters.createdBy,
+      overdue: filters.overdue === true || filters.overdue === 'true',
+      assigneeId: typeof filters.assigneeId === 'string' ? filters.assigneeId : undefined,
+      includeArchived,
+    });
     const companies = await this.prisma.company.findMany({
       where,
       select: {
@@ -2280,6 +2293,37 @@ export class AuthService {
     return { pending, complements, approved, rejected, overdue };
   }
 
+  /**
+   * Files that share an NIU (not an NA- placeholder), a CNPS number, or a
+   * name inside one subdivision. `with` keeps those ids; `without` drops
+   * them. An unknown value is a 400. Absent or blank leaves the query as it
+   * was, including skipping the register scan.
+   */
+  private async duplicateCompanyClause(
+    duplicates?: string,
+  ): Promise<{ id: { in: string[] } } | { id: { notIn: string[] } } | undefined> {
+    const value = typeof duplicates === 'string' ? duplicates.trim() : '';
+    if (!value) return undefined;
+    if (value !== 'with' && value !== 'without') {
+      throw new BadRequestException('Valeur de doublons inconnue.');
+    }
+    const rows = await this.prisma.company.findMany({
+      select: { id: true, taxNumber: true, cnpsNumber: true, name: true, subdivisionId: true },
+    });
+    const ids = registrationDuplicateIds(rows);
+    if (value === 'with') return { id: { in: ids } };
+    if (ids.length === 0) return undefined;
+    return { id: { notIn: ids } };
+  }
+
+  /** Append a clause. Never replace `where.id`: territoryWhere fails closed with `{ id: { in: [] } }`. */
+  private pushWhereAnd(where: Record<string, unknown>, clause: Record<string, unknown>) {
+    const current = where.AND;
+    if (Array.isArray(current)) where.AND = [...current, clause];
+    else if (current) where.AND = [current as Record<string, unknown>, clause];
+    else where.AND = [clause];
+  }
+
   /** Company accounts that resubmitted corrections at or after `since`. */
   private async usersResubmittedSince(since: Date): Promise<string[]> {
     const rows = await this.prisma.auditLog.findMany({
@@ -2333,6 +2377,7 @@ export class AuthService {
         createdByUser: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
       };
     }>,
+    actor: Territory,
   ) {
     if (companies.length === 0) return [];
     const ids = companies.map((row) => row.id);
@@ -2349,25 +2394,40 @@ export class AuthService {
     const others = or.length
       ? await this.prisma.company.findMany({
           where: { id: { notIn: ids }, OR: or },
-          select: { id: true, name: true, taxNumber: true, cnpsNumber: true, subdivisionId: true },
+          select: {
+            id: true,
+            name: true,
+            taxNumber: true,
+            cnpsNumber: true,
+            subdivisionId: true,
+            region: true,
+            department: true,
+            regionId: true,
+            departmentId: true,
+          },
         })
       : [];
 
     return companies.map((row) => {
       const hints: string[] = [];
       for (const other of others) {
+        const inScope = companyInTerritory(actor, other);
         if (row.taxNumber && !row.taxNumber.startsWith('NA-') && other.taxNumber === row.taxNumber) {
-          hints.push(`Même NIU que « ${other.name} »`);
+          hints.push(inScope ? `Même NIU que « ${other.name} »` : 'Même NIU');
         }
         if (row.cnpsNumber && other.cnpsNumber === row.cnpsNumber) {
-          hints.push(`Même numéro CNPS que « ${other.name} »`);
+          hints.push(inScope ? `Même numéro CNPS que « ${other.name} »` : 'Même numéro CNPS');
         }
         if (
           row.subdivisionId &&
           other.subdivisionId === row.subdivisionId &&
           other.name.localeCompare(row.name, 'fr', { sensitivity: 'accent' }) === 0
         ) {
-          hints.push(`Nom similaire dans le même arrondissement : « ${other.name} »`);
+          hints.push(
+            inScope
+              ? `Nom similaire dans le même arrondissement : « ${other.name} »`
+              : 'Nom similaire dans le même arrondissement',
+          );
         }
       }
       return {

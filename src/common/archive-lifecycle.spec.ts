@@ -118,19 +118,34 @@ describe('Phase 4 archive lifecycle', () => {
     expect((findFirst.mock.calls as any)[1][0].where.AND).toContainEqual({ OR: [{ archivedAt: null }, { archivedAt: { not: null } }] });
   });
 
-  it('P4-21 registration CSV defaults to the active review queue and can include archived records', async () => {
+  it('P4-21 registration CSV defaults to the active review queue and organisations can include archived records', async () => {
     const findMany = jest.fn(async (_args: any) => []);
-    const service = new AuthService({ company: { findMany } } as any, {} as any, {} as any, {} as any, {} as any);
+    const service = new AuthService(
+      { company: { findMany }, auditLog: { findMany: jest.fn(async () => []) } } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any,
+    );
     await service.exportCompanyRegistrations(regional as any);
-    expect((findMany.mock.calls as any)[0][0].where.user.is).toEqual({
+    expect((findMany.mock.calls as any)[0][0].where.user).toEqual({
       role: 'COMPANY',
       status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] },
       archivedAt: null,
     });
     await service.exportCompanyRegistrations(regional as any, true);
-    expect((findMany.mock.calls as any)[1][0].where.user.is).toEqual({
+    expect((findMany.mock.calls as any)[1][0].where.user).toEqual({
       role: 'COMPANY',
       status: { in: ['PENDING_APPROVAL', 'COMPLEMENTS_REQUESTED'] },
+      archivedAt: null,
+    });
+    await service.exportCompanyRegistrations(regional as any, true, {
+      view: 'organisations',
+      statuses: 'ACTIVE,REJECTED',
+    });
+    expect((findMany.mock.calls as any)[2][0].where.user).toEqual({
+      role: 'COMPANY',
+      status: { in: ['ACTIVE', 'REJECTED'] },
       OR: [{ archivedAt: null }, { archivedAt: { not: null } }],
     });
     expect((findMany.mock.calls as any)[0][0].select.user.select).toHaveProperty('rejectedBy', true);

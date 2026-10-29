@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { inscriptionsViewHref } from "@/lib/inscriptions";
 
 export type RegistrationsHubTab = "queue" | "organisations" | "register" | "coverage";
 
@@ -9,19 +10,21 @@ export type RegistrationsHubTab = "queue" | "organisations" | "register" | "cove
 export function RegistrationsHubTabs({
   activeTab,
   canReviewRegistrations,
+  currentQuery = "",
 }: {
   activeTab: RegistrationsHubTab;
   canReviewRegistrations: boolean;
+  currentQuery?: string;
 }) {
   const t = useTranslations("adminInscriptionsPage");
   const tNav = useTranslations("adminNav");
   const tabs = [
     ...(canReviewRegistrations ? [
-      { id: "queue" as const, label: t("viewQueue"), href: "/admin/inscriptions?vue=queue" },
-      { id: "organisations" as const, label: t("viewOrganisations"), href: "/admin/inscriptions?vue=organisations" },
+      { id: "queue" as const, label: t("viewQueue"), href: inscriptionsViewHref(currentQuery, "queue") },
+      { id: "organisations" as const, label: t("viewOrganisations"), href: inscriptionsViewHref(currentQuery, "organisations") },
     ] : []),
     { id: "register" as const, label: tNav("routes.etablissements"), href: "/admin/etablissements" },
-    { id: "coverage" as const, label: t("viewCoverage"), href: "/admin/inscriptions?vue=coverage" },
+    { id: "coverage" as const, label: t("viewCoverage"), href: inscriptionsViewHref(currentQuery, "coverage") },
   ];
 
   return (

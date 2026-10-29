@@ -21,6 +21,7 @@
 // both from the authenticated actor. A client cannot claim an attribution it
 // does not have.
 import { apiFetch } from "./api-client";
+import { parseAdminListPage } from "./admin-url";
 import { REGISTRATION_NATIONAL_ROLES, hasRole } from "./roles";
 import type { CompanyRegistrationItem, DirectoryUser } from "./user-directory";
 import type { UiLocale } from "./register-i18n";
@@ -293,6 +294,19 @@ export function registrationMethodBadgeClass(method: string | null | undefined):
 /** The two views of /admin/inscriptions: the review queue and registration coverage. */
 export type InscriptionsView = "queue" | "organisations" | "coverage";
 
+export const REGISTRATION_ENTITY_TYPES = [
+  "ENTREPRISE",
+  "COOPERATIVE",
+  "CTD",
+  "ONG",
+  "ADMINISTRATION",
+  "PROJECT_PROGRAM",
+  "VOCATIONAL_TRAINING",
+] as const;
+
+/** Values currently offered as registration-list filters. */
+export const REGISTRATION_METHOD_VALUES = ["SELF_REGISTRATION", "ADMIN_CREATED", "ASSISTED"] as const;
+
 /**
  * URL of an /admin/inscriptions view, built from the current query string.
  *
@@ -314,6 +328,154 @@ export function inscriptionsHref(
     if (value == null) params.delete(key);
     else params.set(key, String(value));
   }
+  const qs = params.toString();
+  return `/admin/inscriptions${qs ? `?${qs}` : ""}`;
+}
+
+const QUEUE_STATUSES = ["ALL", "PENDING_APPROVAL", "COMPLEMENTS_REQUESTED", "OVERDUE", "ACTIVE", "REJECTED"] as const;
+const ORGANISATION_STATUSES = ["ACTIVE", "REJECTED"] as const;
+const SHARED_REGISTRATION_FILTERS = ["search", "organisation", "type", "region", "department", "registrationMethod", "dateRange", "from", "to", "sort"];
+const QUEUE_ONLY_REGISTRATION_FILTERS = ["createdBy", "assignedToMe", "duplicates"];
+const ORGANISATION_ONLY_REGISTRATION_FILTERS = ["includeArchived"];
+const COVERAGE_REGISTRATION_FILTERS = ["annee", "semestre", "trimestre", "periode"];
+
+/** One status value shared by the selected control, active chip, and query for the destination view. */
+export function normalizeRegistrationStatus(raw: string | null | undefined, view: InscriptionsView): string {
+  const status = raw?.trim().toUpperCase() ?? "";
+  if (view === "coverage") return "";
+  const supported = view === "organisations" ? ORGANISATION_STATUSES : QUEUE_STATUSES;
+  return (supported as readonly string[]).includes(status) ? status : "";
+}
+
+/** The organisations endpoint's default scope is active plus rejected. */
+export function organisationsStatusesForFilter(statusFilter: string): string {
+  const status = normalizeRegistrationStatus(statusFilter, "organisations");
+  return status || "ACTIVE,REJECTED";
+}
+
+function registrationQueryForView(current: string, view: InscriptionsView, preservePage: boolean): URLSearchParams {
+  const params = new URLSearchParams(current);
+  const listFilters = [
+    ...SHARED_REGISTRATION_FILTERS,
+    ...QUEUE_ONLY_REGISTRATION_FILTERS,
+    ...ORGANISATION_ONLY_REGISTRATION_FILTERS,
+    "status",
+  ];
+  for (const key of listFilters) {
+    const belongsInView = view === "queue"
+      ? !ORGANISATION_ONLY_REGISTRATION_FILTERS.includes(key)
+      : view === "organisations"
+        ? !QUEUE_ONLY_REGISTRATION_FILTERS.includes(key)
+        : false;
+    if (!belongsInView) params.delete(key);
+  }
+  if (view === "coverage") {
+    for (const key of COVERAGE_REGISTRATION_FILTERS) {
+      // Keep the coverage period and remove the legacy alias only after its
+      // value has been copied to the canonical key below.
+      if (key !== "periode") continue;
+      const legacyPeriod = params.get(key);
+      if (legacyPeriod && !params.has("annee")) params.set("annee", legacyPeriod);
+      params.delete(key);
+    }
+  } else {
+    for (const key of COVERAGE_REGISTRATION_FILTERS) params.delete(key);
+  }
+  const status = normalizeRegistrationStatus(params.get("status"), view);
+  if (status) params.set("status", status);
+  else params.delete("status");
+
+  const search = (params.get("search") ?? params.get("organisation") ?? "").trim();
+  if (search) params.set("search", search);
+  else params.delete("search");
+  params.delete("organisation");
+
+  const type = params.get("type")?.trim() ?? "";
+  if (!REGISTRATION_ENTITY_TYPES.includes(type as (typeof REGISTRATION_ENTITY_TYPES)[number])) params.delete("type");
+  else params.set("type", type);
+
+  const method = params.get("registrationMethod")?.trim() ?? "";
+  if (!REGISTRATION_METHOD_VALUES.includes(method as (typeof REGISTRATION_METHOD_VALUES)[number])) params.delete("registrationMethod");
+  else params.set("registrationMethod", method);
+
+  if (params.get("sort") !== "oldest") params.delete("sort");
+
+  const rawDateRange = params.get("dateRange");
+  const isCalendarDate = (raw: string | null): raw is string => {
+    if (!raw || !/^\d{4}-\d{2}-\d{2}/.test(raw) || !Number.isFinite(Date.parse(raw))) return false;
+    const date = new Date(`${raw.slice(0, 10)}T00:00:00Z`);
+    return date.toISOString().slice(0, 10) === raw.slice(0, 10);
+  };
+  if (rawDateRange === "30" || rawDateRange === "90") {
+    params.set("dateRange", rawDateRange);
+    params.delete("from");
+    params.delete("to");
+  } else if (rawDateRange === "custom" || (rawDateRange === null && (params.has("from") || params.has("to")))) {
+    const from = params.get("from");
+    const to = params.get("to");
+    if (isCalendarDate(from) && isCalendarDate(to) && Date.parse(from) <= Date.parse(to)) {
+      params.set("dateRange", "custom");
+    } else {
+      params.delete("dateRange");
+      params.delete("from");
+      params.delete("to");
+    }
+  } else {
+    params.delete("dateRange");
+    params.delete("from");
+    params.delete("to");
+  }
+
+  if (view === "queue") {
+    const assigned = params.get("assignedToMe");
+    if (assigned === "1" || assigned?.toLowerCase() === "true") params.set("assignedToMe", "1");
+    else params.delete("assignedToMe");
+    if (params.get("duplicates") !== "with" && params.get("duplicates") !== "without") params.delete("duplicates");
+  } else {
+    params.delete("assignedToMe");
+    params.delete("duplicates");
+    if (params.get("includeArchived") !== "true") params.delete("includeArchived");
+  }
+
+  if (view === "coverage") {
+    const year = params.get("annee")?.trim() ?? "";
+    if (!/^\d{4}$/.test(year) || Number(year) < 1900 || Number(year) > 2200) params.delete("annee");
+    else params.set("annee", year);
+    const semester = params.get("semestre");
+    const quarter = params.get("trimestre");
+    const validSemester = semester === "1" || semester === "2" ? semester : null;
+    const validQuarter = quarter && ["1", "2", "3", "4"].includes(quarter) ? quarter : null;
+    if (validSemester) params.set("semestre", validSemester);
+    else params.delete("semestre");
+    if (validQuarter && (!validSemester || (Number(validQuarter) <= 2) === (validSemester === "1"))) {
+      params.set("trimestre", validQuarter);
+      params.set("semestre", validSemester ?? (Number(validQuarter) <= 2 ? "1" : "2"));
+    } else params.delete("trimestre");
+    params.delete("periode");
+  }
+  if (!preservePage) params.delete("page");
+  else {
+    const rawPage = params.get("page");
+    if (rawPage !== null) {
+      const page = parseAdminListPage(rawPage);
+      if (page === 1) params.delete("page");
+      else params.set("page", String(page));
+    }
+  }
+  params.set("vue", view);
+  return params;
+}
+
+/** Canonicalize the current view, dropping recognized filters that do not apply there. */
+export function normalizeInscriptionsHref(current: string, view: InscriptionsView): string {
+  const params = registrationQueryForView(current, view, true);
+  const qs = params.toString();
+  return `/admin/inscriptions${qs ? `?${qs}` : ""}`;
+}
+
+/** Build a tab destination with only the filters meaningful to that view; pagination always restarts at page 1. */
+export function inscriptionsViewHref(current: string, view: InscriptionsView): string {
+  const params = registrationQueryForView(current, view, false);
   const qs = params.toString();
   return `/admin/inscriptions${qs ? `?${qs}` : ""}`;
 }

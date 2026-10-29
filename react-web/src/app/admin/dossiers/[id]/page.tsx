@@ -17,6 +17,7 @@ import {
 } from "@/lib/api-client";
 import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { resolveDossierReturnTo } from "@/lib/admin-return";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
 import { DossierAnswerSections } from "@/components/admin/DossierAnswerSections";
@@ -216,6 +217,7 @@ function SubmissionDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const includeArchived = searchParams.get("includeArchived") === "true";
+  const returnTo = resolveDossierReturnTo(searchParams.get("returnTo"));
   // No default id: without one there is no dossier to show, and substituting a
   // known identifier would load someone else's record.
   const id = typeof params.id === "string" ? params.id : "";
@@ -591,7 +593,7 @@ function SubmissionDetailContent() {
       <div className="cam-admin-page">
         <AdminPageHeader
           breadcrumb={breadcrumb}
-          backHref="/admin/dossiers"
+          backHref={returnTo}
           // No number while loading: the URL may hold the database id or the
           // receipt reference, and the page then showed one number, then
           // another. The loaded page shows the receipt reference.
@@ -630,7 +632,7 @@ function SubmissionDetailContent() {
           header, so none of that needed re-adding. */}
       <AdminPageHeader
         breadcrumb={breadcrumb}
-        backHref="/admin/dossiers"
+        backHref={returnTo}
         title={<span title={ref}>{t("fileTitle", { ref: shortRecordId(ref) })}</span>}
         subtitle={`${t("submittedOn", { date: submittedOn })}${region ? t("regionSuffix", { region }) : ""}${dossier.department ? ` / ${dossier.department}` : ""}`}
         statusBadge={{

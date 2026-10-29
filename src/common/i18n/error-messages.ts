@@ -81,6 +81,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: "OVERDUE n'est pas un statut stocké ; utilisez overdue=true.", en: 'OVERDUE is not a stored status; use overdue=true.' },
   { fr: 'Statut d\'inscription inconnu : {0}.', en: 'Unknown registration status: {0}.' },
   { fr: 'Vue des comptages d\'inscriptions inconnue : {0}.', en: 'Unknown registration counts view: {0}.' },
+  { fr: 'Valeur de doublons inconnue.', en: 'Unknown duplicates value.' },
+  { fr: 'Qualité inconnue.', en: 'Unknown quality value.' },
+  { fr: 'Affectation inconnue.', en: 'Unknown assignment value.' },
+  { fr: 'Les paramètres assignment et assignedToMe sont contradictoires.', en: 'The assignment and assignedToMe parameters contradict each other.' },
   { fr: "Une raison d'archivage est obligatoire.", en: 'An archiving reason is required.' },
   { fr: "Ce compte ne relève pas de votre périmètre d'archivage.", en: "This account is not within your archiving scope." },
   { fr: "Cette fiche ne relève pas de votre périmètre d'archivage.", en: "This file is not within your archiving scope." },
@@ -208,6 +212,20 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Privilèges territoriaux insuffisants.', en: 'Insufficient territorial privileges.' },
   { fr: 'Action non autorisée hors de votre région d\'affectation ({0}).', en: 'Action not allowed outside your assigned region ({0}).' },
   { fr: 'Action non autorisée hors de votre département d\'affectation ({0}).', en: 'Action not allowed outside your assigned division ({0}).' },
+  {
+    fr: "Vous ne pouvez consulter que votre région d'affectation ({0}). La région « {1} » est hors de votre ressort.",
+    en: 'You can only view your assigned region ({0}). The region "{1}" is outside your jurisdiction.',
+    also: [
+      'Vous ne pouvez consulter que votre région d\'affectation ({0}). La région « {1} » est hors de votre ressort. / You can only view your assigned region ({0}). The region "{1}" is outside your jurisdiction.',
+    ],
+  },
+  {
+    fr: "Votre compte n'a pas de région d'affectation. Un filtre par région n'est pas autorisé.",
+    en: 'Your account has no assigned region. A region filter is not allowed.',
+    also: [
+      "Votre compte n'a pas de région d'affectation. Un filtre par région n'est pas autorisé. / Your account has no assigned region. A region filter is not allowed.",
+    ],
+  },
   { fr: 'Accès refusé.', en: 'Access denied.', also: ['Access denied'] },
   { fr: 'Accès interdit.', en: 'Access forbidden.' },
   { fr: 'Privilèges insuffisants.', en: 'Insufficient privileges.' },

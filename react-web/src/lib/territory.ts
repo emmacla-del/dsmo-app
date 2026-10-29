@@ -43,6 +43,41 @@ export function findRegionInTree(
   );
 }
 
+/**
+ * Whether `regionName` is in the loaded tree.
+ * Null while the tree is missing or the region is empty, so a caller does
+ * not clear URL state during load. False once the tree has loaded and the
+ * region is absent from it.
+ */
+export function regionInTree(
+  tree: LocationRegion[] | undefined | null,
+  regionName: string | null | undefined,
+): boolean | null {
+  if (!tree || !regionName?.trim()) return null;
+  return findRegionInTree(tree, regionName) !== null;
+}
+
+/**
+ * Whether `departmentName` belongs to `regionName`.
+ * Null when the region is not in the tree, so a caller does not clear a
+ * department while the tree is still loading or the region name does not match.
+ * After a successful load, pair this with regionInTree to drop an unknown
+ * region. The name comparison is case-insensitive and accent-sensitive.
+ */
+export function departmentInRegion(
+  tree: LocationRegion[] | undefined | null,
+  regionName: string | null | undefined,
+  departmentName: string | null | undefined,
+): boolean | null {
+  if (!departmentName?.trim()) return null;
+  const region = findRegionInTree(tree, regionName);
+  if (!region) return null;
+  const target = departmentName.trim();
+  return region.departments.some(
+    (dept) => dept.name.localeCompare(target, "fr", { sensitivity: "accent" }) === 0,
+  );
+}
+
 export function findDepartmentInTree(
   tree: LocationRegion[] | undefined | null,
   deptName: string | null | undefined,

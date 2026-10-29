@@ -221,10 +221,10 @@ function EquipeContent() {
               <tr>
                 <th scope="col">{t("adminEquipePage.column.actor")}</th>
                 <FilterTableHead label={t("adminEquipePage.roleLabel")} filterLabel={t("adminEquipePage.roleLabel")} active={!!roleFilter}>
-                  {(close) => <FilterTableOptions label={t("adminEquipePage.roleLabel")} value={roleFilter} options={[{ value: "", label: t("adminEquipePage.allTerritorialRoles") }, ...MONITORED_ROLES.map((r) => ({ value: r.value, label: t(`adminEquipePage.roleOption.${r.value}`) }))]} onChange={setRoleFilter} onSelect={close} />}
+                  {(close) => <FilterTableOptions label={t("adminEquipePage.roleLabel")} searchPlaceholder={t("common.filterOptionSearch", { label: t("adminEquipePage.roleLabel").toLocaleLowerCase() })} emptyLabel={t("common.filterOptionEmpty")} value={roleFilter} options={[{ value: "", label: t("adminEquipePage.allTerritorialRoles") }, ...MONITORED_ROLES.map((r) => ({ value: r.value, label: t(`adminEquipePage.roleOption.${r.value}`) }))]} onChange={setRoleFilter} onSelect={close} />}
                 </FilterTableHead>
                 <FilterTableHead label={t("adminEquipePage.regionLabel")} filterLabel={t("adminEquipePage.regionLabel")} active={!!regionFilter || isRegional}>
-                  {(close) => <FilterTableOptions label={t("adminEquipePage.regionLabel")} value={isRegional ? user?.region ?? "" : regionFilter} options={isRegional ? [{ value: user?.region ?? "", label: user?.region ?? t("adminEquipePage.myRegion") }] : [{ value: "", label: t("adminEquipePage.allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={setRegionFilter} onSelect={close} />}
+                  {(close) => <FilterTableOptions label={t("adminEquipePage.regionLabel")} searchPlaceholder={t("common.filterOptionSearch", { label: t("adminEquipePage.regionLabel").toLocaleLowerCase() })} emptyLabel={t("common.filterOptionEmpty")} value={isRegional ? user?.region ?? "" : regionFilter} options={isRegional ? [{ value: user?.region ?? "", label: user?.region ?? t("adminEquipePage.myRegion") }] : [{ value: "", label: t("adminEquipePage.allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={setRegionFilter} onSelect={close} />}
                 </FilterTableHead>
                 <th scope="col">{t("adminEquipePage.departmentLabel")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.registrations")}</th>

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuthService } from './auth.service';
+import { registrationDuplicateIds, type RegistrationDuplicateRow } from './registration-duplicates';
 import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 
 /**
@@ -835,6 +836,110 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
     expect(prisma.company.findMany).toHaveBeenCalled();
   });
 
+  it('rejects a DIVISIONAL reviewer requesting another region on both list and CSV before querying', async () => {
+    const actor = {
+      role: 'DIVISIONAL_ADMIN',
+      region: 'Littoral',
+      department: 'Wouri',
+      departmentId: 'dep-wouri',
+    };
+
+    for (const endpoint of ['list', 'export'] as const) {
+      const { service, prisma } = makeService();
+      const request = endpoint === 'list'
+        ? service.listCompanyRegistrations(actor, { region: 'Centre' })
+        : service.exportCompanyRegistrations(actor, false, { region: 'Centre' });
+
+      await expect(request).rejects.toThrow(
+        'Vous ne pouvez consulter que votre région d\'affectation (Littoral). La région « Centre » est hors de votre ressort. / You can only view your assigned region (Littoral). The region "Centre" is outside your jurisdiction.',
+      );
+      expect(prisma.company.count).not.toHaveBeenCalled();
+      expect(prisma.company.findMany).not.toHaveBeenCalled();
+      expect(prisma.user.groupBy).not.toHaveBeenCalled();
+      expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
+    }
+  });
+
+  it('keeps a DIVISIONAL reviewer scoped to its assigned department on list and CSV', async () => {
+    const actor = {
+      role: 'DIVISIONAL_ADMIN',
+      region: 'Littoral',
+      department: 'Wouri',
+      departmentId: 'dep-wouri',
+    };
+
+    for (const endpoint of ['list', 'export'] as const) {
+      const { service, prisma } = makeService();
+      const request = endpoint === 'list'
+        ? service.listCompanyRegistrations(actor, { region: 'Littoral', department: 'Wouri' })
+        : service.exportCompanyRegistrations(actor, false, { region: 'Littoral', department: 'Wouri' });
+      await request;
+
+      const query = prisma.company.findMany.mock.calls.find((call: any[]) => call[0]?.where)?.[0].where;
+      expect(query.departmentId).toBe('dep-wouri');
+      expect(query.AND).toEqual([
+        { region: { equals: 'Littoral', mode: 'insensitive' } },
+        { department: { equals: 'Wouri', mode: 'insensitive' } },
+      ]);
+    }
+  });
+
+  it('preserves valid region filtering for an ID-assigned DIVISIONAL reviewer without department names', async () => {
+    const actor = { role: 'DIVISIONAL_ADMIN', region: 'Littoral', departmentId: 'dep-wouri' };
+
+    for (const endpoint of ['list', 'export'] as const) {
+      const { service, prisma } = makeService();
+      if (endpoint === 'list') {
+        await service.listCompanyRegistrations(actor, { region: 'Littoral' });
+      } else {
+        await service.exportCompanyRegistrations(actor, false, { region: 'Littoral' });
+      }
+
+      const query = prisma.company.findMany.mock.calls.find((call: any[]) => call[0]?.where)?.[0].where;
+      expect(query.departmentId).toBe('dep-wouri');
+      expect(query.AND).toEqual([{ region: { equals: 'Littoral', mode: 'insensitive' } }]);
+    }
+  });
+
+  it('rejects a DIVISIONAL reviewer filtering by another department on both list and CSV', async () => {
+    const actor = {
+      role: 'DIVISIONAL_ADMIN',
+      region: 'Littoral',
+      department: 'Wouri',
+      departmentId: 'dep-wouri',
+    };
+
+    for (const endpoint of ['list', 'export'] as const) {
+      const { service, prisma } = makeService();
+      const request = endpoint === 'list'
+        ? service.listCompanyRegistrations(actor, { department: 'Mfoundi' })
+        : service.exportCompanyRegistrations(actor, false, { department: 'Mfoundi' });
+
+      await expect(request).rejects.toThrow(ForbiddenException);
+      expect(prisma.company.count).not.toHaveBeenCalled();
+      expect(prisma.company.findMany).not.toHaveBeenCalled();
+    }
+  });
+
+  it('preserves an unfiltered DIVISIONAL list and CSV inside the assigned department', async () => {
+    const actor = {
+      role: 'DIVISIONAL_ADMIN',
+      region: 'Littoral',
+      department: 'Wouri',
+      departmentId: 'dep-wouri',
+    };
+
+    for (const endpoint of ['list', 'export'] as const) {
+      const { service, prisma } = makeService();
+      if (endpoint === 'list') await service.listCompanyRegistrations(actor, {});
+      else await service.exportCompanyRegistrations(actor, false, {});
+
+      const query = prisma.company.findMany.mock.calls.find((call: any[]) => call[0]?.where)?.[0].where;
+      expect(query.departmentId).toBe('dep-wouri');
+      expect(query.AND).toBeUndefined();
+    }
+  });
+
   it('lets a national role narrow to any region', async () => {
     const { service, prisma } = makeService();
     await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { region: 'Centre' });
@@ -845,6 +950,338 @@ describe('AuthService.listCompanyRegistrations — region filter', () => {
         }),
       }),
     );
+  });
+});
+
+describe('AuthService.listCompanyRegistrations — duplicate selection', () => {
+  const identities: RegistrationDuplicateRow[] = [
+    { id: 'niu-a', taxNumber: 'M123', cnpsNumber: null, name: 'Alpha', subdivisionId: null },
+    { id: 'niu-b', taxNumber: 'M123', cnpsNumber: null, name: 'Beta', subdivisionId: 'sub-b' },
+    { id: 'na-a', taxNumber: 'NA-111', cnpsNumber: null, name: 'Gamma', subdivisionId: 'sub-c' },
+    { id: 'na-b', taxNumber: 'NA-111', cnpsNumber: null, name: 'Delta', subdivisionId: 'sub-d' },
+    { id: 'only', taxNumber: 'M999', cnpsNumber: null, name: 'Seule', subdivisionId: 'sub-e' },
+  ];
+  const sharedNiu = ['niu-a', 'niu-b'];
+
+  function makeService(rows: RegistrationDuplicateRow[] = identities) {
+    const prisma: any = {
+      company: {
+        count: jest.fn(async () => 0),
+        // The duplicate scan selects identity columns and has no where.
+        // The page and the CSV query both carry a where.
+        findMany: jest.fn(async (args: { where?: unknown }) => (args?.where ? [] : rows)),
+      },
+      auditLog: { findMany: jest.fn(async () => []) },
+      user: { groupBy: jest.fn(async () => []) },
+    };
+    return {
+      prisma,
+      service: new AuthService(prisma, {} as any, {} as any, {} as any, { getSettings: async () => ({ registrationOverdueDays: 7 }) } as any),
+    };
+  }
+
+  function pageWhere(prisma: any) {
+    const call = prisma.company.findMany.mock.calls.find((entry: any[]) => entry[0]?.where);
+    return call[0].where;
+  }
+
+  it('includes a shared NIU for with and excludes it for without, and an NA- placeholder does not count', async () => {
+    expect(registrationDuplicateIds(identities)).toEqual(sharedNiu);
+
+    const withDuplicates = makeService();
+    await withDuplicates.service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { duplicates: 'with' });
+    expect(pageWhere(withDuplicates.prisma).AND).toContainEqual({ id: { in: sharedNiu } });
+
+    const withoutDuplicates = makeService();
+    await withoutDuplicates.service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { duplicates: 'without' });
+    expect(pageWhere(withoutDuplicates.prisma).AND).toContainEqual({ id: { notIn: sharedNiu } });
+  });
+
+  it('leaves the query unchanged when duplicates is absent', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
+    expect(prisma.company.findMany).toHaveBeenCalledTimes(1);
+    expect(pageWhere(prisma).AND).toBeUndefined();
+    expect(pageWhere(prisma).id).toBeUndefined();
+  });
+
+  it('does not count an NA- placeholder as a duplicate on either side of the filter', async () => {
+    const rows: RegistrationDuplicateRow[] = [
+      { id: 'na-a', taxNumber: 'NA-111', cnpsNumber: null, name: 'Gamma', subdivisionId: null },
+      { id: 'na-b', taxNumber: 'NA-111', cnpsNumber: null, name: 'Delta', subdivisionId: null },
+    ];
+    const withDuplicates = makeService(rows);
+    await withDuplicates.service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { duplicates: 'with' });
+    expect(pageWhere(withDuplicates.prisma).AND).toContainEqual({ id: { in: [] } });
+
+    const withoutDuplicates = makeService(rows);
+    await withoutDuplicates.service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { duplicates: 'without' });
+    expect(pageWhere(withoutDuplicates.prisma).AND).toBeUndefined();
+  });
+
+  it('does not replace a fail-closed territory with the duplicate ids', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations({ role: 'REGIONAL_ADMIN' }, { duplicates: 'with' });
+    const where = pageWhere(prisma);
+    expect(where.id).toEqual({ in: [] });
+    expect(where.AND).toContainEqual({ id: { in: sharedNiu } });
+  });
+
+  it('rejects an unknown duplicates value before querying', async () => {
+    const { service, prisma } = makeService();
+    await expect(
+      service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { duplicates: 'maybe' }),
+    ).rejects.toThrow(new BadRequestException('Valeur de doublons inconnue.'));
+    expect(prisma.company.findMany).not.toHaveBeenCalled();
+  });
+
+  it('keeps a regional officer inside their region when a duplicate sits in another region', async () => {
+    const rows: RegistrationDuplicateRow[] = [
+      { id: 'littoral-co', taxNumber: 'M500', cnpsNumber: null, name: 'Littoral SA', subdivisionId: null },
+      { id: 'centre-co', taxNumber: 'M500', cnpsNumber: null, name: 'Centre SA', subdivisionId: null },
+    ];
+    const { service, prisma } = makeService(rows);
+    await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { duplicates: 'with' },
+    );
+    const where = pageWhere(prisma);
+    expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+    expect(where.AND).toContainEqual({ id: { in: ['littoral-co', 'centre-co'] } });
+
+    const refused = makeService(rows);
+    await expect(
+      refused.service.listCompanyRegistrations(
+        { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+        { region: 'Centre', duplicates: 'with' },
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(refused.prisma.company.findMany).not.toHaveBeenCalled();
+  });
+
+  it('applies the same duplicate selection to the registration CSV', async () => {
+    const listed = makeService();
+    await listed.service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { duplicates: 'with' },
+    );
+    const exported = makeService();
+    await exported.service.exportCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      false,
+      { duplicates: 'with' },
+    );
+    expect(pageWhere(exported.prisma).AND).toEqual(pageWhere(listed.prisma).AND);
+    expect(pageWhere(exported.prisma).region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+
+    const without = makeService();
+    await without.service.exportCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, false, { duplicates: 'without' });
+    expect(pageWhere(without.prisma).AND).toContainEqual({ id: { notIn: sharedNiu } });
+
+    const assisted = makeService();
+    await assisted.service.exportCompanyRegistrations(
+      { role: 'ADMIN_ONEFOP' },
+      false,
+      { view: 'organisations', registrationMethod: 'ASSISTED' },
+    );
+    expect(pageWhere(assisted.prisma).user.registrationMethod).toBe('ASSISTED');
+  });
+
+  it('refuses an out-of-region CSV the same way as the list', async () => {
+    const listed = makeService();
+    await expect(
+      listed.service.listCompanyRegistrations(
+        { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+        { region: 'Centre' },
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    const exported = makeService();
+    await expect(
+      exported.service.exportCompanyRegistrations(
+        { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+        false,
+        { region: 'Centre' },
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(exported.prisma.company.findMany).not.toHaveBeenCalled();
+  });
+
+  it('ANDs a requested region onto the actor scope instead of replacing it', async () => {
+    const { service, prisma } = makeService();
+    await service.exportCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      false,
+      { region: 'Littoral' },
+    );
+    const where = pageWhere(prisma);
+    expect(where.region).toEqual({ equals: 'Littoral', mode: 'insensitive' });
+    expect(where.AND).toEqual(
+      expect.arrayContaining([{ region: { equals: 'Littoral', mode: 'insensitive' } }]),
+    );
+  });
+
+  it('lifts status=ALL on the queue CSV the same way as the list', async () => {
+    const listed = makeService();
+    await listed.service.listCompanyRegistrations(
+      { role: 'ADMIN_ONEFOP' },
+      { view: 'queue', status: 'ALL' },
+    );
+    const exported = makeService();
+    await exported.service.exportCompanyRegistrations(
+      { role: 'ADMIN_ONEFOP' },
+      false,
+      { view: 'queue', status: 'ALL' },
+    );
+    expect(pageWhere(exported.prisma).user.status).toBeUndefined();
+    expect(pageWhere(exported.prisma).user).toEqual(pageWhere(listed.prisma).user);
+  });
+
+  it('applies overdue and assignment on the CSV the same way as the list', async () => {
+    const listed = makeService();
+    await listed.service.listCompanyRegistrations(
+      { role: 'ADMIN_ONEFOP' },
+      { view: 'queue', overdue: true, assigneeId: 'officer-1' },
+    );
+    const exported = makeService();
+    await exported.service.exportCompanyRegistrations(
+      { role: 'ADMIN_ONEFOP' },
+      false,
+      { view: 'queue', overdue: true, assigneeId: 'officer-1' },
+    );
+    expect(pageWhere(exported.prisma).user).toEqual(pageWhere(listed.prisma).user);
+    expect(pageWhere(exported.prisma).user.status).toBe('PENDING_APPROVAL');
+    expect(pageWhere(exported.prisma).user.assigneeId).toBe('officer-1');
+  });
+});
+
+describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
+  function companyRow(partial: Record<string, unknown>) {
+    return {
+      establishmentId: null,
+      entityType: 'ENTREPRISE',
+      department: 'Wouri',
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+      phone: null,
+      respondentFirstName: null,
+      respondentLastName: null,
+      respondentFunction: null,
+      respondentPhone: null,
+      respondentPhone2: null,
+      user: {
+        id: `u-${partial.id}`,
+        email: `${partial.id}@example.cm`,
+        status: 'PENDING_APPROVAL',
+        isActive: false,
+        createdAt: new Date('2026-01-01'),
+        approvedAt: null,
+        approvedBy: null,
+        rejectedAt: null,
+        rejectedBy: null,
+        archivedAt: null,
+        archivedBy: null,
+        archiveReason: null,
+        archivedByUser: null,
+        approvalComment: null,
+        rejectionReason: null,
+        registrationNumber: null,
+        registrationMethod: 'SELF_REGISTRATION',
+        createdBy: null,
+        assigneeId: null,
+        assignee: null,
+        createdByUser: null,
+      },
+      ...partial,
+    };
+  }
+
+  it('flags a cross-territory CNPS match without naming the outside company', async () => {
+    const local = companyRow({
+      id: 'littoral-co',
+      name: 'Littoral SA',
+      taxNumber: 'M-L',
+      cnpsNumber: 'CNPS-9',
+      subdivisionId: 'sub-wouri',
+      region: 'Littoral',
+      regionId: 'reg-lt',
+      departmentId: 'dep-wouri',
+    });
+    const outside = {
+      id: 'centre-co',
+      name: 'Centre SA',
+      taxNumber: 'M-C',
+      cnpsNumber: 'CNPS-9',
+      subdivisionId: 'sub-mfoundi',
+      region: 'Centre',
+      department: 'Mfoundi',
+      regionId: 'reg-ce',
+      departmentId: 'dep-mfoundi',
+    };
+    const prisma: any = {
+      company: {
+        count: jest.fn(async () => 1),
+        findMany: jest.fn(async (args: { where?: any; include?: unknown; select?: unknown }) => {
+          if (!args?.where) return [];
+          if (args.where.id?.notIn) return [outside];
+          return [local];
+        }),
+      },
+      auditLog: { findMany: jest.fn(async () => []) },
+      user: { groupBy: jest.fn(async () => []) },
+    };
+    const service = new AuthService(prisma, {} as any, {} as any, {} as any, {
+      getSettings: async () => ({ registrationOverdueDays: 7 }),
+    } as any);
+    const result = await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      {},
+    );
+    expect(result.items[0].duplicateHints).toEqual(['Même numéro CNPS']);
+    expect(result.items[0].duplicateHints.join(' ')).not.toContain('Centre SA');
+  });
+
+  it('names an in-territory match', async () => {
+    const local = companyRow({
+      id: 'littoral-a',
+      name: 'Alpha SA',
+      taxNumber: 'M-A',
+      cnpsNumber: 'CNPS-1',
+      subdivisionId: 'sub-wouri',
+      region: 'Littoral',
+      regionId: 'reg-lt',
+      departmentId: 'dep-wouri',
+    });
+    const peer = {
+      id: 'littoral-b',
+      name: 'Beta SA',
+      taxNumber: 'M-B',
+      cnpsNumber: 'CNPS-1',
+      subdivisionId: 'sub-wouri-2',
+      region: 'Littoral',
+      department: 'Wouri',
+      regionId: 'reg-lt',
+      departmentId: 'dep-wouri',
+    };
+    const prisma: any = {
+      company: {
+        count: jest.fn(async () => 1),
+        findMany: jest.fn(async (args: { where?: any }) => {
+          if (!args?.where) return [];
+          if (args.where.id?.notIn) return [peer];
+          return [local];
+        }),
+      },
+      auditLog: { findMany: jest.fn(async () => []) },
+      user: { groupBy: jest.fn(async () => []) },
+    };
+    const service = new AuthService(prisma, {} as any, {} as any, {} as any, {
+      getSettings: async () => ({ registrationOverdueDays: 7 }),
+    } as any);
+    const result = await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      {},
+    );
+    expect(result.items[0].duplicateHints).toEqual(['Même numéro CNPS que « Beta SA »']);
   });
 });
 

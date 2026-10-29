@@ -312,16 +312,16 @@ function JournalAuditContent() {
               <TableHeader>
                 <TableRow>
                   <FilterTableHead label={t("timestampColumn")} filterLabel={t("periodLabel")} active={period !== "7d"}>
-                    {(close) => <FilterTableOptions label={t("periodLabel")} value={period} options={PERIOD_VALUES.map((value) => ({ value, label: t(`period.${value}`) }))} onChange={(value) => { setPeriod(value); setCurrentPage(1); }} onSelect={close} />}
+                    {(close) => <FilterTableOptions label={t("periodLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("periodLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={period} options={PERIOD_VALUES.map((value) => ({ value, label: t(`period.${value}`) }))} onChange={(value) => { setPeriod(value); setCurrentPage(1); }} onSelect={close} />}
                   </FilterTableHead>
                   <FilterTableHead label={t("actorColumn")} filterLabel={t("actorLabel")} active={!!actor}>
-                    {(close) => <FilterTableOptions label={t("actorLabel")} value={actor || ALL} options={actorOptions} onChange={(value) => { setActor(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
+                    {(close) => <FilterTableOptions label={t("actorLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("actorLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={actor || ALL} options={actorOptions} onChange={(value) => { setActor(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
                   </FilterTableHead>
                   <FilterTableHead label={t("actionColumn")} filterLabel={t("actionTypeLabel")} active={!!action}>
-                    {(close) => <FilterTableOptions label={t("actionTypeLabel")} value={action || ALL} options={[{ value: ALL, label: t("allActions") }, ...ACTION_VALUES.map((value) => ({ value, label: auditActionLabel(value, locale) }))]} onChange={(value) => { setAction(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
+                    {(close) => <FilterTableOptions label={t("actionTypeLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("actionTypeLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={action || ALL} options={[{ value: ALL, label: t("allActions") }, ...ACTION_VALUES.map((value) => ({ value, label: auditActionLabel(value, locale) }))]} onChange={(value) => { setAction(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
                   </FilterTableHead>
                   <FilterTableHead label={t("resourceLabel")} filterLabel={t("resourceLabel")} active={!!resourceType}>
-                    {(close) => <FilterTableOptions label={t("resourceLabel")} value={resourceType || ALL} options={[{ value: ALL, label: t("allResources") }, ...RESOURCE_TYPE_VALUES.map((value) => ({ value, label: auditResourceLabel(value, locale) }))]} onChange={(value) => { setResourceType(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
+                    {(close) => <FilterTableOptions label={t("resourceLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("resourceLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={resourceType || ALL} options={[{ value: ALL, label: t("allResources") }, ...RESOURCE_TYPE_VALUES.map((value) => ({ value, label: auditResourceLabel(value, locale) }))]} onChange={(value) => { setResourceType(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
                   </FilterTableHead>
                   <FilterTableHead label={t("idLabel")} filterLabel={t("idLabel")} active={!!resourceId} contentClassName="w-72 p-3">
                     {() => (

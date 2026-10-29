@@ -1,4 +1,4 @@
-import { OnefopEntityType, OnefopStatus } from '@prisma/client';
+import { AnomalyStatus, OnefopEntityType, OnefopStatus } from '@prisma/client';
 import { Territory, territoryWhere } from '../auth/territory';
 import { archiveState } from '../common/archive-predicate';
 import { reviewOverdueBefore } from './review-delay';
@@ -17,11 +17,22 @@ export interface AdminListFilters {
   formType?: string;
   period?: AdminListPeriod;
   companyId?: string;
+  /**
+   * Absent means every campaign. Nothing in this builder substitutes a
+   * default campaign: an empty value adds no clause.
+   */
   campaignId?: string;
   quarterCode?: string;
   late?: boolean;
   overdue?: boolean;
-  /** Only files assigned to this agent (phase 5, team workflow). */
+  /** Open-anomaly reading, the same one the Contrôles column uses. */
+  quality?: AdminListQuality;
+  /**
+   * `me` and `other` use `assigneeId` as the signed-in officer.
+   * `unassigned` matches a null assignee and ignores `assigneeId`.
+   */
+  assignment?: AdminListAssignment;
+  /** Signed-in officer when assignment is `me` or `other`, or the legacy assignedToMe path. */
   assigneeId?: string;
 }
 
@@ -39,6 +50,18 @@ export const ADMIN_LIST_STATUSES: string[] = Object.values(OnefopStatus).filter(
 export const ADMIN_LIST_FORM_TYPES: string[] = Object.values(OnefopEntityType).filter(
   (t) => t !== 'VOCATIONAL_TRAINING_CENTER',
 );
+
+/**
+ * Quality of the open anomalies, matching the Contrôles column:
+ * blocking = an OPEN anomaly with isBlocking, warning = an OPEN anomaly
+ * without it. RESOLVED and WAIVED rows are historical and count as neither.
+ */
+export const ADMIN_LIST_QUALITIES = ['clean', 'warnings', 'blocking'] as const;
+export type AdminListQuality = (typeof ADMIN_LIST_QUALITIES)[number];
+
+/** Who holds the review. `me` and `other` are relative to the signed-in officer. */
+export const ADMIN_LIST_ASSIGNMENTS = ['me', 'unassigned', 'other'] as const;
+export type AdminListAssignment = (typeof ADMIN_LIST_ASSIGNMENTS)[number];
 
 /** Start of the period window, relative to `now` (calendar months for 3m/12m). */
 export function periodStart(period: AdminListPeriod, now: Date): Date {
@@ -87,9 +110,26 @@ export function buildAdminListWhere(
   if (filters.companyId) and.push({ companyId: filters.companyId });
   if (filters.region) and.push({ region: { equals: filters.region, mode: 'insensitive' } });
   if (filters.department) and.push({ department: { equals: filters.department, mode: 'insensitive' } });
+  // No campaignId means every campaign. There is no default round here.
   if (filters.campaignId) and.push({ campaignId: filters.campaignId });
   if (filters.quarterCode) and.push({ quarterCode: filters.quarterCode });
-  if (filters.assigneeId) and.push({ assigneeId: filters.assigneeId });
+  if (filters.quality === 'clean') {
+    and.push({ anomalies: { none: { status: AnomalyStatus.OPEN } } });
+  } else if (filters.quality === 'warnings') {
+    and.push({ anomalies: { some: { status: AnomalyStatus.OPEN, isBlocking: false } } });
+    and.push({ anomalies: { none: { status: AnomalyStatus.OPEN, isBlocking: true } } });
+  } else if (filters.quality === 'blocking') {
+    and.push({ anomalies: { some: { status: AnomalyStatus.OPEN, isBlocking: true } } });
+  }
+  if (filters.assignment === 'unassigned') {
+    and.push({ assigneeId: null });
+  } else if (filters.assignment === 'me' || filters.assignment === 'other' || filters.assigneeId) {
+    // No officer id cannot mean "everyone" or "everyone else": match nothing.
+    if (!filters.assigneeId) and.push({ id: { in: [] } });
+    else if (filters.assignment === 'other') {
+      and.push({ AND: [{ assigneeId: { not: null } }, { assigneeId: { not: filters.assigneeId } }] });
+    } else and.push({ assigneeId: filters.assigneeId });
+  }
   if (filters.late) and.push({ isLate: true });
   // ADR-0001: OVERDUE is derived (PENDING_REVIEW + cutoff), not stored. It is
   // never valid in status/statuses; use overdue=true. See

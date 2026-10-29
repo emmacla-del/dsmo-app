@@ -116,6 +116,47 @@ export function territoryWhereForExport(territory?: Territory | null): Record<st
 }
 
 /**
+ * Whether `company` would appear in a list scoped by territoryWhere(actor).
+ * Used to suppress out-of-territory names in duplicate hints: a match may
+ * still flag the local row, but the other establishment's identity stays
+ * inside its own ressort. National readers (including CENTRAL_AGENT) see
+ * every name; an unassigned territorial account sees none.
+ */
+export function companyInTerritory(
+  actor: Territory | null | undefined,
+  company: {
+    region?: string | null;
+    department?: string | null;
+    regionId?: string | null;
+    departmentId?: string | null;
+  },
+): boolean {
+  if (actor === undefined || actor === null) return true;
+
+  const role = actor.role;
+  if (role && READ_NATIONAL_ROLES.includes(role)) return true;
+
+  if (role === UserRole.REGIONAL_ADMIN) {
+    if (actor.regionId) return !!company.regionId && actor.regionId === company.regionId;
+    const region = cleanName(actor.region);
+    if (region) return sameName(region, company.region);
+    return false;
+  }
+
+  if (role === UserRole.DIVISIONAL_ADMIN) {
+    if (actor.departmentId) return !!company.departmentId && actor.departmentId === company.departmentId;
+    const region = cleanName(actor.region);
+    const department = cleanName(actor.department);
+    if (region && department) {
+      return sameName(region, company.region) && sameName(department, company.department);
+    }
+    return false;
+  }
+
+  return false;
+}
+
+/**
  * territoryWhere narrowed to the Declaration model.
  *
  * Declaration does not have the columns territoryWhere emits for the id
@@ -199,6 +240,7 @@ export function assertTerritorialAuthority(
     regionId?: string | null;
     departmentId?: string | null;
   },
+  options: { requireRegionMatch?: boolean } = {},
 ): void {
   if (!actor?.role) {
     throw new ForbiddenException('Authentification requise.');
@@ -222,6 +264,18 @@ export function assertTerritorialAuthority(
     // mismatch reports the department message, kept stable for audit logs.
     const matchDept = (actor.departmentId && actor.departmentId === target.departmentId) ||
                       (sameName(actor.region, target.region) && sameName(actor.department, target.department));
+    // A region-filter request must match the actor's assigned region even
+    // when the globally unique departmentId already proves the department.
+    const matchRequiredRegion = !options.requireRegionMatch || sameName(actor.region, target.region);
+    if (!matchRequiredRegion) {
+      const assigned = cleanName(actor.region);
+      const requested = typeof target.region === 'string' ? target.region.trim() : '';
+      throw new ForbiddenException(
+        assigned
+          ? `Vous ne pouvez consulter que votre région d'affectation (${assigned}). La région « ${requested} » est hors de votre ressort. / You can only view your assigned region (${assigned}). The region "${requested}" is outside your jurisdiction.`
+          : "Votre compte n'a pas de région d'affectation. Un filtre par région n'est pas autorisé. / Your account has no assigned region. A region filter is not allowed.",
+      );
+    }
     if (!matchDept) {
       throw new ForbiddenException(`Action non autorisée hors de votre département d'affectation (${actor.department}).`);
     }

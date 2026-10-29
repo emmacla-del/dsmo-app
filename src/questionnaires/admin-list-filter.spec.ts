@@ -83,6 +83,58 @@ describe('buildAdminListWhere', () => {
       submissionDate: { lt: reviewOverdueBefore(NOW) },
     });
   });
+
+  it('adds no campaign clause when campaignId is absent, so every campaign is listed', () => {
+    for (const filters of [{}, { campaignId: undefined }, { campaignId: '' }]) {
+      const where = buildAdminListWhere(filters);
+      expect(where.AND.some((clause) => 'campaignId' in clause)).toBe(false);
+    }
+  });
+
+  it('filters clean files as those with no OPEN anomaly', () => {
+    const where = buildAdminListWhere({ quality: 'clean' });
+    expect(where.AND).toContainEqual({ anomalies: { none: { status: 'OPEN' } } });
+    expect(where.AND.filter((clause) => 'anomalies' in clause)).toHaveLength(1);
+  });
+
+  it('filters warnings as an OPEN non-blocking anomaly and no OPEN blocking anomaly', () => {
+    const where = buildAdminListWhere({ quality: 'warnings' });
+    expect(where.AND).toContainEqual({ anomalies: { some: { status: 'OPEN', isBlocking: false } } });
+    expect(where.AND).toContainEqual({ anomalies: { none: { status: 'OPEN', isBlocking: true } } });
+  });
+
+  it('filters blocking files as those with an OPEN blocking anomaly', () => {
+    const where = buildAdminListWhere({ quality: 'blocking' });
+    expect(where.AND).toContainEqual({ anomalies: { some: { status: 'OPEN', isBlocking: true } } });
+  });
+
+  it('counts a file whose blocking anomalies are all RESOLVED or WAIVED as clean, not blocking', () => {
+    // The Contrôles column counts status OPEN only. RESOLVED and WAIVED are
+    // the stored non-open states (there is no CLOSED value). A file that
+    // holds only those matches `none: OPEN` and does not match `some: OPEN`.
+    const clean = buildAdminListWhere({ quality: 'clean' }).AND.find((clause) => 'anomalies' in clause);
+    const blocking = buildAdminListWhere({ quality: 'blocking' }).AND.find((clause) => 'anomalies' in clause);
+    expect(clean).toEqual({ anomalies: { none: { status: 'OPEN' } } });
+    expect(blocking).toEqual({ anomalies: { some: { status: 'OPEN', isBlocking: true } } });
+    expect(JSON.stringify(clean)).not.toContain('RESOLVED');
+    expect(JSON.stringify(clean)).not.toContain('WAIVED');
+    expect(JSON.stringify(blocking)).toContain('"status":"OPEN"');
+    expect(JSON.stringify(blocking)).toContain('"isBlocking":true');
+  });
+
+  it('filters assignment me, unassigned and other against the signed-in officer', () => {
+    expect(buildAdminListWhere({ assignment: 'me', assigneeId: 'officer-1' }).AND)
+      .toContainEqual({ assigneeId: 'officer-1' });
+    expect(buildAdminListWhere({ assignment: 'unassigned' }).AND)
+      .toContainEqual({ assigneeId: null });
+    expect(buildAdminListWhere({ assignment: 'other', assigneeId: 'officer-1' }).AND)
+      .toContainEqual({ AND: [{ assigneeId: { not: null } }, { assigneeId: { not: 'officer-1' } }] });
+  });
+
+  it('matches nothing for me or other when the officer id is missing', () => {
+    expect(buildAdminListWhere({ assignment: 'me' }).AND).toContainEqual({ id: { in: [] } });
+    expect(buildAdminListWhere({ assignment: 'other' }).AND).toContainEqual({ id: { in: [] } });
+  });
 });
 
 describe('periodStart', () => {

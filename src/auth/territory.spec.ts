@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import {
   assertTerritorialAuthority,
+  companyInTerritory,
   territoryFromUser,
   territoryWhere,
   territoryWhereForDeclaration,
@@ -67,6 +68,26 @@ describe('territoryWhere', () => {
   });
 });
 
+describe('companyInTerritory', () => {
+  it('lets national readers including CENTRAL_AGENT see every company', () => {
+    for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP', 'CENTRAL_AGENT']) {
+      expect(companyInTerritory({ role }, CENTRE)).toBe(true);
+    }
+  });
+
+  it('keeps a regional officer inside their region by name or id', () => {
+    expect(companyInTerritory({ role: 'REGIONAL_ADMIN', region: 'Littoral' }, LITTORAL)).toBe(true);
+    expect(companyInTerritory({ role: 'REGIONAL_ADMIN', region: 'LITTORAL' }, LITTORAL)).toBe(true);
+    expect(companyInTerritory({ role: 'REGIONAL_ADMIN', regionId: 'reg-lt' }, LITTORAL)).toBe(true);
+    expect(companyInTerritory({ role: 'REGIONAL_ADMIN', region: 'Littoral' }, CENTRE)).toBe(false);
+  });
+
+  it('fails closed for an unassigned territorial account', () => {
+    expect(companyInTerritory({ role: 'REGIONAL_ADMIN' }, LITTORAL)).toBe(false);
+    expect(companyInTerritory({ role: 'DIVISIONAL_ADMIN', region: 'Littoral' }, LITTORAL)).toBe(false);
+  });
+});
+
 describe('assertTerritorialAuthority', () => {
   it('lets national roles act anywhere', () => {
     for (const role of ['SUPER_ADMIN', 'ADMIN_ONEFOP']) {
@@ -99,6 +120,35 @@ describe('assertTerritorialAuthority', () => {
     expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL_ADMIN', departmentId: 'dep-wouri' }, LITTORAL)).not.toThrow();
     expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' }, LITTORAL)).not.toThrow();
     expect(() => assertTerritorialAuthority({ role: 'DIVISIONAL_ADMIN', region: 'LITTORAL', department: 'WOURI' }, LITTORAL)).not.toThrow();
+  });
+
+  it('checks a requested region even when a DIVISIONAL department id matches', () => {
+    const actor = {
+      role: 'DIVISIONAL_ADMIN',
+      region: 'Littoral',
+      department: 'Wouri',
+      departmentId: 'dep-wouri',
+    };
+    expect(() => assertTerritorialAuthority(
+      actor,
+      { region: 'Centre', department: 'Wouri', departmentId: 'dep-wouri' },
+      { requireRegionMatch: true },
+    )).toThrow(
+      'Vous ne pouvez consulter que votre région d\'affectation (Littoral). La région « Centre » est hors de votre ressort. / You can only view your assigned region (Littoral). The region "Centre" is outside your jurisdiction.',
+    );
+    expect(() => assertTerritorialAuthority(
+      actor,
+      { region: 'Littoral', department: 'Wouri', departmentId: 'dep-wouri' },
+      { requireRegionMatch: true },
+    )).not.toThrow();
+    // A missing trusted region cannot authorize an explicit region filter.
+    expect(() => assertTerritorialAuthority(
+      { role: 'DIVISIONAL_ADMIN', departmentId: 'dep-wouri' },
+      { region: 'Littoral', departmentId: 'dep-wouri' },
+      { requireRegionMatch: true },
+    )).toThrow(
+      "Votre compte n'a pas de région d'affectation. Un filtre par région n'est pas autorisé. / Your account has no assigned region. A region filter is not allowed.",
+    );
   });
 
   it('keeps same-named departments in different regions apart (regression)', () => {

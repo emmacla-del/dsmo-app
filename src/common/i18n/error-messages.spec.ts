@@ -172,6 +172,14 @@ describe('translateErrorMessage', () => {
     expect(translateErrorMessage(both, 'en')).toBe('A declaration already exists for this quarter.');
     const missing = 'Informations obligatoires manquantes : Région, NIU. Veuillez compléter le formulaire avant de soumettre. / Missing required information: Région, NIU. Please complete the form before submitting.';
     expect(translateErrorMessage(missing, 'en')).toBe('Missing required information: Région, NIU. Please complete the form before submitting.');
+    const regionFilter =
+      'Vous ne pouvez consulter que votre région d\'affectation (Littoral). La région « Centre » est hors de votre ressort. / You can only view your assigned region (Littoral). The region "Centre" is outside your jurisdiction.';
+    expect(translateErrorMessage(regionFilter, 'fr')).toBe(
+      "Vous ne pouvez consulter que votre région d'affectation (Littoral). La région « Centre » est hors de votre ressort.",
+    );
+    expect(translateErrorMessage(regionFilter, 'en')).toBe(
+      'You can only view your assigned region (Littoral). The region "Centre" is outside your jurisdiction.',
+    );
   });
 
   it('leaves an unknown message untouched', () => {

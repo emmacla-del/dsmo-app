@@ -59,6 +59,8 @@ export function FilterTableOptions({
   onChange,
   onSelect,
   searchable = false,
+  searchPlaceholder,
+  emptyLabel,
 }: {
   label: string;
   value: string;
@@ -66,6 +68,8 @@ export function FilterTableOptions({
   onChange: (value: string) => void;
   onSelect: () => void;
   searchable?: boolean;
+  searchPlaceholder: string;
+  emptyLabel: string;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const showSearch = searchable || options.length > 12;
@@ -83,7 +87,7 @@ export function FilterTableOptions({
           <Search className="absolute left-2 top-2 size-3.5 text-muted-foreground" aria-hidden="true" />
           <Input
             type="search"
-            placeholder={`Rechercher ${label.toLowerCase()}...`}
+            placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-7 pl-7 pr-2 text-xs"
@@ -92,7 +96,7 @@ export function FilterTableOptions({
       )}
       <div className="grid max-h-56 gap-1 overflow-y-auto" role="group" aria-label={label}>
         {filteredOptions.length === 0 ? (
-          <p className="py-2 text-center text-xs text-muted-foreground">Aucun résultat</p>
+          <p className="py-2 text-center text-xs text-muted-foreground">{emptyLabel}</p>
         ) : (
           filteredOptions.map((option) => (
             <Button

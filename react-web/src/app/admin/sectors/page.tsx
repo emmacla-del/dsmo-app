@@ -97,7 +97,7 @@ export default function AdminSectorsPage() {
               <TableHead scope="col">{t("adminSectorsPage.columnName")}</TableHead>
               <TableHead scope="col">{t("adminSectorsPage.columnNameEn")}</TableHead>
               <FilterTableHead label={t("adminSectorsPage.columnCategory")} filterLabel={t("adminSectorsPage.categoryFilterLabel")} active={!!categoryFilter}>
-                {(close) => <FilterTableOptions label={t("adminSectorsPage.categoryFilterLabel")} value={categoryFilter} options={[{ value: "", label: t("adminSectorsPage.allCategoriesOption") }, ...categories.map((value) => ({ value, label: categoryLabel(value) }))]} onChange={setCategoryFilter} onSelect={close} />}
+                {(close) => <FilterTableOptions label={t("adminSectorsPage.categoryFilterLabel")} searchPlaceholder={t("common.filterOptionSearch", { label: t("adminSectorsPage.categoryFilterLabel").toLocaleLowerCase() })} emptyLabel={t("common.filterOptionEmpty")} value={categoryFilter} options={[{ value: "", label: t("adminSectorsPage.allCategoriesOption") }, ...categories.map((value) => ({ value, label: categoryLabel(value) }))]} onChange={setCategoryFilter} onSelect={close} />}
               </FilterTableHead>
               <TableHead scope="col">{t("adminSectorsPage.columnCode")}</TableHead>
             </TableRow>

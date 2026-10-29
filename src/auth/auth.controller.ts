@@ -447,6 +447,7 @@ export class AuthController {
     @Query('to') to?: string,
     @Query('organisation') organisation?: string,
     @Query('registrationMethod') registrationMethod?: string,
+    @Query('duplicates') duplicates?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('statuses') statuses?: string,
@@ -470,6 +471,7 @@ export class AuthController {
       to,
       organisation,
       registrationMethod,
+      duplicates,
       search,
       status,
       statuses,
@@ -498,12 +500,14 @@ export class AuthController {
     @Query('to') to?: string,
     @Query('organisation') organisation?: string,
     @Query('registrationMethod') registrationMethod?: string,
+    @Query('duplicates') duplicates?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('statuses') statuses?: string,
     @Query('view') view?: string,
     @Query('createdBy') createdBy?: string,
     @Query('overdue') overdue?: string,
+    @Query('assignedToMe') assignedToMe?: string,
   ) {
     if (includeArchived !== undefined && includeArchived !== 'true' && includeArchived !== 'false') {
       throw new BadRequestException('includeArchived must be true or false.');
@@ -519,12 +523,14 @@ export class AuthController {
         to,
         organisation,
         registrationMethod,
+        duplicates,
         search,
         status,
         statuses,
         view,
         createdBy,
-        overdue,
+        overdue: overdue === 'true',
+        assigneeId: assignedToMe === 'true' || assignedToMe === '1' ? req.user.id : undefined,
       },
     );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

@@ -896,7 +896,11 @@ export function listAdminQuestionnaires(
     quarterCode?: string;
     late?: boolean;
     overdue?: boolean;
-    /** Only dossiers assigned to the signed-in agent (phase 5). */
+    /** Open-anomaly reading: clean, warnings, or blocking. */
+    quality?: "clean" | "warnings" | "blocking";
+    /** me, unassigned, or other, relative to the signed-in officer. */
+    assignment?: "me" | "unassigned" | "other";
+    /** Only dossiers assigned to the signed-in agent (phase 5). Prefer assignment. */
     assignedToMe?: boolean;
     includeArchived?: boolean;
     /** "oldest" lists the longest-waiting first; the server default is newest first. */
@@ -918,6 +922,8 @@ export function listAdminQuestionnaires(
   if (params.quarterCode) query.set("quarterCode", params.quarterCode);
   if (params.late) query.set("late", "1");
   if (params.overdue) query.set("overdue", "1");
+  if (params.quality) query.set("quality", params.quality);
+  if (params.assignment) query.set("assignment", params.assignment);
   if (params.assignedToMe) query.set("assignedToMe", "1");
   if (params.includeArchived !== undefined) query.set("includeArchived", String(params.includeArchived));
   if (params.sort) query.set("sort", params.sort);

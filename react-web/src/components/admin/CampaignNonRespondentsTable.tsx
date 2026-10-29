@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
 import { count } from "@/lib/admin-data-state";
 import { formatCampaignDate } from "@/lib/campaigns";
 import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
@@ -24,6 +27,15 @@ import {
   type CampaignNonRespondentsResponse,
 } from "@/lib/pilotage-targets";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
+import {
+  FOLLOW_UP_PAGE_SIZE,
+  clampFollowUpPage,
+  clearFollowUpQuery,
+  followUpHref,
+  normalizeFollowUpQuery,
+  parseFollowUpUrlState,
+  updateFollowUpQuery,
+} from "@/lib/follow-up-url";
 
 const OUTCOME_KEYS: Record<CampaignFollowUpOutcome, string> = {
   SENT_CONFIRMED: "nonRespOutcomeSent",
@@ -63,6 +75,10 @@ export function CampaignNonRespondentsTable({
 }) {
   const t = useTranslations("adminCiblesPage");
   const tRoot = useTranslations();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
   const appLocale = asUiLocale(useLocale());
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
@@ -72,19 +88,59 @@ export function CampaignNonRespondentsTable({
   const [outcome, setOutcome] = useState<CampaignFollowUpOutcome | "">("");
   const [saveError, setSaveError] = useState(false);
   const [savedFollowUp, setSavedFollowUp] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState("");
-  const [selectedOutcome, setSelectedOutcome] = useState("");
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 15;
+  const regions = useMemo(() => {
+    const set = new Set<string>();
+    for (const est of data.establishments) {
+      if (est.regionName) set.add(est.regionName);
+    }
+    return Array.from(set).sort();
+  }, [data.establishments]);
+
+  const allDepartments = useMemo(() => {
+    const found = new Map<string, string | null>();
+    for (const est of data.establishments) {
+      if (est.departmentName && !found.has(`${est.regionName ?? ""}\u0000${est.departmentName}`)) {
+        found.set(`${est.regionName ?? ""}\u0000${est.departmentName}`, est.regionName ?? null);
+      }
+    }
+    return Array.from(found, ([key, region]) => ({ name: key.split("\u0000")[1] ?? "", region }));
+  }, [data.establishments]);
+
+  const types = useMemo(() => {
+    const set = new Set<string>();
+    for (const est of data.establishments) {
+      if (est.entityType) set.add(est.entityType);
+    }
+    return Array.from(set).sort();
+  }, [data.establishments]);
+
+  const filterOptions = useMemo(() => ({
+    regions,
+    departments: allDepartments,
+    types,
+    canShowContacts,
+  }), [allDepartments, canShowContacts, regions, types]);
+  const filters = parseFollowUpUrlState(currentQuery, filterOptions);
+  const [searchInput, setSearchInput] = useState(filters.search);
+  const [searchUrlValue, setSearchUrlValue] = useState(filters.search);
+  if (searchUrlValue !== filters.search) {
+    setSearchUrlValue(filters.search);
+    setSearchInput(filters.search);
+  }
+  const searchQuery = filters.search;
+  const selectedRegion = filters.region;
+  const selectedDepartment = filters.department;
+  const selectedType = filters.type;
+  const selectedOutcome = filters.outcome;
 
   const departments = useMemo(() => {
     const set = new Set<string>();
     for (const est of data.establishments) {
+      if (selectedRegion && est.regionName !== selectedRegion) continue;
       if (est.departmentName) set.add(est.departmentName);
     }
     return Array.from(set).sort();
-  }, [data.establishments]);
+  }, [data.establishments, selectedRegion]);
 
   const filteredEstablishments = useMemo(() => {
     return data.establishments.filter((row) => {
@@ -95,22 +151,58 @@ export function CampaignNonRespondentsTable({
         const matchesContact = row.contactName?.toLowerCase().includes(q);
         if (!matchesName && !matchesId && !matchesContact) return false;
       }
+      if (selectedRegion && row.regionName !== selectedRegion) return false;
       if (selectedDepartment && row.departmentName !== selectedDepartment) return false;
-      if (selectedOutcome === "NONE" && row.latestFollowUp) return false;
-      if (selectedOutcome === "CONTACTED" && !row.latestFollowUp) return false;
-      if (selectedOutcome && selectedOutcome !== "NONE" && selectedOutcome !== "CONTACTED") {
-        if (row.latestFollowUp?.outcome !== selectedOutcome) return false;
+      if (selectedType && row.entityType !== selectedType) return false;
+      if (canShowContacts) {
+        if (selectedOutcome === "NONE" && row.latestFollowUp) return false;
+        if (selectedOutcome === "CONTACTED" && !row.latestFollowUp) return false;
+        if (selectedOutcome && selectedOutcome !== "NONE" && selectedOutcome !== "CONTACTED") {
+          if (row.latestFollowUp?.outcome !== selectedOutcome) return false;
+        }
       }
       return true;
     });
-  }, [data.establishments, searchQuery, selectedDepartment, selectedOutcome]);
+  }, [data.establishments, searchQuery, selectedRegion, selectedDepartment, selectedType, selectedOutcome, canShowContacts]);
 
+  const outcomeFilter = canShowContacts ? selectedOutcome : "";
+  const filtersActive = !!(
+    searchQuery.trim() || selectedRegion || selectedDepartment || selectedType || outcomeFilter
+  );
   const totalFiltered = filteredEstablishments.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const pagedEstablishments = filteredEstablishments.slice(startIdx, startIdx + PAGE_SIZE);
+  const currentPage = clampFollowUpPage(filters.page, totalFiltered);
+  const startIdx = (currentPage - 1) * FOLLOW_UP_PAGE_SIZE;
+  const pagedEstablishments = filteredEstablishments.slice(startIdx, startIdx + FOLLOW_UP_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / FOLLOW_UP_PAGE_SIZE));
   const publicConfig = getFollowUpPublicConfig();
+
+  const updateFilters = useCallback((
+    changes: Parameters<typeof updateFollowUpQuery>[1],
+    history: "push" | "replace" = "push",
+    resetPage = true,
+  ) => {
+    const nextQuery = updateFollowUpQuery(currentQuery, changes, resetPage);
+    const href = followUpHref(pathname, nextQuery);
+    const currentHref = followUpHref(pathname, currentQuery);
+    if (href !== currentHref) router[history](href, { scroll: false });
+  }, [currentQuery, pathname, router]);
+
+  const normalizedQuery = normalizeFollowUpQuery(currentQuery, filterOptions);
+  const clampedQuery = currentPage > 1
+    ? updateFollowUpQuery(normalizedQuery, { page: currentPage }, false)
+    : updateFollowUpQuery(normalizedQuery, { page: null }, false);
+  useEffect(() => {
+    if (clampedQuery !== currentQuery) {
+      router.replace(followUpHref(pathname, clampedQuery), { scroll: false });
+    }
+  }, [clampedQuery, currentQuery, pathname, router]);
+
+  useEffect(() => {
+    const search = searchInput.trim();
+    if (search === filters.search) return;
+    const timer = window.setTimeout(() => updateFilters({ search: search || null }, "replace"), 300);
+    return () => window.clearTimeout(timer);
+  }, [filters.search, searchInput, updateFilters]);
 
   const followUpMutation = useMutation({
     mutationFn: ({ companyId, input }: { companyId: string; input: RecordCampaignFollowUpInput }) =>
@@ -207,59 +299,130 @@ export function CampaignNonRespondentsTable({
     });
   };
 
+  const outcomeFilterLabel = (value: string) => {
+    if (value === "NONE") return t("nonRespOutcomeNone");
+    if (value === "CONTACTED") return t("nonRespOutcomeContacted");
+    return t(OUTCOME_KEYS[value as CampaignFollowUpOutcome]);
+  };
+  const activeFilters = [
+    ...(filters.search ? [{ key: "search", label: `${t("nonRespSearchLabel")}: ${filters.search}`, onClear: () => { setSearchInput(""); updateFilters({ search: null }); } }] : []),
+    ...(selectedRegion ? [{ key: "region", label: `${t("nonRespFilterRegion")}: ${selectedRegion}`, onClear: () => updateFilters({ region: null }) }] : []),
+    ...(selectedDepartment ? [{ key: "department", label: `${t("nonRespFilterDepartment")}: ${selectedDepartment}`, onClear: () => updateFilters({ department: null }) }] : []),
+    ...(selectedType ? [{ key: "type", label: `${t("nonRespFilterType")}: ${typeLabel(selectedType)}`, onClear: () => updateFilters({ type: null }) }] : []),
+    ...(selectedOutcome ? [{ key: "outcome", label: `${t("nonRespFilterOutcome")}: ${outcomeFilterLabel(selectedOutcome)}`, onClear: () => updateFilters({ outcome: null }) }] : []),
+  ];
+  const clearAllFilters = () => {
+    setSearchInput("");
+    const nextQuery = clearFollowUpQuery(currentQuery);
+    const href = followUpHref(pathname, nextQuery);
+    if (href !== followUpHref(pathname, currentQuery)) router.push(href, { scroll: false });
+  };
+
   return (
     <>
       <p className="cam-admin-lede">
         {data.registered === 0
           ? t("nonRespNoRegistered")
-          : t("nonRespSummary", { count: data.establishments.length, registered: count(data.registered, appLocale) })}
+          : filtersActive
+            ? totalFiltered === 0
+              ? t("nonRespNoMatch")
+              : t("nonRespFilteredCount", { count: totalFiltered })
+            : t("nonRespSummary", { count: totalFiltered, registered: count(data.registered, appLocale) })}
       </p>
       {canShowContacts && savedFollowUp && (
         <p role="status" className="cam-admin-notice cam-admin-notice--success">{t("nonRespFollowUpSaved")}</p>
       )}
       {data.establishments.length > 0 && (
         <>
-          <div className="mb-4 grid gap-3 md:grid-cols-4">
+          <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="md:col-span-2">
+              <Label htmlFor="follow-up-search">{t("nonRespSearchLabel")}</Label>
               <Input
+                id="follow-up-search"
                 type="search"
-                placeholder="Rechercher par nom, identifiant ou contact..."
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                placeholder={t("nonRespSearchPlaceholder")}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="h-10 w-full"
               />
             </div>
             <div>
+              <Label htmlFor="follow-up-region">{t("nonRespFilterRegion")}</Label>
               <select
+                id="follow-up-region"
+                className="cam-admin-input w-full"
+                value={selectedRegion}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  const departmentStillValid = !selectedDepartment || allDepartments.some((item) =>
+                    item.name === selectedDepartment && (!next || item.region === next),
+                  );
+                  updateFilters({ region: next || null, department: departmentStillValid ? selectedDepartment || null : null });
+                }}
+              >
+                <option value="">{t("nonRespAllRegions")}</option>
+                {regions.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="follow-up-department">{t("nonRespFilterDepartment")}</Label>
+              <select
+                id="follow-up-department"
                 className="cam-admin-input w-full"
                 value={selectedDepartment}
-                onChange={(e) => { setSelectedDepartment(e.target.value); setPage(1); }}
-                aria-label="Filtrer par département"
+                onChange={(e) => updateFilters({ department: e.target.value || null })}
               >
-                <option value="">Tous les départements</option>
+                <option value="">{t("nonRespAllDepartments")}</option>
                 {departments.map((dept) => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
             </div>
             <div>
+              <Label htmlFor="follow-up-type">{t("nonRespFilterType")}</Label>
               <select
+                id="follow-up-type"
                 className="cam-admin-input w-full"
-                value={selectedOutcome}
-                onChange={(e) => { setSelectedOutcome(e.target.value); setPage(1); }}
-                aria-label="Statut de relance"
+                value={selectedType}
+                onChange={(e) => updateFilters({ type: e.target.value || null })}
               >
-                <option value="">Tous les statuts de relance</option>
-                <option value="NONE">Non relancé</option>
-                <option value="CONTACTED">Déjà relancé</option>
-                <option value="CALLBACK_REQUESTED">Rappel demandé</option>
-                <option value="DO_NOT_CONTACT">Ne pas contacter</option>
-                <option value="NO_ANSWER">Sans réponse</option>
-                <option value="WRONG_NUMBER">Numéro erroné</option>
-                <option value="ALREADY_SUBMITTED">Déjà soumis</option>
+                <option value="">{t("nonRespAllTypes")}</option>
+                {types.map((value) => (
+                  <option key={value} value={value}>{typeLabel(value)}</option>
+                ))}
               </select>
             </div>
+            {canShowContacts && (
+            <div>
+              <Label htmlFor="follow-up-outcome">{t("nonRespFilterOutcome")}</Label>
+              <select
+                id="follow-up-outcome"
+                className="cam-admin-input w-full"
+                value={selectedOutcome}
+                onChange={(e) => updateFilters({ outcome: e.target.value || null })}
+              >
+                <option value="">{t("nonRespAllOutcomes")}</option>
+                <option value="NONE">{t("nonRespOutcomeNone")}</option>
+                <option value="CONTACTED">{t("nonRespOutcomeContacted")}</option>
+                <option value="SENT_CONFIRMED">{t("nonRespOutcomeSent")}</option>
+                <option value="CALLBACK_REQUESTED">{t("nonRespOutcomeCallback")}</option>
+                <option value="DO_NOT_CONTACT">{t("nonRespOutcomeDoNotContact")}</option>
+                <option value="NO_ANSWER">{t("nonRespOutcomeNoAnswer")}</option>
+                <option value="WRONG_NUMBER">{t("nonRespOutcomeWrongNumber")}</option>
+                <option value="ALREADY_SUBMITTED">{t("nonRespOutcomeSubmitted")}</option>
+              </select>
+            </div>
+            )}
           </div>
+          <AdminActiveFilterChips
+            filters={activeFilters}
+            label={t("nonRespActiveFilters")}
+            clearAllLabel={t("nonRespClearAllFilters")}
+            onClearAll={clearAllFilters}
+            removeFilterLabel={(label) => t("nonRespRemoveFilter", { label })}
+          />
           <div className="cam-dash-table-wrap">
           <table className="cam-dash-table cam-target-table">
             <thead>
@@ -280,7 +443,7 @@ export function CampaignNonRespondentsTable({
               {pagedEstablishments.length === 0 ? (
                 <tr>
                   <td colSpan={canShowContacts ? 10 : 6} className="py-8 text-center text-muted-foreground">
-                    Aucun établissement ne correspond aux critères de recherche.
+                    {t("nonRespNoMatch")}
                   </td>
                 </tr>
               ) : pagedEstablishments.map((row) => {
@@ -346,17 +509,17 @@ export function CampaignNonRespondentsTable({
             </tbody>
           </table>
         </div>
-        {totalFiltered > PAGE_SIZE && (
+        {totalFiltered > FOLLOW_UP_PAGE_SIZE && (
           <div className="flex flex-wrap items-center justify-end gap-3 py-4 text-sm text-muted-foreground">
             <span>
-              {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, totalFiltered)} sur {totalFiltered}
+              {startIdx + 1}–{Math.min(startIdx + FOLLOW_UP_PAGE_SIZE, totalFiltered)} sur {totalFiltered}
             </span>
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={currentPage <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => updateFilters({ page: Math.max(1, currentPage - 1) }, "push", false)}
             >
               {tRoot("common.previous") || "Précédent"}
             </Button>
@@ -368,7 +531,7 @@ export function CampaignNonRespondentsTable({
               variant="outline"
               size="sm"
               disabled={currentPage >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => updateFilters({ page: Math.min(totalPages, currentPage + 1) }, "push", false)}
             >
               {tRoot("common.next") || "Suivant"}
             </Button>

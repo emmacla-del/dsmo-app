@@ -43,12 +43,13 @@ const DIAGNOSTIC: DossierDiagnostic = {
   warningAnomalies: [],
 };
 
-function Harness() {
+function Harness({ returnTo }: { returnTo?: string }) {
   navigationMock.params = { id: DOSSIER.id };
+  navigationMock.searchParams = new URLSearchParams(returnTo ? { returnTo } : undefined);
   return <SubmissionDetailPage />;
 }
 
-function renderDetail() {
+function renderDetail(returnTo?: string) {
   useAuthStore.setState({
     status: "authenticated",
     user: { id: "user-1", role: "ADMIN_ONEFOP" } as never,
@@ -63,7 +64,7 @@ function renderDetail() {
     mutations: { retry: false, gcTime: 0 },
   });
 
-  return renderWithProviders(<Harness />, {
+  return renderWithProviders(<Harness returnTo={returnTo} />, {
     locale: "en",
     queryClient,
     queryData: [
@@ -73,6 +74,21 @@ function renderDetail() {
     ],
   });
 }
+
+test("the visible back link restores an allowlisted filtered Dossiers view", () => {
+  renderDetail("/admin/dossiers?vue=completed&status=REJECTED&page=3&unknown=drop");
+
+  assert.equal(
+    screen.getByRole("link", { name: "Back" }).getAttribute("href"),
+    "/admin/dossiers?vue=completed&completedStatus=REJECTED&completedPage=3",
+  );
+});
+
+test("direct dossier links keep the existing list fallback", () => {
+  renderDetail();
+
+  assert.equal(screen.getByRole("link", { name: "Back" }).getAttribute("href"), "/admin/dossiers");
+});
 
 test("clicking Reopen for correction opens the reason and attestation dialog", async () => {
   const { user } = renderDetail();

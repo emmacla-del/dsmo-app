@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, MoreHorizontal, Percent, X } from "lucide-react";
+import { Download, MoreHorizontal, Percent } from "lucide-react";
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -14,10 +14,11 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
+import { isBackgroundRefreshing } from "@/lib/admin-query-state";
+import { buildDossierReturnTo } from "@/lib/admin-return";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { AdminFilterDisclosure } from "@/components/admin/AdminFilterDisclosure";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -25,7 +26,7 @@ import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { CampaignNonRespondentsTable } from "@/components/admin/CampaignNonRespondentsTable";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
-import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { departmentInRegion, regionInTree, useTerritoryDepartments, useTerritoryRegions, useTerritoryStructure } from "@/hooks/useTerritoryStructure";
 import { formatCampaignDisplayName, formatCampaignShortName, isRegistrationCampaign, listCampaigns } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { canListCampaigns, getActiveCollectionCampaigns, getCampaignNonRespondents, getCampaignReturns } from "@/lib/pilotage-targets";
@@ -39,7 +40,9 @@ import {
 } from "@/lib/admin-data-state";
 import { AUDIT_ROLES, DOSSIER_ARCHIVE_ROLES, NATIONAL_READ_ROLES, SURVEY_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import {
+  clampAdminListPage,
   hrefWith,
+  parseAdminListPage,
   parseDossierFlag,
   parseDossierQuarter,
   parseDossierSort,
@@ -273,6 +276,7 @@ function DossiersContent({
   // link helpers, and labels together. See docs/plans/admin-modules-refactor.md
   // Phase 3.
   const searchParams = useSearchParams();
+  const dossierReturnTo = buildDossierReturnTo(searchParams.toString());
   const router = useRouter();
   const pathname = usePathname();
   const activeView = parseDossierVue(searchParams.get("vue"));
@@ -306,10 +310,11 @@ function DossiersContent({
   const requestedQuery = filterParam("search") ?? (legacyFiltersApply ? searchParams.get("q") : null) ?? "";
   // /admin/questionnaires links here with ?formType= ("Voir dossiers").
   const requestedFormType = filterParam("formType") ?? "";
-  // Region and department remain independent list filters. Keep all department
-  // choices available when a region is selected so changing one does not
-  // silently clear the other.
-  const { departments: territoryDepartments } = useTerritoryDepartments(undefined, view !== "coverage");
+  // A chosen region narrows the department list. Clearing the region keeps a
+  // department that is still valid. The effect below drops a pair that cannot
+  // exist, and only after the territory tree has loaded.
+  const territoryStructure = useTerritoryStructure(view !== "coverage");
+  const { departments: territoryDepartments } = useTerritoryDepartments(regionFilter || undefined, view !== "coverage");
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
@@ -317,7 +322,8 @@ function DossiersContent({
   const [search, setSearch] = useState(requestedQuery.trim());
   const typeFilter = FORM_TYPES.includes(requestedFormType) ? requestedFormType : "";
   const periodFilter = filterParam("period") ?? "";
-  const [offset, setOffset] = useState(0);
+  const requestedPage = parseAdminListPage(filterParam("page"));
+  const [offset, setOffset] = useState((requestedPage - 1) * PAGE_SIZE);
 
   // Any URL filter change, including the browser's back button, starts again
   // at the first page.
@@ -338,13 +344,44 @@ function DossiersContent({
     periodFilter,
     requestedQuery,
   ].join("|");
-  const [offsetSignature, setOffsetSignature] = useState(filterSignature);
-  if (offsetSignature !== filterSignature) {
-    setOffsetSignature(filterSignature);
-    setOffset(0);
+  const requestedOffsetSignature = `${filterSignature}|page:${requestedPage}`;
+  const [offsetSignature, setOffsetSignature] = useState(requestedOffsetSignature);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  if (offsetSignature !== requestedOffsetSignature) {
+    setOffsetSignature(requestedOffsetSignature);
+    setOffset((requestedPage - 1) * PAGE_SIZE);
+    setSelectedIds(new Set());
   }
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // List filters reset only the active view's page while preserving the other
+  // view's bookmarked page. Page changes use the same scoped URL state.
+  const setUrlFilter = useCallback((changes: Record<string, string | null>) => {
+    setSelectedIds(new Set());
+    const scoped: Record<string, string | null> = {};
+    for (const [key, value] of Object.entries(changes)) {
+      if (key === "campaignId") {
+        scoped[key] = value;
+        continue;
+      }
+      if (key !== "q") scoped[`${view}${key[0].toUpperCase()}${key.slice(1)}`] = value;
+      scoped[key] = null;
+    }
+    scoped[`${view}Page`] = null;
+    scoped.page = null;
+    setOffset(0);
+    router.replace(hrefWith(pathname, searchParams.toString(), scoped), { scroll: false });
+  }, [pathname, router, searchParams, view]);
+
+  const goToOffset = useCallback((next: number) => {
+    const nextOffset = Math.max(0, Math.floor(next / PAGE_SIZE) * PAGE_SIZE);
+    setOffset(nextOffset);
+    setSelectedIds(new Set());
+    const nextPage = Math.floor(nextOffset / PAGE_SIZE) + 1;
+    router.replace(hrefWith(pathname, searchParams.toString(), {
+      [`${view}Page`]: nextPage > 1 ? String(nextPage) : null,
+      page: null,
+    }), { scroll: false });
+  }, [pathname, router, searchParams, view]);
 
   // A new ?q= from the header replaces the search box without an effect-driven
   // cascading render. This component-local render adjustment mirrors the URL.
@@ -356,6 +393,16 @@ function DossiersContent({
     setOffset(0);
     setSelectedIds(new Set());
   }
+  useEffect(() => {
+    if (!searchParams.has("q") || requestedPage === 1) return;
+    router.replace(hrefWith(pathname, searchParams.toString(), {
+      [`${view}Search`]: requestedQuery.trim() || null,
+      search: null,
+      q: null,
+      [`${view}Page`]: null,
+      page: null,
+    }), { scroll: false });
+  }, [pathname, requestedPage, requestedQuery, router, searchParams, view]);
 
   // Modal / Drawer state — bulk visa
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -382,9 +429,13 @@ function DossiersContent({
   const [nowMs, setNowMs] = useState<number | null>(null);
 
   useEffect(() => {
-    setNowMs(Date.now());
-    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
+    const update = () => setNowMs(Date.now());
+    const frame = window.requestAnimationFrame(update);
+    const timer = window.setInterval(update, 60_000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
   }, []);
 
   // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
@@ -413,6 +464,17 @@ function DossiersContent({
   const campaigns = vue === "followup" && canListCampaigns(user?.role) && allCollectionCampaignsQuery.isSuccess
     ? allCollectionCampaigns
     : activeCampaigns;
+  // The file list treats an empty campaign as every round. The response-rate
+  // tile and the follow-up list still need one round, so they keep the
+  // fallback to the first campaign.
+  const listCampaignId = campaignIdFilter || undefined;
+  const listQuarterCode = listCampaignId ? undefined : quarterCodeFilter || undefined;
+  const qualityParam = qualityFilter === "clean" || qualityFilter === "warnings" || qualityFilter === "blocking"
+    ? qualityFilter
+    : undefined;
+  const assignmentParam = assignmentFilter === "me" || assignmentFilter === "unassigned" || assignmentFilter === "other"
+    ? assignmentFilter
+    : undefined;
   const effectiveCampaignId = campaignIdFilter || activeCampaigns[0]?.id || campaigns[0]?.id || "";
   const campaignReturnsQuery = useQuery({
     queryKey: ["admin", "pilotage", "returns", effectiveCampaignId],
@@ -428,12 +490,17 @@ function DossiersContent({
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const campaignOptions = campaigns.map((campaign) => ({
+  const namedCampaigns = campaigns.map((campaign) => ({
     value: campaign.id,
     label: `${referencePeriodLabel(campaign.code, locale)} - ${formatCampaignDisplayName(campaign.name)}`,
   }));
-  if (effectiveCampaignId && !campaignOptions.some((option) => option.value === effectiveCampaignId)) {
-    campaignOptions.unshift({ value: effectiveCampaignId, label: effectiveCampaignId });
+  // Follow-up cannot list every campaign: its query still uses one round.
+  const campaignOptions = vue === "followup"
+    ? namedCampaigns
+    : [{ value: "", label: t("allCampaigns") }, ...namedCampaigns];
+  const campaignSelectValue = vue === "followup" ? effectiveCampaignId : campaignIdFilter;
+  if (campaignSelectValue && !campaignOptions.some((option) => option.value === campaignSelectValue)) {
+    campaignOptions.push({ value: campaignSelectValue, label: campaignSelectValue });
   }
   const quarterOptions = [
     quarterCodeFilter,
@@ -466,7 +533,7 @@ function DossiersContent({
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignId: effectiveCampaignId, quarterCodeFilter, lateFilter, overdueFilter, assignedToMeFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
+    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignId: listCampaignId ?? "", quarterCode: listQuarterCode ?? "", quality: qualityParam ?? "", assignment: assignmentParam ?? "", lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: () =>
       listAdminQuestionnaires({
         status: vue === "completed" || !statusFilter ? undefined : statusFilter,
@@ -479,11 +546,12 @@ function DossiersContent({
         period: periodFilter || undefined,
         region: regionFilter || undefined,
         department: departmentFilter || undefined,
-        campaignId: effectiveCampaignId || undefined,
-        quarterCode: quarterCodeFilter || undefined,
+        campaignId: listCampaignId,
+        quarterCode: listQuarterCode,
         late: lateFilter || undefined,
         overdue: vue === "completed" ? undefined : overdueFilter || undefined,
-        assignedToMe: assignedToMeFilter || undefined,
+        quality: qualityParam,
+        assignment: assignmentParam,
         search: search || undefined,
         companyId: companyIdFilter || undefined,
         sort: sortOrder || undefined,
@@ -541,8 +609,7 @@ function DossiersContent({
       setBulkResult(data);
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
-      setSelectedIds(new Set());
-      setOffset(0);
+      setUrlFilter({});
     },
   });
 
@@ -553,8 +620,7 @@ function DossiersContent({
       setRejectResult(data);
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
-      setSelectedIds(new Set());
-      setOffset(0);
+      setUrlFilter({});
     },
   });
 
@@ -591,34 +657,28 @@ function DossiersContent({
       setCorrectionResult(data);
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
-      setSelectedIds(new Set());
-      setOffset(0);
+      setUrlFilter({});
     },
   });
 
   // Each section owns its filter state; campaignId remains shared.
-  const setUrlFilter = useCallback((changes: Record<string, string | null>) => {
-    setSelectedIds(new Set());
-    setOffset(0);
-    const scoped: Record<string, string | null> = {};
-    for (const [key, value] of Object.entries(changes)) {
-      if (key === "campaignId") {
-        scoped[key] = value;
-        continue;
-      }
-      if (key !== "q") scoped[`${view}${key[0].toUpperCase()}${key.slice(1)}`] = value;
-      scoped[key] = null;
-    }
-    router.replace(hrefWith(pathname, searchParams.toString(), scoped));
-  }, [pathname, router, searchParams, view]);
 
   const setStatus = (status: DossierStatus | "") => setUrlFilter({ status });
   const setSort = (sort: DossierSort) => setUrlFilter({ sort });
   const setType = (type: string) => setUrlFilter({ formType: type || null });
   const setPeriod = (period: string) => setUrlFilter({ period: period || null });
-  const setRegion = (region: string) => setUrlFilter({ region });
+  const setRegion = (region: string) => {
+    if (!region || !departmentFilter || !territoryStructure.isSuccess) {
+      setUrlFilter({ region: region || null });
+      return;
+    }
+    const belongs = departmentInRegion(territoryStructure.data, region, departmentFilter);
+    setUrlFilter(belongs === false ? { region, department: null } : { region });
+  };
   const setDepartment = (department: string) => setUrlFilter({ department });
-  const setCampaign = (campaignId: string) => setUrlFilter({ campaignId });
+  const setCampaign = (campaignId: string) => setUrlFilter(
+    campaignId ? { campaignId, quarterCode: null } : { campaignId: null },
+  );
   const setQuarter = (quarterCode: string) => setUrlFilter({ quarterCode });
   const setLate = (late: boolean) => setUrlFilter({ late: late ? "1" : null });
   const setQuality = (quality: string) => setUrlFilter({ quality: quality || null });
@@ -629,18 +689,43 @@ function DossiersContent({
   const setOverdue = (overdue: boolean) => setUrlFilter({ overdue: overdue ? "1" : null });
   const setAssignedToMe = (assignedToMe: boolean) => setUrlFilter({ assignedToMe: assignedToMe ? "1" : null });
 
-  const goToOffset = (next: number) => {
-    setOffset(next);
-    setSelectedIds(new Set());
-  };
+  // A campaign already names its period. A quarter saved beside it would
+  // disagree with that round, so drop the quarter once a campaign is chosen.
+  // Canonicalize through the URL: setUrlFilter also writes React state and
+  // trips react-hooks/set-state-in-effect.
+  useEffect(() => {
+    if (!campaignIdFilter || !quarterCodeFilter) return;
+    router.replace(hrefWith(pathname, searchParams.toString(), {
+      [`${view}QuarterCode`]: null,
+      quarterCode: null,
+    }));
+  }, [campaignIdFilter, quarterCodeFilter, pathname, router, searchParams, view]);
+
+  useEffect(() => {
+    if (!territoryStructure.isSuccess) return;
+    const tree = territoryStructure.data;
+    if (regionFilter && regionInTree(tree, regionFilter) === false) {
+      router.replace(hrefWith(pathname, searchParams.toString(), {
+        [`${view}Region`]: null,
+        region: null,
+        [`${view}Department`]: null,
+        department: null,
+      }));
+      return;
+    }
+    if (!regionFilter || !departmentFilter) return;
+    if (departmentInRegion(tree, regionFilter, departmentFilter) !== false) return;
+    router.replace(hrefWith(pathname, searchParams.toString(), {
+      [`${view}Department`]: null,
+      department: null,
+    }));
+  }, [territoryStructure.isSuccess, territoryStructure.data, regionFilter, departmentFilter, pathname, router, searchParams, view]);
 
   useEffect(() => {
     const trimmed = searchInput.trim();
     if (trimmed === search) return;
     const timer = setTimeout(() => {
       setSearch(trimmed);
-      setOffset(0);
-      setSelectedIds(new Set());
       setUrlFilter({ search: trimmed || null, q: null });
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -689,16 +774,10 @@ function DossiersContent({
     };
   });
 
-  // Client-side quality & extended assignment filtering
-  // Note: Backend listAdminQuestionnaires already supplies anomalies and assignedToMe; extended filters refine the current view.
-  const dossiers: DossierItem[] = allDossiers.filter((d) => {
-    if (qualityFilter === "clean" && (d.blockingCount > 0 || d.warningCount > 0)) return false;
-    if (qualityFilter === "warnings" && (d.warningCount === 0 || d.blockingCount > 0)) return false;
-    if (qualityFilter === "blocking" && d.blockingCount === 0) return false;
-    if (assignmentFilter === "unassigned" && d.assigneeId != null) return false;
-    if (assignmentFilter === "other" && (d.assigneeId == null || d.assigneeId === user?.id)) return false;
-    return true;
-  });
+  // Quality and assignment are part of the server query, so this page is
+  // already the filtered page. Do not drop rows again here: that would
+  // leave `total` and the export describing a different set.
+  const dossiers: DossierItem[] = allDossiers;
 
   const typeColumnLabel = vue === "completed" ? t("typeColumn") : t("entityTypeColumn");
   const activeFilterChips: Array<{ key: string; label: string; remove: () => void }> = [];
@@ -712,15 +791,15 @@ function DossiersContent({
   if (periodFilter) activeFilterChips.push({ key: "period", label: `${t("periodLabel")}: ${t(PERIODS.find((p) => p.value === periodFilter)?.labelKey ?? "allPeriods")}`, remove: () => setPeriod("") });
   if (regionFilter) activeFilterChips.push({ key: "region", label: `${t("regionColumn")}: ${regionFilter}`, remove: () => setRegion("") });
   if (departmentFilter) activeFilterChips.push({ key: "department", label: `${t("departmentLabel")}: ${departmentFilter}`, remove: () => setDepartment("") });
-  if (quarterCodeFilter) activeFilterChips.push({ key: "quarterCode", label: `${t("quarterLabel")}: ${quarterCodeFilter}`, remove: () => setQuarter("") });
+  if (!campaignIdFilter && quarterCodeFilter) activeFilterChips.push({ key: "quarterCode", label: `${t("quarterLabel")}: ${quarterCodeFilter}`, remove: () => setQuarter("") });
   if (lateFilter) activeFilterChips.push({ key: "late", label: t("lateOnly"), remove: () => setLate(false) });
   if (vue !== "completed" && overdueFilter) activeFilterChips.push({ key: "overdue", label: t("overdueOnly"), remove: () => setOverdue(false) });
   if (vue === "completed" && !includeArchived) activeFilterChips.push({ key: "includeArchived", label: t("archivedHiddenFilter"), remove: () => setUrlFilter({ includeArchived: "true" }) });
   if (qualityFilter) {
     const qualityLabels: Record<string, string> = {
-      clean: "Sans anomalie",
-      warnings: "Avec avertissements",
-      blocking: "Avec anomalies bloquantes",
+      clean: t("qualityClean"),
+      warnings: t("qualityWarnings"),
+      blocking: t("qualityBlocking"),
     };
     activeFilterChips.push({
       key: "quality",
@@ -732,7 +811,7 @@ function DossiersContent({
     const assignmentLabels: Record<string, string> = {
       me: t("assignedToMeOnly"),
       unassigned: t("unassigned"),
-      other: "Assigné à un autre",
+      other: t("assignedOther"),
     };
     activeFilterChips.push({
       key: "assignment",
@@ -749,7 +828,9 @@ function DossiersContent({
     activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${resolvedCompanyName}`, remove: () => setUrlFilter({ companyId: null }) });
   }
   if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
-  const hasActiveAdvancedFilters = Boolean(periodFilter || quarterCodeFilter || lateFilter || (vue !== "completed" && overdueFilter) || assignmentFilter || assignedToMeFilter || sortOrder);
+  const hasActiveAdvancedDossierFilters = Boolean(
+    periodFilter || lateFilter || overdueFilter || assignmentFilter || qualityFilter || sortOrder || (!campaignIdFilter && quarterCodeFilter),
+  );
   const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, assignment: null, quality: null, companyId: null, campaignId: null, includeArchived: "true", sort: null, search: null, q: null });
 
   /**
@@ -761,9 +842,23 @@ function DossiersContent({
    */
   const totalCount = page?.total ?? null;
   const pageCount = totalCount === null ? null : Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
-  const firstShown = dossiers.length === 0 ? 0 : offset + 1;
-  const lastShown = offset + dossiers.length;
+  const requestedCurrentPage = Math.floor(offset / PAGE_SIZE) + 1;
+  const currentPage = page && !questionnairesQuery.isPlaceholderData
+    ? clampAdminListPage(requestedCurrentPage, page.total, PAGE_SIZE)
+    : requestedCurrentPage;
+  const displayOffset = (currentPage - 1) * PAGE_SIZE;
+  const firstShown = dossiers.length === 0 ? 0 : displayOffset + 1;
+  const lastShown = dossiers.length === 0 ? 0 : displayOffset + dossiers.length;
+
+  useEffect(() => {
+    if (!page || questionnairesQuery.isPlaceholderData || (view !== "submissions" && view !== "completed")) return;
+    if (currentPage !== requestedCurrentPage) {
+      router.replace(hrefWith(pathname, searchParams.toString(), {
+        [`${view}Page`]: currentPage > 1 ? String(currentPage) : null,
+        page: null,
+      }), { scroll: false });
+    }
+  }, [currentPage, page, pathname, questionnairesQuery.isPlaceholderData, requestedCurrentPage, router, searchParams, view]);
 
   const tableState = resolveDataState({
     isLoading: questionnairesQuery.isLoading,
@@ -862,12 +957,13 @@ function DossiersContent({
       if (typeFilter) params.set("formType", typeFilter);
       if (regionFilter) params.set("region", regionFilter);
       if (departmentFilter) params.set("department", departmentFilter);
-      if (effectiveCampaignId) params.set("campaignId", effectiveCampaignId);
-      if (quarterCodeFilter) params.set("quarterCode", quarterCodeFilter);
+      if (listCampaignId) params.set("campaignId", listCampaignId);
+      if (listQuarterCode) params.set("quarterCode", listQuarterCode);
       if (companyIdFilter) params.set("companyId", companyIdFilter);
       if (lateFilter) params.set("late", "1");
       if (vue !== "completed" && overdueFilter) params.set("overdue", "1");
-      if (assignedToMeFilter) params.set("assignedToMe", "1");
+      if (qualityParam) params.set("quality", qualityParam);
+      if (assignmentParam) params.set("assignment", assignmentParam);
       if (periodFilter) params.set("period", periodFilter);
       if (search) params.set("search", search);
       const token = getToken();
@@ -918,7 +1014,7 @@ function DossiersContent({
             <span>{t("campaignLabel")}</span>
             <select
               className="cam-admin-input"
-              value={effectiveCampaignId}
+              value={campaignSelectValue}
               onChange={(event) => setCampaign(event.target.value)}
               aria-label={t("campaignLabel")}
             >
@@ -1065,6 +1161,8 @@ function DossiersContent({
         headingId={`dossiers-${vue}-heading`}
         showHeader={false}
         cardClassName={vue === "submissions" ? "cam-dossier-submissions-card" : vue === "completed" ? "cam-dossier-completed-card" : undefined}
+        busy={isBackgroundRefreshing(questionnairesQuery.isFetching, questionnairesQuery.data)}
+        busyLabel={t("updatingResults")}
       >
         {vue === "submissions" && !readOnly && selectedIds.size > 0 && (
           <CardContent className="flex flex-wrap items-center gap-3 border-b pt-6" aria-live="polite">
@@ -1087,52 +1185,95 @@ function DossiersContent({
         </CardContent>}
         {vue === "completed" && <CardContent className="cam-dossier-completed-archive-filter"><label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
         <CardContent className={`border-b pt-5${vue === "submissions" ? " cam-dossier-submissions-filters" : vue === "completed" ? " cam-dossier-completed-filters" : " cam-dossier-main-coverage-filters"}`}>
-          <div className="grid gap-3 md:grid-cols-4">
-              <div className="md:col-span-2">
-                <Label htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label>
-                <Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
-              </div>
-              {vue === "submissions" && (
-                <div>
-                  <Label htmlFor="dossiers-controls">{t("controlsColumn")}</Label>
-                  <select id="dossiers-controls" className="cam-admin-input w-full" value={qualityFilter} onChange={(event) => setQuality(event.target.value)}>
-                    <option value="">{t("statusAll")}</option>
-                    <option value="clean">{"Sans anomalie"}</option>
-                    <option value="warnings">{"Avec avertissements"}</option>
-                    <option value="blocking">{"Avec anomalies bloquantes"}</option>
-                  </select>
-                </div>
-              )}
-              {vue === "completed" && (
-                <div>
-                  <Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label>
-                  <select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}>
-                    <option value="">{t("allPeriods")}</option>
-                    {PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}
-                  </select>
-                </div>
-              )}
-              <div className="flex items-end gap-2">
-                <AdminFilterDisclosure label={t("moreFilters")} active={hasActiveAdvancedFilters} className="w-full">
-                  {vue === "submissions" && <div><Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label><select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}><option value="">{t("allPeriods")}</option>{PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}</select></div>}
-                  <div><Label htmlFor={`dossiers-quarter-${vue}`}>{t("quarterLabel")}</Label><select id={`dossiers-quarter-${vue}`} className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select></div>
-                  <div><Label htmlFor={`dossiers-late-${vue}`}>{t("lateLabel")}</Label><select id={`dossiers-late-${vue}`} className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select></div>
-                  {vue !== "completed" && <div><Label htmlFor={`dossiers-overdue-${vue}`}>{t("overdueLabel")}</Label><select id={`dossiers-overdue-${vue}`} className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select></div>}
-                  <div>
-                    <Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label>
-                    <select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignmentFilter} onChange={(event) => setAssignment(event.target.value)}>
-                      <option value="">{t("assignedAll")}</option>
-                      <option value="unassigned">{t("unassigned")}</option>
-                      <option value="me">{t("assignedToMeOnly")}</option>
-                      <option value="other">{"Assigné à un autre"}</option>
-                    </select>
-                  </div>
-                  <div><Label htmlFor={`dossiers-sort-${vue}`}>{t("sortLabel")}</Label><select id={`dossiers-sort-${vue}`} className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select></div>
-                </AdminFilterDisclosure>
-                {vue === "submissions" && <Button type="button" size="sm" variant="outline" className="h-10 shrink-0" disabled={activeFilterChips.length === 0} onClick={clearAllFilters}>{t("clearFilters")}</Button>}
-              </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <Label htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label>
+              <Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor={`dossiers-type-${vue}`}>{typeColumnLabel}</Label>
+              <select id={`dossiers-type-${vue}`} className="cam-admin-input w-full" value={typeFilter} onChange={(event) => setType(event.target.value)}>
+                <option value="">{vue === "completed" ? t("allFormTypes") : t("allEntityTypes")}</option>
+                {FORM_TYPES.map((value) => <option key={value} value={value}>{typeLabel(value)}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor={`dossiers-region-${vue}`}>{t("regionColumn")}</Label>
+              <select id={`dossiers-region-${vue}`} className="cam-admin-input w-full" value={regionFilter} onChange={(event) => setRegion(event.target.value)}>
+                <option value="">{t("allRegions")}</option>
+                {territoryRegions.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor={`dossiers-department-${vue}`}>{t("departmentLabel")}</Label>
+              <select id={`dossiers-department-${vue}`} className="cam-admin-input w-full" value={departmentFilter} onChange={(event) => setDepartment(event.target.value)}>
+                <option value="">{t("allDepartments")}</option>
+                {territoryDepartments.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </div>
           </div>
-          <AdminActiveFilterChips filters={activeFilterChips.map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} clearAllLabel={vue !== "submissions" ? t("clearFilters") : undefined} onClearAll={vue !== "submissions" ? clearAllFilters : undefined} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
+          <AdminFilterDisclosure label={t("moreFilters")} active={hasActiveAdvancedDossierFilters} className="cam-admin-filter-disclosure--full mt-3">
+            <div>
+              <Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label>
+              <select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}>
+                <option value="">{t("allPeriods")}</option>
+                {PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor={`dossiers-late-${vue}`}>{t("lateLabel")}</Label>
+              <select id={`dossiers-late-${vue}`} className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}>
+                <option value="">{t("lateAll")}</option>
+                <option value="1">{t("lateOnly")}</option>
+              </select>
+            </div>
+            {vue !== "completed" && (
+              <div>
+                <Label htmlFor={`dossiers-overdue-${vue}`}>{t("overdueLabel")}</Label>
+                <select id={`dossiers-overdue-${vue}`} className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}>
+                  <option value="">{t("overdueAll")}</option>
+                  <option value="1">{t("overdueOnly")}</option>
+                </select>
+              </div>
+            )}
+            <div>
+              <Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label>
+              <select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignmentFilter} onChange={(event) => setAssignment(event.target.value)}>
+                <option value="">{t("assignedAll")}</option>
+                <option value="unassigned">{t("unassigned")}</option>
+                <option value="me">{t("assignedToMeOnly")}</option>
+                <option value="other">{t("assignedOther")}</option>
+              </select>
+            </div>
+            {vue === "submissions" && (
+              <div>
+                <Label htmlFor="dossiers-controls">{t("controlsColumn")}</Label>
+                <select id="dossiers-controls" className="cam-admin-input w-full" value={qualityFilter} onChange={(event) => setQuality(event.target.value)}>
+                  <option value="">{t("statusAll")}</option>
+                  <option value="clean">{t("qualityClean")}</option>
+                  <option value="warnings">{t("qualityWarnings")}</option>
+                  <option value="blocking">{t("qualityBlocking")}</option>
+                </select>
+              </div>
+            )}
+            <div>
+              <Label htmlFor={`dossiers-sort-${vue}`}>{t("sortLabel")}</Label>
+              <select id={`dossiers-sort-${vue}`} className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}>
+                <option value="newest">{t("sortNewest")}</option>
+                <option value="oldest">{t("sortOldest")}</option>
+              </select>
+            </div>
+            {!campaignIdFilter && (
+              <div>
+                <Label htmlFor={`dossiers-quarter-${vue}`}>{t("quarterLabel")}</Label>
+                <select id={`dossiers-quarter-${vue}`} className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}>
+                  <option value="">{t("allQuarters")}</option>
+                  {quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}
+                </select>
+              </div>
+            )}
+          </AdminFilterDisclosure>
+          <AdminActiveFilterChips filters={activeFilterChips.map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} clearAllLabel={t("clearFilters")} onClearAll={clearAllFilters} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
         </CardContent>
         <CardContent className={`overflow-x-auto pt-5${vue === "submissions" ? " cam-dossier-submissions-table" : vue === "completed" ? " cam-dossier-completed-table" : ""}`}>
           <Table>
@@ -1145,34 +1286,20 @@ function DossiersContent({
             <TableHeader>
               <TableRow>
                 {vue === "completed" ? <>
-                  <TableHead scope="col" className="sticky left-0 z-20 bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("organisationColumn")}</TableHead>
+                  <TableHead scope="col" className="sticky left-0 z-20 bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("organisationColumn")}</TableHead>
                   <TableHead scope="col">{t("establishmentIdColumn")}</TableHead>
-                  <FilterTableHead label={t("typeColumn")} filterLabel={t("filterColumn", { column: t("typeColumn") })} active={!!typeFilter}>
-                    {(close) => <FilterTableOptions label={t("typeColumn")} value={typeFilter} options={[{ value: "", label: t("allFormTypes") }, ...FORM_TYPES.map((value) => ({ value, label: typeLabel(value) }))]} onChange={setType} onSelect={close} />}
-                  </FilterTableHead>
-                  <FilterTableHead label={t("territoryColumn")} filterLabel={t("filterColumn", { column: t("territoryColumn") })} active={!!regionFilter || !!departmentFilter} contentClassName="w-72 p-3">
-                    {() => <div className="grid gap-3">
-                      <FilterTableOptions label={t("regionColumn")} value={regionFilter} options={[{ value: "", label: t("allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={setRegion} onSelect={() => {}} />
-                      <FilterTableOptions label={t("departmentLabel")} value={departmentFilter} options={[{ value: "", label: t("allDepartments") }, ...territoryDepartments.map((value) => ({ value, label: value }))]} onChange={setDepartment} onSelect={() => {}} />
-                    </div>}
-                  </FilterTableHead>
+                  <TableHead scope="col">{t("typeColumn")}</TableHead>
+                  <TableHead scope="col">{t("territoryColumn")}</TableHead>
                   <TableHead scope="col">{t("campaignPeriodColumn")}</TableHead>
                   <TableHead scope="col">{t("decisionColumn")}</TableHead>
                   <TableHead scope="col">{t("decisionDateColumn")}</TableHead>
                   <TableHead scope="col">{t("archiveStatusColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </> : <>
-                  <TableHead className="cam-dossier-select-column sticky left-0 z-20 bg-[var(--cam-surface,#fff)]"><span className="sr-only">{t("selectionColumnLabel")}</span></TableHead>
-                  <TableHead scope="col" className="sticky left-[36px] z-20 bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("entityColumn")}</TableHead>
-                  <FilterTableHead label={t("entityTypeColumn")} filterLabel={t("filterColumn", { column: t("entityTypeColumn") })} active={!!typeFilter}>
-                    {(close) => <FilterTableOptions label={t("entityTypeColumn")} value={typeFilter} options={[{ value: "", label: t("allEntityTypes") }, ...FORM_TYPES.map((value) => ({ value, label: typeLabel(value) }))]} onChange={setType} onSelect={close} />}
-                  </FilterTableHead>
-                  <FilterTableHead label={t("territoryColumn")} filterLabel={t("filterColumn", { column: t("territoryColumn") })} active={!!regionFilter || !!departmentFilter} contentClassName="w-72 p-3">
-                    {() => <div className="grid gap-3">
-                      <FilterTableOptions label={t("regionColumn")} value={regionFilter} options={[{ value: "", label: t("allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={setRegion} onSelect={() => {}} />
-                      <FilterTableOptions label={t("departmentLabel")} value={departmentFilter} options={[{ value: "", label: t("allDepartments") }, ...territoryDepartments.map((value) => ({ value, label: value }))]} onChange={setDepartment} onSelect={() => {}} />
-                    </div>}
-                  </FilterTableHead>
+                  <TableHead className="cam-dossier-select-column sticky left-0 z-20 bg-[var(--cam-surface)]"><span className="sr-only">{t("selectionColumnLabel")}</span></TableHead>
+                  <TableHead scope="col" className="sticky left-[36px] z-20 bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("entityColumn")}</TableHead>
+                  <TableHead scope="col">{t("entityTypeColumn")}</TableHead>
+                  <TableHead scope="col">{t("territoryColumn")}</TableHead>
                   <TableHead scope="col">{t("periodColumn")}</TableHead>
                   <TableHead scope="col">{t("adminStatusColumn")}</TableHead>
                   <TableHead scope="col" title={t("dataIssuesHelp")}>{t("controlsColumn")}</TableHead>
@@ -1199,7 +1326,7 @@ function DossiersContent({
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
                 const shortCampaignName = d.campaignName ? formatCampaignShortName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
-                const periodCell = effectiveCampaignId
+                const periodCell = campaignIdFilter
                   ? periodLabel
                   : [campaignName, periodLabel].filter((value) => value !== NOT_PROVIDED).join(" · ") || NOT_PROVIDED;
                 const entityMetaTitle = [d.establishmentId, d.respondentName].filter((value): value is string => Boolean(value)).join(" · ") || NOT_PROVIDED;
@@ -1212,11 +1339,14 @@ function DossiersContent({
                 const hasQueueMenu = canAssign;
                 const hasCompletedActions = (canReadAudit || canManageArchive || (canReopen && d.adminStatus === "APPROVED"));
                 const actionsLabel = t("rowActionsAria", { name: d.companyName ?? d.submissionId });
+                const detailQuery = new URLSearchParams({ returnTo: dossierReturnTo });
+                if (vue === "completed" && includeArchived) detailQuery.set("includeArchived", "true");
+                const detailHref = `/admin/dossiers/${encodeURIComponent(d.id)}?${detailQuery.toString()}`;
                 const openFile = <Button asChild size="sm" variant="default" className="whitespace-nowrap">
-                  <Link href={`/admin/dossiers/${encodeURIComponent(d.id)}${vue === "completed" && includeArchived ? "?includeArchived=true" : ""}`}>{t("openFileButton")}</Link>
+                  <Link href={detailHref}>{t("openFileButton")}</Link>
                 </Button>;
                 const openQueueFile = <Button asChild size="sm" variant="default" className="whitespace-nowrap">
-                  <Link href={`/admin/dossiers/${encodeURIComponent(d.id)}`}>{t("openButton")}</Link>
+                  <Link href={detailHref}>{t("openButton")}</Link>
                 </Button>;
                 const rowMenu = (menuItems: ReactNode) => (
                   <DropdownMenu>
@@ -1230,7 +1360,7 @@ function DossiersContent({
                 );
 
                 return vue === "completed" ? <TableRow key={d.id}>
-                  <TableCell className="sticky left-0 z-10 align-top whitespace-normal bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
+                  <TableCell className="sticky left-0 z-10 align-top whitespace-normal bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
                     <span className="block max-w-[200px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap"><span className="cam-admin-code" title={d.establishmentId ?? undefined}>{d.establishmentId ?? NOT_PROVIDED}</span></TableCell>
@@ -1258,8 +1388,8 @@ function DossiersContent({
                     </div>
                   </TableCell>
                 </TableRow> : <TableRow key={d.id}>
-                  <TableCell className="cam-dossier-select-column sticky left-0 z-10 align-top bg-[var(--cam-surface,#fff)]">{!readOnly && <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}</TableCell>
-                  <TableCell className="sticky left-[36px] z-10 align-top whitespace-normal bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
+                  <TableCell className="cam-dossier-select-column sticky left-0 z-10 align-top bg-[var(--cam-surface)]">{!readOnly && <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}</TableCell>
+                  <TableCell className="sticky left-[36px] z-10 align-top whitespace-normal bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
                     <span className="block max-w-[240px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
                     <span className="mt-0.5 block max-w-[240px] truncate text-sm text-muted-foreground" title={entityMetaTitle}>
                       {d.establishmentId && <span className="cam-admin-code" title={d.establishmentId}>{d.establishmentId}</span>}

@@ -239,6 +239,8 @@ export function listCompanyRegistrations(params: {
   statuses?: string;
   view?: "queue" | "organisations" | "all";
   registrationMethod?: string;
+  /** with: files that share an NIU, a CNPS number or a name in one subdivision. without: the rest. */
+  duplicates?: "with" | "without";
   search?: string;
   /** A UserStatus, or "ALL" to lift the default queue filter (pending + complements). */
   status?: string;
@@ -264,6 +266,7 @@ export function listCompanyRegistrations(params: {
   if (params.statuses) query.set("statuses", params.statuses);
   if (params.view) query.set("view", params.view);
   if (params.registrationMethod) query.set("registrationMethod", params.registrationMethod);
+  if (params.duplicates) query.set("duplicates", params.duplicates);
   if (params.search) query.set("search", params.search);
   if (params.status) query.set("status", params.status);
   if (params.createdBy) query.set("createdBy", params.createdBy);
