@@ -95,7 +95,7 @@ export const NAV_PROFILES: Record<UserRole, NavProfile> = {
     hubs: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
   },
   ADMIN_ONEFOP_REGISTRATIONS: {
-    hubs: ["supervision", "inscriptions"],
+    hubs: ["supervision", "inscriptions", "collecte"],
   },
   ADMIN_ONEFOP_SUBMISSIONS: {
     hubs: ["supervision", "teledeclarations", "collecte", "donnees"],

@@ -2,16 +2,19 @@
 
 import { ReactNode, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { getPilotageQueues } from "@/lib/api-client";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
+import { computeUserScopeLabel } from "@/lib/admin-data-state";
 import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
+import { LanguageLink } from "@/components/LanguageLink";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 
@@ -175,6 +178,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email || t("adminLayout.defaultDisplayName");
+  const scopeLabel = computeUserScopeLabel(user, locale);
+  const accountRole = user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel");
+  const handleLogout = () => {
+    logout({ intentional: true });
+    router.push("/login");
+  };
 
   return (
     <div className={`cam-admin${drawerOpen ? " is-menu-open" : ""}${isDossierWorkflow ? " is-dossier-workflow" : ""}`}>
@@ -182,12 +191,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <AdminSidebar
           role={user?.role}
           accountName={displayName}
-          accountRole={user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel")}
+          accountRole={accountRole}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
-          onLogout={() => {
-            logout({ intentional: true });
-            router.push("/login");
-          }}
+          onLogout={handleLogout}
         />
       </Suspense>
 
@@ -199,8 +205,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           the drawer is open — which matches what is on screen, since the
           scrim covers it. Escape and the scrim are the ways back out. */}
       <div className="cam-admin-body" inert={drawerOpen}>
-        {/* On narrow screens this bar contains the drawer toggle. Account
-            details and language live in the sidebar footer at every width. */}
+        {/* On narrow screens, account actions stay in the navigation drawer.
+            The dossier workspace uses the institutional masthead at desktop. */}
         <div className="cam-admin-topbar">
           <button
             ref={menuButtonRef}
@@ -216,17 +222,26 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {isDossierWorkflow && (
             <>
               <div className="cam-admin-institutional-brand">
+                <Image src="/images/camleap-logo.svg" alt="CAMLEAP" width={190} height={27} priority />
                 <span className="cam-admin-institutional-brand-name"><span aria-hidden="true">◉</span> CAMLEAP</span>
                 <span className="cam-admin-institutional-brand-subtitle">{t("adminSidebar.brandSubtitle")}</span>
               </div>
               <div className="cam-admin-institutional-account">
+                <span className="cam-admin-scope cam-admin-institutional-scope" title={t("adminHeaderActions.scopeTitle")}>
+                  {t("adminHeaderActions.scopeChip", { scope: scopeLabel })}
+                </span>
                 <span className="cam-admin-institutional-account-initials" aria-hidden="true">
                   {displayName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}
                 </span>
                 <span className="cam-admin-institutional-account-copy">
                   <strong>{displayName}</strong>
-                  <span>{user?.role ? directoryRoleLabel(user.role, locale) : t("adminLayout.defaultRoleLabel")}</span>
+                  <span>{accountRole}</span>
                 </span>
+                <LanguageLink compact />
+                <button type="button" className="cam-admin-institutional-logout" onClick={handleLogout}>
+                  <LogOut size={16} aria-hidden="true" />
+                  <span>{t("adminSidebar.logoutButton")}</span>
+                </button>
               </div>
             </>
           )}

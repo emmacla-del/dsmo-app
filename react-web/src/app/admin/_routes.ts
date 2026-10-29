@@ -9,6 +9,7 @@ import {
   MONITORING_ROLES,
   NATIONAL_ROLES,
   PILOTAGE_READ_ROLES,
+  REGISTRATION_ROLES,
   SURVEY_READ_ROLES,
   SURVEY_ROLES,
   SETTINGS_ROLES,
@@ -163,16 +164,14 @@ export const ADMIN_HUBS: AdminHub[] = [
     label: "Gestion des campagnes",
     href: "/admin/campagnes",
     iconName: "collecte",
-    allowedRoles: SURVEY_ROLES,
+    allowedRoles: [...SURVEY_ROLES, ...REGISTRATION_ROLES],
     matchPrefixes: ["/admin/campagnes", "/admin/cibles", "/admin/questionnaires"],
     subRoutes: [
       { label: "Campagnes", labelKey: "campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_ROLES },
-      // Quotas are set per campaign and returns are measured against them, so
-      // they sit next to the campaign list. The returns and follow-up views of
-      // this page belong to the declaration workflow, but all three views
-      // share one campaign picker, so the page stays whole and
-      // "teledeclarations" links to it rather than splitting it.
-      { label: "Quotas et retours de campagne", labelKey: "cibles", href: "/admin/cibles", allowedRoles: SURVEY_ROLES },
+      // Submission quotas/returns and registration coverage stay under one
+      // campaign-targets route. Their view-level role gates keep the two
+      // specialist workflows separate while shared admins can see both.
+      { label: "Cibles et rapports de campagne", labelKey: "cibles", href: "/admin/cibles", allowedRoles: [...SURVEY_ROLES, ...REGISTRATION_ROLES] },
       { label: "Formulaires d’enquête", labelKey: "questionnaires", href: "/admin/questionnaires", allowedRoles: SURVEY_ROLES },
     ],
   },

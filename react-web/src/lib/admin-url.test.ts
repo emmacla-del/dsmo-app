@@ -54,7 +54,7 @@ test("Dossiers URL normalization removes unsupported filter values and preserves
     "/admin/dossiers?vue=submissions&submissionsOverdue=1&campaignId=round-1&returnTo=%2Fadmin%2Fhome",
   );
   assert.equal(
-    normalizeDossierListHref(new URLSearchParams(normalized.split("?")[1]).toString(), "submissions", formTypes, [{ name: "Centre", departments: [{ name: "Mfoundi" }] }]),
+    normalizeDossierListHref(new URL(normalized, "https://local.invalid").searchParams.toString(), "submissions", formTypes, [{ name: "Centre", departments: [{ name: "Mfoundi" }] }]),
     normalized,
     "canonicalization is idempotent",
   );
@@ -72,6 +72,25 @@ test("Dossiers assignment uses explicit valid assignment before the legacy assig
   );
   assert.equal(parseDossierAssignment("other"), "other");
   assert.equal(parseDossierAssignment("unknown"), "");
+});
+
+test("Dossiers normalization canonicalizes a valid campaign/quarter conflict and scoped page", () => {
+  assert.equal(
+    normalizeDossierListHref(
+      "vue=completed&campaignId=round-1&completedQuarterCode=2026-T3&completedPage=3&context=dashboard",
+      "completed",
+      ["ENTREPRISE"],
+    ),
+    "/admin/dossiers?vue=completed&campaignId=round-1&completedPage=3&context=dashboard",
+  );
+  assert.equal(
+    normalizeDossierListHref(
+      "vue=completed&completedQuarterCode=2026-T3&completedPage=01",
+      "completed",
+      ["ENTREPRISE"],
+    ),
+    "/admin/dossiers?vue=completed&completedQuarterCode=2026-T3",
+  );
 });
 
 test("Dossiers normalization removes invalid territory pairs and keeps valid department-only filters", () => {

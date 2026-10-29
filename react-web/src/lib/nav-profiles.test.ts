@@ -28,7 +28,7 @@ test("each role's rail is exactly its profile, in declared order", () => {
   const expected: Record<UserRole, string[]> = {
     SUPER_ADMIN: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
     ADMIN_ONEFOP: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
-    ADMIN_ONEFOP_REGISTRATIONS: ["supervision", "inscriptions"],
+    ADMIN_ONEFOP_REGISTRATIONS: ["supervision", "inscriptions", "collecte"],
     ADMIN_ONEFOP_SUBMISSIONS: ["supervision", "teledeclarations", "collecte", "donnees"],
     REGIONAL_ADMIN: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe"],
     DIVISIONAL_ADMIN: ["supervision", "inscriptions", "teledeclarations", "collecte"],
@@ -71,6 +71,8 @@ test("a shared hub resolves to a different landing route per role", () => {
   assert.deepEqual(subs("ADMIN_ONEFOP", "supervision"), ["/admin/pilotage"]);
   assert.deepEqual(subs("DIVISIONAL_ADMIN", "supervision"), ["/admin/pilotage"]);
   assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "inscriptions"), ["/admin/inscriptions", "/admin/etablissements"]);
+  assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "collecte"), ["/admin/cibles"]);
+  assert.equal(landing("ADMIN_ONEFOP_REGISTRATIONS", "collecte"), "/admin/cibles");
   assert.deepEqual(subs("ADMIN_ONEFOP_SUBMISSIONS", "teledeclarations"), ["/admin/dossiers", "/admin/centre-qualite"]);
   assert.equal(subs("ADMIN_ONEFOP_REGISTRATIONS", "teledeclarations"), undefined);
   assert.equal(subs("ADMIN_ONEFOP_SUBMISSIONS", "inscriptions"), undefined);

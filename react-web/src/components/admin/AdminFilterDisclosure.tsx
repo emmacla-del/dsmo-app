@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,17 +18,17 @@ export function AdminFilterDisclosure({
   children,
   className,
 }: AdminFilterDisclosureProps) {
-  const [open, setOpen] = useState(active);
-
-  useEffect(() => {
-    if (active) setOpen(true);
-  }, [active]);
+  const [disclosureState, setDisclosureState] = useState({ active, open: active });
+  if (disclosureState.active !== active) {
+    setDisclosureState({ active, open: active ? true : disclosureState.open });
+  }
+  const open = disclosureState.open;
 
   return (
     <details
       className={cn("cam-admin-filter-disclosure", className)}
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={(event) => setDisclosureState({ active, open: event.currentTarget.open })}
     >
       <summary>
         <span>{label}</span>
