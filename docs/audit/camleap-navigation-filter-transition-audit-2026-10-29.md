@@ -334,3 +334,146 @@ Implement these first, in order:
 3. Add accurate, scoped busy feedback to the Dossiers and Inscriptions Organisations tables while preserving their current rows during refresh.
 
 Then normalize invalid query values, address Follow-up state and Clear All, and finish translations/accessibility polish. The two pages are **not ready for implementation-level polishing yet**: the Inscriptions filter/page transition defects and missing Dossiers return/refresh state need correction first.
+
+## 12. Phase 2 implementation update
+
+**Implementation date:** 29 October 2026
+**Scope:** F-06 URL/history state, F-07 Follow-up filters, and F-08 URL normalization. Phase 3 work was not started.
+
+### URL normalization rules
+
+- Inscriptions uses a view-aware normalization boundary. Unsupported status, entity type, registration method, sort, date range, coverage period, and page values are removed or canonicalized. Queue-only filters are removed in Organisations; organization status is normalized before it feeds controls, chips, query keys, or requests. Territory values are validated against the shared territory tree; list requests and exports wait for validation when a territory filter is present.
+- Dossiers uses view-scoped filters. A valid scoped value takes precedence over its legacy generic key; generic values seed only the view named by `vue`. Unsupported quality, period, status, sort, form type, flags, assignment, and page values are removed. A campaign takes precedence over a quarter because the campaign already identifies its period. For the legacy assignment conflict, a valid `assignment` wins over `assignedToMe=1`; if `assignment` is invalid, a valid legacy true flag canonicalizes to `assignment=me`; otherwise both are cleared. Final-status links from Submissions redirect to Completed before the list query runs.
+- Follow-up state uses `followupSearch`, `followupRegion`, `followupDepartment`, `followupType`, `followupOutcome`, and `followupPage`. Regions and departments validate against the full territory tree; types validate against supported entity types; outcomes are removed when unavailable to the current role. A Follow-up campaign ID is validated against the campaign list available to that role before its non-respondents request runs. Clear All removes only these six Follow-up parameters.
+- Canonicalization uses `replace`, preserves unrelated valid parameters, and compares the normalized URL before navigating, so a canonical URL does not create a rewrite loop. Invalid region/department filters gate list requests until validation completes.
+
+### History and pagination policy
+
+- Debounced search and normalization/clamping use `replace`.
+- Filter selections, Clear All, intentional view changes, and page changes use `push`; unchanged destinations are not pushed.
+- Page 1 is omitted from URLs. Inscriptions stores `page`; Dossiers stores `submissionsPage` or `completedPage`; Follow-up stores `followupPage`. Filter changes clear the active view's page. Page changes are URL-backed, and response totals clamp out-of-range pages.
+- Browser Back/Forward restores Follow-up controls and results from the updated URL. Dossiers and Inscriptions derive their view and page from URL state, preserving the Phase 1 return-context behavior.
+
+### Verification
+
+- Passed focused frontend tests: `admin-url` (19), `inscriptions` (26), `follow-up-url` (4), `CampaignNonRespondentsTable` (3), `RegistrationsHubTabs` (1), `admin-return` (5), `AdminTablePanel` (1), and `admin-query-state` (1): **60 tests passed**.
+- Passed `react-web`: `npx.cmd tsc --noEmit`.
+- Passed focused ESLint for the changed page, helper, and Follow-up component/test files.
+- A broader lint check including two unchanged shared/detail files reports the existing five `no-explicit-any` errors in `dossiers/[id]/page.tsx` and the existing `react-hooks/set-state-in-effect` error in `AdminFilterDisclosure.tsx:24`. No new errors were reported in the Phase 2 implementation files.
+- `git diff --check` passed. No backend change was needed. Browser verification could not run: the computer-use native pipe was unavailable after the documented retry and reset/retry sequence.
+
+No unrelated working-tree changes were reverted or discarded, and no commit was created.
+
+## 13. Phase 3 implementation update
+
+**Implementation date:** 29 October 2026
+**Scope:** F-09 response-rate scope, F-10 Follow-up pagination translations, F-11 accessible refresh/result feedback, and F-12 shared filter-disclosure state. No Phase 4 work was started.
+
+### Changes
+
+- The Dossiers response-rate KPI is hidden when the list is scoped to All campaigns. With a selected campaign, it keeps the existing campaign calculation and displays the selected campaign's period/name from the campaign selector. No aggregate or backend calculation was added.
+- Follow-up range, page, Previous, and Next labels now use English/French messages. The range message supports plural forms; the existing no-match empty state remains in place without pagination text.
+- A shared result-count pattern exposes one polite screen-reader announcement while hiding the duplicate visible copy from the accessibility tree. Dossiers and Inscriptions Organisations announce a range only after the replacement result is committed; during placeholder refreshes, `AdminTablePanel` retains its busy message and prior rows.
+- `AdminFilterDisclosure` no longer synchronizes state from an effect. It opens initially or when active filters transition from inactive to active, while a user's manual close remains in effect across unrelated rerenders.
+
+### Verification
+
+- Passed the focused Phase 1/2 regression set plus Phase 3 component checks: **66 tests passed**. This includes URL normalization, Inscriptions tabs, Dossiers returns and pagination, Follow-up URL state, KPI scope, EN/FR pagination, zero-result behavior, table busy feedback, result announcements, and disclosure behavior.
+- Passed `react-web`: `npx.cmd tsc --noEmit` and focused ESLint for all Phase 3 implementation and test files.
+- `git diff --check` passed. Broader relevant ESLint reports only the five existing `no-explicit-any` errors in `react-web/src/app/admin/dossiers/[id]/page.tsx`; the `AdminFilterDisclosure` hook violation is resolved.
+- The full frontend unit suite exited nonzero. A separate run of the untouched `ProjectProgramScopeQuiz.test.tsx` suite had four failures and two passes; those tests and source files are outside this phase and were not modified.
+- Browser verification was unavailable: the CUA check reported that both the native pipe and browser access host could not connect. Screen-reader behavior therefore remains unverified in a real browser; component tests verify the live-region and busy-state markup only.
+
+Phase 1/2 URL, pagination, and return-context behavior remains covered by the passing regression set. Existing unrelated working-tree changes were preserved, and no commit was created.
+
+## 14. Phase 4 final verification and release readiness
+
+**Verification date:** 29 October 2026
+**Scope:** Final source/test review, focused and full frontend checks, Project Program scope failure diagnosis, and available browser verification. No production code or test files were changed during this phase.
+
+### F-01–F-12 verification matrix
+
+| Finding | Expected behaviour | Current implementation and regression test | Status | Remaining limitation |
+|---|---|---|---|---|
+| F-01 | Registration view changes preserve destination-relevant shared filters and drop incompatible filters. | The view URL helper is used by RegistrationsHubTabs; RegistrationsHubTabs.test.tsx and inscriptions.test.ts cover filter retention and view changes. | Verified by automated test | The authenticated browser transition was not exercised. |
+| F-02 | Page state is URL-backed, resets on view/filter changes, and clamps to the last valid page. | Inscriptions and Dossiers parse page parameters and clamp against response totals; admin-url.test.ts and the registration-tab tests cover parsing, clamping, and page reset. | Partially verified | Route-level page changes and browser Back/Forward were not exercised. |
+| F-03 | Organisation status control, chip, and request use the same normalized value. | normalizeRegistrationStatus is applied before page state/request construction; inscriptions.test.ts covers queue-only status normalization and aligned request scope. | Verified by automated test | Results were not compared in an authenticated browser. |
+| F-04 | Detail return restores a safe local source list URL, with a safe fallback for direct visits. | Dossier and establishment pages resolve allowlisted returnTo values through admin-return.ts; five admin-return.test.ts cases cover scoped filters, pages, invalid destinations, and fallbacks. | Partially verified | Source-to-detail-to-return was not exercised in the browser. |
+| F-05 | Placeholder rows remain visible with scoped busy and updating feedback. | Both list pages wire isBackgroundRefreshing to AdminTablePanel; admin-query-state.test.ts and AdminTablePanel.test.tsx verify the refresh predicate, aria-busy, status text, and retained rows. | Partially verified | Page wiring was source-reviewed; no authenticated delayed-request browser run was possible. |
+| F-06 | Filter, view, and page history follows the documented push/replace policy, and pages restore from URLs. | Main-list page parameters are URL-backed; Follow-up component tests verify page push and debounced-search replace, and URL tests verify the state contract. | Partially verified | Actual browser Back/Forward across Inscriptions and Dossiers was not tested. |
+| F-07 | Follow-up filters and page survive refresh/share, with scoped Clear All and dependent territory handling. | Namespaced state is parsed and normalized by follow-up-url.ts; URL and CampaignNonRespondentsTable tests cover restoration, Clear All, region/department changes, pagination, and search history. | Verified by automated test | Real refresh/share navigation was not exercised in an authenticated browser. |
+| F-08 | Invalid and conflicting URL values are normalized before controls, chips, and requests use them. | Inscriptions and Dossiers normalize at the URL boundary; admin-url.test.ts and inscriptions.test.ts cover unsupported values, assignment conflicts, period/quality, malformed dates, and territory pairs. | Verified by automated test | Browser canonicalization and rewrite-loop behaviour were not exercised. |
+| F-09 | Response-rate KPI is absent for All campaigns and names the selected campaign when scoped. | DossierResponseRateKpi renders only for a selected campaign; DossierResponseRateKpi.test.tsx covers both states. | Verified by automated test | Page-level campaign selection was not exercised in the browser. |
+| F-10 | Follow-up pagination copy uses the active locale. | The table uses translated range/page/button messages present in English and French; CampaignNonRespondentsTable.test.tsx checks the French pagination copy. | Partially verified | An explicit English-rendering assertion is absent. |
+| F-11 | Refresh and committed result changes expose scoped busy state and one polite count announcement; placeholder counts are not announced. | AdminTablePanel and AdminLiveResultCount implement the status/live-region markup; their tests cover busy feedback, duplicate visible/live copy, and placeholder announcement suppression. | Partially verified | Tests inspect DOM markup only; page-level screen-reader behaviour and real assistive technology were not tested. |
+| F-12 | Active filters open the disclosure; manual close persists until active state changes. | AdminFilterDisclosure uses transition-aware state; its regression test covers initial activation, manual close, rerenders, and reactivation. | Verified by automated test | Keyboard/browser behaviour was not separately exercised. |
+
+### Automated check results
+
+| Check | Result |
+|---|---|
+| Focused CAMLEAP URL, return, Follow-up, refresh, KPI, translation, and disclosure tests | Passed: 66 tests, 0 failures. |
+| Isolated ProjectProgramScopeQuiz.test.tsx | Failed: 6 tests, 2 passed, 4 failed. Exact failures are diagnosed below. |
+| Full react-web frontend test suite | Failed: 1,188 tests, 1,184 passed, 4 failed; exit code 1. The four failures are the same Project Program scope tests. |
+| react-web TypeScript check: npx.cmd tsc --noEmit | Passed. |
+| Focused ESLint over changed CAMLEAP page, helper, component, and test files | Passed with no reported errors. |
+| Broader relevant ESLint over Inscriptions, Dossiers, admin components, and URL/query helpers | Failed: 11 errors and 2 warnings. Five are the known no-explicit-any findings in the unchanged Dossiers detail page; six other errors and two warnings are in unchanged files listed below. |
+| git diff --check | Passed. Git emitted only the existing working-copy LF-to-CRLF notices for the audit, AdminFilterDisclosure, and follow-up-url files. |
+
+The five known Dossiers detail lint errors are at dossiers/[id]/page.tsx lines 472, 484, 494, 505, and 514, all rule @typescript-eslint/no-explicit-any. The AdminFilterDisclosure react-hooks/set-state-in-effect violation is resolved and did not appear in either lint run. The broader command also reports two react-hooks/immutability errors in dossiers/detail-reopen.test.tsx lines 47–48, one react-hooks/purity error in CampaignProgressChart.tsx:91, one react-hooks/set-state-in-effect error in CoveragePanel.tsx:129, one no-restricted-syntax error in NotificationBell.tsx:180, and one react-hooks/immutability error in StatusDonutChart.tsx:54. These files were unchanged in the starting working tree. Its two warnings are unused imports/variables in ArchiveActions.test.tsx and CoveragePanel.tsx.
+
+### Project Program scope failures
+
+The isolated run reports the following four failures:
+
+| Test | Failure | Evidence and likely cause |
+|---|---|---|
+| project quiz asks one labelled Oui/Non question at a time (test line 52) | After selecting Oui, the current group remains “Personnel permanent”; the assertion expects “Personnel temporaire”. | Current onSelect only updates hasPermanentStaff, and the next step runs from the explicit Continue action. Commit 34030a83 changed the earlier onSelect flow, which called goAfter("permanent"), while the test still expects automatic advancement. |
+| the review lists all selected tables using respondent-facing labels (test line 73) | The helper cannot find a checkbox after selecting Oui. | The helper advances to the next item without clicking Continue; the accessible DOM still contains the permanent-staff question. This has the same flow-contract mismatch. |
+| re-opening a closed table clears its derived zeros when the quiz is confirmed (test line 85) | The expected “Confirmer et ouvrir les tableaux” button is absent. | The scripted answers do not advance from the current Yes/No beat through the explicit Continue controls, so the test never reaches the review action. |
+| a nil declaration still requires confirmation in a named dialog (test line 110) | The expected “Confirmer et ouvrir les tableaux” button is absent. | This test also assumes the answer sequence advances without Continue and remains on the permanent-staff beat. |
+
+These failures are reproducible in isolation, so the unimplemented Window.scrollTo warnings are not their cause. The full run also emitted separate jsdom diagnostics for CSS and IndexedDB in other tests; neither appears in the four failing assertions. Git history shows the quiz/test refactor predates this CAMLEAP verification, and git diff HEAD for the quiz source and test is empty. However, the same refactor introduced both the explicit Continue flow and the still-auto-advance-oriented test assertion; the evidence cannot determine whether Continue is now the intended UX or whether automatic advancement was accidentally removed. Treat this as an unresolved pre-existing Project Program flow/test contract issue, not as proven unrelated test noise. No quiz code or test was changed because it is outside this audit scope.
+
+### Browser, accessibility, and scope review
+
+- Playwright Chromium launched successfully. Read-only navigation to 127.0.0.1:3000/admin/inscriptions returned the CAMLEAP page shell, then the client redirected to /login. No authenticated browser session was available, so none of the Inscriptions or Dossiers workflow scenarios could be completed.
+- A separate Next dev-server start attempt could not bind 127.0.0.1:3000 (EACCES). No server process from that attempt remained running. The earlier navigation using localhost timed out; the successful check used 127.0.0.1.
+- No real screen reader was available. The tests verify DOM live-region and aria-busy markup, not spoken output. Use the manual checklist below with an authenticated session before release.
+- The tracked feature diff is confined to CAMLEAP admin routes, shared admin components/helpers, their tests, locale messages, and this audit record. No Project Program quiz files, unrelated design files, credentials, or debug scaffolding were added by this phase. Existing untracked files were present at the initial status check and were preserved. No test-generated files were added to the repository.
+- No commit was created. No user changes were reset, cleaned, stashed, reverted, or discarded.
+
+#### Manual release checklist
+
+1. In an authenticated browser, change Queue filters, move to Organisations and Coverage, and verify destination-valid filters, status control/chips/results, and page reset.
+2. Change Inscriptions and Dossiers pages and filters, use Back/Forward, refresh filtered URLs, and verify the displayed page and query state agree.
+3. Open a dossier and an establishment from filtered lists; verify the visible return action restores the source view/page. Try direct detail links and an invalid/external returnTo value.
+4. Exercise Dossiers assignment, quality, period, campaign, and conflicting/invalid parameters; verify canonicalization settles without loops or misleading chips.
+5. Exercise Follow-up search, region/department, type, outcome, pagination, Clear All, refresh, and copied URL restoration. Confirm KPI scope for All campaigns and one selected campaign.
+6. Trigger a delayed refresh and inspect the relevant panel’s aria-busy/status message and result count. Confirm placeholder totals are not announced as final.
+7. Test filter-disclosure activation, manual close, rerender, and reactivation with keyboard navigation. Where possible, verify announcements with a real screen reader.
+
+### Release recommendation
+
+**Ready after specified fixes/verification.** The CAMLEAP-focused automated regression set, TypeScript check, and focused ESLint pass, and the source/test mapping covers all twelve audit findings. A general release should wait for resolution or an explicit product decision on the four failing Project Program quiz tests, the authenticated browser checklist, and a release-gate decision on the broader lint baseline. Screen-reader output remains unverified. This phase made no production or test changes and created no commit.
+
+## 15. Campaign coverage and returns navigation update
+
+**Implementation date:** 29 October 2026
+**Decision:** Both Registration coverage and Submission returns hand off to the Campaign targets page, which now hosts Quotas, Submission returns, and Registration coverage views.
+
+- Registration coverage now renders under `/admin/cibles?vue=couverture`. Handoffs preserve a valid year, semester, and quarter. Legacy `/admin/inscriptions?vue=coverage` links redirect to the Campaign targets view.
+- Submission returns was handed off from a Dossiers tab to `/admin/cibles?vue=retours`. That Dossiers tab has since been removed; the Campaign targets page remains the destination and owns the campaign picker and default when Dossiers is set to All campaigns.
+- The Campaign targets view switch retains its campaign and coverage-period URL state. The English and French navigation labels identify Registration coverage and Submission returns separately.
+- `react-web`: `npx.cmd tsc --noEmit` passed. `git diff --check` passed with existing LF-to-CRLF notices. No tests or authenticated browser checks were run for this navigation update.
+
+**Role visibility follow-up:** Shared national and territorial administrators can switch between Submission Returns and Registration Coverage. Roles that can list campaigns also see Quotas; Divisional Admins see the two returns views and get their active collection campaign through the reader-scoped campaign endpoint. The submission specialist sees the submission views, not Registration Coverage. The registration specialist reaches Campaign targets from the Campaigns hub and lands on Registration Coverage. The coverage API endpoints use registration-reader roles while Submission Returns endpoints retain survey-reader roles. Frontend and backend TypeScript checks pass. Focused ESLint still reports two `react-hooks/set-state-in-effect` violations in existing quota/returns panel effects at `cibles/page.tsx:244` and `:642`; those effects were not changed by this role update. No role-matrix test or authenticated browser check was run.
+
+## 16. Remove duplicate workflow handoff tabs
+
+**Decision:** Campaign targets is the single navigation point for Submission Returns and Registration Coverage.
+
+- Removed the Registration Coverage handoff tab from the Inscriptions and Establishments tab strip and the Submission Returns handoff tab from Dossiers.
+- The Campaigns hub still links to Campaign targets, where role-filtered views remain available. Registration specialists land on Registration Coverage; submission specialists see their submission views; shared admins see both returns views.
+- Legacy `vue=coverage` URLs on Inscriptions/Dossiers continue to redirect to Campaign targets, so saved links still work.
+- The Registration tab regression test now asserts that it preserves list context and does not duplicate the Campaign targets entry. Frontend/backend TypeScript checks, focused lint for the changed UI files, and `git diff --check` passed. Tests and authenticated browser verification were not run.
