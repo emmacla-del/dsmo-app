@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Download, MoreHorizontal, Percent } from "lucide-react";
+import { Download, MoreHorizontal, TriangleAlert } from "lucide-react";
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -14,10 +14,12 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
-import { isBackgroundRefreshing } from "@/lib/admin-query-state";
+import { adminResultRange, displayedResultOffset, isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildDossierReturnTo } from "@/lib/admin-return";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
+import { DossierResponseRateKpi } from "@/components/admin/DossierResponseRateKpi";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
 import { AdminFilterDisclosure } from "@/components/admin/AdminFilterDisclosure";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
@@ -25,9 +27,8 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { CampaignNonRespondentsTable } from "@/components/admin/CampaignNonRespondentsTable";
-import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { departmentInRegion, regionInTree, useTerritoryDepartments, useTerritoryRegions, useTerritoryStructure } from "@/hooks/useTerritoryStructure";
-import { formatCampaignDisplayName, formatCampaignShortName, isRegistrationCampaign, listCampaigns } from "@/lib/campaigns";
+import { formatCampaignDisplayName, isRegistrationCampaign, listCampaigns } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { canListCampaigns, getActiveCollectionCampaigns, getCampaignNonRespondents, getCampaignReturns } from "@/lib/pilotage-targets";
 import {
@@ -43,7 +44,11 @@ import {
   clampAdminListPage,
   hrefWith,
   parseAdminListPage,
+  normalizeDossierListHref,
+  parseDossierAssignment,
   parseDossierFlag,
+  parseDossierPeriod,
+  parseDossierQuality,
   parseDossierQuarter,
   parseDossierSort,
   parseDossierStatus,
@@ -104,6 +109,7 @@ interface DossierItem {
   updatedAt: string | null;
   blockingCount: number;
   warningCount: number;
+  validationDataAvailable: boolean;
   submittedAt: string | null;
   isLate: boolean;
   assigneeId?: string | null;
@@ -286,42 +292,68 @@ function DossiersContent({
   const filterParam = (key: string) =>
     searchParams.get(`${view}${key[0].toUpperCase()}${key.slice(1)}`) ??
     (legacyFiltersApply ? searchParams.get(key) : null);
-  const statusFilter = parseDossierStatus(filterParam("status"));
+  const parsedStatusFilter = parseDossierStatus(filterParam("status"));
+  const statusFilter = view === "completed"
+    && !["APPROVED", "REJECTED", "SUPERSEDED"].includes(parsedStatusFilter)
+    ? ""
+    : parsedStatusFilter;
+  const statusRedirectPending = view === "submissions"
+    && ["APPROVED", "REJECTED", "SUPERSEDED"].includes(statusFilter);
   // ?sort=oldest (the pilotage review-delay link) lists the longest-waiting
   // files first; URL state like the status, written by setSort.
   const sortOrder = parseDossierSort(filterParam("sort"));
   const companyIdFilter = filterParam("companyId") ?? "";
-  const regionFilter = filterParam("region") ?? "";
-  const departmentFilter = filterParam("department") ?? "";
+  const requestedRegionFilter = filterParam("region")?.trim() ?? "";
+  const requestedDepartmentFilter = filterParam("department")?.trim() ?? "";
   const campaignIdFilter = searchParams.get("campaignId")?.trim() ?? "";
   const quarterCodeFilter = parseDossierQuarter(filterParam("quarterCode")) ?? "";
   const lateFilter = parseDossierFlag(filterParam("late"));
-  const overdueFilter = parseDossierFlag(filterParam("overdue"));
-  const assignedToMeFilter = parseDossierFlag(filterParam("assignedToMe"));
-  const qualityFilter = filterParam("quality") ?? "";
-  const rawAssignment = filterParam("assignment") ?? (assignedToMeFilter ? "me" : "");
-  const assignmentFilter = ["me", "unassigned", "other"].includes(rawAssignment) ? rawAssignment : "";
+  const overdueFilter = view === "completed" ? false : parseDossierFlag(filterParam("overdue"));
+  const rawAssignment = filterParam("assignment");
+  const explicitAssignment = parseDossierAssignment(rawAssignment);
+  const assignedToMeFilter = parseDossierFlag(filterParam("assignedToMe")) && !explicitAssignment;
+  const assignmentFilter = explicitAssignment || (assignedToMeFilter ? "me" : "");
+  const qualityFilter = parseDossierQuality(filterParam("quality"));
   const vue = view;
   const archivedParam = searchParams.get("completedIncludeArchived") ??
     (legacyFiltersApply ? searchParams.get("includeArchived") : null);
   const includeArchived = vue === "completed" && archivedParam !== "false";
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
-  const requestedQuery = filterParam("search") ?? (legacyFiltersApply ? searchParams.get("q") : null) ?? "";
+  const requestedQuery = (filterParam("search") ?? (legacyFiltersApply ? searchParams.get("q") : null) ?? "").trim();
   // /admin/questionnaires links here with ?formType= ("Voir dossiers").
   const requestedFormType = filterParam("formType") ?? "";
   // A chosen region narrows the department list. Clearing the region keeps a
   // department that is still valid. The effect below drops a pair that cannot
   // exist, and only after the territory tree has loaded.
   const territoryStructure = useTerritoryStructure(view !== "coverage");
+  const hasTerritoryFilters = Boolean(requestedRegionFilter || requestedDepartmentFilter);
+  const validRequestedRegion = !requestedRegionFilter || !territoryStructure.isSuccess
+    || regionInTree(territoryStructure.data, requestedRegionFilter) !== false;
+  const regionFilter = territoryStructure.isSuccess && !validRequestedRegion ? "" : requestedRegionFilter;
+  const validRequestedDepartment = !requestedDepartmentFilter || !territoryStructure.isSuccess || (
+    regionFilter
+      ? departmentInRegion(territoryStructure.data, regionFilter, requestedDepartmentFilter) !== false
+      : territoryStructure.data.some((region) => region.departments.some((department) => department.name === requestedDepartmentFilter))
+  );
+  const departmentFilter = territoryStructure.isSuccess && (!validRequestedRegion || !validRequestedDepartment)
+    ? ""
+    : requestedDepartmentFilter;
+  const territoryFiltersValid = !hasTerritoryFilters || (
+    territoryStructure.isSuccess && validRequestedRegion && validRequestedDepartment
+  );
   const { departments: territoryDepartments } = useTerritoryDepartments(regionFilter || undefined, view !== "coverage");
+  const normalizedDossierHref = (view === "submissions" || view === "completed")
+    && (!hasTerritoryFilters || territoryStructure.isSuccess)
+    ? normalizeDossierListHref(searchParams.toString(), view, FORM_TYPES, territoryStructure.data)
+    : null;
 
   // searchInput is what the user types; search is what is sent, 300 ms after
   // the last keystroke (each request runs a multi-column contains query).
   const [searchInput, setSearchInput] = useState(requestedQuery);
   const [search, setSearch] = useState(requestedQuery.trim());
   const typeFilter = FORM_TYPES.includes(requestedFormType) ? requestedFormType : "";
-  const periodFilter = filterParam("period") ?? "";
+  const periodFilter = parseDossierPeriod(filterParam("period"));
   const requestedPage = parseAdminListPage(filterParam("page"));
   const [offset, setOffset] = useState((requestedPage - 1) * PAGE_SIZE);
 
@@ -355,7 +387,7 @@ function DossiersContent({
 
   // List filters reset only the active view's page while preserving the other
   // view's bookmarked page. Page changes use the same scoped URL state.
-  const setUrlFilter = useCallback((changes: Record<string, string | null>) => {
+  const setUrlFilter = useCallback((changes: Record<string, string | null>, history: "push" | "replace" = "push") => {
     setSelectedIds(new Set());
     const scoped: Record<string, string | null> = {};
     for (const [key, value] of Object.entries(changes)) {
@@ -369,7 +401,9 @@ function DossiersContent({
     scoped[`${view}Page`] = null;
     scoped.page = null;
     setOffset(0);
-    router.replace(hrefWith(pathname, searchParams.toString(), scoped), { scroll: false });
+    const href = hrefWith(pathname, searchParams.toString(), scoped);
+    const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    if (href !== currentHref) router[history](href, { scroll: false });
   }, [pathname, router, searchParams, view]);
 
   const goToOffset = useCallback((next: number) => {
@@ -377,7 +411,7 @@ function DossiersContent({
     setOffset(nextOffset);
     setSelectedIds(new Set());
     const nextPage = Math.floor(nextOffset / PAGE_SIZE) + 1;
-    router.replace(hrefWith(pathname, searchParams.toString(), {
+    router.push(hrefWith(pathname, searchParams.toString(), {
       [`${view}Page`]: nextPage > 1 ? String(nextPage) : null,
       page: null,
     }), { scroll: false });
@@ -393,17 +427,6 @@ function DossiersContent({
     setOffset(0);
     setSelectedIds(new Set());
   }
-  useEffect(() => {
-    if (!searchParams.has("q") || requestedPage === 1) return;
-    router.replace(hrefWith(pathname, searchParams.toString(), {
-      [`${view}Search`]: requestedQuery.trim() || null,
-      search: null,
-      q: null,
-      [`${view}Page`]: null,
-      page: null,
-    }), { scroll: false });
-  }, [pathname, requestedPage, requestedQuery, router, searchParams, view]);
-
   // Modal / Drawer state — bulk visa
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [certifiedBulk, setCertifiedBulk] = useState(false);
@@ -461,9 +484,16 @@ function DossiersContent({
   const allCollectionCampaigns = (allCollectionCampaignsQuery.data ?? []).filter(
     (campaign) => campaign.collectionType === "ONEFOP" && !isRegistrationCampaign(campaign),
   );
-  const campaigns = vue === "followup" && canListCampaigns(user?.role) && allCollectionCampaignsQuery.isSuccess
+  const mayListAllCampaigns = canListCampaigns(user?.role);
+  const campaigns = vue === "followup" && mayListAllCampaigns && allCollectionCampaignsQuery.isSuccess
     ? allCollectionCampaigns
     : activeCampaigns;
+  const followUpCampaignCatalogReady = campaignsQuery.isSuccess
+    && (!mayListAllCampaigns || allCollectionCampaignsQuery.isSuccess);
+  const followUpCampaignIsValid = !campaignIdFilter || (
+    followUpCampaignCatalogReady && campaigns.some((campaign) => campaign.id === campaignIdFilter)
+  );
+  const followUpCampaignSelectionReady = followUpCampaignCatalogReady && followUpCampaignIsValid;
   // The file list treats an empty campaign as every round. The response-rate
   // tile and the follow-up list still need one round, so they keep the
   // fallback to the first campaign.
@@ -475,7 +505,11 @@ function DossiersContent({
   const assignmentParam = assignmentFilter === "me" || assignmentFilter === "unassigned" || assignmentFilter === "other"
     ? assignmentFilter
     : undefined;
-  const effectiveCampaignId = campaignIdFilter || activeCampaigns[0]?.id || campaigns[0]?.id || "";
+  const effectiveCampaignId = vue === "followup"
+    ? followUpCampaignSelectionReady
+      ? campaignIdFilter || activeCampaigns[0]?.id || campaigns[0]?.id || ""
+      : ""
+    : campaignIdFilter || activeCampaigns[0]?.id || campaigns[0]?.id || "";
   const campaignReturnsQuery = useQuery({
     queryKey: ["admin", "pilotage", "returns", effectiveCampaignId],
     queryFn: () => getCampaignReturns(effectiveCampaignId),
@@ -486,7 +520,7 @@ function DossiersContent({
   const nonRespondentsQuery = useQuery({
     queryKey: ["admin", "pilotage", "non-respondents", effectiveCampaignId],
     queryFn: () => getCampaignNonRespondents(effectiveCampaignId),
-    enabled: vue === "followup" && Boolean(effectiveCampaignId),
+    enabled: vue === "followup" && followUpCampaignSelectionReady && Boolean(effectiveCampaignId),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
@@ -509,33 +543,43 @@ function DossiersContent({
   const quarterLabel = (code: string) => `${code.slice(-2)} ${code.slice(0, 4)}`;
 
   // Keep saved survey-coverage URLs working while making Campaign targets >
-  // Returns the single canonical returns table.
+  // Returns the single canonical returns table. Carry a campaign only when
+  // the Dossiers campaign selector has an explicit selection; All campaigns
+  // must let the Returns page choose its own collection campaign.
   useEffect(() => {
-    if (vue !== "coverage" || (!campaignIdFilter && !campaignsQuery.isSuccess)) return;
+    if (vue !== "coverage") return;
     const params = new URLSearchParams({ vue: "retours" });
-    if (effectiveCampaignId) params.set("campagne", effectiveCampaignId);
+    if (campaignIdFilter) params.set("campagne", campaignIdFilter);
     router.replace(`/admin/cibles?${params.toString()}`);
-  }, [campaignIdFilter, campaignsQuery.isSuccess, effectiveCampaignId, router, vue]);
+  }, [campaignIdFilter, router, vue]);
+
+  useEffect(() => {
+    if (vue !== "followup" || !followUpCampaignCatalogReady || followUpCampaignIsValid) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("campaignId");
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [followUpCampaignCatalogReady, followUpCampaignIsValid, pathname, router, searchParams, vue]);
 
   // Old queue links could point directly at an endorsed/rejected record. Move
   // those to the completed view so the URL, columns, and available actions
   // all match the record's lifecycle state.
   useEffect(() => {
-    if (vue !== "submissions" || !["APPROVED", "REJECTED", "SUPERSEDED"].includes(statusFilter)) return;
+    if (!statusRedirectPending) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("vue", "completed");
     params.set("completedStatus", statusFilter);
     params.delete("status");
     params.delete("submissionsStatus");
     router.replace(`${pathname}?${params.toString()}`);
-  }, [pathname, router, searchParams, statusFilter, vue]);
+  }, [pathname, router, searchParams, statusFilter, statusRedirectPending, vue]);
 
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
     queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignId: listCampaignId ?? "", quarterCode: listQuarterCode ?? "", quality: qualityParam ?? "", assignment: assignmentParam ?? "", lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
-    queryFn: () =>
-      listAdminQuestionnaires({
+    queryFn: async () => {
+      const result = await listAdminQuestionnaires({
         status: vue === "completed" || !statusFilter ? undefined : statusFilter,
         statuses: vue === "completed"
           ? (statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED")
@@ -557,8 +601,13 @@ function DossiersContent({
         sort: sortOrder || undefined,
         limit: PAGE_SIZE,
         offset,
-      }),
-    enabled: vue === "submissions" || vue === "completed",
+      });
+      // keepPreviousData can keep the prior page visible while a new request
+      // is pending. Keep its offset with the response so the footer describes
+      // those rows until the replacement page is committed.
+      return { ...result, requestedOffset: offset };
+    },
+    enabled: (vue === "submissions" || vue === "completed") && territoryFiltersValid && !statusRedirectPending,
     placeholderData: keepPreviousData,
   });
 
@@ -593,6 +642,26 @@ function DossiersContent({
     typeof queueStatusCounts.CORRECTION_REQUESTED === "number"
       ? queueStatusCounts.PENDING_REVIEW + queueStatusCounts.CORRECTION_REQUESTED
       : undefined;
+  const dossierStatusSummary = (vue === "completed"
+    ? STATUS_VIEWS.filter((view) => !view.status || ["APPROVED", "REJECTED", "SUPERSEDED"].includes(view.status))
+    : STATUS_VIEWS.filter((view) => !view.status || ["PENDING_REVIEW", "CORRECTION_REQUESTED"].includes(view.status)))
+    .map((view) => {
+      const expectedView = vue === "completed" ? "completed" : "queue";
+      const statusCounts = selectAdminViewCounts(queues?.countsView, expectedView, queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined);
+      const value = view.status
+        ? statusCounts?.[view.status]
+        : vue === "completed"
+          ? selectAdminViewCounts(queues?.countsView, expectedView, queues?.totalSubmissionsCount) ?? undefined
+          : actionableQueueCount;
+      return {
+        key: view.status || "all",
+        label: !view.status && vue === "submissions" ? t("statusQueueAll") : t(view.labelKey),
+        value,
+      };
+    });
+  const dossierStatusBreakdown = vue === "submissions"
+    ? dossierStatusSummary.filter((item) => item.key !== "all")
+    : dossierStatusSummary;
   const responseRateValue = campaignReturnsQuery.isError
     ? metricUnavailable(locale)
     : percent(campaignReturnsQuery.data?.totals.responseRate, 0, locale);
@@ -609,7 +678,7 @@ function DossiersContent({
       setBulkResult(data);
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
-      setUrlFilter({});
+      setUrlFilter({}, "replace");
     },
   });
 
@@ -620,7 +689,7 @@ function DossiersContent({
       setRejectResult(data);
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
-      setUrlFilter({});
+      setUrlFilter({}, "replace");
     },
   });
 
@@ -657,7 +726,7 @@ function DossiersContent({
       setCorrectionResult(data);
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
-      setUrlFilter({});
+      setUrlFilter({}, "replace");
     },
   });
 
@@ -684,56 +753,32 @@ function DossiersContent({
   const setQuality = (quality: string) => setUrlFilter({ quality: quality || null });
   const setAssignment = (assignment: string) => setUrlFilter({
     assignment: assignment || null,
-    assignedToMe: assignment === "me" ? "1" : null,
   });
   const setOverdue = (overdue: boolean) => setUrlFilter({ overdue: overdue ? "1" : null });
   const setAssignedToMe = (assignedToMe: boolean) => setUrlFilter({ assignedToMe: assignedToMe ? "1" : null });
 
-  // A campaign already names its period. A quarter saved beside it would
-  // disagree with that round, so drop the quarter once a campaign is chosen.
-  // Canonicalize through the URL: setUrlFilter also writes React state and
-  // trips react-hooks/set-state-in-effect.
+  // Normalize malformed values once at the URL boundary. Waiting for the
+  // territory tree when a territory filter is present prevents an unsupported
+  // region/department from reaching the list API before it can be removed.
   useEffect(() => {
-    if (!campaignIdFilter || !quarterCodeFilter) return;
-    router.replace(hrefWith(pathname, searchParams.toString(), {
-      [`${view}QuarterCode`]: null,
-      quarterCode: null,
-    }));
-  }, [campaignIdFilter, quarterCodeFilter, pathname, router, searchParams, view]);
-
-  useEffect(() => {
-    if (!territoryStructure.isSuccess) return;
-    const tree = territoryStructure.data;
-    if (regionFilter && regionInTree(tree, regionFilter) === false) {
-      router.replace(hrefWith(pathname, searchParams.toString(), {
-        [`${view}Region`]: null,
-        region: null,
-        [`${view}Department`]: null,
-        department: null,
-      }));
-      return;
-    }
-    if (!regionFilter || !departmentFilter) return;
-    if (departmentInRegion(tree, regionFilter, departmentFilter) !== false) return;
-    router.replace(hrefWith(pathname, searchParams.toString(), {
-      [`${view}Department`]: null,
-      department: null,
-    }));
-  }, [territoryStructure.isSuccess, territoryStructure.data, regionFilter, departmentFilter, pathname, router, searchParams, view]);
+    if (!normalizedDossierHref || statusRedirectPending) return;
+    const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    if (normalizedDossierHref !== currentHref) router.replace(normalizedDossierHref, { scroll: false });
+  }, [normalizedDossierHref, pathname, router, searchParams, statusRedirectPending]);
 
   useEffect(() => {
     const trimmed = searchInput.trim();
     if (trimmed === search) return;
     const timer = setTimeout(() => {
       setSearch(trimmed);
-      setUrlFilter({ search: trimmed || null, q: null });
+      setUrlFilter({ search: trimmed || null, q: null }, "replace");
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [searchInput, search, setUrlFilter]);
 
   const page = questionnairesQuery.data;
 
-  const rawItems = page?.items ?? [];
+  const rawItems = territoryFiltersValid && !statusRedirectPending ? page?.items ?? [] : [];
   // Real rows only. An empty result renders an empty state; there is no
   // sample dataset to substitute, and an error never becomes "no dossiers".
   const allDossiers: DossierItem[] = rawItems.map((sub: QuestionnaireListItem) => {
@@ -767,6 +812,7 @@ function DossiersContent({
       updatedAt: sub.updatedAt ?? null,
       blockingCount,
       warningCount,
+      validationDataAvailable: Array.isArray(sub.anomalies),
       submittedAt: sub.submissionDate ?? null,
       isLate: sub.isLate === true,
       assigneeId: sub.assigneeId ?? null,
@@ -840,32 +886,38 @@ function DossiersContent({
    * the same scope that produced the rows above. `null` until the server
    * answers; never replaced by a literal.
    */
-  const totalCount = page?.total ?? null;
+  const totalCount = territoryFiltersValid && !statusRedirectPending ? page?.total ?? null : null;
   const pageCount = totalCount === null ? null : Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const requestedCurrentPage = Math.floor(offset / PAGE_SIZE) + 1;
-  const currentPage = page && !questionnairesQuery.isPlaceholderData
-    ? clampAdminListPage(requestedCurrentPage, page.total, PAGE_SIZE)
-    : requestedCurrentPage;
+  const visibleOffset = displayedResultOffset(offset, page?.requestedOffset ?? offset, questionnairesQuery.isPlaceholderData);
+  const displayedPage = Math.floor(visibleOffset / PAGE_SIZE) + 1;
+  const currentPage = page && territoryFiltersValid && !statusRedirectPending
+    ? clampAdminListPage(displayedPage, page.total, PAGE_SIZE)
+    : displayedPage;
   const displayOffset = (currentPage - 1) * PAGE_SIZE;
-  const firstShown = dossiers.length === 0 ? 0 : displayOffset + 1;
-  const lastShown = dossiers.length === 0 ? 0 : displayOffset + dossiers.length;
+  const visibleRange = adminResultRange(displayOffset, dossiers.length, totalCount ?? 0);
 
   useEffect(() => {
-    if (!page || questionnairesQuery.isPlaceholderData || (view !== "submissions" && view !== "completed")) return;
+    if (!page || statusRedirectPending || questionnairesQuery.isPlaceholderData || (view !== "submissions" && view !== "completed")) return;
     if (currentPage !== requestedCurrentPage) {
       router.replace(hrefWith(pathname, searchParams.toString(), {
         [`${view}Page`]: currentPage > 1 ? String(currentPage) : null,
         page: null,
       }), { scroll: false });
     }
-  }, [currentPage, page, pathname, questionnairesQuery.isPlaceholderData, requestedCurrentPage, router, searchParams, view]);
+  }, [currentPage, page, pathname, questionnairesQuery.isPlaceholderData, requestedCurrentPage, router, searchParams, statusRedirectPending, view]);
 
   const tableState = resolveDataState({
-    isLoading: questionnairesQuery.isLoading,
-    isError: questionnairesQuery.isError,
-    error: questionnairesQuery.error,
-    rowCount: page?.items.length ?? null,
+    isLoading: statusRedirectPending || questionnairesQuery.isLoading || (hasTerritoryFilters && !territoryStructure.isError && !territoryFiltersValid),
+    isError: questionnairesQuery.isError || (hasTerritoryFilters && territoryStructure.isError),
+    error: questionnairesQuery.error ?? (hasTerritoryFilters && territoryStructure.isError ? territoryStructure.error : undefined),
+    rowCount: territoryFiltersValid && !statusRedirectPending ? page?.items.length ?? null : statusRedirectPending ? null : 0,
   });
+  const tableError = questionnairesQuery.error ?? (hasTerritoryFilters && territoryStructure.isError ? territoryStructure.error : undefined);
+  const retryTable = () => {
+    if (hasTerritoryFilters && territoryStructure.isError) void territoryStructure.refetch();
+    else void questionnairesQuery.refetch();
+  };
 
   // The actor who will sign the operation, from the session's own user record.
   const signatoryLabel = user
@@ -881,11 +933,26 @@ function DossiersContent({
   const excludedSelected = bulkPreflight.excluded;
   const rejectableSelected = bulkPreflight.rejectionEligible;
   const correctableSelected = bulkPreflight.correctionEligible;
+  const selectedOnPageCount = dossiers.reduce((count, dossier) => count + Number(selectedIds.has(dossier.id)), 0);
+  const pageSelectionState: boolean | "indeterminate" = dossiers.length > 0 && selectedOnPageCount === dossiers.length
+    ? true
+    : selectedOnPageCount > 0
+      ? "indeterminate"
+      : false;
 
   const toggleSelect = (id: string, checked: boolean) => {
     const next = new Set(selectedIds);
     if (checked) next.add(id);
     else next.delete(id);
+    setSelectedIds(next);
+  };
+
+  const toggleSelectPage = (checked: boolean) => {
+    const next = new Set(selectedIds);
+    for (const dossier of dossiers) {
+      if (checked) next.add(dossier.id);
+      else next.delete(dossier.id);
+    }
     setSelectedIds(next);
   };
 
@@ -945,7 +1012,7 @@ function DossiersContent({
   const [exportInProgress, setExportInProgress] = useState(false);
 
   async function handleExport(fmt: "csv" | "xlsx") {
-    if (exportInProgress) return;
+    if (exportInProgress || !territoryFiltersValid || statusRedirectPending) return;
     setExportInProgress(true);
     try {
       const params = new URLSearchParams({ format: fmt });
@@ -1000,9 +1067,6 @@ function DossiersContent({
   };
   const viewHref = (target: "submissions" | "completed" | "followup") =>
     hrefWith(pathname, searchParams.toString(), { ...legacyFilterClear, vue: target });
-  const returnsParams = new URLSearchParams({ vue: "retours" });
-  if (effectiveCampaignId) returnsParams.set("campagne", effectiveCampaignId);
-  const returnsHref = `/admin/cibles?${returnsParams.toString()}`;
 
   const pageHeader = (
     <AdminPageHeader
@@ -1016,6 +1080,7 @@ function DossiersContent({
               className="cam-admin-input"
               value={campaignSelectValue}
               onChange={(event) => setCampaign(event.target.value)}
+              disabled={vue === "followup" && !followUpCampaignCatalogReady}
               aria-label={t("campaignLabel")}
             >
               {campaignOptions.map((option) => (
@@ -1043,11 +1108,6 @@ function DossiersContent({
           href: viewHref("followup"),
           isActive: activeView === "followup",
         },
-        {
-          label: t("viewCoverage"),
-          href: returnsHref,
-          isActive: activeView === "coverage",
-        },
       ]}
     />
   );
@@ -1064,7 +1124,30 @@ function DossiersContent({
           headingId="dossiers-followup-heading"
           className="cam-dossier-followup-table"
         >
-          {!effectiveCampaignId ? (
+          {!territoryStructure.isSuccess ? (
+            territoryStructure.isError ? (
+              <DataState
+                state="error"
+                resource={t("followUpResource")}
+                error={territoryStructure.error}
+                onRetry={() => territoryStructure.refetch()}
+              />
+            ) : <DataState state="loading" resource={t("followUpResource")} />
+          ) : !followUpCampaignCatalogReady ? (
+            campaignsQuery.isError || allCollectionCampaignsQuery.isError ? (
+              <DataState
+                state="error"
+                resource={t("followUpResource")}
+                error={campaignsQuery.error ?? allCollectionCampaignsQuery.error}
+                onRetry={() => {
+                  void campaignsQuery.refetch();
+                  if (mayListAllCampaigns) void allCollectionCampaignsQuery.refetch();
+                }}
+              />
+            ) : <DataState state="loading" resource={t("followUpResource")} />
+          ) : campaignIdFilter && !followUpCampaignIsValid ? (
+            <DataState state="loading" resource={t("followUpResource")} />
+          ) : !effectiveCampaignId ? (
             <DataState state="empty" resource={t("followUpResource")} title={t("noFollowUpCampaign")} />
           ) : nonRespondentsQuery.isLoading ? (
             <DataState state="loading" resource={t("followUpResource")} />
@@ -1079,6 +1162,7 @@ function DossiersContent({
             <CampaignNonRespondentsTable
               data={nonRespondentsQuery.data}
               canShowContacts={hasRole(user?.role, SURVEY_ROLES)}
+              territories={territoryStructure.data}
             />
           ) : null}
         </AdminTablePanel>
@@ -1094,51 +1178,27 @@ function DossiersContent({
       {archiveNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{archiveNotice}</AlertDescription></Alert>}
 
       {vue === "submissions" && (
-        <section className="cam-dossier-kpis" aria-label={t("viewSubmissions")}>
-          <div className="cam-dossier-kpi cam-dossier-kpi--blue" title={!effectiveCampaignId ? t("responseRateNeedsCampaign") : undefined}>
-            <span className="cam-dossier-kpi-icon"><Percent size={17} aria-hidden="true" /></span>
-            <div><span>{tRoot("adminTargets.responseRateColumn")}</span><strong>{responseRateValue}</strong></div>
-          </div>
-        </section>
+        <DossierResponseRateKpi
+          campaignId={campaignIdFilter}
+          campaignLabel={campaignOptions.find((option) => option.value === campaignIdFilter)?.label}
+          value={responseRateValue}
+        />
       )}
 
-      <ViewSwitch
-        label={t("statusFilterAriaLabel")}
-        items={(vue === "completed"
-          ? STATUS_VIEWS.filter((view) => !view.status || ["APPROVED", "REJECTED", "SUPERSEDED"].includes(view.status))
-          : STATUS_VIEWS.filter((view) => !view.status || ["PENDING_REVIEW", "CORRECTION_REQUESTED"].includes(view.status)))
-          .map((view) => {
-          const expectedView = vue === "completed" ? "completed" : "queue";
-          const statusCounts = selectAdminViewCounts(queues?.countsView, expectedView, queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined);
-          const value = view.status
-            ? statusCounts?.[view.status]
-            : vue === "completed"
-              ? selectAdminViewCounts(queues?.countsView, expectedView, queues?.totalSubmissionsCount) ?? undefined
-              : actionableQueueCount;
-          return {
-            key: view.status || "all",
-            label: !view.status && vue === "submissions" ? t("statusQueueAll") : t(view.labelKey),
-            active: statusFilter === view.status,
-            count: value ?? null,
-            onClick: () => setStatus(view.status),
-          };
-        })}
-      />
-      {vue === "submissions" && <p className="cam-admin-help-text" role="note">{t("statusCountsScopeNote")}</p>}
-
       {vue !== "completed" && queues && queues.reviewDelay.pendingOverThresholdCount > 0 && (
-        <Alert variant="warning" className="my-4">
+        <Alert variant="warning" className="cam-dossier-overdue-alert my-4">
+          <TriangleAlert aria-hidden="true" />
           <AlertDescription>
-            {t("reviewDelayBanner", { count: queues.reviewDelay.pendingOverThresholdCount })}{" "}
-            <Link
-              href={hrefWith(pathname, searchParams.toString(), {
+            <span>{t("reviewDelayBanner", { count: queues.reviewDelay.pendingOverThresholdCount })}</span>
+            <Button asChild size="sm" variant="outline" className="cam-dossier-overdue-action">
+              <Link href={hrefWith(pathname, searchParams.toString(), {
                 status: "PENDING_REVIEW",
                 overdue: "1",
                 sort: "oldest",
-              })}
-            >
-              {t("reviewDelayLink")}
-            </Link>
+              })}>
+                {t("reviewDelayLink")}
+              </Link>
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -1153,42 +1213,101 @@ function DossiersContent({
         </Alert>
       ))}
 
-      {/* ── Filters, toolbar and table: one card, so the controls read as
-          belonging to the list they act on. The filter row wraps rather than
-          overflowing, the way the fixed four-column grid it replaces did. ──
-          Statut is not here: the control above sets it. */}
+      {/* ── Filters, toolbar and table share one card. ── */}
       <AdminTablePanel
         headingId={`dossiers-${vue}-heading`}
         showHeader={false}
         cardClassName={vue === "submissions" ? "cam-dossier-submissions-card" : vue === "completed" ? "cam-dossier-completed-card" : undefined}
         busy={isBackgroundRefreshing(questionnairesQuery.isFetching, questionnairesQuery.data)}
         busyLabel={t("updatingResults")}
-      >
-        {vue === "submissions" && !readOnly && selectedIds.size > 0 && (
-          <CardContent className="flex flex-wrap items-center gap-3 border-b pt-6" aria-live="polite">
-            <>
-              <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
-              {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
-              <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
-              <Button type="button" size="sm" variant="outline" onClick={handleOpenCorrectionModal} disabled={correctableSelected.length === 0}>{t("requestCorrectionSelectionButton")}</Button>
-              <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">×</span> {t("rejectSelectionButton")}</Button>
-            </>
-          </CardContent>
+        footer={(
+          <div className="cam-dossier-pagination">
+            {totalCount === null ? (
+              <span aria-hidden="true">{NOT_PROVIDED}</span>
+            ) : (
+              <AdminLiveResultCount announce={!questionnairesQuery.isPlaceholderData}>
+                {totalCount === 0
+                  ? t("zeroSubmissions")
+                  : t("showingRange", {
+                      first: count(visibleRange.start, locale),
+                      last: count(visibleRange.end, locale),
+                      total: count(totalCount, locale),
+                      count: totalCount,
+                    })}
+              </AdminLiveResultCount>
+            )}
+            <div className="cam-dossier-pagination-controls">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={offset === 0}
+                onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
+              >
+                {t("previousButton")}
+              </Button>
+              <span className="cam-dossier-page-indicator">
+                {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pageCount === null || currentPage >= pageCount}
+                onClick={() => goToOffset(offset + PAGE_SIZE)}
+              >
+                {t("nextButton")}
+              </Button>
+            </div>
+          </div>
         )}
+      >
         {vue === "submissions" && <CardContent className="cam-dossier-submissions-card-heading">
           <h2 id={`dossiers-${vue}-heading`}>{t("queueHeading")}</h2>
-          {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button>}
+          {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
         </CardContent>}
         {vue === "completed" && <CardContent className="cam-dossier-completed-heading">
           <h2 id={`dossiers-${vue}-heading`}>{t("completedHeading")}</h2>
-          {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button>}
+          {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
         </CardContent>}
         {vue === "completed" && <CardContent className="cam-dossier-completed-archive-filter"><label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
+        {dossierStatusBreakdown.some((item) => item.value !== undefined) && (
+          <CardContent className="cam-dossier-status-summary" role="group" aria-label={t("statusFilterAriaLabel")}>
+            <ul>
+              {dossierStatusBreakdown.map((item) => item.value === undefined ? null : (
+                <li key={item.key}>
+                  <span>{item.label}</span>
+                  <strong>{new Intl.NumberFormat(locale).format(item.value)}</strong>
+                </li>
+              ))}
+            </ul>
+            {vue === "submissions" && <p role="note">{t("statusCountsScopeNote")}</p>}
+          </CardContent>
+        )}
+        {vue === "submissions" && !readOnly && selectedIds.size > 0 && (
+          <CardContent className="cam-dossier-selection-toolbar" aria-live="polite">
+            <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
+            {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
+            <div className="cam-dossier-selection-actions">
+              <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={handleOpenCorrectionModal} disabled={correctableSelected.length === 0}>{t("requestCorrectionSelectionButton")}</Button>
+              <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">×</span> {t("rejectSelectionButton")}</Button>
+            </div>
+          </CardContent>
+        )}
         <CardContent className={`border-b pt-5${vue === "submissions" ? " cam-dossier-submissions-filters" : vue === "completed" ? " cam-dossier-completed-filters" : " cam-dossier-main-coverage-filters"}`}>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <div>
               <Label htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label>
               <Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor={`dossiers-status-${vue}`}>{t("statusFilterAriaLabel")}</Label>
+              <select id={`dossiers-status-${vue}`} className="cam-admin-input w-full" value={statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatus | "")}>
+                {dossierStatusSummary.map((item) => (
+                  <option key={item.key} value={item.key === "all" ? "" : item.key}>{item.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <Label htmlFor={`dossiers-type-${vue}`}>{typeColumnLabel}</Label>
@@ -1275,12 +1394,12 @@ function DossiersContent({
           </AdminFilterDisclosure>
           <AdminActiveFilterChips filters={activeFilterChips.map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} clearAllLabel={t("clearFilters")} onClearAll={clearAllFilters} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
         </CardContent>
-        <CardContent className={`overflow-x-auto pt-5${vue === "submissions" ? " cam-dossier-submissions-table" : vue === "completed" ? " cam-dossier-completed-table" : ""}`}>
+        <CardContent className={`overflow-x-auto pt-5${vue === "submissions" ? ` cam-dossier-submissions-table${readOnly ? " cam-dossier-submissions-table--read-only" : ""}` : vue === "completed" ? " cam-dossier-completed-table" : ""}`}>
           <Table>
             <colgroup>
               {(vue === "completed"
                 ? [210, 130, 145, 175, 160, 210, 135, 105, 110]
-                : [36, 185, 130, 118, 107, 103, 140, 150, 130]
+                : readOnly ? [268, 150, 156, 200, 230, 190, 160] : [44, 268, 150, 156, 200, 230, 190, 160]
               ).map((width, index) => <col key={`${vue}-column-${index}`} style={{ width }} />)}
             </colgroup>
             <TableHeader>
@@ -1296,42 +1415,31 @@ function DossiersContent({
                   <TableHead scope="col">{t("archiveStatusColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </> : <>
-                  <TableHead className="cam-dossier-select-column sticky left-0 z-20 bg-[var(--cam-surface)]"><span className="sr-only">{t("selectionColumnLabel")}</span></TableHead>
-                  <TableHead scope="col" className="sticky left-[36px] z-20 bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("entityColumn")}</TableHead>
+                  {!readOnly && <TableHead scope="col" className="cam-dossier-select-column sticky left-0 z-20 bg-[var(--cam-surface)]">
+                    <Checkbox checked={pageSelectionState} onCheckedChange={(checked) => toggleSelectPage(checked === true)} disabled={dossiers.length === 0} aria-label={t("selectAllAria")} />
+                  </TableHead>}
+                  <TableHead scope="col" className={`cam-dossier-record-column sticky ${readOnly ? "left-0 cam-dossier-record-column--first" : "left-[44px]"} z-20 bg-[var(--cam-surface)]`}>{t("entityColumn")}</TableHead>
                   <TableHead scope="col">{t("entityTypeColumn")}</TableHead>
                   <TableHead scope="col">{t("territoryColumn")}</TableHead>
-                  <TableHead scope="col">{t("periodColumn")}</TableHead>
-                  <TableHead scope="col">{t("adminStatusColumn")}</TableHead>
-                  <TableHead scope="col" title={t("dataIssuesHelp")}>{t("controlsColumn")}</TableHead>
+                  <TableHead scope="col">{t("campaignPeriodColumn")}</TableHead>
+                  <TableHead scope="col" title={t("dataIssuesHelp")}>{t("reviewStatusChecksColumn")}</TableHead>
                   <TableHead scope="col">{t("submissionWaitingColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              <DataStateRow colSpan={9} state={tableState} resource={t("filesResource")} error={questionnairesQuery.error} onRetry={() => questionnairesQuery.refetch()} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
+              <DataStateRow colSpan={vue === "completed" ? 9 : readOnly ? 7 : 8} state={tableState} resource={t("filesResource")} error={tableError} onRetry={retryTable} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
               {dossiers.map((d) => {
-                const visaBadge: { label: string; tone: ToneName } = d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } : d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "info" } : d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } : d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } : d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } : { label: t("badgeNoStatus"), tone: "neutral" };
-                const qualityTone: ToneName = d.blockingCount > 0 ? "error" : "warning";
+                 const visaBadge: { label: string; tone: ToneName } = d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } : d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "error" } : d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } : d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } : d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } : { label: t("badgeNoStatus"), tone: "neutral" };
                 const qualityText = [
                   d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : null,
                   d.warningCount > 0 ? t("warnings", { count: d.warningCount }) : null,
                 ].filter(Boolean).join(" · ");
-                const qualityBadge = d.blockingCount > 0
-                  ? t("blockingAnomalies", { count: d.blockingCount })
-                  : d.warningCount > 0
-                    ? t("warnings", { count: d.warningCount })
-                    : null;
                 const qualityTitle = qualityText ? `${qualityText} — ${t("dataIssuesHelp")}` : t("dataIssuesHelp");
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
-                const shortCampaignName = d.campaignName ? formatCampaignShortName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
-                const periodCell = campaignIdFilter
-                  ? periodLabel
-                  : [campaignName, periodLabel].filter((value) => value !== NOT_PROVIDED).join(" · ") || NOT_PROVIDED;
-                const entityMetaTitle = [d.establishmentId, d.respondentName].filter((value): value is string => Boolean(value)).join(" · ") || NOT_PROVIDED;
-                const territoryTitle = [d.region, d.department, d.subdivision].filter(Boolean).join(" / ") || NOT_PROVIDED;
-                const territoryLabel = [d.region, d.department].filter(Boolean).join(" / ") || NOT_PROVIDED;
+                const territoryTitle = [d.region, d.department].filter(Boolean).join(" / ") || NOT_PROVIDED;
                 const waiting = d.adminStatus === "PENDING_REVIEW" && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
                 const isReviewOverdue = d.adminStatus === "PENDING_REVIEW" && nowMs !== null && elapsedMoreThanDays(d.submittedAt, nowMs, 7);
                 const canManageArchive = hasRole(user?.role, DOSSIER_ARCHIVE_ROLES);
@@ -1346,7 +1454,7 @@ function DossiersContent({
                   <Link href={detailHref}>{t("openFileButton")}</Link>
                 </Button>;
                 const openQueueFile = <Button asChild size="sm" variant="default" className="whitespace-nowrap">
-                  <Link href={detailHref}>{t("openButton")}</Link>
+                  <Link href={detailHref}>{t("reviewDossierButton")}</Link>
                 </Button>;
                 const rowMenu = (menuItems: ReactNode) => (
                   <DropdownMenu>
@@ -1360,19 +1468,25 @@ function DossiersContent({
                 );
 
                 return vue === "completed" ? <TableRow key={d.id}>
-                  <TableCell className="sticky left-0 z-10 align-top whitespace-normal bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
-                    <span className="block max-w-[200px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
+                  <TableCell className="sticky left-0 z-10 align-top whitespace-normal bg-[var(--cam-surface)] border-r">
+                    <span className="cam-dossier-record-name" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap"><span className="cam-admin-code" title={d.establishmentId ?? undefined}>{d.establishmentId ?? NOT_PROVIDED}</span></TableCell>
-                  <TableCell className="max-w-[145px] whitespace-normal"><span className="block line-clamp-2" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</span></TableCell>
-                  <TableCell title={territoryTitle}>{territoryLabel}</TableCell>
+                  <TableCell className="whitespace-normal"><span className="cam-dossier-type-value" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal" title={territoryTitle}>
+                    <div className="cam-dossier-cell-stack">
+                      {d.region && <span className="cam-dossier-cell-primary">{d.region}</span>}
+                      {d.department && <span className="cam-dossier-cell-secondary"><span className="cam-dossier-field-label">{t("departmentLabel")}</span><span>{d.department}</span></span>}
+                      {!d.region && !d.department && <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>}
+                    </div>
+                  </TableCell>
                   <TableCell className="align-top whitespace-normal">
-                    <span className="block line-clamp-1" title={campaignName}>{shortCampaignName}</span>
+                    <span className="cam-dossier-cell-primary" title={campaignName}>{campaignName}</span>
                     <span className="block text-sm text-muted-foreground">{periodLabel}</span>
                   </TableCell>
                   <TableCell className="align-top whitespace-normal">
                     <Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
-                    {d.rejectionReason && <span className="mt-1 block line-clamp-2 max-w-[200px] text-sm text-muted-foreground" title={d.rejectionReason}>{d.rejectionReason}</span>}
+                    {d.rejectionReason && <span className="mt-1 block text-sm text-muted-foreground" title={d.rejectionReason}>{d.rejectionReason}</span>}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">{stamp(d.reviewedAt, false, locale)}</TableCell>
                   <TableCell>{d.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</TableCell>
@@ -1388,37 +1502,58 @@ function DossiersContent({
                     </div>
                   </TableCell>
                 </TableRow> : <TableRow key={d.id}>
-                  <TableCell className="cam-dossier-select-column sticky left-0 z-10 align-top bg-[var(--cam-surface)]">{!readOnly && <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}</TableCell>
-                  <TableCell className="sticky left-[36px] z-10 align-top whitespace-normal bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
-                    <span className="block max-w-[240px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
-                    <span className="mt-0.5 block max-w-[240px] truncate text-sm text-muted-foreground" title={entityMetaTitle}>
-                      {d.establishmentId && <span className="cam-admin-code" title={d.establishmentId}>{d.establishmentId}</span>}
-                      {d.establishmentId && d.respondentName && " · "}
-                      {d.respondentName && <span title={d.respondentName}>{d.respondentName}</span>}
-                      {!d.establishmentId && !d.respondentName && NOT_PROVIDED}
-                    </span>
+                  {!readOnly && <TableCell className="cam-dossier-select-column sticky left-0 z-10 align-top bg-[var(--cam-surface)]">
+                    <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />
+                  </TableCell>}
+                  <TableCell className={`cam-dossier-record-column sticky ${readOnly ? "left-0 cam-dossier-record-column--first" : "left-[44px]"} z-10 align-top whitespace-normal bg-[var(--cam-surface)]`}>
+                    <div className="cam-dossier-record-stack">
+                      <span className="cam-dossier-record-name" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
+                      {d.respondentName && <span className="cam-dossier-record-meta"><span className="cam-dossier-field-label">{t("respondentColumn")}</span><span title={d.respondentName}>{d.respondentName}</span></span>}
+                    </div>
                   </TableCell>
-                  <TableCell className="max-w-[120px] whitespace-normal"><span className="block line-clamp-2" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</span></TableCell>
-                  <TableCell title={territoryTitle}>{territoryLabel}</TableCell>
+                  <TableCell className="align-top whitespace-normal"><span className="cam-dossier-type-value" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</span></TableCell>
+                  <TableCell className="align-top whitespace-normal" title={territoryTitle}>
+                    <div className="cam-dossier-cell-stack">
+                      {d.region && <span className="cam-dossier-cell-primary">{d.region}</span>}
+                      {d.department && <span className="cam-dossier-cell-secondary"><span className="cam-dossier-field-label">{t("departmentLabel")}</span><span>{d.department}</span></span>}
+                      {!d.region && !d.department && <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>}
+                    </div>
+                  </TableCell>
                   <TableCell className="align-top whitespace-normal">
-                    <span className="block" title={campaignName}>{periodCell}</span>
+                    <div className="cam-dossier-cell-stack">
+                      <span className="cam-dossier-cell-primary" title={campaignName}>{campaignName}</span>
+                      <span className="cam-dossier-cell-secondary">{periodLabel}</span>
+                    </div>
                   </TableCell>
-                  <TableCell title={d.assigneeId ? t("assignedTo", { name: d.assigneeName ?? NOT_PROVIDED }) : undefined}>
-                    <Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
-                  </TableCell>
-                  <TableCell title={qualityTitle}>
-                    {qualityBadge ? <Badge variant={BADGE_VARIANT[qualityTone]}>{qualityBadge}</Badge> : <span className="text-muted-foreground">{NOT_PROVIDED}</span>}
-                  </TableCell>
-                  <TableCell className="align-top whitespace-nowrap">
-                    <span className="block">
-                      {stamp(d.submittedAt, true, locale)}
-                      {d.isLate && <Badge variant="warning" className="ms-2">{t("lateBadge")}</Badge>}
-                    </span>
-                    {waiting !== null && (
-                      <span className={`mt-0.5 block text-sm ${isReviewOverdue ? "font-semibold text-destructive" : "text-muted-foreground"}`}>
-                        {t("waitingDays", { count: waiting })}
+                  <TableCell className="align-top whitespace-normal" title={qualityTitle}>
+                    <div className="cam-dossier-review-stack">
+                      <Badge variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
+                      <div className="cam-dossier-validation-summary">
+                        {d.blockingCount > 0 && <Badge variant="danger">{t("blockingAnomalies", { count: d.blockingCount })}</Badge>}
+                        {d.warningCount > 0 && <Badge variant="danger">{t("warnings", { count: d.warningCount })}</Badge>}
+                        {!d.validationDataAvailable
+                          ? <span className="cam-dossier-cell-secondary">{t("validationDataUnavailable")}</span>
+                          : d.blockingCount === 0 && d.warningCount === 0
+                            ? <span className="cam-dossier-cell-secondary">{t("noOpenIssuesRecorded")}</span>
+                            : null}
+                      </div>
+                      <span className="cam-dossier-owner">
+                        <span className="cam-dossier-field-label">{t("reviewerLabel")}</span>
+                        <span>{d.assigneeId ? d.assigneeName ?? NOT_PROVIDED : t("noReviewerAssigned")}</span>
                       </span>
-                    )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top whitespace-normal">
+                    <div className="cam-dossier-date-stack">
+                      <span className="cam-dossier-date-primary">{stamp(d.submittedAt, true, locale)}</span>
+                      {d.isLate && <Badge variant="warning">{t("lateBadge")}</Badge>}
+                      {waiting !== null && (
+                        <span className={`cam-dossier-waiting${isReviewOverdue ? " is-overdue" : ""}`}>
+                          {t("waitingDays", { count: waiting })}
+                          {isReviewOverdue && <Badge variant="warning">{t("overdueBadge")}</Badge>}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -1450,45 +1585,6 @@ function DossiersContent({
           onRestore={() => {}}
         />}
       </AdminTablePanel>
-      {/* Pagination driven by the server-reported `total` for the same
-          filtered query. The range reflects the rows actually returned, and
-          the page count is whatever the real total implies. */}
-      <div className="flex flex-wrap items-center justify-end gap-4 py-4 text-sm text-muted-foreground">
-        <span>
-          {totalCount === null
-            ? NOT_PROVIDED
-            : totalCount === 0
-              ? t("zeroSubmissions")
-              : t("showingRange", {
-                  first: count(firstShown, locale),
-                  last: count(lastShown, locale),
-                  total: count(totalCount, locale),
-                  count: totalCount,
-                })}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={offset === 0}
-          onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
-        >
-          {t("previousButton")}
-        </Button>
-        <span>
-          {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pageCount === null || currentPage >= pageCount}
-          onClick={() => goToOffset(offset + PAGE_SIZE)}
-        >
-          {t("nextButton")}
-        </Button>
-      </div>
-
       {/* ── Bulk visa. AdminDialog is a native <dialog>, so the focus trap,
           Escape, inert background and focus return that the fixed-position
           overlay here declared with aria-modal but never implemented now

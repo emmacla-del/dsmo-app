@@ -54,8 +54,9 @@ export function parseFollowUpUrlState(current: string, options: FollowUpFilterOp
   const params = new URLSearchParams(current);
   const requestedRegion = params.get("followupRegion")?.trim() ?? "";
   const region = options.regions.includes(requestedRegion) ? requestedRegion : "";
+  const invalidRequestedRegion = Boolean(requestedRegion && !region);
   const requestedDepartment = params.get("followupDepartment")?.trim() ?? "";
-  const department = requestedDepartment && departmentIsValid(requestedDepartment, region, options)
+  const department = requestedDepartment && !invalidRequestedRegion && departmentIsValid(requestedDepartment, region, options)
     ? requestedDepartment
     : "";
   const requestedType = params.get("followupType")?.trim() ?? "";

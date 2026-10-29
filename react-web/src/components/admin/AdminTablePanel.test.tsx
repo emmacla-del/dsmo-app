@@ -25,4 +25,14 @@ test("a background refresh announces its status and keeps the previous rows visi
   assert.equal(panel.getAttribute("aria-busy"), "true");
   assert.equal(screen.getByRole("status").textContent, "Updating results…");
   assert.ok(screen.getByText("Previously loaded row"));
+
+  rerender(
+    <AdminTablePanel title="Dossiers" headingId="dossiers-heading" busy={false} busyLabel="Updating results…">
+      <p>Updated or retained results</p>
+    </AdminTablePanel>,
+  );
+
+  assert.equal(panel.getAttribute("aria-busy"), null, "success or failure clears the busy state");
+  assert.equal(screen.queryByRole("status"), null);
+  assert.ok(screen.getByText("Updated or retained results"));
 });

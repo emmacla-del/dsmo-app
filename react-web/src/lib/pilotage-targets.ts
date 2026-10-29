@@ -359,15 +359,29 @@ export function parseYearParam(raw: string | null): number | null {
   return year;
 }
 
-/**
- * The registration-coverage view on /admin/inscriptions, for a raw ?annee=
- * value. Used by that page's year control and by /admin/cibles, which
- * forwards its retired ?vue=couverture links here: a valid year is carried
- * over, anything else is dropped so the view falls back to the current year.
- */
-export function coverageHref(annee: string | number | null): string {
+/** Build the canonical campaign-targets handoff for registration coverage. */
+export function coverageHref(
+  annee: string | number | null,
+  semestre?: string | null,
+  trimestre?: string | null,
+): string {
   const year = typeof annee === "number" ? parseYearParam(String(annee)) : parseYearParam(annee);
-  return `/admin/inscriptions?vue=coverage${year != null ? `&annee=${year}` : ""}`;
+  const requestedSemester = semestre === "1" || semestre === "2" ? Number(semestre) as 1 | 2 : null;
+  const requestedQuarter = ["1", "2", "3", "4"].includes(trimestre ?? "")
+    ? Number(trimestre) as 1 | 2 | 3 | 4
+    : null;
+  const semester: 1 | 2 | null = requestedQuarter != null
+    ? requestedSemester ?? (requestedQuarter <= 2 ? 1 : 2)
+    : requestedSemester;
+  const quarter = requestedQuarter != null && semester === (requestedQuarter <= 2 ? 1 : 2)
+    ? requestedQuarter
+    : null;
+
+  const params = new URLSearchParams({ vue: "couverture" });
+  if (year != null) params.set("annee", String(year));
+  if (semester != null) params.set("semestre", String(semester));
+  if (quarter != null) params.set("trimestre", String(quarter));
+  return `/admin/cibles?${params.toString()}`;
 }
 
 export function formatApiError(error: unknown, locale: UiLocale = "fr"): string {

@@ -23,9 +23,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
  * Registration coverage: registered establishments against the
  * registration-campaign targets, per territory and selected period.
  *
- * Moved out of /admin/cibles (where it was the "Couverture" tab) into
- * /admin/inscriptions: it measures registrations, not declarations, and sat
- * under a page and a hub about campaign quotas. Same query, same table.
+ * Shown as the registration-coverage view under Campaign targets alongside
+ * declaration returns. It measures registrations against registration
+ * campaign targets, so it remains separate from the declaration-return data.
  *
  * One selected period (year, optionally narrowed to semester and quarter)
  * uses the same territory-scoped coverage endpoints and stays in the table's

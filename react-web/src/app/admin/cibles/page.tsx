@@ -12,9 +12,10 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
+import { CoveragePanel, type CoverageSelection } from "@/components/admin/CoveragePanel";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
-import { NATIONAL_ROLES, hasRole } from "@/lib/roles";
+import { NATIONAL_ROLES, REGISTRATION_ROLES, SURVEY_ROLES, hasRole } from "@/lib/roles";
 import { formatCampaignDisplayName, isRegistrationCampaign, listCampaigns, type Campaign } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -33,17 +34,21 @@ import {
   formatApiError,
   getCampaignQuotas,
   getCampaignReturns,
+  getActiveCollectionCampaigns,
   coverageHref,
+  doualaCalendarYear,
+  parseYearParam,
   putCampaignQuotas,
   type CampaignQuotasResponse,
   type TargetField,
 } from "@/lib/pilotage-targets";
 
-type Vue = "quotas" | "retours" | "relances";
+type Vue = "quotas" | "retours" | "couverture" | "relances";
 // `labelKey` is under adminCiblesPage.
-const VUES: { id: Vue; labelKey: string }[] = [
+const VUES: { id: Exclude<Vue, "relances">; labelKey: string }[] = [
   { id: "quotas", labelKey: "viewQuotas" },
   { id: "retours", labelKey: "viewReturns" },
+  { id: "couverture", labelKey: "viewRegistrationCoverage" },
 ];
 
 export default function CiblesPage() {
@@ -62,10 +67,20 @@ function CiblesContent() {
   const t = useTranslations();
   const canWrite = canWritePilotageTargets(user?.role);
   const canList = canListCampaigns(user?.role);
+  const canReadSubmissionViews = hasRole(user?.role, SURVEY_ROLES);
+  const canReadRegistrationCoverage = hasRole(user?.role, REGISTRATION_ROLES);
+  const visibleViews = VUES.filter((item) => {
+    if (item.id === "couverture") return canReadRegistrationCoverage;
+    if (item.id === "quotas") return canReadSubmissionViews && canList;
+    return canReadSubmissionViews;
+  });
 
   const rawVue = searchParams.get("vue");
   const vue = parseVue(rawVue);
   const campagneParam = searchParams.get("campagne")?.trim() || "";
+  const defaultVue = visibleViews[0]?.id ?? "quotas";
+  const vueAllowed = visibleViews.some((item) => item.id === vue);
+  const selectedCoveragePeriod = coveragePeriodSelection(searchParams);
 
   function setParams(next: { vue?: Vue; campagne?: string | null }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -77,34 +92,41 @@ function CiblesContent() {
     router.replace(`${pathname}?${params.toString()}`);
   }
 
-  // The Couverture view moved to /admin/inscriptions (it measures
-  // registrations). Old links and bookmarks are forwarded there with their
-  // year; ?campagne= is dropped, the coverage view has no campaign.
-  useEffect(() => {
-    if (rawVue !== "couverture") return;
-    router.replace(coverageHref(searchParams.get("annee")));
-  }, [rawVue, searchParams, router]);
+  function setCoveragePeriod(next: CoverageSelection) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("vue", "couverture");
+    params.set("annee", String(next.year));
+    if (next.semester != null) params.set("semestre", String(next.semester));
+    else params.delete("semestre");
+    if (next.quarter != null) params.set("trimestre", String(next.quarter));
+    else params.delete("trimestre");
+    params.delete("campagne");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
 
   // Keep saved campaign follow-up links working while the workflow lives with
   // survey submissions. Convert Campaign targets' `campagne` parameter to
   // the dossiers hub's shared `campaignId` parameter.
   useEffect(() => {
     if (rawVue !== "relances") return;
+    if (!canReadSubmissionViews) {
+      router.replace(`${pathname}?${viewQuery(searchParams, defaultVue, campagneParam)}`);
+      return;
+    }
     const params = new URLSearchParams({ vue: "followup" });
     if (campagneParam) params.set("campaignId", campagneParam);
     router.replace(`/admin/dossiers?${params.toString()}`);
-  }, [campagneParam, rawVue, router]);
+  }, [canReadSubmissionViews, campagneParam, defaultVue, pathname, rawVue, router, searchParams]);
 
-  // A retired or unknown vue (e.g. the former ?vue=inscriptions tab) normalizes
-  // to the default tab, so the deep link lands on Quotas rather than an empty panel.
+  // A role-specific deep link is redirected to the first view that role may
+  // open. Unknown view names still normalize to the role's default view.
   useEffect(() => {
-    if (rawVue == null || rawVue === vue || rawVue === "couverture" || rawVue === "relances") return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("vue", vue);
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [rawVue, vue, searchParams, pathname, router]);
+    if (!user?.role || rawVue === "relances") return;
+    if ((rawVue == null && vueAllowed) || (rawVue === vue && vueAllowed)) return;
+    router.replace(`${pathname}?${viewQuery(searchParams, vueAllowed ? vue : defaultVue, campagneParam)}`);
+  }, [user?.role, rawVue, vue, vueAllowed, defaultVue, campagneParam, searchParams, pathname, router]);
 
-  if (rawVue === "relances") return null;
+  if (rawVue === "relances" || !vueAllowed) return null;
 
   return (
     <div className="cam-admin-page">
@@ -127,7 +149,7 @@ function CiblesContent() {
 
       <ViewSwitch
         label={t("adminCiblesPage.viewsAriaLabel")}
-        items={VUES.map((item) => ({
+        items={visibleViews.map((item) => ({
           key: item.id,
           label: t(`adminCiblesPage.${item.labelKey}`),
           active: vue === item.id,
@@ -149,6 +171,14 @@ function CiblesContent() {
           canList={canList}
           campagneParam={campagneParam}
           onCampagneChange={(id) => setParams({ campagne: id || null })}
+        />
+      )}
+      {vue === "couverture" && (
+        <CoveragePanel
+          year={parseYearParam(searchParams.get("annee")) ?? doualaCalendarYear()}
+          semester={selectedCoveragePeriod.semester}
+          quarter={selectedCoveragePeriod.quarter}
+          onPeriodChange={setCoveragePeriod}
         />
       )}
     </div>
@@ -513,16 +543,25 @@ function ReturnsPanel({
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+  const activeCampaignsQuery = useQuery({
+    queryKey: ["admin", "pilotage", "active-campaigns"],
+    queryFn: getActiveCollectionCampaigns,
+    enabled: !canList && !campagneParam,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   // Returns exist only for collection campaigns: the backend refuses a
-  // registration campaign (it collects nothing). Missing purpose is a
-  // pre-rename backend, where every campaign was a collection one.
+  // registration campaign (it collects nothing). Readers who cannot list
+  // every campaign use the reader-scoped active collection endpoint unless
+  // the source route already supplied a specific campaign.
   const onefop = useMemo(
-    () =>
-      (listQuery.data ?? []).filter(
-        (campaign) => campaign.collectionType === "ONEFOP" && !isRegistrationCampaign(campaign),
-      ),
-    [listQuery.data],
+    () => canList
+      ? (listQuery.data ?? []).filter(
+          (campaign) => campaign.collectionType === "ONEFOP" && !isRegistrationCampaign(campaign),
+        )
+      : (activeCampaignsQuery.data ?? []).filter((campaign) => campaign.collectionType === "ONEFOP"),
+    [canList, listQuery.data, activeCampaignsQuery.data],
   );
 
   // ?campagne= is shared with the Quotas tab, which also lists registration
@@ -540,24 +579,23 @@ function ReturnsPanel({
     onCampagneChange(selected);
   }, [canList, listQuery.isSuccess, campagneParam, paramShowable, selected, onCampagneChange]);
 
-  if (!canList && !campagneParam) {
-    return <DataState state="unavailable" resource={tRoot("adminNav.routes.cibles")} title={t("noCampaignListDepartmental")} />;
-  }
-
-  if (canList && listQuery.isLoading) {
+  const campaignCatalogLoading = canList ? listQuery.isLoading : activeCampaignsQuery.isLoading;
+  const campaignCatalogError = canList ? listQuery.error : activeCampaignsQuery.error;
+  const retryCampaignCatalog = canList ? () => listQuery.refetch() : () => activeCampaignsQuery.refetch();
+  if (campaignCatalogLoading) {
     return <DataState state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingCampaigns")} />;
   }
-  if (canList && listQuery.isError) {
+  if (campaignCatalogError) {
     return (
       <DataState
         state="error"
         resource={tRoot("adminNav.routes.cibles")}
-        title={formatApiError(listQuery.error, locale)}
-        onRetry={() => listQuery.refetch()}
+        title={formatApiError(campaignCatalogError, locale)}
+        onRetry={retryCampaignCatalog}
       />
     );
   }
-  if (canList && onefop.length === 0) {
+  if (onefop.length === 0 && (canList || !campagneParam)) {
     return <DataState state="empty" resource={tRoot("adminNav.routes.cibles")} title={t("noOnefopCollectionCampaign")} />;
   }
 
@@ -565,7 +603,7 @@ function ReturnsPanel({
 
   return (
     <>
-      {canList && (
+      {(canList || onefop.length > 1) && (
         <label className="cam-target-year">
           {t("onefopCollectionCampaignLabel")}
           <select
@@ -650,7 +688,7 @@ function campaignStatusLabel(tRoot: ReturnType<typeof useTranslations>, status: 
   return CAMPAIGN_STATUS_CODES.has(status) ? tRoot(`adminCampagnesPage.status.${status}`) : status;
 }
 
-function preferredCampaignId(campaigns: Campaign[]): string {
+function preferredCampaignId(campaigns: readonly Pick<Campaign, "id" | "status">[]): string {
   const active = campaigns.find((campaign) => campaign.status === "ACTIVE");
   return (active ?? campaigns[0])?.id ?? "";
 }
@@ -661,6 +699,7 @@ function defaultExpanded(regions: { regionId: string; mode: string }[]): Set<str
 }
 
 function parseVue(raw: string | null): Vue {
+  if (raw === "coverage" || raw === "couverture") return "couverture";
   if (raw === "quotas" || raw === "retours" || raw === "relances") return raw;
   return "quotas";
 }
@@ -678,7 +717,34 @@ function readCentral(central: { submissionTarget?: number } | null | undefined):
 function viewQuery(searchParams: URLSearchParams, vue: Vue, campagne: string): string {
   const params = new URLSearchParams(searchParams.toString());
   params.set("vue", vue);
-  if (campagne) params.set("campagne", campagne);
-  else params.delete("campagne");
+  if (vue === "couverture") {
+    params.delete("campagne");
+  } else {
+    if (campagne) params.set("campagne", campagne);
+    else params.delete("campagne");
+    params.delete("annee");
+    params.delete("semestre");
+    params.delete("trimestre");
+  }
   return params.toString();
+}
+
+function coveragePeriodSelection(params: { get: (key: string) => string | null }): Pick<CoverageSelection, "semester" | "quarter"> {
+  const requestedSemester = params.get("semestre");
+  const requestedQuarter = params.get("trimestre");
+  const validSemester = requestedSemester === "1" || requestedSemester === "2"
+    ? Number(requestedSemester) as 1 | 2
+    : null;
+  const validQuarter = ["1", "2", "3", "4"].includes(requestedQuarter ?? "")
+    ? Number(requestedQuarter) as 1 | 2 | 3 | 4
+    : null;
+  const semester: CoverageSelection["semester"] = validQuarter != null
+    ? validSemester ?? (validQuarter <= 2 ? 1 : 2)
+    : validSemester;
+  const quarter: CoverageSelection["quarter"] = validQuarter != null
+    && semester != null
+    && (validQuarter <= 2 ? 1 : 2) === semester
+    ? validQuarter
+    : null;
+  return { semester, quarter };
 }
