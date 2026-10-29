@@ -294,6 +294,9 @@ function DossiersContent({
   const lateFilter = parseDossierFlag(filterParam("late"));
   const overdueFilter = parseDossierFlag(filterParam("overdue"));
   const assignedToMeFilter = parseDossierFlag(filterParam("assignedToMe"));
+  const qualityFilter = filterParam("quality") ?? "";
+  const rawAssignment = filterParam("assignment") ?? (assignedToMeFilter ? "me" : "");
+  const assignmentFilter = ["me", "unassigned", "other"].includes(rawAssignment) ? rawAssignment : "";
   const vue = view;
   const archivedParam = searchParams.get("completedIncludeArchived") ??
     (legacyFiltersApply ? searchParams.get("includeArchived") : null);
@@ -329,6 +332,8 @@ function DossiersContent({
     lateFilter ? "late" : "",
     overdueFilter ? "overdue" : "",
     assignedToMeFilter ? "assigned" : "",
+    assignmentFilter,
+    qualityFilter,
     typeFilter,
     periodFilter,
     requestedQuery,
@@ -616,6 +621,11 @@ function DossiersContent({
   const setCampaign = (campaignId: string) => setUrlFilter({ campaignId });
   const setQuarter = (quarterCode: string) => setUrlFilter({ quarterCode });
   const setLate = (late: boolean) => setUrlFilter({ late: late ? "1" : null });
+  const setQuality = (quality: string) => setUrlFilter({ quality: quality || null });
+  const setAssignment = (assignment: string) => setUrlFilter({
+    assignment: assignment || null,
+    assignedToMe: assignment === "me" ? "1" : null,
+  });
   const setOverdue = (overdue: boolean) => setUrlFilter({ overdue: overdue ? "1" : null });
   const setAssignedToMe = (assignedToMe: boolean) => setUrlFilter({ assignedToMe: assignedToMe ? "1" : null });
 
@@ -641,7 +651,7 @@ function DossiersContent({
   const rawItems = page?.items ?? [];
   // Real rows only. An empty result renders an empty state; there is no
   // sample dataset to substitute, and an error never becomes "no dossiers".
-  const dossiers: DossierItem[] = rawItems.map((sub: QuestionnaireListItem) => {
+  const allDossiers: DossierItem[] = rawItems.map((sub: QuestionnaireListItem) => {
     const blockingCount = sub.anomalies?.filter((anomaly) => anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
     const warningCount = sub.anomalies?.filter((anomaly) => !anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
     const name = resolveEntityName(sub) ?? t("fileFallbackName");
@@ -679,6 +689,17 @@ function DossiersContent({
     };
   });
 
+  // Client-side quality & extended assignment filtering
+  // Note: Backend listAdminQuestionnaires already supplies anomalies and assignedToMe; extended filters refine the current view.
+  const dossiers: DossierItem[] = allDossiers.filter((d) => {
+    if (qualityFilter === "clean" && (d.blockingCount > 0 || d.warningCount > 0)) return false;
+    if (qualityFilter === "warnings" && (d.warningCount === 0 || d.blockingCount > 0)) return false;
+    if (qualityFilter === "blocking" && d.blockingCount === 0) return false;
+    if (assignmentFilter === "unassigned" && d.assigneeId != null) return false;
+    if (assignmentFilter === "other" && (d.assigneeId == null || d.assigneeId === user?.id)) return false;
+    return true;
+  });
+
   const typeColumnLabel = vue === "completed" ? t("typeColumn") : t("entityTypeColumn");
   const activeFilterChips: Array<{ key: string; label: string; remove: () => void }> = [];
   if (search) activeFilterChips.push({ key: "search", label: `${t("freeSearchLabel")}: ${search}`, remove: () => { setSearchInput(""); setSearch(""); setUrlFilter({ search: null, q: null }); } });
@@ -695,11 +716,41 @@ function DossiersContent({
   if (lateFilter) activeFilterChips.push({ key: "late", label: t("lateOnly"), remove: () => setLate(false) });
   if (vue !== "completed" && overdueFilter) activeFilterChips.push({ key: "overdue", label: t("overdueOnly"), remove: () => setOverdue(false) });
   if (vue === "completed" && !includeArchived) activeFilterChips.push({ key: "includeArchived", label: t("archivedHiddenFilter"), remove: () => setUrlFilter({ includeArchived: "true" }) });
-  if (assignedToMeFilter) activeFilterChips.push({ key: "assignedToMe", label: t("assignedToMeOnly"), remove: () => setAssignedToMe(false) });
-  if (companyIdFilter) activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${companyIdFilter}`, remove: () => setUrlFilter({ companyId: null }) });
+  if (qualityFilter) {
+    const qualityLabels: Record<string, string> = {
+      clean: "Sans anomalie",
+      warnings: "Avec avertissements",
+      blocking: "Avec anomalies bloquantes",
+    };
+    activeFilterChips.push({
+      key: "quality",
+      label: `${t("controlsColumn")}: ${qualityLabels[qualityFilter] ?? qualityFilter}`,
+      remove: () => setQuality(""),
+    });
+  }
+  if (assignmentFilter) {
+    const assignmentLabels: Record<string, string> = {
+      me: t("assignedToMeOnly"),
+      unassigned: t("unassigned"),
+      other: "Assigné à un autre",
+    };
+    activeFilterChips.push({
+      key: "assignment",
+      label: `${t("assignedLabel")}: ${assignmentLabels[assignmentFilter] ?? assignmentFilter}`,
+      remove: () => setAssignment(""),
+    });
+  } else if (assignedToMeFilter) {
+    activeFilterChips.push({ key: "assignedToMe", label: t("assignedToMeOnly"), remove: () => setAssignedToMe(false) });
+  }
+  if (companyIdFilter) {
+    // Prefer the resolved company name from the first loaded row; the UUID is
+    // only shown as a fallback when no matching row has been fetched yet.
+    const resolvedCompanyName = allDossiers.find((d) => d.companyName)?.companyName ?? companyIdFilter.slice(0, 8) + "…";
+    activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${resolvedCompanyName}`, remove: () => setUrlFilter({ companyId: null }) });
+  }
   if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
-  const hasActiveAdvancedFilters = Boolean(periodFilter || quarterCodeFilter || lateFilter || (vue !== "completed" && overdueFilter) || assignedToMeFilter || sortOrder);
-  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, companyId: null, campaignId: null, includeArchived: "true", sort: null, search: null, q: null });
+  const hasActiveAdvancedFilters = Boolean(periodFilter || quarterCodeFilter || lateFilter || (vue !== "completed" && overdueFilter) || assignmentFilter || assignedToMeFilter || sortOrder);
+  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, assignment: null, quality: null, companyId: null, campaignId: null, includeArchived: "true", sort: null, search: null, q: null });
 
   /**
    * Source: GET /admin/questionnaires → `total`.
@@ -813,6 +864,7 @@ function DossiersContent({
       if (departmentFilter) params.set("department", departmentFilter);
       if (effectiveCampaignId) params.set("campaignId", effectiveCampaignId);
       if (quarterCodeFilter) params.set("quarterCode", quarterCodeFilter);
+      if (companyIdFilter) params.set("companyId", companyIdFilter);
       if (lateFilter) params.set("late", "1");
       if (vue !== "completed" && overdueFilter) params.set("overdue", "1");
       if (assignedToMeFilter) params.set("assignedToMe", "1");
@@ -1033,24 +1085,52 @@ function DossiersContent({
           <h2 id={`dossiers-${vue}-heading`}>{t("completedHeading")}</h2>
           {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button>}
         </CardContent>}
-        {vue !== "submissions" && vue !== "completed" && !readOnly && <CardContent className="flex justify-end border-b pt-4"><Button type="button" size="sm" variant="outline" onClick={() => handleExport("csv")} disabled={exportInProgress}><Download aria-hidden="true" />{t("exportButton")}</Button></CardContent>}
         {vue === "completed" && <CardContent className="cam-dossier-completed-archive-filter"><label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
         <CardContent className={`border-b pt-5${vue === "submissions" ? " cam-dossier-submissions-filters" : vue === "completed" ? " cam-dossier-completed-filters" : " cam-dossier-main-coverage-filters"}`}>
           <div className="grid gap-3 md:grid-cols-4">
-              <div className="md:col-span-2"><Label htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label><Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} /></div>
-            {vue !== "submissions" && vue !== "completed" && <div><Label htmlFor="dossiers-status">{t("statusFilterAriaLabel")}</Label><select id="dossiers-status" className="cam-admin-input w-full" value={statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatus | "")}>
-              <option value="">{t("statusAll")}</option>
-              {(vue === "completed" ? ["APPROVED", "REJECTED", "SUPERSEDED"] : ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED"]).map((status) => <option key={status} value={status}>{t(STATUS_VIEWS.find((view) => view.status === status)?.labelKey ?? "statusAll")}</option>)}
-            </select></div>}
-            <AdminFilterDisclosure label={t("moreFilters")} active={hasActiveAdvancedFilters}>
-              <div><Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label><select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}><option value="">{t("allPeriods")}</option>{PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}</select></div>
-              <div><Label htmlFor={`dossiers-quarter-${vue}`}>{t("quarterLabel")}</Label><select id={`dossiers-quarter-${vue}`} className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select></div>
-              <div><Label htmlFor={`dossiers-late-${vue}`}>{t("lateLabel")}</Label><select id={`dossiers-late-${vue}`} className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select></div>
-              {vue !== "completed" && <div><Label htmlFor={`dossiers-overdue-${vue}`}>{t("overdueLabel")}</Label><select id={`dossiers-overdue-${vue}`} className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select></div>}
-              <div><Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label><select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignedToMeFilter ? "1" : ""} onChange={(event) => setAssignedToMe(event.target.value === "1")}><option value="">{t("assignedAll")}</option><option value="1">{t("assignedToMeOnly")}</option></select></div>
-              <div><Label htmlFor={`dossiers-sort-${vue}`}>{t("sortLabel")}</Label><select id={`dossiers-sort-${vue}`} className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select></div>
-            </AdminFilterDisclosure>
-            {vue === "submissions" && <div className="cam-dossier-submissions-clear"><Button type="button" size="sm" variant="outline" disabled={activeFilterChips.length === 0} onClick={clearAllFilters}>{t("clearFilters")}</Button></div>}
+              <div className="md:col-span-2">
+                <Label htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label>
+                <Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+              </div>
+              {vue === "submissions" && (
+                <div>
+                  <Label htmlFor="dossiers-controls">{t("controlsColumn")}</Label>
+                  <select id="dossiers-controls" className="cam-admin-input w-full" value={qualityFilter} onChange={(event) => setQuality(event.target.value)}>
+                    <option value="">{t("statusAll")}</option>
+                    <option value="clean">{"Sans anomalie"}</option>
+                    <option value="warnings">{"Avec avertissements"}</option>
+                    <option value="blocking">{"Avec anomalies bloquantes"}</option>
+                  </select>
+                </div>
+              )}
+              {vue === "completed" && (
+                <div>
+                  <Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label>
+                  <select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}>
+                    <option value="">{t("allPeriods")}</option>
+                    {PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <AdminFilterDisclosure label={t("moreFilters")} active={hasActiveAdvancedFilters} className="w-full">
+                  {vue === "submissions" && <div><Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label><select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}><option value="">{t("allPeriods")}</option>{PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}</select></div>}
+                  <div><Label htmlFor={`dossiers-quarter-${vue}`}>{t("quarterLabel")}</Label><select id={`dossiers-quarter-${vue}`} className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select></div>
+                  <div><Label htmlFor={`dossiers-late-${vue}`}>{t("lateLabel")}</Label><select id={`dossiers-late-${vue}`} className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select></div>
+                  {vue !== "completed" && <div><Label htmlFor={`dossiers-overdue-${vue}`}>{t("overdueLabel")}</Label><select id={`dossiers-overdue-${vue}`} className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select></div>}
+                  <div>
+                    <Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label>
+                    <select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignmentFilter} onChange={(event) => setAssignment(event.target.value)}>
+                      <option value="">{t("assignedAll")}</option>
+                      <option value="unassigned">{t("unassigned")}</option>
+                      <option value="me">{t("assignedToMeOnly")}</option>
+                      <option value="other">{"Assigné à un autre"}</option>
+                    </select>
+                  </div>
+                  <div><Label htmlFor={`dossiers-sort-${vue}`}>{t("sortLabel")}</Label><select id={`dossiers-sort-${vue}`} className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select></div>
+                </AdminFilterDisclosure>
+                {vue === "submissions" && <Button type="button" size="sm" variant="outline" className="h-10 shrink-0" disabled={activeFilterChips.length === 0} onClick={clearAllFilters}>{t("clearFilters")}</Button>}
+              </div>
           </div>
           <AdminActiveFilterChips filters={activeFilterChips.map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} clearAllLabel={vue !== "submissions" ? t("clearFilters") : undefined} onClearAll={vue !== "submissions" ? clearAllFilters : undefined} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
         </CardContent>
@@ -1065,7 +1145,7 @@ function DossiersContent({
             <TableHeader>
               <TableRow>
                 {vue === "completed" ? <>
-                  <TableHead scope="col">{t("organisationColumn")}</TableHead>
+                  <TableHead scope="col" className="sticky left-0 z-20 bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("organisationColumn")}</TableHead>
                   <TableHead scope="col">{t("establishmentIdColumn")}</TableHead>
                   <FilterTableHead label={t("typeColumn")} filterLabel={t("filterColumn", { column: t("typeColumn") })} active={!!typeFilter}>
                     {(close) => <FilterTableOptions label={t("typeColumn")} value={typeFilter} options={[{ value: "", label: t("allFormTypes") }, ...FORM_TYPES.map((value) => ({ value, label: typeLabel(value) }))]} onChange={setType} onSelect={close} />}
@@ -1082,8 +1162,8 @@ function DossiersContent({
                   <TableHead scope="col">{t("archiveStatusColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </> : <>
-                  <TableHead className="cam-dossier-select-column"><span className="sr-only">{t("selectionColumnLabel")}</span></TableHead>
-                  <TableHead scope="col">{t("entityColumn")}</TableHead>
+                  <TableHead className="cam-dossier-select-column sticky left-0 z-20 bg-[var(--cam-surface,#fff)]"><span className="sr-only">{t("selectionColumnLabel")}</span></TableHead>
+                  <TableHead scope="col" className="sticky left-[36px] z-20 bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("entityColumn")}</TableHead>
                   <FilterTableHead label={t("entityTypeColumn")} filterLabel={t("filterColumn", { column: t("entityTypeColumn") })} active={!!typeFilter}>
                     {(close) => <FilterTableOptions label={t("entityTypeColumn")} value={typeFilter} options={[{ value: "", label: t("allEntityTypes") }, ...FORM_TYPES.map((value) => ({ value, label: typeLabel(value) }))]} onChange={setType} onSelect={close} />}
                   </FilterTableHead>
@@ -1150,7 +1230,7 @@ function DossiersContent({
                 );
 
                 return vue === "completed" ? <TableRow key={d.id}>
-                  <TableCell className="align-top whitespace-normal">
+                  <TableCell className="sticky left-0 z-10 align-top whitespace-normal bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
                     <span className="block max-w-[200px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap"><span className="cam-admin-code" title={d.establishmentId ?? undefined}>{d.establishmentId ?? NOT_PROVIDED}</span></TableCell>
@@ -1178,8 +1258,8 @@ function DossiersContent({
                     </div>
                   </TableCell>
                 </TableRow> : <TableRow key={d.id}>
-                  <TableCell className="cam-dossier-select-column align-top">{!readOnly && <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}</TableCell>
-                  <TableCell className="align-top whitespace-normal">
+                  <TableCell className="cam-dossier-select-column sticky left-0 z-10 align-top bg-[var(--cam-surface,#fff)]">{!readOnly && <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />}</TableCell>
+                  <TableCell className="sticky left-[36px] z-10 align-top whitespace-normal bg-[var(--cam-surface,#fff)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">
                     <span className="block max-w-[240px] truncate font-semibold" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
                     <span className="mt-0.5 block max-w-[240px] truncate text-sm text-muted-foreground" title={entityMetaTitle}>
                       {d.establishmentId && <span className="cam-admin-code" title={d.establishmentId}>{d.establishmentId}</span>}

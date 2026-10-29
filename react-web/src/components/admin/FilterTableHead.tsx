@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TableHead } from "@/components/ui/table";
 
@@ -57,31 +58,60 @@ export function FilterTableOptions({
   options,
   onChange,
   onSelect,
+  searchable = false,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
   onSelect: () => void;
+  searchable?: boolean;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const showSearch = searchable || options.length > 12;
+
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    const q = searchQuery.toLowerCase().trim();
+    return options.filter((opt) => opt.value === "" || opt.label.toLowerCase().includes(q));
+  }, [options, searchQuery]);
+
   return (
-    <div className="grid max-h-80 gap-1 overflow-y-auto" role="group" aria-label={label}>
-      {options.map((option) => (
-        <Button
-          key={option.value || "default"}
-          type="button"
-          variant={value === option.value ? "secondary" : "ghost"}
-          size="sm"
-          className="w-full justify-start"
-          aria-pressed={value === option.value}
-          onClick={() => {
-            onChange(option.value);
-            onSelect();
-          }}
-        >
-          {option.label}
-        </Button>
-      ))}
+    <div className="grid gap-1.5">
+      {showSearch && (
+        <div className="relative mb-1">
+          <Search className="absolute left-2 top-2 size-3.5 text-muted-foreground" aria-hidden="true" />
+          <Input
+            type="search"
+            placeholder={`Rechercher ${label.toLowerCase()}...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-7 pl-7 pr-2 text-xs"
+          />
+        </div>
+      )}
+      <div className="grid max-h-56 gap-1 overflow-y-auto" role="group" aria-label={label}>
+        {filteredOptions.length === 0 ? (
+          <p className="py-2 text-center text-xs text-muted-foreground">Aucun résultat</p>
+        ) : (
+          filteredOptions.map((option) => (
+            <Button
+              key={option.value || "default"}
+              type="button"
+              variant={value === option.value ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 w-full justify-start text-xs font-normal"
+              aria-pressed={value === option.value}
+              onClick={() => {
+                onChange(option.value);
+                onSelect();
+              }}
+            >
+              {option.label}
+            </Button>
+          ))
+        )}
+      </div>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { count } from "@/lib/admin-data-state";
 import { formatCampaignDate } from "@/lib/campaigns";
@@ -70,6 +72,44 @@ export function CampaignNonRespondentsTable({
   const [outcome, setOutcome] = useState<CampaignFollowUpOutcome | "">("");
   const [saveError, setSaveError] = useState(false);
   const [savedFollowUp, setSavedFollowUp] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [selectedOutcome, setSelectedOutcome] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
+
+  const departments = useMemo(() => {
+    const set = new Set<string>();
+    for (const est of data.establishments) {
+      if (est.departmentName) set.add(est.departmentName);
+    }
+    return Array.from(set).sort();
+  }, [data.establishments]);
+
+  const filteredEstablishments = useMemo(() => {
+    return data.establishments.filter((row) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = row.name.toLowerCase().includes(q);
+        const matchesId = row.establishmentId?.toLowerCase().includes(q);
+        const matchesContact = row.contactName?.toLowerCase().includes(q);
+        if (!matchesName && !matchesId && !matchesContact) return false;
+      }
+      if (selectedDepartment && row.departmentName !== selectedDepartment) return false;
+      if (selectedOutcome === "NONE" && row.latestFollowUp) return false;
+      if (selectedOutcome === "CONTACTED" && !row.latestFollowUp) return false;
+      if (selectedOutcome && selectedOutcome !== "NONE" && selectedOutcome !== "CONTACTED") {
+        if (row.latestFollowUp?.outcome !== selectedOutcome) return false;
+      }
+      return true;
+    });
+  }, [data.establishments, searchQuery, selectedDepartment, selectedOutcome]);
+
+  const totalFiltered = filteredEstablishments.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const startIdx = (currentPage - 1) * PAGE_SIZE;
+  const pagedEstablishments = filteredEstablishments.slice(startIdx, startIdx + PAGE_SIZE);
   const publicConfig = getFollowUpPublicConfig();
 
   const followUpMutation = useMutation({
@@ -178,7 +218,49 @@ export function CampaignNonRespondentsTable({
         <p role="status" className="cam-admin-notice cam-admin-notice--success">{t("nonRespFollowUpSaved")}</p>
       )}
       {data.establishments.length > 0 && (
-        <div className="cam-dash-table-wrap">
+        <>
+          <div className="mb-4 grid gap-3 md:grid-cols-4">
+            <div className="md:col-span-2">
+              <Input
+                type="search"
+                placeholder="Rechercher par nom, identifiant ou contact..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                className="h-10 w-full"
+              />
+            </div>
+            <div>
+              <select
+                className="cam-admin-input w-full"
+                value={selectedDepartment}
+                onChange={(e) => { setSelectedDepartment(e.target.value); setPage(1); }}
+                aria-label="Filtrer par département"
+              >
+                <option value="">Tous les départements</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <select
+                className="cam-admin-input w-full"
+                value={selectedOutcome}
+                onChange={(e) => { setSelectedOutcome(e.target.value); setPage(1); }}
+                aria-label="Statut de relance"
+              >
+                <option value="">Tous les statuts de relance</option>
+                <option value="NONE">Non relancé</option>
+                <option value="CONTACTED">Déjà relancé</option>
+                <option value="CALLBACK_REQUESTED">Rappel demandé</option>
+                <option value="DO_NOT_CONTACT">Ne pas contacter</option>
+                <option value="NO_ANSWER">Sans réponse</option>
+                <option value="WRONG_NUMBER">Numéro erroné</option>
+                <option value="ALREADY_SUBMITTED">Déjà soumis</option>
+              </select>
+            </div>
+          </div>
+          <div className="cam-dash-table-wrap">
           <table className="cam-dash-table cam-target-table">
             <thead>
               <tr>
@@ -195,7 +277,13 @@ export function CampaignNonRespondentsTable({
               </tr>
             </thead>
             <tbody>
-              {data.establishments.map((row) => {
+              {pagedEstablishments.length === 0 ? (
+                <tr>
+                  <td colSpan={canShowContacts ? 10 : 6} className="py-8 text-center text-muted-foreground">
+                    Aucun établissement ne correspond aux critères de recherche.
+                  </td>
+                </tr>
+              ) : pagedEstablishments.map((row) => {
                 const optedOut = row.latestFollowUp?.outcome === "DO_NOT_CONTACT";
                 return (
                   <tr key={row.companyId}>
@@ -258,7 +346,36 @@ export function CampaignNonRespondentsTable({
             </tbody>
           </table>
         </div>
-      )}
+        {totalFiltered > PAGE_SIZE && (
+          <div className="flex flex-wrap items-center justify-end gap-3 py-4 text-sm text-muted-foreground">
+            <span>
+              {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, totalFiltered)} sur {totalFiltered}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              {tRoot("common.previous") || "Précédent"}
+            </Button>
+            <span>
+              Page {currentPage} sur {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              {tRoot("common.next") || "Suivant"}
+            </Button>
+          </div>
+        )}
+      </>
+    )}
 
       <AdminDialog
         open={Boolean(dialogRow)}
