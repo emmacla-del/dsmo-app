@@ -284,3 +284,24 @@ export function assertTerritorialAuthority(
 
   throw new ForbiddenException('Privilèges territoriaux insuffisants.');
 }
+
+/**
+ * Read counterpart of assertTerritorialAuthority for dossier GET endpoints.
+ * National readers, including the read-only CENTRAL_AGENT, pass; regional and
+ * divisional actors must still match the record's territory. Never use this on
+ * a mutation: write paths keep assertTerritorialAuthority, which deliberately
+ * does not include CENTRAL_AGENT.
+ */
+export function assertReadTerritorialAuthority(
+  actor: Territory,
+  target: {
+    region?: string | null;
+    department?: string | null;
+    regionId?: string | null;
+    departmentId?: string | null;
+  },
+  options: { requireRegionMatch?: boolean } = {},
+): void {
+  if (actor?.role && READ_NATIONAL_ROLES.includes(actor.role)) return;
+  assertTerritorialAuthority(actor, target, options);
+}

@@ -1,5 +1,5 @@
 // src/dto/admin-dossier.dto.ts
-import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { AnomalyResolutionType } from '@prisma/client';
 
 export class BulkRejectDto {
@@ -60,4 +60,22 @@ export class ResolveAnomalyDto {
   @IsOptional()
   @IsString()
   evidenceUrl?: string;
+
+  // Optional for legacy callers. When supplied, the ordinary resolution must
+  // still be based on the revision that the reviewer opened.
+  @IsOptional()
+  @IsDateString()
+  expectedRevision?: string;
+}
+
+/** A non-empty, reviewer-authored progress note; reads and heartbeats do not extend a claim. */
+export class SaveReviewProgressDto {
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10, { message: 'La note de progression doit comporter au moins 10 caractères.' })
+  @MaxLength(2000)
+  note: string;
+
+  @IsDateString()
+  expectedRevision: string;
 }

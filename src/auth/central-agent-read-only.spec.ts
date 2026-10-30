@@ -85,6 +85,8 @@ describe('CENTRAL_AGENT is read-only', () => {
     'admin/pilotage/coverage',
     'admin/questionnaires',
     'admin/questionnaires/:id',
+    'admin/questionnaires/:id/claim-state',
+    'admin/questionnaires/:id/review-progress',
     'companies',
     'companies/stats',
     'auth/company-registrations',

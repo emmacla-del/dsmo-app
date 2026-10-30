@@ -545,6 +545,86 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
     en: 'This file has changed since it was opened. Reload it before confirming.',
   },
 
+  // ── Review ownership (claims, progress, decisions) ───────────────────
+  { fr: 'Anomalie introuvable.', en: 'Anomaly not found.' },
+  {
+    fr: 'La version du dossier est absente ou invalide. Rechargez le dossier.',
+    en: 'The file version is missing or invalid. Reload the file.',
+  },
+  { fr: 'Le dossier a changé pendant la vérification de la réclamation.', en: 'The file changed while the claim was being checked.' },
+  {
+    fr: 'Vous devez détenir la réclamation active de ce dossier pour résoudre cette anomalie.',
+    en: 'You must hold the active claim on this file to resolve this anomaly.',
+  },
+  { fr: 'Le dossier a été modifié simultanément. Rechargez-le.', en: 'The file was modified at the same time. Reload it.' },
+  { fr: 'Cette anomalie a été modifiée simultanément. Rechargez la page.', en: 'This anomaly was modified at the same time. Reload the page.' },
+  {
+    fr: 'Votre réclamation a expiré. Réclamez de nouveau le dossier avant de résoudre cette anomalie.',
+    en: 'Your claim has expired. Claim the file again before resolving this anomaly.',
+  },
+  { fr: 'Un agent ne peut réclamer un dossier que pour lui-même.', en: 'An officer can only claim a file for themselves.' },
+  { fr: 'Ce dossier au statut {0} ne peut pas être réclamé.', en: 'A file with status {0} cannot be claimed.' },
+  {
+    fr: 'Le dossier a changé pendant la libération de la réclamation. Rechargez-le.',
+    en: 'The file changed while the claim was being released. Reload it.',
+  },
+  { fr: 'Seul le titulaire de la réclamation peut la libérer.', en: 'Only the claim holder can release it.' },
+  {
+    fr: 'Ce dossier est déjà réclamé par un autre agent. Réessayez après son expiration.',
+    en: 'This file is already claimed by another officer. Try again after the claim expires.',
+  },
+  {
+    fr: 'Ce dossier vient d’être réclamé ou modifié par un autre agent. Rechargez-le.',
+    en: 'This file was just claimed or modified by another officer. Reload it.',
+  },
+  {
+    fr: 'La note de progression doit comporter entre 10 et 2000 caractères.',
+    en: 'The progress note must be between 10 and 2000 characters long.',
+  },
+  {
+    fr: 'Ce dossier a été modifié depuis son ouverture. Rechargez-le avant d’enregistrer votre progression.',
+    en: 'This file has changed since it was opened. Reload it before saving your progress.',
+  },
+  {
+    fr: 'Ce dossier au statut {0} ne peut plus recevoir de progression de revue.',
+    en: 'A file with status {0} can no longer receive review progress.',
+  },
+  {
+    fr: 'La réclamation a changé pendant l’enregistrement. Rechargez le dossier.',
+    en: 'The claim changed while saving. Reload the file.',
+  },
+  {
+    fr: 'Vous devez détenir une réclamation active pour enregistrer la progression.',
+    en: 'You must hold an active claim to save progress.',
+  },
+  { fr: 'Ce dossier a changé pendant l’enregistrement. Rechargez-le.', en: 'The file changed while saving. Reload it.' },
+  {
+    fr: 'Votre réclamation a expiré. Réclamez de nouveau le dossier pour continuer.',
+    en: 'Your claim has expired. Claim the file again to continue.',
+  },
+  {
+    fr: 'Un agent habilité doit détenir la réclamation active pour prendre cette décision.',
+    en: 'An authorised officer must hold the active claim to make this decision.',
+  },
+  { fr: 'Ce dossier au statut {0} ne peut pas être décidé.', en: 'A file with status {0} cannot be decided.' },
+  {
+    fr: 'Le dossier a changé depuis sa dernière lecture. Rechargez-le avant de confirmer.',
+    en: 'The file has changed since it was last read. Reload it before confirming.',
+  },
+  { fr: 'Ce rôle est en lecture seule et ne peut pas prendre de décision.', en: 'This role is read-only and cannot make a decision.' },
+  {
+    fr: 'Vous devez détenir la réclamation active de ce dossier pour prendre cette décision.',
+    en: 'You must hold the active claim on this file to make this decision.',
+  },
+  {
+    fr: 'Votre réclamation a expiré. Réclamez de nouveau le dossier avant de prendre une décision.',
+    en: 'Your claim has expired. Claim the file again before making a decision.',
+  },
+  {
+    fr: 'Ce dossier ne peut plus recevoir de revue au statut {0}.',
+    en: 'This file can no longer be reviewed with status {0}.',
+  },
+
   // ── Team monitoring (actor summary, nudges) ──────────────────────────
   { fr: 'Aucun dossier en attente depuis plus de {0} jours pour cet administrateur.', en: 'No file has been pending for more than {0} days for this administrator.' },
   { fr: 'Le paramètre « period » doit valoir {0}.', en: 'The "period" parameter must be {0}.' },

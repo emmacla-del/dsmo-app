@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { AdminQuestionnairesController } from './admin-questionnaires.controller';
@@ -27,6 +27,9 @@ function activeAgent(overrides: Record<string, any> = {}) {
 function submissionTarget(overrides: Record<string, any> = {}) {
   return {
     id: 'sub-1',
+    status: 'PENDING_REVIEW',
+    updatedAt: new Date('2026-10-29T10:00:00.000Z'),
+    archivedAt: null,
     assigneeId: null,
     region: 'Centre',
     department: 'Mfoundi',
@@ -38,7 +41,7 @@ function submissionTarget(overrides: Record<string, any> = {}) {
 
 function transactionalPrisma() {
   const prisma: any = {
-    auditLog: { create: jest.fn(async () => ({})) },
+    auditLog: { create: jest.fn(async () => ({})), findFirst: jest.fn(async () => null) },
     campaignSubmission: { updateMany: jest.fn(async () => ({ count: 1 })) },
     onefopSubmission: {
       findFirst: jest.fn(async () => submissionTarget()),
@@ -48,67 +51,195 @@ function transactionalPrisma() {
       count: jest.fn(async () => 0),
     },
     company: { findFirst: jest.fn(async () => null), findMany: jest.fn(async () => []), count: jest.fn(async () => 0) },
-    user: { findFirst: jest.fn(async () => activeAgent()), update: jest.fn(async () => ({})), groupBy: jest.fn(async () => []) },
+    user: { findFirst: jest.fn(async (args: any) => activeAgent({ id: args?.where?.id ?? 'agent-1' })), update: jest.fn(async () => ({})), groupBy: jest.fn(async () => []) },
   };
   prisma.$transaction = jest.fn(async (callback: any) => callback(prisma));
   return prisma;
 }
 
 describe('Phase 5 team workflow', () => {
-  it('P5-1 claims a dossier for an active agent of the same territory and records the previous holder', async () => {
+  it('claims an eligible unclaimed dossier for the active caller and records the claim event', async () => {
     const prisma = transactionalPrisma();
-    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'previous-agent' }));
     const service = new QuestionnairesService(prisma);
 
-    const result = await service.assignSubmission('sub-1', 'agent-1', 'actor-a', regionalA);
+    const result = await service.assignSubmission('sub-1', 'actor-a', 'actor-a', regionalA);
 
-    expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
-      where: { id: 'sub-1' },
-      data: { assigneeId: 'agent-1' },
-    });
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'sub-1', status: 'PENDING_REVIEW', assigneeId: null }),
+      data: expect.objectContaining({ assigneeId: 'actor-a' }),
+    }));
     expect(prisma.auditLog.create.mock.calls[0][0].data).toMatchObject({
       action: 'DOSSIER_ASSIGNED',
       resourceType: 'OnefopSubmission',
       resourceId: 'sub-1',
       details: {
-        assigneeId: 'agent-1',
+        assigneeId: 'actor-a',
         assigneeName: 'Ada Ngo',
-        previousAssigneeId: 'previous-agent',
+        previousAssigneeId: null,
         actorRole: 'REGIONAL_ADMIN',
       },
     });
-    expect(result).toEqual({ id: 'sub-1', assigneeId: 'agent-1', assigneeName: 'Ada Ngo' });
+    expect(result).toMatchObject({ id: 'sub-1', assigneeId: 'actor-a', assigneeName: 'Ada Ngo', activityTracked: true });
   });
 
-  it('P5-2 releases a dossier and refuses an assignee outside the file territory or not an agent', async () => {
+  it('releases only the caller-owned claim and validates that the caller is active and in scope', async () => {
     const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'actor-a' }));
     const service = new QuestionnairesService(prisma);
 
     const released = await service.assignSubmission('sub-1', null, 'actor-a', regionalA);
     expect(released.assigneeId).toBeNull();
-    expect(prisma.onefopSubmission.update).toHaveBeenCalledWith({
-      where: { id: 'sub-1' },
-      data: { assigneeId: null },
-    });
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'sub-1', assigneeId: 'actor-a' }),
+      data: expect.objectContaining({ assigneeId: null }),
+    }));
 
     prisma.user.findFirst.mockResolvedValueOnce(activeAgent({ region: 'Littoral' }));
-    await expect(service.assignSubmission('sub-1', 'agent-lt', 'actor-a', regionalA))
+    await expect(service.assignSubmission('sub-1', 'actor-a', 'actor-a', regionalA))
       .rejects.toThrow(ForbiddenException);
 
     prisma.user.findFirst.mockResolvedValueOnce(activeAgent({ role: 'COMPANY' }));
-    await expect(service.assignSubmission('sub-1', 'company-1', 'actor-a', regionalA))
+    await expect(service.assignSubmission('sub-1', 'actor-a', 'actor-a', regionalA))
       .rejects.toThrow(BadRequestException);
 
     prisma.user.findFirst.mockResolvedValueOnce(activeAgent({ isActive: false }));
-    await expect(service.assignSubmission('sub-1', 'suspended-1', 'actor-a', regionalA))
+    await expect(service.assignSubmission('sub-1', 'actor-a', 'actor-a', regionalA))
       .rejects.toThrow(BadRequestException);
+  });
+
+  it('does not overwrite another active claim', async () => {
+    const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'other-agent' }));
+    prisma.auditLog.findFirst.mockResolvedValue({
+      action: 'DOSSIER_ASSIGNED', userId: 'other-agent', timestamp: new Date(), details: { assigneeId: 'other-agent' },
+    });
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.assignSubmission('sub-1', 'actor-a', 'actor-a', regionalA)).rejects.toThrow(ConflictException);
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('reclaims after twelve inactive hours and records that the prior claim had expired', async () => {
+    const prisma = transactionalPrisma();
+    const lastActivity = new Date(Date.now() - 13 * 60 * 60 * 1000);
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'former-agent' }));
+    prisma.auditLog.findFirst.mockResolvedValue({
+      action: 'DOSSIER_ASSIGNED', userId: 'former-agent', timestamp: lastActivity, details: { assigneeId: 'former-agent' },
+    });
+    const service = new QuestionnairesService(prisma);
+
+    const result = await service.assignSubmission('sub-1', 'actor-a', 'actor-a', regionalA);
+
+    expect(result).toMatchObject({ assigneeId: 'actor-a', activityTracked: true });
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ assigneeId: 'former-agent' }),
+      data: expect.objectContaining({ assigneeId: 'actor-a' }),
+    }));
+    expect(prisma.auditLog.create.mock.calls[0][0].data.details).toMatchObject({
+      previousAssigneeId: 'former-agent',
+      previousClaimExpired: true,
+    });
+  });
+
+  it('saves a meaningful progress note as auditable claim activity', async () => {
+    const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'actor-a' }));
+    prisma.auditLog.findFirst.mockResolvedValue({
+      action: 'DOSSIER_ASSIGNED', userId: 'actor-a', timestamp: new Date(Date.now() - 60 * 60 * 1000), details: { assigneeId: 'actor-a' },
+    });
+    const service = new QuestionnairesService(prisma);
+
+    const result = await service.saveReviewProgress(
+      'sub-1', 'Comparaison des effectifs avec les pièces justificatives.', '2026-10-29T10:00:00.000Z', 'actor-a', regionalA,
+    );
+
+    expect(result).toMatchObject({ submissionId: 'sub-1', assigneeId: 'actor-a', actorId: 'actor-a' });
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'sub-1', assigneeId: 'actor-a' }),
+      data: expect.objectContaining({ updatedAt: expect.any(Date) }),
+    }));
+    expect(prisma.auditLog.create.mock.calls[0][0].data).toMatchObject({
+      action: 'DOSSIER_REVIEW_PROGRESS_SAVED',
+      userId: 'actor-a',
+      details: { ownerId: 'actor-a', progressType: 'NOTE', note: 'Comparaison des effectifs avec les pièces justificatives.' },
+    });
+  });
+
+  it('does not let a progress note revive an expired claim and synchronously clears it', async () => {
+    const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'actor-a' }));
+    prisma.auditLog.findFirst.mockResolvedValue({
+      action: 'DOSSIER_ASSIGNED', userId: 'actor-a', timestamp: new Date(Date.now() - 13 * 60 * 60 * 1000), details: { assigneeId: 'actor-a' },
+    });
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.saveReviewProgress(
+      'sub-1', 'Comparaison approfondie avec les justificatifs.', '2026-10-29T10:00:00.000Z', 'actor-a', regionalA,
+    )).rejects.toThrow(ConflictException);
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ assigneeId: null }),
+    }));
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'DOSSIER_CLAIM_EXPIRED',
+        resourceId: 'sub-1',
+        details: expect.objectContaining({ previousAssigneeId: 'actor-a', reason: 'INACTIVITY' }),
+      }),
+    });
+  });
+
+  it('allows only one of two simultaneous claims using the row compare-and-swap', async () => {
+    const row: any = submissionTarget({ updatedAt: new Date('2026-10-29T10:00:00.000Z') });
+    const events: any[] = [];
+    const matches = (where: any) => {
+      if (where.id !== undefined && row.id !== where.id) return false;
+      if (where.status !== undefined && row.status !== where.status) return false;
+      if (where.assigneeId !== undefined && row.assigneeId !== where.assigneeId) return false;
+      if (where.updatedAt !== undefined && row.updatedAt.getTime() !== where.updatedAt.getTime()) return false;
+      if (where.archivedAt === null && row.archivedAt !== null) return false;
+      return true;
+    };
+    const prisma: any = {
+      onefopSubmission: {
+        findFirst: jest.fn(async () => ({ ...row })),
+        updateMany: jest.fn(async ({ where, data }: any) => {
+          if (!matches(where)) return { count: 0 };
+          Object.assign(row, data);
+          return { count: 1 };
+        }),
+      },
+      user: { findFirst: jest.fn(async ({ where }: any) => activeAgent({ id: where.id })) },
+      auditLog: {
+        findFirst: jest.fn(async ({ where }: any) => events
+          .filter((event) => event.resourceType === where.resourceType && event.resourceId === where.resourceId && where.action.in.includes(event.action))
+          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0] ?? null),
+        create: jest.fn(async ({ data }: any) => {
+          const event = { ...data, timestamp: data.timestamp ?? new Date() };
+          events.push(event);
+          return event;
+        }),
+      },
+      $transaction: jest.fn(async (callback: any) => callback(prisma)),
+    };
+    const service = new QuestionnairesService(prisma);
+
+    const results = await Promise.allSettled([
+      service.assignSubmission('sub-1', 'agent-a', 'agent-a', { role: 'REGIONAL_ADMIN', region: 'Centre' }),
+      service.assignSubmission('sub-1', 'agent-b', 'agent-b', { role: 'REGIONAL_ADMIN', region: 'Centre' }),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect((results.find((result) => result.status === 'rejected') as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+    expect(['agent-a', 'agent-b']).toContain(row.assigneeId);
+    expect(events.filter((event) => event.action === 'DOSSIER_ASSIGNED')).toHaveLength(1);
   });
 
   it('P5-3 bulk correction only sends PENDING_REVIEW files back, audits each one and keeps the campaign in progress', async () => {
     const prisma = transactionalPrisma();
     prisma.onefopSubmission.findMany.mockResolvedValue([
-      { id: 'pending-1', status: 'PENDING_REVIEW', region: 'Centre', department: 'Mf', campaignId: 'camp-1', establishmentId: 'est-1', companyId: null },
-      { id: 'correction-1', status: 'CORRECTION_REQUESTED', region: 'Centre', department: 'Mf', campaignId: null, establishmentId: null, companyId: null },
+      { id: 'pending-1', status: 'PENDING_REVIEW', assigneeId: 'actor-n', updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre', department: 'Mf', campaignId: 'camp-1', establishmentId: 'est-1', companyId: null },
+      { id: 'correction-1', status: 'CORRECTION_REQUESTED', assigneeId: 'actor-n', updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre', department: 'Mf', campaignId: null, establishmentId: null, companyId: null },
     ]);
     const engine = new EligibilityEngineService(prisma);
 
@@ -126,10 +257,10 @@ describe('Phase 5 team workflow', () => {
       { id: 'missing-1', reason: 'Dossier introuvable ou hors ressort.' },
       { id: 'correction-1', reason: 'Statut administratif invalide (CORRECTION_REQUESTED).' },
     ]);
-    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['pending-1'] }, status: 'PENDING_REVIEW' },
-      data: expect.objectContaining({ status: 'CORRECTION_REQUESTED', reviewedBy: 'actor-n' }),
-    });
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'pending-1', status: 'PENDING_REVIEW', assigneeId: 'actor-n' }),
+      data: expect.objectContaining({ status: 'CORRECTION_REQUESTED', reviewedBy: 'actor-n', assigneeId: null }),
+    }));
     const correctionAudits = prisma.auditLog.create.mock.calls
       .map((call: any[]) => call[0].data)
       .filter((row: any) => row.action === 'AUDIT_CORRECTION');

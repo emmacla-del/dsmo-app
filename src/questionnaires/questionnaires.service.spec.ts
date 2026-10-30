@@ -1094,6 +1094,10 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         },
         auditLog: {
           create: jest.fn().mockResolvedValue({}),
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+        campaignSubmission: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
       };
       prisma.$transaction = jest.fn().mockImplementation((cb: any) => cb(prisma));
@@ -1131,6 +1135,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-clean',
         status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'admin-1',
+        archivedAt: null,
         anomalies: [],
         updatedAt: REVISION,
       });
@@ -1138,11 +1144,12 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       const result = await service.approve('sub-clean', 'admin-1', undefined, REVISION.toISOString());
 
       expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
-        where: { id: 'sub-clean', status: OnefopStatus.PENDING_REVIEW, updatedAt: REVISION },
+        where: { id: 'sub-clean', status: OnefopStatus.PENDING_REVIEW, updatedAt: REVISION, assigneeId: 'admin-1', archivedAt: null },
         data: expect.objectContaining({
           status: 'APPROVED',
           reviewedBy: 'admin-1',
           reviewedAt: expect.any(Date),
+          assigneeId: null,
         }),
       });
       expect(result.status).toBe(OnefopStatus.APPROVED);
@@ -1152,6 +1159,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-clean',
         status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'reg-admin-1',
+        archivedAt: null,
         campaignId: 'camp-123',
         establishmentId: 'est-456',
         region: 'Centre',
@@ -1184,6 +1193,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-clean',
         status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'central-admin-1',
+        archivedAt: null,
         campaignId: 'camp-789',
         establishmentId: 'est-012',
         region: 'Littoral',
@@ -1212,10 +1223,34 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       });
     });
 
+    it('approval linked to a campaign updates the CampaignSubmission row without logging a sync error', async () => {
+      prisma.onefopSubmission.findFirst.mockResolvedValue({
+        id: 'sub-clean',
+        status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'admin-1',
+        archivedAt: null,
+        campaignId: 'camp-123',
+        establishmentId: 'est-456',
+        anomalies: [],
+        updatedAt: REVISION,
+      });
+      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+
+      await service.approve('sub-clean', 'admin-1', undefined, REVISION.toISOString());
+
+      expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith({
+        where: { campaignId: 'camp-123', establishmentId: 'est-456' },
+        data: { status: 'VALIDATED' },
+      });
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+
     it('approval of a submission with only non-blocking warning anomalies succeeds', async () => {
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-warning',
         status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'admin-1',
+        archivedAt: null,
         anomalies: [
           {
             id: 'ano-warn',
@@ -1237,6 +1272,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-resolved',
         status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'admin-1',
+        archivedAt: null,
         anomalies: [
           {
             id: 'ano-resolved',
@@ -1293,6 +1330,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
         },
         auditLog: {
           create: jest.fn(),
+          findFirst: jest.fn().mockResolvedValue(null),
         },
       };
       prisma.$transaction = jest.fn().mockImplementation((cb: any) => cb(prisma));
@@ -1315,6 +1353,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-pending',
         status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'actor-1',
+        archivedAt: null,
         anomalies: [],
         updatedAt: REVISION,
       });
@@ -1359,6 +1399,8 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'sub-pending',
         status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'actor-1',
+        archivedAt: null,
         anomalies: [],
         updatedAt: REVISION,
       });
@@ -2162,7 +2204,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
         }),
         findUnique: jest.fn(async ({ where }: any) => ({ id: where.id, ...written })),
       },
-      auditLog: { create: jest.fn(async () => ({})) },
+      auditLog: { create: jest.fn(async () => ({})), findFirst: jest.fn(async () => null) },
       campaignSubmission: { updateMany: jest.fn(async () => ({ count: 1 })) },
     };
     prisma.$transaction = jest.fn(async (cb: any) => cb(prisma));
@@ -2173,7 +2215,7 @@ describe('QuestionnairesService — campaign progress on ONEFOP review (B4)', ()
     return new QuestionnairesService(prisma, undefined, new EligibilityEngineService(prisma));
   }
 
-  const linked = { id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, campaignId: 'camp-1', companyId: 'co-1', establishmentId: 'est-1' };
+  const linked = { id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'admin-1', archivedAt: null, campaignId: 'camp-1', companyId: 'co-1', establishmentId: 'est-1' };
 
   it('approve: CampaignSubmission -> VALIDATED, submittedAt untouched', async () => {
     const prisma = buildPrisma(linked);

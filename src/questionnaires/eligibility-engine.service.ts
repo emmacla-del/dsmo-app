@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -23,6 +24,7 @@ import {
 import { BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
+import { CLAIM_EXPIRED_AUDIT_ACTION, getEffectiveClaimState } from './review-claim-policy';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
 import {
   REVIEW_DELAY_THRESHOLD_DAYS,
@@ -48,6 +50,58 @@ export class EligibilityEngineService {
   private readonly logger = new Logger(EligibilityEngineService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private async bulkOwnershipFailure(tx: any, candidate: any, actorId: string): Promise<string | null> {
+    if (candidate.archivedAt) return 'Dossier archivé et non réclamable.';
+    const claim = await getEffectiveClaimState(tx, candidate);
+    if (claim.expired) {
+      const clearedAt = new Date();
+      const released = await tx.onefopSubmission.updateMany({
+        where: {
+          id: candidate.id,
+          status: candidate.status,
+          assigneeId: candidate.assigneeId,
+          updatedAt: candidate.updatedAt,
+          archivedAt: null,
+        },
+        data: { assigneeId: null, updatedAt: clearedAt },
+      });
+      if (released.count === 1) {
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            action: CLAIM_EXPIRED_AUDIT_ACTION,
+            resourceType: 'OnefopSubmission',
+            resourceId: candidate.id,
+            timestamp: clearedAt,
+            details: {
+              previousAssigneeId: candidate.assigneeId,
+              reason: 'INACTIVITY',
+            },
+          },
+        });
+        return 'Réclamation expirée par inactivité. Réclamez le dossier de nouveau.';
+      }
+      return 'Dossier modifié simultanément; rechargez-le avant une nouvelle action.';
+    }
+    if (!claim.assigneeId) return 'Dossier non réclamé par cet agent.';
+    if (claim.assigneeId !== actorId) return 'Dossier réclamé par un autre agent.';
+    return null;
+  }
+
+  private async updateOwnedBulkRecord(tx: any, candidate: any, actorId: string, data: Record<string, unknown>): Promise<boolean> {
+    const result = await tx.onefopSubmission.updateMany({
+      where: {
+        id: candidate.id,
+        status: candidate.status,
+        assigneeId: actorId,
+        updatedAt: candidate.updatedAt,
+        archivedAt: null,
+      },
+      data: { ...data, assigneeId: null, updatedAt: new Date() },
+    });
+    return result.count === 1;
+  }
 
   /**
    * Pure deterministic projection of Axis 1 (Administrative) and Axis 2 (Quality)
@@ -614,70 +668,107 @@ export class EligibilityEngineService {
    * Resolve or waive an anomaly with actor-based authorization and legal audit
    */
   async resolveAnomaly(anomalyId: string, actor: any, dto: ResolveAnomalyDto) {
-    const anomaly = await this.prisma.onefopAnomaly.findUnique({
-      where: { id: anomalyId },
-      include: { submission: true },
-    });
-
-    if (!anomaly) {
-      throw new NotFoundException(`Anomalie #${anomalyId} introuvable.`);
-    }
-    if ((anomaly.submission as any)?.archivedAt) {
-      throw new BadRequestException('Cette fiche est archivée.');
-    }
-
-    if (anomaly.status !== AnomalyStatus.OPEN) {
-      throw new BadRequestException(`Cette anomalie a déjà été traitée (${anomaly.status}).`);
-    }
-
-    // Strict Authorization check on LEGAL_DEROGATION
-    if (dto.resolutionType === AnomalyResolutionType.LEGAL_DEROGATION) {
-      const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP, UserRole.ADMIN_ONEFOP];
-      if (!allowedRoles.includes(actor.role)) {
-        throw new ForbiddenException(
-          'Seule la Direction Centrale ONEFOP ou le SuperAdmin National peut accorder une dispense légale (WAIVED).'
-        );
+    const result = await this.prisma.$transaction(async (tx) => {
+      const anomaly = await tx.onefopAnomaly.findUnique({ where: { id: anomalyId }, include: { submission: true } });
+      if (!anomaly) throw new NotFoundException('Anomalie introuvable.');
+      const submission = anomaly.submission as any;
+      if (submission?.archivedAt) throw new BadRequestException('Cette fiche est archivée.');
+      if (anomaly.status !== AnomalyStatus.OPEN) {
+        throw new BadRequestException(`Cette anomalie a déjà été traitée (${anomaly.status}).`);
       }
-    }
 
-    // Territorial scope check for field inspectors
-    assertTerritorialAuthority(actor, anomaly.submission);
+      const legalWaiver = dto.resolutionType === AnomalyResolutionType.LEGAL_DEROGATION;
+      if (legalWaiver && ![UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP].includes(actor.role)) {
+        throw new ForbiddenException('Seule la Direction Centrale ONEFOP ou le SuperAdmin National peut accorder une dispense légale (WAIVED).');
+      }
+      assertTerritorialAuthority(actor, submission);
+      const nextStatus = legalWaiver ? AnomalyStatus.WAIVED : AnomalyStatus.RESOLVED;
+      const now = new Date();
 
-    const nextStatus = dto.resolutionType === AnomalyResolutionType.LEGAL_DEROGATION
-      ? AnomalyStatus.WAIVED
-      : AnomalyStatus.RESOLVED;
+      if (!legalWaiver) {
+        const revision = dto.expectedRevision ? new Date(dto.expectedRevision) : submission.updatedAt;
+        if (!revision || Number.isNaN(revision.getTime())) throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier.');
+        if (submission.updatedAt?.getTime() !== revision.getTime()) throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant de confirmer.');
+        const claim = await getEffectiveClaimState(tx, submission, now);
+        if (!claim.eligible) throw new BadRequestException(`Ce dossier ne peut plus recevoir de revue au statut ${submission.status}.`);
+        if (claim.expired) {
+          const cleared = await tx.onefopSubmission.updateMany({
+            where: { id: submission.id, status: submission.status, assigneeId: submission.assigneeId, updatedAt: revision, archivedAt: null },
+            data: { assigneeId: null, updatedAt: now },
+          });
+          if (cleared.count !== 1) throw new ConflictException('Le dossier a changé pendant la vérification de la réclamation.');
+          await tx.auditLog.create({
+            data: {
+              userId: actor.id,
+              action: CLAIM_EXPIRED_AUDIT_ACTION,
+              resourceType: 'OnefopSubmission',
+              resourceId: submission.id,
+              timestamp: now,
+              details: {
+                previousAssigneeId: submission.assigneeId,
+                reason: 'INACTIVITY',
+              },
+            },
+          });
+          return { kind: 'expired' as const };
+        }
+        if (claim.assigneeId !== actor.id) throw new ForbiddenException('Vous devez détenir la réclamation active de ce dossier pour résoudre cette anomalie.');
+        const parentUpdated = await tx.onefopSubmission.updateMany({
+          where: { id: submission.id, status: submission.status, assigneeId: actor.id, updatedAt: revision, archivedAt: null },
+          data: { updatedAt: now },
+        });
+        if (parentUpdated.count !== 1) throw new ConflictException('Le dossier a été modifié simultanément. Rechargez-le.');
+      }
 
-    const updated = await this.prisma.onefopAnomaly.update({
-      where: { id: anomalyId },
-      data: {
-        status: nextStatus,
-        resolutionType: dto.resolutionType,
-        resolutionNote: dto.resolutionNote,
-        evidenceUrl: dto.evidenceUrl ?? null,
-        resolvedById: actor.id,
-        resolvedAt: new Date(),
-      },
-    });
-
-    // Write audit trail
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actor.id,
-        action: nextStatus === AnomalyStatus.WAIVED ? 'ANOMALY_WAIVED' : 'ANOMALY_RESOLVED',
-        resourceType: 'OnefopAnomaly',
-        resourceId: anomaly.id,
-        details: {
-          ruleCode: anomaly.ruleCode,
-          submissionId: anomaly.submissionId,
+      const changed = await tx.onefopAnomaly.updateMany({
+        where: { id: anomalyId, submissionId: submission.id, status: AnomalyStatus.OPEN },
+        data: {
+          status: nextStatus,
           resolutionType: dto.resolutionType,
           resolutionNote: dto.resolutionNote,
-          evidenceUrl: dto.evidenceUrl,
+          evidenceUrl: dto.evidenceUrl ?? null,
+          resolvedById: actor.id,
+          resolvedAt: now,
         },
-      },
-    });
+      });
+      if (changed.count !== 1) throw new ConflictException('Cette anomalie a été modifiée simultanément. Rechargez la page.');
 
-    return updated;
+      await tx.auditLog.create({
+        data: {
+          userId: actor.id,
+          action: nextStatus === AnomalyStatus.WAIVED ? 'ANOMALY_WAIVED' : 'ANOMALY_RESOLVED',
+          resourceType: 'OnefopAnomaly',
+          resourceId: anomaly.id,
+          timestamp: now,
+          details: {
+            ruleCode: anomaly.ruleCode,
+            submissionId: anomaly.submissionId,
+            resolutionType: dto.resolutionType,
+            resolutionNote: dto.resolutionNote,
+            evidenceUrl: dto.evidenceUrl,
+          },
+        },
+      });
+      if (!legalWaiver) {
+        await tx.auditLog.create({
+          data: {
+            userId: actor.id,
+            action: 'DOSSIER_REVIEW_PROGRESS_SAVED',
+            resourceType: 'OnefopSubmission',
+            resourceId: submission.id,
+            timestamp: now,
+            details: { ownerId: actor.id, progressType: 'ANOMALY_RESOLVED', anomalyId: anomaly.id },
+          },
+        });
+      }
+      return { kind: 'updated' as const, value: await tx.onefopAnomaly.findUnique({ where: { id: anomalyId } }) };
+    });
+    if (result.kind === 'expired') {
+      throw new ConflictException('Votre réclamation a expiré. Réclamez de nouveau le dossier avant de résoudre cette anomalie.');
+    }
+    return result.value;
   }
+
 
   /**
    * Protected Transactional Bulk Visa
@@ -734,6 +825,11 @@ export class EligibilityEngineService {
           continue;
         }
 
+        if (candidate.archivedAt) {
+          rejectedItems.push({ id: candidate.id, reason: 'Dossier archivé et non réclamable.' });
+          continue;
+        }
+
         // Condition B: Must be in PENDING_REVIEW
         if (candidate.status !== OnefopStatus.PENDING_REVIEW) {
           rejectedItems.push({
@@ -752,6 +848,21 @@ export class EligibilityEngineService {
           continue;
         }
 
+        const ownershipFailure = await this.bulkOwnershipFailure(tx, candidate, actor.id);
+        if (ownershipFailure) {
+          rejectedItems.push({ id: candidate.id, reason: ownershipFailure });
+          continue;
+        }
+        const decidedAt = new Date();
+        const updated = await this.updateOwnedBulkRecord(tx, candidate, actor.id, {
+          status: OnefopStatus.APPROVED,
+          reviewedBy: actor.id,
+          reviewedAt: decidedAt,
+        });
+        if (!updated) {
+          rejectedItems.push({ id: candidate.id, reason: 'Dossier modifié simultanément; rechargez-le avant une nouvelle action.' });
+          continue;
+        }
         approvedIds.push(candidate.id);
         campaignTargets.push({
           id: candidate.id,
@@ -759,22 +870,26 @@ export class EligibilityEngineService {
           establishmentId: candidate.establishmentId,
           companyId: candidate.companyId,
         });
-      }
-
-      // 2. Atomically update all verified clean candidates.
-      // The status condition inside the where re-checks status atomically,
-      // preventing a concurrent action between our read and this write.
-      if (approvedIds.length > 0) {
-        await tx.onefopSubmission.updateMany({
-          where: { id: { in: approvedIds }, status: OnefopStatus.PENDING_REVIEW },
+        await tx.auditLog.create({
           data: {
-            status: OnefopStatus.APPROVED,
-            reviewedBy: actor.id,
-            reviewedAt: new Date(),
+            userId: actor.id,
+            action: 'AUDIT_APPROVE',
+            resourceType: 'OnefopSubmission',
+            resourceId: candidate.id,
+            details: {
+              previousStatus: OnefopStatus.PENDING_REVIEW,
+              newStatus: OnefopStatus.APPROVED,
+              certified: true,
+              bulk: true,
+              actorRole: actor.role,
+              actorEmail: actor.email,
+            },
           },
         });
+      }
 
-        // 3. Write permanent Ministerial Audit event
+      // One summary event plus one decision event per successful record.
+      if (approvedIds.length > 0) {
         await tx.auditLog.create({
           data: {
             userId: actor.id,
@@ -841,6 +956,9 @@ export class EligibilityEngineService {
         select: {
           id: true,
           status: true,
+          assigneeId: true,
+          updatedAt: true,
+          archivedAt: true,
           region: true,
           department: true,
           campaignId: true,
@@ -881,6 +999,22 @@ export class EligibilityEngineService {
           continue;
         }
 
+        const ownershipFailure = await this.bulkOwnershipFailure(tx, candidate, actor.id);
+        if (ownershipFailure) {
+          skippedItems.push({ id: candidate.id, reason: ownershipFailure });
+          continue;
+        }
+        const decidedAt = new Date();
+        const updated = await this.updateOwnedBulkRecord(tx, candidate, actor.id, {
+          status: OnefopStatus.REJECTED,
+          rejectionReason: dto.reason,
+          reviewedBy: actor.id,
+          reviewedAt: decidedAt,
+        });
+        if (!updated) {
+          skippedItems.push({ id: candidate.id, reason: 'Dossier modifié simultanément; rechargez-le avant une nouvelle action.' });
+          continue;
+        }
         rejectableIds.push(candidate.id);
         campaignTargets.push({
           id: candidate.id,
@@ -888,23 +1022,18 @@ export class EligibilityEngineService {
           establishmentId: candidate.establishmentId,
           companyId: candidate.companyId,
         });
+        await tx.auditLog.create({
+          data: {
+            userId: actor.id,
+            action: 'AUDIT_REJECT',
+            resourceType: 'OnefopSubmission',
+            resourceId: candidate.id,
+            details: { reason: dto.reason, previousStatus: candidate.status, newStatus: OnefopStatus.REJECTED, certified: true, bulk: true, actorRole: actor.role },
+          },
+        });
       }
 
       if (rejectableIds.length > 0) {
-        // Status condition inside where prevents concurrent overwrites
-        await tx.onefopSubmission.updateMany({
-          where: {
-            id: { in: rejectableIds },
-            status: { in: [OnefopStatus.PENDING_REVIEW, OnefopStatus.CORRECTION_REQUESTED] },
-          },
-          data: {
-            status: OnefopStatus.REJECTED,
-            rejectionReason: dto.reason,
-            reviewedBy: actor.id,
-            reviewedAt: new Date(),
-          },
-        });
-
         await tx.auditLog.create({
           data: {
             userId: actor.id,
@@ -973,6 +1102,9 @@ export class EligibilityEngineService {
         select: {
           id: true,
           status: true,
+          assigneeId: true,
+          updatedAt: true,
+          archivedAt: true,
           region: true,
           department: true,
           campaignId: true,
@@ -1010,6 +1142,26 @@ export class EligibilityEngineService {
           continue;
         }
 
+        if (candidate.archivedAt) {
+          skippedItems.push({ id: candidate.id, reason: 'Dossier archivé et non réclamable.' });
+          continue;
+        }
+        const ownershipFailure = await this.bulkOwnershipFailure(tx, candidate, actor.id);
+        if (ownershipFailure) {
+          skippedItems.push({ id: candidate.id, reason: ownershipFailure });
+          continue;
+        }
+        const decidedAt = new Date();
+        const updated = await this.updateOwnedBulkRecord(tx, candidate, actor.id, {
+          status: OnefopStatus.CORRECTION_REQUESTED,
+          rejectionReason: dto.reason,
+          reviewedBy: actor.id,
+          reviewedAt: decidedAt,
+        });
+        if (!updated) {
+          skippedItems.push({ id: candidate.id, reason: 'Dossier modifié simultanément; rechargez-le avant une nouvelle action.' });
+          continue;
+        }
         correctedIds.push(candidate.id);
         campaignTargets.push({
           id: candidate.id,
@@ -1017,43 +1169,26 @@ export class EligibilityEngineService {
           establishmentId: candidate.establishmentId,
           companyId: candidate.companyId,
         });
-      }
-
-      if (correctedIds.length > 0) {
-        // Status condition inside where prevents concurrent overwrites.
-        await tx.onefopSubmission.updateMany({
-          where: {
-            id: { in: correctedIds },
-            status: OnefopStatus.PENDING_REVIEW,
-          },
+        await tx.auditLog.create({
           data: {
-            status: OnefopStatus.CORRECTION_REQUESTED,
-            rejectionReason: dto.reason,
-            reviewedBy: actor.id,
-            reviewedAt: new Date(),
+            userId: actor.id,
+            action: 'AUDIT_CORRECTION',
+            resourceType: 'OnefopSubmission',
+            resourceId: candidate.id,
+            details: {
+              comments: dto.reason,
+              previousStatus: OnefopStatus.PENDING_REVIEW,
+              newStatus: OnefopStatus.CORRECTION_REQUESTED,
+              certified: true,
+              bulk: true,
+              actorRole: actor.role,
+              actorEmail: actor.email,
+            },
           },
         });
-
+      }
+      if (correctedIds.length > 0) {
         const timestamp = new Date().toISOString();
-        for (const id of correctedIds) {
-          await tx.auditLog.create({
-            data: {
-              userId: actor.id,
-              action: 'AUDIT_CORRECTION',
-              resourceType: 'OnefopSubmission',
-              resourceId: id,
-              details: {
-                comments: dto.reason,
-                previousStatus: OnefopStatus.PENDING_REVIEW,
-                certified: true,
-                bulk: true,
-                actorRole: actor.role,
-                actorEmail: actor.email,
-              },
-            },
-          });
-        }
-        // One summary row for the batch itself, as bulk visa and reject do.
         await tx.auditLog.create({
           data: {
             userId: actor.id,

@@ -11,7 +11,7 @@ const territory = (role: string) => ({ role, region: 'Littoral', department: 'Wo
 
 const REVISION = new Date('2026-10-27T09:30:00.000Z');
 
-function setup({ status = 'APPROVED', roundOpen = true } = {}) {
+function setup({ status = 'APPROVED', roundOpen = true, assigneeId = null } = {}) {
   const submission = {
     id: 'db-1',
     status,
@@ -24,6 +24,8 @@ function setup({ status = 'APPROVED', roundOpen = true } = {}) {
     department: 'Wouri',
     departmentId: null,
     updatedAt: REVISION,
+    assigneeId,
+    archivedAt: null,
   };
   let written: Record<string, unknown> = {};
   const prisma: any = {
@@ -55,8 +57,13 @@ describe('QuestionnairesService.reopenForCorrection', () => {
 
     expect(updated.status).toBe('CORRECTION_REQUESTED');
     expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
-      where: { id: 'db-1', status: 'APPROVED', updatedAt: REVISION },
-      data: expect.objectContaining({ status: 'CORRECTION_REQUESTED', rejectionReason: REASON, reviewedBy: 'admin-1' }),
+      where: { id: 'db-1', status: 'APPROVED', updatedAt: REVISION, assigneeId: null, archivedAt: null },
+      data: expect.objectContaining({
+        status: 'CORRECTION_REQUESTED',
+        rejectionReason: REASON,
+        reviewedBy: 'admin-1',
+        assigneeId: null,
+      }),
     });
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -70,6 +77,26 @@ describe('QuestionnairesService.reopenForCorrection', () => {
     expect(prisma.campaignSubmission.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'IN_PROGRESS' }) }),
     );
+  });
+
+  it('reopens a file held by another reviewer without taking the claim', async () => {
+    const { service, prisma } = setup({ assigneeId: 'other-admin' });
+    const updated: any = await service.reopenForCorrection(
+      'db-1', REASON, true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+    );
+
+    expect(updated.status).toBe('CORRECTION_REQUESTED');
+    expect(updated.assigneeId).toBeNull();
+    expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'db-1',
+        status: 'APPROVED',
+        updatedAt: REVISION,
+        assigneeId: 'other-admin',
+        archivedAt: null,
+      },
+      data: expect.objectContaining({ status: 'CORRECTION_REQUESTED', assigneeId: null }),
+    });
   });
 
   it('is open to SUPER_ADMIN too', async () => {

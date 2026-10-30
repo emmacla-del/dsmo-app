@@ -137,7 +137,7 @@ describe('Phase 2 authorization policy', () => {
   });
 
   it('P2-10 refuses CENTRAL_AGENT on questionnaire decisions', async () => {
-    for (const method of ['approve', 'reject', 'requestCorrection']) {
+    for (const method of ['approve', 'reject', 'requestCorrection', 'assign', 'saveReviewProgress']) {
       await expect403(AdminQuestionnairesController, method, 'CENTRAL_AGENT');
     }
   });
@@ -164,6 +164,15 @@ describe('Phase 2 authorization policy', () => {
 
   it('P2-15 allows CENTRAL_AGENT to read a questionnaire by id', async () => {
     await expect(guardedResult(AdminQuestionnairesController, 'getOne', 'CENTRAL_AGENT')).resolves.toBe(true);
+  });
+
+  it('allows CENTRAL_AGENT to read claim state and review progress without granting mutation access', async () => {
+    for (const method of ['getClaimState', 'listReviewProgress']) {
+      await expect(guardedResult(AdminQuestionnairesController, method, 'CENTRAL_AGENT')).resolves.toBe(true);
+    }
+    for (const method of ['assign', 'saveReviewProgress', 'approve', 'resolveAnomaly']) {
+      await expect403(AdminQuestionnairesController, method, 'CENTRAL_AGENT');
+    }
   });
 
   it('P2-16 allows CENTRAL_AGENT to read pilotage queues', async () => {

@@ -22,7 +22,7 @@ import { Roles } from '../auth/roles.decorator';
 import { READ_ONLY_NATIONAL_ROLES, SURVEY_ADMIN_ROLES } from '../auth/staff-scope';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
-import { BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
+import { BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto, SaveReviewProgressDto } from '../dto/admin-dossier.dto';
 import { AssignRecordDto } from '../common/assign.dto';
 import { territoryFromUser } from '../auth/territory';
 import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
@@ -422,6 +422,19 @@ export class AdminQuestionnairesController {
     return this.eligibilityEngine.evaluateDossier(id, territoryFromUser(req.user), includeArchivedFlag(includeArchived, false));
   }
 
+  /** Effective claim state, including inactivity calculated from claim activity events. */
+  @Get(':id/claim-state')
+  @Roles(...DOSSIER_READ_ROLES)
+  async getClaimState(@Param('id') id: string, @Request() req: any) {
+    return this.service.getReviewClaimState(id, territoryFromUser(req.user));
+  }
+
+  @Get(':id/review-progress')
+  @Roles(...DOSSIER_READ_ROLES)
+  async listReviewProgress(@Param('id') id: string, @Request() req: any) {
+    return this.service.listReviewProgress(id, territoryFromUser(req.user));
+  }
+
   @Get(':id')
   @Roles(...DOSSIER_READ_ROLES)
   async getOne(@Param('id') id: string, @Request() req: any, @Query('includeArchived') includeArchived?: string) {
@@ -442,16 +455,20 @@ export class AdminQuestionnairesController {
     return this.service.restoreSubmission(id, body?.reason, req.user.id, territoryFromUser(req.user));
   }
 
-  /**
-   * Claims, reassigns or releases a dossier's review (phase 5, team workflow).
-   * A null assigneeId releases it; the service checks that the assignee is an
-   * active agent of this module with jurisdiction over the file.
-   */
+  /** Claim for self or release own claim. A different assignee is rejected. */
   @Patch(':id/assign')
   @Roles(...SURVEY_ADMIN_ROLES)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   async assign(@Param('id') id: string, @Body() body: AssignRecordDto, @Request() req: any) {
     return this.service.assignSubmission(id, body.assigneeId ?? null, req.user.id, territoryFromUser(req.user));
+  }
+
+  /** Persist meaningful reviewer-authored progress and extend the inactivity window. */
+  @Post(':id/review-progress')
+  @Roles(...SURVEY_ADMIN_ROLES)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async saveReviewProgress(@Param('id') id: string, @Body() body: SaveReviewProgressDto, @Request() req: any) {
+    return this.service.saveReviewProgress(id, body.note, body.expectedRevision, req.user.id, territoryFromUser(req.user));
   }
 
   @Patch(':id/approve')
