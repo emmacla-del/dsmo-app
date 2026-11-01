@@ -135,7 +135,7 @@ export function AdminSidebar({
     <aside id="cam-admin-rail" className="cam-admin-rail" aria-label={t("navAriaLabel")}>
       {/* ── Brand ── */}
       <div className="cam-admin-rail-brand">
-        <div className="cam-admin-rail-brand-name">ONEFOP</div>
+        <div className="cam-admin-rail-brand-name">CAMLEAP</div>
         <div className="cam-admin-rail-brand-sub">{t("brandSubtitle")}</div>
       </div>
 

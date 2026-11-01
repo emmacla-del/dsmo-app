@@ -5739,8 +5739,13 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-rail-hub[aria-current="page"] {
-    background: var(--cam-console-navy-44);
+    border-inline-start: 3px solid var(--cam-console-navy-37);
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    padding-inline-start: calc(var(--cam-space-3) - 3px);
+    background: rgba(255, 255, 255, 0.1);
     color: var(--cam-white);
+    box-shadow: none;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-rail-hub:hover:not([aria-current="page"]) {
@@ -8742,10 +8747,14 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-scope {
+    min-height: 36px;
+    padding: 0 9px;
     border-color: var(--cam-console-navy-24);
-    background: var(--cam-console-navy-07);
-    color: var(--cam-console-navy-56);
-    font-size: 11px;
+    border-radius: 6px;
+    background: var(--cam-surface);
+    color: var(--cam-console-navy-61);
+    font-size: 12px;
+    font-weight: 600;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account .cam-language-link {
