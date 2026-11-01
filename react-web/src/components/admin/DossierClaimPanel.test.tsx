@@ -87,59 +87,6 @@ function seedQueries(queryData: Array<[readonly unknown[], unknown]> = []) {
   ];
 }
 
-test("claim action refreshes ownership from the server and does not submit a client revision", async () => {
-  const originalFetch = globalThis.fetch;
-  const patchBodies: unknown[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    const method = init?.method ?? "GET";
-    if (method === "PATCH" && url.endsWith("/assign")) patchBodies.push(JSON.parse(String(init?.body)));
-    return responseFor(url, method, { claim: claimResponse() });
-  }) as typeof fetch;
-
-  try {
-    const { user, queryClient } = renderPanel(panel(), {
-      locale: "en",
-      queryData: seedQueries([[["admin", "questionnaires", "list", "submissions"], { items: [] }]]),
-    });
-    await user.click(screen.getByRole("button", { name: "Claim for me" }));
-    await screen.findByText("Claim state updated. The dossier is refreshing.");
-    await screen.findByText("Agent One");
-    assert.deepEqual(patchBodies, [{ assigneeId: userId }]);
-    assert.equal(queryClient.getQueryState(["admin", "questionnaires", "list", "submissions"])?.isInvalidated, true);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("release action sends null and refreshes the effective owner from the server", async () => {
-  const originalFetch = globalThis.fetch;
-  const patchBodies: unknown[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url.endsWith("/assign") && init?.method === "PATCH") {
-      patchBodies.push(JSON.parse(String(init.body)));
-      return jsonResponse({ id: dossierId, assigneeId: null, assigneeName: null, expiresAt: null, lastActivityAt: null });
-    }
-    if (url.endsWith("/claim-state")) return jsonResponse({ ...initialClaim, assigneeId: null });
-    return responseFor(url, init?.method ?? "GET", { claim: claimResponse() });
-  }) as typeof fetch;
-
-  try {
-    const { user } = renderPanel(panel(), {
-      locale: "en",
-      queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse()]]),
-    });
-    await user.click(screen.getByRole("button", { name: "Release claim" }));
-    await screen.findByText("Claim state updated. The dossier is refreshing.");
-    await screen.findByText("No active reviewer");
-    assert.deepEqual(patchBodies, [{ assigneeId: null }]);
-    assert.ok(screen.getByRole("button", { name: "Claim for me" }));
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
 test("a revision-bound progress note submits the exact loaded revision and preserves the returned revision", async () => {
   const originalFetch = globalThis.fetch;
   const requestBodies: unknown[] = [];
@@ -214,26 +161,21 @@ test("a stale progress conflict refreshes server data, informs the reviewer, and
   }
 });
 
-test("effective ownership controls available actions when server state changes", async () => {
+test("someone else's claim offers no note form", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => responseFor(String(input), init?.method ?? "GET")) as typeof fetch;
   try {
-    const { queryClient } = renderPanel(panel(), {
+    renderPanel(panel(), {
       locale: "en",
-      queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse()]]),
+      queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse({ assigneeId: "agent-2", assigneeName: "Agent Two" })]]),
     });
-    assert.ok(screen.getByRole("button", { name: "Release claim" }));
-    queryClient.setQueryData(dossierClaimStateKey(dossierId), claimResponse({ assigneeId: "agent-2", assigneeName: "Agent Two" }));
-    await screen.findByText("Agent Two");
-    assert.equal(screen.queryByRole("button", { name: "Release claim" }), null);
-    assert.equal(screen.queryByRole("button", { name: "Claim for me" }), null);
     assert.equal(screen.queryByRole("button", { name: "Save progress" }), null);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("expired or non-claimable server states do not offer review actions", async () => {
+test("an expired or unclaimed file offers no note form", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => responseFor(String(input), init?.method ?? "GET")) as typeof fetch;
   try {
@@ -241,56 +183,38 @@ test("expired or non-claimable server states do not offer review actions", async
       locale: "en",
       queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse({ assigneeId: null, assigneeName: null, expired: true })]]),
     });
-    assert.ok(await screen.findByText("The previous claim expired after inactivity. This dossier can be claimed again."));
-    assert.ok(screen.getByRole("button", { name: "Claim for me" }));
     assert.equal(screen.queryByRole("button", { name: "Save progress" }), null);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("duplicate claim submission is prevented while the request is pending", async () => {
+test("every survey role that holds the claim may write a note, not only one role", async () => {
   const originalFetch = globalThis.fetch;
-  let requestCount = 0;
-  let resolveRequest: ((response: Response) => void) | undefined;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url.endsWith("/assign") && init?.method === "PATCH") {
-      requestCount += 1;
-      return new Promise<Response>((resolve) => { resolveRequest = resolve; });
-    }
-    return responseFor(url, init?.method ?? "GET", { claim: claimResponse() });
-  }) as typeof fetch;
-
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => responseFor(String(input), init?.method ?? "GET")) as typeof fetch;
   try {
-    const { user } = renderPanel(panel(), { locale: "en", queryData: seedQueries() });
-    const button = screen.getByRole("button", { name: "Claim for me" });
-    await user.click(button);
-    await screen.findByRole("button", { name: "Saving…" });
-    assert.equal((screen.getByRole("button", { name: "Saving…" }) as HTMLButtonElement).disabled, true);
-    await user.click(screen.getByRole("button", { name: "Saving…" }));
-    assert.equal(requestCount, 1);
-    resolveRequest?.(jsonResponse({ id: dossierId, assigneeId: userId, assigneeName: "Agent One" }));
-    await screen.findByText("Claim state updated. The dossier is refreshing.");
-    await screen.findByText("Agent One");
+    for (const role of ["SUPER_ADMIN", "ADMIN_ONEFOP", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN"]) {
+      renderPanel(<DossierClaimPanel dossierId={dossierId} userId={userId} role={role} revision={7} />, {
+        locale: "en",
+        queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse()]]),
+      });
+      assert.ok(screen.getByRole("button", { name: "Save progress" }), role);
+      cleanup();
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-
-test("in the workspace the panel keeps the notes only: the claim lives in the decision bar", async () => {
+test("the panel writes notes only: no claim control and no history list of its own", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => responseFor(String(input), init?.method ?? "GET")) as typeof fetch;
   try {
-    renderPanel(
-      <DossierClaimPanel dossierId={dossierId} userId={userId} role="ADMIN_ONEFOP_SUBMISSIONS" revision={7} notesOnly />,
-      { locale: "en", queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse()]]) },
-    );
-    assert.ok(await screen.findByRole("button", { name: "Save progress" }));
-    assert.equal(screen.queryByRole("heading", { level: 2 }), null);
+    renderPanel(panel(), { locale: "en", queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse()]]) });
+    assert.ok(screen.getByRole("button", { name: "Save progress" }));
     assert.equal(screen.queryByRole("button", { name: "Release claim" }), null);
     assert.equal(screen.queryByRole("button", { name: "Claim for me" }), null);
+    assert.equal(screen.queryByRole("list"), null);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -79,7 +79,7 @@ function AnswerField({ field, data, yes, no, notAnswered, tableNote, cellIdLabel
   );
 }
 
-function QuestionnaireSection({ section, title, data, yes, no, notAnswered, emptyMessage, tableNote, cellIdLabel, recordedAnswerLabel, locale, open, onToggle }: {
+function QuestionnaireSection({ section, title, data, yes, no, notAnswered, emptyMessage, tableNote, cellIdLabel, recordedAnswerLabel, locale, anchorId }: {
   section: OnefopSection;
   title: string;
   data: FormData;
@@ -91,8 +91,7 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
   cellIdLabel: string;
   recordedAnswerLabel: string;
   locale: "fr" | "en";
-  open: boolean;
-  onToggle: (open: boolean) => void;
+  anchorId: string;
 }) {
   const visible = section.fields.filter((field) => isFieldVisible(field, data));
   const headingAt = new Map<string, string>();
@@ -103,8 +102,8 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
   }
 
   return (
-    <details className="cam-dossier-section" open={open} onToggle={(event) => onToggle(event.currentTarget.open)}>
-      <summary>{title}</summary>
+    <section className="cam-dossier-section" id={anchorId}>
+      <h2>{title}</h2>
       <div className="cam-dossier-section-body">
         {visible.length === 0 ? (
           <p className="cam-admin-meta">{emptyMessage}</p>
@@ -131,18 +130,16 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
           </dl>
         )}
       </div>
-    </details>
+    </section>
   );
 }
 
 /** Read-only rendering of the questionnaire's schema sections from rawData. */
-export function DossierAnswerSections({ entity, sectionId, title, data, open, onToggle }: {
+export function DossierAnswerSections({ entity, sectionId, title, data }: {
   entity: OnefopEntity;
   sectionId: string;
   title: string;
   data: FormData | null | undefined;
-  open: boolean;
-  onToggle: (open: boolean) => void;
 }) {
   const locale = asUiLocale(useLocale());
   const t = useTranslations("adminDossierPage");
@@ -163,8 +160,7 @@ export function DossierAnswerSections({ entity, sectionId, title, data, open, on
       cellIdLabel={t("rawCellId")}
       recordedAnswerLabel={t("rawRecordedAnswer")}
       locale={locale}
-      open={open}
-      onToggle={onToggle}
+      anchorId={`dossier-section-${sectionId}`}
     />
   );
 }

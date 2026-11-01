@@ -8,8 +8,8 @@ import { buildVtSections, type VtItem, type VtSectionView, type VtTableItem } fr
 
 /**
  * The nine sections of a VT file, read-only, as the respondent answered them
- * (lib/dossier-vt-answers.ts). Native <details> disclosures, Section 1 open;
- * several may be open at once, since a reviewer compares sections.
+ * (lib/dossier-vt-answers.ts). Every section is open, one after the other,
+ * so a reviewer reads the file in one column (plan, Phase 3).
  */
 export function DossierVtSections({
   schema,
@@ -32,20 +32,20 @@ export function DossierVtSections({
   }
   return (
     <>
-      {sections.map((section, i) => (
-        <VtSection key={section.id} section={section} defaultOpen={i === 0} />
+      {sections.map((section) => (
+        <VtSection key={section.id} section={section} />
       ))}
     </>
   );
 }
 
-function VtSection({ section, defaultOpen }: { section: VtSectionView; defaultOpen: boolean }) {
+function VtSection({ section }: { section: VtSectionView }) {
   const t = useTranslations("adminDossierPage.vt");
   // The prop never changes, so React never resets it: the reader opens and
   // closes sections freely.
   return (
-    <details className="cam-dossier-section" open={defaultOpen}>
-      <summary>{section.title}</summary>
+    <section className="cam-dossier-section" id={`dossier-section-${section.id}`}>
+      <h2>{section.title}</h2>
       <div className="cam-dossier-section-body">
         {section.waived ? (
           <p className="cam-admin-meta">{t("sectionWaived")}</p>
@@ -62,7 +62,7 @@ function VtSection({ section, defaultOpen }: { section: VtSectionView; defaultOp
           </dl>
         )}
       </div>
-    </details>
+    </section>
   );
 }
 

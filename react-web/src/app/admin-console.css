@@ -5371,6 +5371,21 @@ a.cam-dash-review-row:hover {
 }
 
 /* ── Dossier detail (admin/dossiers/[id]) ── */
+.cam-dossier-workspace-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--cam-space-5); align-items: start; }
+.cam-dossier-rail { position: sticky; top: calc(var(--cam-space-5) + 64px); display: grid; gap: var(--cam-space-5); }
+.cam-dossier-rail h2 { margin: 0 0 var(--cam-space-2); font-size: var(--cam-font-size-sm); }
+.cam-dossier-rail nav { display: grid; gap: var(--cam-space-2); }
+.cam-dossier-rail nav a { color: var(--cam-primary); }
+.cam-dossier-findings > div { margin-block: var(--cam-space-2); padding-inline-start: var(--cam-space-3); border-inline-start: 3px solid var(--cam-border); }
+.cam-dossier-findings .is-blocking { border-color: var(--cam-error); }
+.cam-dossier-findings .is-warning { border-color: var(--cam-warning); }
+.cam-dossier-findings h2, .cam-dossier-section > h2 { margin: 0; padding-block: var(--cam-space-3); border-bottom: var(--cam-border-width) solid var(--cam-border); font-size: var(--cam-font-size-lg); }
+.cam-dossier-section { padding-block: var(--cam-space-2); border: 0; border-radius: 0; background: transparent; overflow: visible; }
+.cam-dossier-section-body { padding: var(--cam-space-2) 0 var(--cam-space-4); }
+.cam-dossier-section > h2::after { content: none; }
+.cam-dossier-history-section { scroll-margin-top: 80px; }
+.cam-dossier-findings { scroll-margin-top: 80px; }
+@media (max-width: 1199px) { .cam-dossier-workspace-layout { grid-template-columns: minmax(0, 1fr); } .cam-dossier-rail { position: static; } }
 .cam-dossier-axes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

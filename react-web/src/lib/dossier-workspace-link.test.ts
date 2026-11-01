@@ -16,6 +16,13 @@ test("Examiner les anomalies and Ouvrir le dossier open the workspace with the q
   });
 });
 
+test("Examiner les anomalies targets the verification section", () => {
+  assert.deepEqual(parse(dossierWorkspaceHref("dossier-1", returnTo, { focusVerify: true })), {
+    path: "/admin/dossiers/dossier-1",
+    query: { returnTo, focus: "verify" },
+  });
+});
+
 test("Valider opens the workspace with the same way back and asks for the approval dialog", () => {
   assert.deepEqual(parse(dossierWorkspaceHref("dossier-1", returnTo, { openApprove: true })), {
     path: "/admin/dossiers/dossier-1",

@@ -6,7 +6,7 @@
 export function dossierWorkspaceHref(
   id: string,
   returnTo: string,
-  options: { readOnly?: boolean; includeArchived?: boolean; openApprove?: boolean } = {},
+  options: { readOnly?: boolean; includeArchived?: boolean; openApprove?: boolean; focusVerify?: boolean } = {},
 ): string {
   const query = new URLSearchParams({ returnTo });
   if (options.readOnly) query.set("readOnly", "true");
@@ -14,6 +14,7 @@ export function dossierWorkspaceHref(
   // The workspace opens the approval dialog only when the file is clean; on a
   // file with a blocking anomaly it stays put and the bar says why.
   if (options.openApprove) query.set("openApprove", "1");
+  if (options.focusVerify) query.set("focus", "verify");
   return `/admin/dossiers/${encodeURIComponent(id)}?${query.toString()}`;
 }
 

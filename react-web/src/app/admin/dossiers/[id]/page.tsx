@@ -11,6 +11,7 @@ import {
   getDossierDiagnostic,
   getDossierClaimState,
   getDossierNeighbours,
+  listDossierReviewProgress,
   approveDossier,
   rejectDossier,
   requestCorrectionDossier,
@@ -24,6 +25,9 @@ import { dossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierClaimPanel, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
+import { mergeDossierHistory, type DossierHistoryEntry } from "@/lib/dossier-history";
+import { groupDossierFindings } from "@/lib/dossier-findings";
+import { ruleFamilyLabel } from "@/lib/anomaly-registry";
 import { dossierClaimStateKey, useDossierClaim } from "@/lib/use-dossier-claim";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
 import { DossierAnswerSections } from "@/components/admin/DossierAnswerSections";
@@ -36,6 +40,7 @@ import {
   detailAnswerValue,
   dossierEntity,
   dossierSections,
+  dossierSectionState,
   questionnaireAsks,
 } from "@/lib/dossier-sections";
 import { coherenceWarningText } from "@/lib/coherence-warning-text";
@@ -287,6 +292,12 @@ function SubmissionDetailContent() {
     ...(isQueueMove ? { staleTime: 0, refetchOnMount: "always" as const } : {}),
   });
 
+  const progressQuery = useQuery({
+    queryKey: dossierReviewProgressKey(id),
+    queryFn: () => listDossierReviewProgress(id),
+    enabled: Boolean(id),
+  });
+
   const neighboursQuery = useQuery({
     queryKey: ["admin", "dossier-neighbours", id, neighbourQuery.filters],
     queryFn: () => getDossierNeighbours(id, neighbourQuery.filters),
@@ -320,6 +331,7 @@ function SubmissionDetailContent() {
   const shouldOpenApprove = searchParams.get("openApprove") === "1";
   const shouldOpenCorrection = searchParams.get("openCorrection") === "1";
   const shouldOpenReject = searchParams.get("openReject") === "1";
+  const focusVerify = searchParams.get("focus") === "verify";
   // The strip's badges are the records' own values; a diagnostic that failed
   // to load reads as "not available", never as a figure.
   const diagnosticState: DiagnosticState = diagnosticQuery.isLoading
@@ -398,6 +410,11 @@ function SubmissionDetailContent() {
   const entity = dossierEntity(reviewedSchema, formType);
   // Section 1 is the identity disclosure below; the rest are listed after it.
   const [section1, ...laterSections] = dossierSections(entity, locale);
+  useEffect(() => {
+    if (focusVerify && dossier && diagnosticState === "ready") {
+      window.setTimeout(() => document.getElementById("dossier-verify")?.scrollIntoView({ block: "start" }), 0);
+    }
+  }, [diagnosticState, dossier, focusVerify]);
   /** A structure or identity answer: the option the respondent chose, in the
    * reader's language, whether the detail row stored the option or its code. */
   const answerValue = (column: string, stored: string) =>
@@ -694,8 +711,6 @@ function SubmissionDetailContent() {
   // is "the reader has not chosen yet", which opens the first section as the
   // page always did; `null` is every section closed, which a default of the
   // first id could not express.
-  const [expandedSection, setExpandedSection] = useState<string | null | undefined>(undefined);
-  const openSectionId = expandedSection === undefined ? section1?.id ?? null : expandedSection;
 
   /**
    * Instruction history, derived exclusively from timestamps the record
@@ -707,7 +722,7 @@ function SubmissionDetailContent() {
   // preserved).
   const timeline = (() => {
     if (!dossier) return [];
-    const steps: Array<{ key: string; title: string; detail: string | null; stamp: string; dot: string }> = [];
+    const steps: DossierHistoryEntry[] = [];
 
     if (dossier.submissionDate) {
       steps.push({
@@ -718,6 +733,7 @@ function SubmissionDetailContent() {
           : null,
         stamp: stamp(dossier.submissionDate, true, locale),
         dot: "",
+        at: dossier.submissionDate,
       });
     }
 
@@ -736,11 +752,20 @@ function SubmissionDetailContent() {
         detail: dossier.rejectionReason ?? null,
         stamp: stamp(dossier.reviewedAt, true, locale),
         dot: decision.dot,
+        at: dossier.reviewedAt,
       });
     }
 
     return steps;
   })();
+  // One list for the file's milestones and the reviewers' notes. The notes
+  // are a live query, so a note saved below appears here at once.
+  const mergedHistory = mergeDossierHistory(timeline, progressQuery.data?.items ?? [], {
+    noteTitle: t("historyNoteEntry"),
+    anomalyResolved: (anomalyId) => t("progressAnomalyResolved", { id: anomalyId }),
+    activityRecorded: t("progressActivityRecorded"),
+    stamp: (iso) => stamp(iso, true, locale),
+  });
 
   /**
    * Nothing below renders without an authoritative record. Loading, a server
@@ -845,11 +870,6 @@ function SubmissionDetailContent() {
           : t("decisionMovedNotice", { id: decisionNotice })}
       </p>}
 
-      <section className="cam-admin-section cam-dossier-progress-section" aria-labelledby="dossier-progress-title">
-        <h2 id="dossier-progress-title" className="cam-admin-h2">{t("progressNotesTitle")}</h2>
-        <DossierClaimPanel dossierId={id} userId={userId} role={role} revision={dossier.revision} notesOnly />
-      </section>
-
       {/* A Tableau de bord / Dossiers / Tracabilite pill row sat here. It
           mixed an Administration page (Tracabilite, AUDIT_ROLES only) into
           the Overview row and left out the hub's other pages. A detail
@@ -859,26 +879,49 @@ function SubmissionDetailContent() {
           diagnostic (lib/dossier-axes.ts). The strip's left edge followed a
           fixed amber; .cam-dossier-axes carries is-approved / is-rejected, so
           it now follows the dossier's own decision. */}
-      <div
-        className={`cam-dossier-axes${
-          dossier.status === "APPROVED" ? " is-approved" : dossier.status === "REJECTED" ? " is-rejected" : ""
-        }`}
-      >
-        <div className="cam-dossier-axis">
-          <p className="cam-dossier-label">{t("axis1Title")}</p>
-          {axisBadge(endorsementAxis(dossier.status))}
-        </div>
-        <div className="cam-dossier-axis">
-          <p className="cam-dossier-label">{t("axis2Title")}</p>
-          {axisBadge(qualityAxis(diagnosticState, diag))}
-        </div>
-        <div className="cam-dossier-axis">
-          <p className="cam-dossier-label">{t("axis3Title")}</p>
-          {axisBadge(eligibilityAxis(diagnosticState, diag))}
-        </div>
-      </div>
-
-      <div className="cam-dossier-grid cam-dossier-grid--single">
+      <div className="cam-dossier-workspace-layout">
+        <aside className="cam-dossier-rail">
+          <section aria-labelledby="dossier-controls-title">
+            <h2 id="dossier-controls-title">{t("controlsTitle")}</h2>
+            <p>{axisBadge(endorsementAxis(dossier.status))} {axisBadge(qualityAxis(diagnosticState, diag))} {axisBadge(eligibilityAxis(diagnosticState, diag))}</p>
+            <p>{t("blockingCount", { count: diag?.blockingAnomalies?.length ?? 0 })} · {t("warningCount", { count: diag?.warningAnomalies?.length ?? 0 })}</p>
+          </section>
+          <nav aria-label={t("sectionIndexLabel")}>
+            <h2>{t("sectionsTitle")}</h2>
+            <a href="#dossier-verify">{t("verifyHeading", { count: diagnosticState === "ready" ? (diag?.blockingAnomalies?.length ?? 0) + (diag?.warningAnomalies?.length ?? 0) : 0 })}</a>
+            <a href="#dossier-structure">{t("organisationCardTitle")}</a>
+            {isVt && schemaQuery.data?.entities.vocationalTraining?.sections.filter((s) => s.order !== 0).map((s) => {
+              const vtEntity = schemaQuery.data?.entities.vocationalTraining;
+              const state = vtEntity ? dossierSectionState(vtEntity, s.id, dossier.rawData as Record<string, unknown> | null) : null;
+              return <a key={s.id} href={`#dossier-section-${s.id}`}>{s.title?.[locale] ?? s.id}{state ? <span className="cam-admin-meta"> · {t(`sectionState.${state}`)}</span> : null}</a>;
+            })}
+            {!isVt && section1 && <a href={`#dossier-section-${section1.id}`}>{section1.title}</a>}
+            {!isVt && laterSections.map((s) => {
+              const state = entity ? dossierSectionState(entity, s.id, dossier.rawData as Record<string, unknown> | null) : null;
+              return <a key={s.id} href={`#dossier-section-${s.id}`}>{s.title}{state ? <span className="cam-admin-meta"> · {t(`sectionState.${state}`)}</span> : null}</a>;
+            })}
+            <a href="#dossier-history">{t("notesAndHistoryTitle")}</a>
+          </nav>
+        </aside>
+        <div className="cam-dash-column cam-dossier-answer-column" style={{ gap: "var(--cam-space-3)" }}>
+          <section id="dossier-verify" className="cam-dossier-findings">
+            <h2>{t("verifyHeading", { count: (diag?.blockingAnomalies?.length ?? 0) + (diag?.warningAnomalies?.length ?? 0) })}</h2>
+            {diag && groupDossierFindings(diag.blockingAnomalies ?? [], diag.warningAnomalies ?? []).map((group) => (
+              <div key={`${group.severity}-${group.family ?? "none"}`} className={`cam-dossier-findings-group is-${group.severity}`}>
+                <h3 className="cam-admin-label">
+                  {t(group.severity === "blocking" ? "findingsBlocking" : "findingsWarning")}
+                  {group.family ? ` · ${ruleFamilyLabel(group.family, locale)}` : ""}
+                </h3>
+                {group.findings.map((ano, idx) => (
+                  <div className={group.severity === "blocking" ? "is-blocking" : "is-warning"} key={`${ano.ruleCode}-${idx}`} title={ano.ruleCode}>
+                    {warningText(ano.ruleCode, ano.description)}
+                    {hasFigures(ano.observedValue, ano.expectedValue) && <p>{t("observedExpected", { observed: String(ano.observedValue ?? "—"), expected: String(ano.expectedValue ?? "—") })}</p>}
+                  </div>
+                ))}
+              </div>
+            ))}
+            {diag && diag.blockingAnomalies.length === 0 && diag.warningAnomalies.length === 0 && <p>{t("noAnomalyDetected")}</p>}
+          </section>
         {/* Questionnaire sections, as native disclosures.
             These were <button>-driven divs; <details>/<summary> is what
             .cam-dossier-section styles, and it carries the open state,
@@ -886,12 +929,13 @@ function SubmissionDetailContent() {
             the hand-built version did not. One open at a time is preserved
             through `expandedSection`. */}
         <div className="cam-dash-column cam-dossier-answer-column" style={{ gap: "var(--cam-space-3)" }}>
-          <section className="cam-dash-card">
-            <h2 className="cam-dossier-card-title">{t("organisationCardTitle")}</h2>
+          <section className="cam-dossier-section" id="dossier-structure">
+            <h2>{t("organisationCardTitle")}</h2>
             {structure.length > 0 ? <dl className="cam-dossier-fields">{structure.map(([field, value]) => (
               <div key={field}><dt>{t(`structureField.${field === "yearOfEstablishment" ? "yearCreated" : field}`)}</dt><dd>{answerValue(field, value)}</dd></div>
             ))}</dl> : <p className="cam-admin-meta">{t("structureEmpty")}</p>}
           </section>
+
           {isVt ? (
             schemaQuery.data ? (
               <DossierVtSections
@@ -920,18 +964,8 @@ function SubmissionDetailContent() {
           ) : (
           <>
           {section1 && (
-          <details
-            className="cam-dossier-section"
-            open={openSectionId === section1.id}
-            onToggle={(e) => {
-              // React closing a sibling fires that sibling's toggle with
-              // open === false; without this guard it would clear the
-              // section the reader just opened.
-              if (e.currentTarget.open) setExpandedSection(section1.id);
-              else setExpandedSection((cur) => (cur === section1.id ? null : cur));
-            }}
-          >
-            <summary>{section1.title}</summary>
+          <section className="cam-dossier-section" id={`dossier-section-${section1.id}`}>
+            <h2>{section1.title}</h2>
             <div className="cam-dossier-section-body">
               <dl className="cam-dossier-fields cam-dossier-fields--two">
                 <div>
@@ -971,7 +1005,7 @@ function SubmissionDetailContent() {
                 )}
               </dl>
             </div>
-          </details>
+          </section>
           )}
 
           {laterSections.map((section) => (
@@ -981,60 +1015,13 @@ function SubmissionDetailContent() {
               sectionId={section.id}
               title={section.title}
               data={(dossier.rawData ?? null) as Record<string, unknown> | null}
-              open={openSectionId === section.id}
-              onToggle={(isOpen) => {
-                if (isOpen) setExpandedSection(section.id);
-                else setExpandedSection((cur) => (cur === section.id ? null : cur));
-              }}
             />
           ))}
           </>
           )}
 
-          {/* Retained quality anomalies and alerts */}
-          {diag && diag.blockingAnomalies && diag.blockingAnomalies.length > 0 && (
-            <section className="cam-dash-card">
-              <h3 className="cam-dossier-card-title">
-                {t("blockingAnomaliesTitle", { count: diag.blockingAnomalies.length })}
-              </h3>
-              <ul className="cam-admin-issues" style={{ marginTop: "var(--cam-space-4)" }}>
-                {diag.blockingAnomalies.map((ano, idx) => (
-                  <li key={idx} title={ano.ruleCode}>
-                    {warningText(ano.ruleCode, ano.description)}
-                    {hasFigures(ano.observedValue, ano.expectedValue) && (
-                      <p className="cam-admin-meta" style={{ margin: 0 }}>
-                      {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
-                    </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {diag && diag.warningAnomalies && diag.warningAnomalies.length > 0 && (
-            <section className="cam-dash-card">
-              <h3 className="cam-dossier-card-title">
-                {t("coherenceWarningsTitle", { count: diag.warningAnomalies.length })}
-              </h3>
-              <ul className="cam-admin-issues is-warn" style={{ marginTop: "var(--cam-space-4)" }}>
-                {diag.warningAnomalies.map((ano, idx) => (
-                  <li key={idx} title={ano.ruleCode}>
-                    {warningText(ano.ruleCode, ano.description)}
-                    {hasFigures(ano.observedValue, ano.expectedValue) && (
-                      <p className="cam-admin-meta" style={{ margin: 0 }}>
-                      {t("observedExpected", { observed: String(ano.observedValue ?? "\u2014"), expected: String(ano.expectedValue ?? "\u2014") })}
-                    </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {diag && (!diag.blockingAnomalies || diag.blockingAnomalies.length === 0) && (!diag.warningAnomalies || diag.warningAnomalies.length === 0) && (
-            <p className="cam-admin-notice cam-admin-notice--success">{t("noAnomalyDetected")}</p>
-          )}
+          {/* Findings are at the top of the continuous answer column. */}
+        </div>
         </div>
       </div>
 
@@ -1048,9 +1035,9 @@ function SubmissionDetailContent() {
           actor is named: `reviewedBy` holds a bare account id, and the named
           history of who did what lives in the audit journal, which is linked
           rather than reconstructed here. */}
-      <section className="cam-admin-section">
+      <section className="cam-admin-section cam-dossier-history-section" id="dossier-history">
         <div className="cam-admin-section-head">
-          <h2 className="cam-admin-h2">{t("historyTitle")}</h2>
+          <h2 className="cam-admin-h2">{t("notesAndHistoryTitle")}</h2>
           {canReadAudit && (
             <Link
               href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
@@ -1061,7 +1048,9 @@ function SubmissionDetailContent() {
           )}
         </div>
         <div className="cam-admin-section-body">
-          {timeline.length === 0 && dossier.status !== "PENDING_REVIEW" ? (
+          <DossierClaimPanel dossierId={id} userId={userId} role={role} revision={dossier.revision} />
+          {progressQuery.isError && <p className="cam-admin-meta" role="alert">{t("progressHistoryFailed")}</p>}
+          {mergedHistory.length === 0 && dossier.status !== "PENDING_REVIEW" ? (
             <DataState
               dense
               state="empty"
@@ -1071,16 +1060,6 @@ function SubmissionDetailContent() {
             />
           ) : (
             <ul className="cam-dossier-history">
-              {timeline.map((step) => (
-                <li key={step.key}>
-                  <span className={`cam-dossier-history-dot ${step.dot}`.trimEnd()} aria-hidden="true" />
-                  <div>
-                    <strong>{step.title}</strong>
-                    {step.detail && <p className="cam-dossier-note">{step.detail}</p>}
-                    <p className="cam-dossier-note">{step.stamp}</p>
-                  </div>
-                </li>
-              ))}
               {/* Pending states are shown as pending, with no predicted approver. */}
               {dossier.status === "PENDING_REVIEW" && (
                 <li>
@@ -1091,6 +1070,16 @@ function SubmissionDetailContent() {
                   </div>
                 </li>
               )}
+              {mergedHistory.map((step) => (
+                <li key={step.key}>
+                  <span className={`cam-dossier-history-dot ${step.dot}`.trimEnd()} aria-hidden="true" />
+                  <div>
+                    <strong>{step.title}</strong>
+                    {step.detail && <p className="cam-dossier-note">{step.detail}</p>}
+                    <p className="cam-dossier-note">{step.stamp}</p>
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </div>

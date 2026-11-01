@@ -1753,7 +1753,7 @@ function DossiersContent({
                 const primaryActionButton = primaryAction === "claim"
                   ? <Button type="button" size="sm" variant="default" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
                   : primaryAction === "review-issues"
-                    ? <Button asChild size="sm" variant="default"><Link href={dossierWorkspaceHref(d.id, dossierReturnTo)}>{t("reviewIssuesButton")}</Link></Button>
+                    ? <Button asChild size="sm" variant="default"><Link href={dossierWorkspaceHref(d.id, dossierReturnTo, { focusVerify: true })}>{t("reviewIssuesButton")}</Link></Button>
                     : primaryAction === "validate"
                       ? <Button type="button" size="sm" variant="default" onClick={() => openQuickValidation(d)}>{t("validateQueueButton")}</Button>
                       : primaryAction === "history"

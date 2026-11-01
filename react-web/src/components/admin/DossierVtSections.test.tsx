@@ -13,15 +13,14 @@ const DATA = {
   s8q8_row1_firstName: "Paul",
 };
 
-test("renders the nine VT sections with answers and tables, Section 1 open", () => {
+test("renders all nine VT sections continuously with answers and tables", () => {
   const { container } = renderWithProviders(
     <DossierVtSections schema={loadOnefopSchema()} data={DATA} canSeeStaffNames />,
     { locale: "en" },
   );
-  const sections = container.querySelectorAll("details.cam-dossier-section");
+  const sections = container.querySelectorAll("section.cam-dossier-section");
   assert.equal(sections.length, 9);
-  assert.equal((sections[0] as HTMLDetailsElement).open, true);
-  assert.equal((sections[1] as HTMLDetailsElement).open, false);
+  assert.equal(container.querySelectorAll("details.cam-dossier-section").length, 0);
   assert.ok(screen.getByText("CFP Test E2E Douala"));
   // 2.1.1 answered Yes; an unanswered question says so.
   assert.ok(screen.getAllByText("Yes").length >= 1);

@@ -13,9 +13,9 @@
 // Nothing here restates a title, an option or a question: the schema is the
 // canonical AST's own output, so this screen cannot drift from the
 // questionnaire.
-import type { OnefopEntity, OnefopField } from "./onefop-schema";
-import { localized } from "./onefop-schema";
-import { sentenceCaseTitle } from "./dossier-vt-answers";
+import type { OnefopEntity, OnefopField, FormData } from "./onefop-schema";
+import { isFieldVisible, localized } from "./onefop-schema";
+import { buildVtSections, sentenceCaseTitle } from "./dossier-vt-answers";
 
 type Locale = "fr" | "en";
 
@@ -50,6 +50,31 @@ export interface DossierSection {
    * comment, the official record sent to the respondent, which stays French
    * whatever the reviewer's language. */
   titleFr: string;
+}
+
+export type DossierSectionState = "answered" | "empty" | "notApplicable";
+
+/** Returns a state only if the stored answers establish it for every visible
+ * question in the section. Unmapped relational tables and identity details
+ * remain state-less instead of being guessed as empty. */
+export function dossierSectionState(entity: OnefopEntity, sectionId: string, data: FormData | null | undefined): DossierSectionState | null {
+  if (!data) return null;
+  if (entity.entityType === "vocationalTraining") {
+    const section = buildVtSections(entity, data, "en", { yes: "Yes", no: "No", row: (n) => `Row ${n}` }, true).find((item) => item.id === sectionId);
+    if (!section) return null;
+    if (section.waived) return "notApplicable";
+    return section.items.length > 0 ? "answered" : null;
+  }
+  const section = entity.sections.find((item) => item.id === sectionId);
+  if (!section) return null;
+  const fields = section.fields.filter((field) => isFieldVisible(field, data));
+  if (!fields.length) return null;
+  const rawKeys = Object.keys(data);
+  if (fields.some((field) => field.table || !rawKeys.includes(field.id))) return null;
+  return fields.some((field) => {
+    const value = data[field.id];
+    return value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
+  }) ? "answered" : "empty";
 }
 
 /**
