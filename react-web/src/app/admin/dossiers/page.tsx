@@ -6,9 +6,9 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Download, Eye, MoreHorizontal, TriangleAlert } from "lucide-react";
+import { ChevronDown, Download, MoreHorizontal, TriangleAlert } from "lucide-react";
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getDossierDiagnostic, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
-import { canManageDossierListClaim, isDossierRevisionConflict } from "@/lib/dossier-review-state";
+import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -40,10 +40,16 @@ import {
 import { AUDIT_ROLES, DOSSIER_ARCHIVE_ROLES, NATIONAL_READ_ROLES, SURVEY_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import {
   clampAdminListPage,
+  hasDossierOtherFilters,
   hrefWith,
   parseAdminListPage,
   normalizeDossierListHref,
   parseDossierAssignment,
+  parseDossierQueueView,
+  dossierQueueViewFilters,
+  resolveDossierQueueView,
+  DOSSIER_QUEUE_VIEWS,
+  READ_ONLY_DOSSIER_QUEUE_VIEWS,
   parseDossierFlag,
   parseDossierPeriod,
   parseDossierQuality,
@@ -54,6 +60,7 @@ import {
   recentDossierQuarters,
   type DossierSort,
   type DossierStatus,
+  type DossierQueueView,
 } from "@/lib/admin-url";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -103,6 +110,7 @@ interface DossierItem {
   reviewedAt: string | null;
   rejectionReason: string | null;
   supersededById?: string | null;
+  supersedes?: { id: string; submissionId: string } | null;
   updatedAt: string | null;
   revision: number | null;
   blockingCount: number;
@@ -136,6 +144,7 @@ interface QuestionnaireListItem extends NamedSubmission {
   reviewedAt?: string | null;
   rejectionReason?: string | null;
   supersededById?: string | null;
+  supersedes?: { id: string; submissionId: string } | null;
   updatedAt?: string | null;
   revision?: number;
   submissionDate?: string | null;
@@ -288,27 +297,19 @@ function DossiersContent({
   // link helpers, and labels together. See docs/plans/admin-modules-refactor.md
   // Phase 3.
   const searchParams = useSearchParams();
-  const dossierReturnTo = buildDossierReturnTo(searchParams.toString());
-  const previewReturnParams = new URLSearchParams(searchParams.toString());
-  previewReturnParams.delete("preview");
-  previewReturnParams.delete("previewSection");
-  const previewReturnTo = buildDossierReturnTo(previewReturnParams.toString());
   const router = useRouter();
   const pathname = usePathname();
   const activeView = parseDossierVue(searchParams.get("vue"));
   const legacyFiltersApply = activeView === view;
+  const requestedQueueView = parseDossierQueueView(searchParams.get("queueView"));
   // Keep each section's filters independently bookmarkable. Older generic
   // filters still seed the section named by ?vue= (or submissions by default).
   const filterParam = (key: string) =>
     searchParams.get(`${view}${key[0].toUpperCase()}${key.slice(1)}`) ??
     (legacyFiltersApply ? searchParams.get(key) : null);
-  const parsedStatusFilter = parseDossierStatus(filterParam("status"));
-  const statusFilter = view === "completed"
-    && !["APPROVED", "REJECTED", "SUPERSEDED"].includes(parsedStatusFilter)
-    ? ""
-    : parsedStatusFilter;
-  const statusRedirectPending = view === "submissions"
-    && ["APPROVED", "REJECTED", "SUPERSEDED"].includes(statusFilter);
+  const baseStatusFilter = parseDossierStatus(filterParam("status"));
+  const statusRedirectPending = view === "submissions" && !requestedQueueView
+    && ["APPROVED", "REJECTED", "SUPERSEDED"].includes(baseStatusFilter);
   // ?sort=oldest (the pilotage review-delay link) lists the longest-waiting
   // files first; URL state like the status, written by setSort.
   const sortOrder = parseDossierSort(filterParam("sort"));
@@ -322,15 +323,49 @@ function DossiersContent({
   const rawAssignment = filterParam("assignment");
   const explicitAssignment = parseDossierAssignment(rawAssignment);
   const assignedToMeFilter = parseDossierFlag(filterParam("assignedToMe")) && !explicitAssignment;
-  const assignmentFilter = explicitAssignment || (assignedToMeFilter ? "me" : "");
+  const baseAssignmentFilter = explicitAssignment || (assignedToMeFilter ? "me" : "");
   const qualityFilter = parseDossierQuality(filterParam("quality"));
+  // The queue view. A link from another screen names the view it meant
+  // (resolveDossierQueueView); only a bare URL waits for the reviewer's claim
+  // count to choose « Ma file » or « Non attribués », and the list query waits
+  // with it, so nothing is fetched under a view that is about to change.
+  const hasOtherQueueFilters = hasDossierOtherFilters(filterParam, searchParams.get("campaignId")) || Boolean(legacyFiltersApply && searchParams.get("q"));
+  const hintedQueueView = view === "submissions" && !statusRedirectPending
+    ? resolveDossierQueueView({ requested: requestedQueueView, status: baseStatusFilter, assignment: baseAssignmentFilter, hasOtherFilters: hasOtherQueueFilters, readOnly })
+    : null;
+  const myQueueCountQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "queue-view-count", "mine"],
+    queryFn: () => listAdminQuestionnaires({ status: "PENDING_REVIEW", view: "queue", assignment: "me", limit: 0, offset: 0 }),
+    enabled: view === "submissions" && !readOnly && Boolean(user?.id),
+    staleTime: 60_000,
+  });
+  const defaultQueueView: DossierQueueView | null = myQueueCountQuery.isError
+    ? "unassigned"
+    : myQueueCountQuery.data ? (myQueueCountQuery.data.total > 0 ? "mine" : "unassigned") : null;
+  const activeQueueView: DossierQueueView | null = view === "submissions" && !statusRedirectPending
+    ? hintedQueueView ?? defaultQueueView
+    : null;
+  const queueViewPending = view === "submissions" && !statusRedirectPending && activeQueueView === null;
+  const queueViewFilters = activeQueueView ? dossierQueueViewFilters(activeQueueView) : null;
+  const statusFilter: DossierStatus | "" = queueViewFilters ? queueViewFilters.status : baseStatusFilter;
+  // « Tous en attente » keeps an incoming assignment=other; the other views fix their own.
+  const assignmentFilter = queueViewFilters
+    ? queueViewFilters.assignment ?? (activeQueueView === "pending" && baseAssignmentFilter === "other" ? "other" : "")
+    : baseAssignmentFilter;
+  const returnParams = new URLSearchParams(searchParams.toString());
+  if (view === "submissions" && activeQueueView) returnParams.set("queueView", activeQueueView);
+  const dossierReturnTo = buildDossierReturnTo(returnParams.toString());
+  const previewReturnParams = new URLSearchParams(returnParams);
+  previewReturnParams.delete("preview");
+  previewReturnParams.delete("previewSection");
+  const previewReturnTo = buildDossierReturnTo(previewReturnParams.toString());
   const vue = view;
   const previewId = vue === "submissions" ? searchParams.get("preview")?.trim() || null : null;
   const previewFocusChecks = vue === "submissions" && searchParams.get("previewSection") === "checks";
   const isCompletedView = vue === "completed";
   const archivedParam = searchParams.get("completedIncludeArchived") ??
     (legacyFiltersApply ? searchParams.get("includeArchived") : null);
-  const includeArchived = vue === "completed" && archivedParam !== "false";
+  const includeArchived = isCompletedView && archivedParam !== "false";
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
   const requestedQuery = (filterParam("search") ?? (legacyFiltersApply ? searchParams.get("q") : null) ?? "").trim();
@@ -628,7 +663,7 @@ function DossiersContent({
       // those rows until the replacement page is committed.
       return { ...result, requestedOffset: offset };
     },
-    enabled: (vue === "submissions" || vue === "completed") && territoryFiltersValid && !statusRedirectPending,
+    enabled: (vue === "submissions" || vue === "completed") && territoryFiltersValid && !statusRedirectPending && !queueViewPending,
     placeholderData: keepPreviousData,
     refetchInterval: vue === "submissions" ? 60_000 : false,
   });
@@ -659,6 +694,18 @@ function DossiersContent({
     "queue",
     queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined,
   );
+  const unassignedQueueCountQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "queue-view-count", "unassigned"],
+    queryFn: () => listAdminQuestionnaires({ status: "PENDING_REVIEW", view: "queue", assignment: "unassigned", limit: 0, offset: 0 }),
+    enabled: vue === "submissions" && !readOnly,
+    staleTime: 60_000,
+  });
+  const queueViewCounts: Partial<Record<DossierQueueView, number>> = {
+    mine: myQueueCountQuery.data?.total,
+    unassigned: unassignedQueueCountQuery.data?.total,
+    pending: queueStatusCounts?.PENDING_REVIEW,
+    corrections: queueStatusCounts?.CORRECTION_REQUESTED,
+  };
   const actionableQueueCount =
     typeof queueStatusCounts?.PENDING_REVIEW === "number" &&
     typeof queueStatusCounts.CORRECTION_REQUESTED === "number"
@@ -862,6 +909,7 @@ function DossiersContent({
       reviewedAt: sub.reviewedAt ?? null,
       rejectionReason: sub.rejectionReason ?? null,
       supersededById: sub.supersededById ?? null,
+      supersedes: sub.supersedes ?? null,
       archivedAt: sub.archivedAt ?? null,
       archivedBy: sub.archivedBy ?? null,
       archiveReason: sub.archiveReason ?? null,
@@ -902,7 +950,7 @@ function DossiersContent({
     const selectedCampaignLabel = campaignOptions.find((option) => option.value === campaignIdFilter)?.label ?? campaignIdFilter;
     activeFilterChips.push({ key: "campaignId", label: `${t("campaignLabel")}: ${selectedCampaignLabel}`, remove: () => setCampaign("") });
   }
-  if (statusFilter) activeFilterChips.push({ key: "status", label: `${t("statusFilterAriaLabel")}: ${t(STATUS_VIEWS.find((v) => v.status === statusFilter)?.labelKey ?? "statusAll")}`, remove: () => setStatus("") });
+  if (statusFilter && !activeQueueView) activeFilterChips.push({ key: "status", label: `${t("statusFilterAriaLabel")}: ${t(STATUS_VIEWS.find((v) => v.status === statusFilter)?.labelKey ?? "statusAll")}`, remove: () => setStatus("") });
   if (typeFilter) activeFilterChips.push({ key: "formType", label: `${typeColumnLabel}: ${typeLabel(typeFilter)}`, remove: () => setType("") });
   if (periodFilter) activeFilterChips.push({ key: "period", label: `${t("periodLabel")}: ${t(PERIODS.find((p) => p.value === periodFilter)?.labelKey ?? "allPeriods")}`, remove: () => setPeriod("") });
   if (regionFilter) activeFilterChips.push({ key: "region", label: `${t("regionColumn")}: ${regionFilter}`, remove: () => setRegion("") });
@@ -923,7 +971,7 @@ function DossiersContent({
       remove: () => setQuality(""),
     });
   }
-  if (assignmentFilter) {
+  if (assignmentFilter && (!activeQueueView || assignmentFilter === "other")) {
     const assignmentLabels: Record<string, string> = {
       me: t("assignedToMeOnly"),
       unassigned: t("unassigned"),
@@ -969,7 +1017,7 @@ function DossiersContent({
     router.replace(hrefWith(pathname, searchParams.toString(), { preview: id, previewSection: null }), { scroll: false });
   }, [pathname, router, searchParams, t]);
 
-  const openQuickValidation = useCallback(async (dossier: DossierItem) => {
+  const openQuickValidation = async (dossier: DossierItem) => {
     if (!user?.id || dossier.assigneeId !== user.id || dossier.adminStatus !== "PENDING_REVIEW" || dossier.archivedAt || dossier.claimExpired) return;
     try {
       // Refresh the diagnostic at the action boundary. Cached queue counters
@@ -983,14 +1031,17 @@ function DossiersContent({
         openDossierPreview(dossier.id, true);
         return;
       }
-      const returnQuery = new URLSearchParams({ returnTo: dossierReturnTo, openApprove: "1" });
+      const returnParams = new URLSearchParams(searchParams.toString());
+      if (activeQueueView) returnParams.set("queueView", activeQueueView);
+      const returnTo = buildDossierReturnTo(returnParams.toString());
+      const returnQuery = new URLSearchParams({ returnTo, openApprove: "1" });
       router.push(`/admin/dossiers/${encodeURIComponent(dossier.id)}?${returnQuery.toString()}`, { scroll: false });
     } catch {
       // If validation data cannot be fetched, make the reviewer inspect the
       // issue section instead of presenting a clean-record validation path.
       openDossierPreview(dossier.id, true);
     }
-  }, [dossierReturnTo, openDossierPreview, queryClient, router, user?.id]);
+  };
 
   const toggleFilterPanel = () => {
     if (previewId) {
@@ -1256,7 +1307,7 @@ function DossiersContent({
     formType: null, period: null, search: null, q: null, includeArchived: null,
   };
   const viewHref = (target: "submissions" | "completed" | "followup") =>
-    hrefWith(pathname, searchParams.toString(), { ...legacyFilterClear, preview: null, vue: target });
+    hrefWith(pathname, searchParams.toString(), { ...legacyFilterClear, preview: null, vue: target, queueView: target === "submissions" ? requestedQueueView || null : null });
 
   const submissionFilterSidebar = vue === "submissions" ? <aside
     id="cam-dossier-filter-panel"
@@ -1600,12 +1651,12 @@ function DossiersContent({
                 <Label htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label>
                 <Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
               </div>
-              <div>
+              {!activeQueueView && <div>
                 <Label htmlFor={`dossiers-status-${vue}`}>{t("statusFilterAriaLabel")}</Label>
                 <select id={`dossiers-status-${vue}`} className="cam-admin-input w-full" value={statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatus | "")}>
                   {dossierStatusSummary.map((item) => <option key={item.key} value={item.key === "all" ? "" : item.key}>{item.label}</option>)}
                 </select>
-              </div>
+              </div>}
               <div>
                 <Label htmlFor={`dossiers-type-${vue}`}>{typeColumnLabel}</Label>
                 <select id={`dossiers-type-${vue}`} className="cam-admin-input w-full" value={typeFilter} onChange={(event) => setType(event.target.value)}>
@@ -1637,10 +1688,10 @@ function DossiersContent({
               <Label htmlFor={`dossiers-overdue-${vue}`}>{t("overdueLabel")}</Label>
               <select id={`dossiers-overdue-${vue}`} className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{t("overdueOnly")}</option></select>
             </div>}
-            <div>
+            {!activeQueueView && <div>
               <Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label>
               <select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignmentFilter} onChange={(event) => setAssignment(event.target.value)}><option value="">{t("assignedAll")}</option><option value="unassigned">{t("unassigned")}</option><option value="me">{t("assignedToMeOnly")}</option><option value="other">{t("assignedOther")}</option></select>
-            </div>
+            </div>}
             <div>
               <Label htmlFor="dossiers-controls">{t("controlsColumn")}</Label>
               <select id="dossiers-controls" className="cam-admin-input w-full" value={qualityFilter} onChange={(event) => setQuality(event.target.value)}><option value="">{t("statusAll")}</option><option value="clean">{t("qualityClean")}</option><option value="warnings">{t("qualityWarnings")}</option><option value="blocking">{t("qualityBlocking")}</option></select>
@@ -1662,17 +1713,16 @@ function DossiersContent({
         <CardContent className="border-b cam-dossier-submissions-filters">
           <div className="cam-dossier-queue-search-row">
             {!readOnly && <Button type="button" size="sm" variant="outline" className="cam-dossier-queue-export" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
-            <div className="cam-dossier-quick-filters" role="group" aria-label={t("statusFilterAriaLabel")}>
-              <button type="button" className="cam-dossier-quick-filter" aria-pressed={statusFilter === "PENDING_REVIEW"} onClick={() => setStatus(statusFilter === "PENDING_REVIEW" ? "" : "PENDING_REVIEW")}>
-                {t("statusPending")} <span>{new Intl.NumberFormat(locale).format(queueStatusCounts?.PENDING_REVIEW ?? 0)}</span>
-              </button>
-              <button type="button" className="cam-dossier-quick-filter" aria-pressed={statusFilter === "CORRECTION_REQUESTED"} onClick={() => setStatus(statusFilter === "CORRECTION_REQUESTED" ? "" : "CORRECTION_REQUESTED")}>
-                {t("statusCorrections")} <span>{new Intl.NumberFormat(locale).format(queueStatusCounts?.CORRECTION_REQUESTED ?? 0)}</span>
-              </button>
-              <button type="button" className="cam-dossier-quick-filter" aria-pressed={!statusFilter} onClick={() => setStatus("")}>{t("statusAll")}</button>
+            <div className="cam-dossier-quick-filters" role="group" aria-label={t("queueViewsLabel")}>
+              {/* « Traités » is the « Dossiers terminés » tab above, not a fifth button. */}
+              {(readOnly ? READ_ONLY_DOSSIER_QUEUE_VIEWS : DOSSIER_QUEUE_VIEWS).map((queueView) => {
+                const count = queueViewCounts[queueView];
+                return <button key={queueView} type="button" className="cam-dossier-quick-filter" aria-pressed={activeQueueView === queueView} onClick={() => router.push(hrefWith(pathname, searchParams.toString(), { queueView, submissionsStatus: null, submissionsAssignment: null, status: null, assignment: null, assignedToMe: null, submissionsPage: null, page: null, preview: null }), { scroll: false })}>
+                  {t(`queueView.${queueView}`)} <span>{count === undefined ? "—" : new Intl.NumberFormat(locale).format(count)}</span>
+                </button>;
+              })}
               <span className="cam-dossier-quick-filter-separator" aria-hidden="true" />
               <button type="button" className="cam-dossier-quick-filter" aria-pressed={overdueFilter} onClick={() => setOverdue(!overdueFilter)}>{t("overdueQuickFilter")}</button>
-              <button type="button" className="cam-dossier-quick-filter" aria-pressed={assignmentFilter === "unassigned"} onClick={() => setAssignment(assignmentFilter === "unassigned" ? "" : "unassigned")}>{t("unassigned")}</button>
             </div>
           </div>
         </CardContent>
@@ -1728,28 +1778,22 @@ function DossiersContent({
                 const waiting = d.adminStatus === "PENDING_REVIEW" && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
                 const isReviewOverdue = d.adminStatus === "PENDING_REVIEW" && nowMs !== null && elapsedMoreThanDays(d.submittedAt, nowMs, 7);
                 const canManageArchive = hasRole(user?.role, DOSSIER_ARCHIVE_ROLES);
-                const canAssign = canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role);
-                const canReviewFromQueue = hasRole(user?.role, SURVEY_ROLES) &&
-                  (d.adminStatus === "PENDING_REVIEW" || d.adminStatus === "CORRECTION_REQUESTED") &&
-                  !d.archivedAt &&
-                  !d.claimExpired &&
-                  Boolean(user?.id) &&
-                  d.assigneeId === user?.id;
                 const hasCompletedActions = (canReadAudit || canManageArchive || (canReopen && d.adminStatus === "APPROVED"));
                 const actionsLabel = t("rowActionsAria", { name: d.companyName ?? d.submissionId });
                 const detailQuery = new URLSearchParams({ returnTo: dossierReturnTo });
                 if (vue === "submissions" && !readOnly && d.assigneeId && d.assigneeId !== user?.id) detailQuery.set("readOnly", "true");
                 if (isCompletedView && includeArchived) detailQuery.set("includeArchived", "true");
                 const detailHref = `/admin/dossiers/${encodeURIComponent(d.id)}?${detailQuery.toString()}`;
-                const directOpenAction = <Button type="button" size="icon" variant="outline" className="cam-dossier-open-action" aria-label={t("previewFileButton")} title={t("previewFileButton")} aria-expanded={previewId === d.id} aria-controls="cam-dossier-preview-panel" onClick={(event) => { previewTriggerRef.current = event.currentTarget; openDossierPreview(d.id); }}>
-                  <Eye aria-hidden="true" />
-                </Button>;
-                const hasOpenChecks = d.blockingCount > 0 || d.warningCount > 0;
-                const hasCheckFlags = hasOpenChecks || !d.validationDataAvailable;
-                const canQuickValidate = !readOnly && canReviewFromQueue && d.validationDataAvailable && !hasOpenChecks;
-                const openFile = <Button asChild size="sm" variant="default" className="whitespace-nowrap">
-                  <Link href={detailHref}>{t("openFileButton")}</Link>
-                </Button>;
+                const primaryAction = selectDossierQueuePrimaryAction({ status: d.adminStatus, assigneeId: d.assigneeId, userId: user?.id, readOnly, validationDataAvailable: d.validationDataAvailable, blockingCount: d.blockingCount, warningCount: d.warningCount, archived: Boolean(d.archivedAt), claimExpired: Boolean(d.claimExpired), canClaim: canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), null, user?.id, user?.role) });
+                const primaryActionButton = primaryAction === "claim"
+                  ? <Button type="button" size="sm" variant="default" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
+                  : primaryAction === "review-issues"
+                    ? <Button type="button" size="sm" variant="default" onClick={(event) => { previewTriggerRef.current = event.currentTarget; openDossierPreview(d.id, true); }}>{t("reviewIssuesButton")}</Button>
+                    : primaryAction === "validate"
+                      ? <Button type="button" size="sm" variant="default" onClick={() => { void openQuickValidation(d); }}>{t("validateQueueButton")}</Button>
+                      : primaryAction === "history"
+                        ? <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("correctionHistoryButton")}</Link></Button>
+                        : <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("openFileButton")}</Link></Button>;
                 const rowMenu = (menuItems: ReactNode) => (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1786,7 +1830,7 @@ function DossiersContent({
                   <TableCell>{d.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</TableCell>
                   <TableCell className="cam-dossier-action-cell align-top">
                     <div className="cam-dossier-row-actions">
-                      {openFile}
+                      {primaryActionButton}
                       {hasCompletedActions && rowMenu(<>
                         {canReadAudit && <DropdownMenuItem asChild><Link href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link></DropdownMenuItem>}
                         {canManageArchive && !d.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(d)}>{t("archiveButton")}</DropdownMenuItem>}
@@ -1814,6 +1858,7 @@ function DossiersContent({
                   <TableCell className="align-top whitespace-normal">
                     <div className="cam-dossier-review-stack">
                       <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
+                      {d.supersedes && <Link className="cam-dossier-cell-secondary" href={`/admin/dossiers/${encodeURIComponent(d.supersedes.id)}?returnTo=${encodeURIComponent(dossierReturnTo)}`}>{t("correctionReceived")}: {d.supersedes.submissionId}</Link>}
                       <div className="cam-dossier-validation-summary">
                         {d.blockingCount > 0 && <Badge variant="danger">{t("blockingAnomalies", { count: d.blockingCount })}</Badge>}
                         {d.warningCount > 0 && <Badge variant="warning">{t("warnings", { count: d.warningCount })}</Badge>}
@@ -1841,17 +1886,14 @@ function DossiersContent({
                     <div className="cam-dossier-owner-action">
                       <span className="cam-dossier-assignee-name">{d.assigneeId ? d.assigneeName ?? NOT_PROVIDED : t("noReviewerAssigned")}</span>
                       {d.claimExpired && d.assigneeId && <Badge variant="warning">{t("claimExpiredBadge")}</Badge>}
-                      {!readOnly && canAssign && <Button type="button" size="sm" variant="outline" className="cam-dossier-claim-action" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: d.claimExpired || !d.assigneeId ? user?.id ?? null : null })}>{assignMutation.isPending && assignMutation.variables?.id === d.id ? t("claimingButton") : d.claimExpired || !d.assigneeId ? t("claimButton") : t("unclaimButton")}</Button>}
                     </div>
                   </TableCell>
                   <TableCell className="cam-dossier-action-cell align-top">
                     <div className="cam-dossier-row-actions">
-                      {!readOnly && canReviewFromQueue && hasCheckFlags
-                        ? <Button type="button" size="sm" variant="outline" className="cam-dossier-review-issues-action" onClick={(event) => { previewTriggerRef.current = event.currentTarget; openDossierPreview(d.id, true); }}>{t("reviewIssuesButton")}</Button>
-                        : canQuickValidate
-                          ? <Button type="button" size="sm" variant="default" className="cam-dossier-validate-action" onClick={() => { void openQuickValidation(d); }}>{t("validateQueueButton")}</Button>
-                          : directOpenAction}
-                      {(canReadAudit || canManageArchive) && rowMenu(<>
+                      {primaryActionButton}
+                      {(canReadAudit || canManageArchive || canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role)) && rowMenu(<>
+                        {canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role) && d.assigneeId === user?.id && <DropdownMenuItem disabled={assignMutation.isPending} onSelect={() => assignMutation.mutate({ id: d.id, assigneeId: null })}>{t("unclaimButton")}</DropdownMenuItem>}
+                        {canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role) && !d.assigneeId && <DropdownMenuItem disabled={assignMutation.isPending} onSelect={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null })}>{t("claimButton")}</DropdownMenuItem>}
                         {canReadAudit && <DropdownMenuItem asChild><Link href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link></DropdownMenuItem>}
                         {canManageArchive && !d.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(d)}>{t("archiveButton")}</DropdownMenuItem>}
                         {canManageArchive && d.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => restoreMutation.mutate(d.id)}>{t("restoreButton")}</DropdownMenuItem>}

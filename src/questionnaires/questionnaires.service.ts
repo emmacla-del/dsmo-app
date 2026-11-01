@@ -3615,18 +3615,21 @@ export class QuestionnairesService {
           archivedByUser: { select: { id: true, firstName: true, lastName: true } },
           assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
           anomalies: true,
+          // One resubmission can close several correction requests; name the latest.
+          supersedes: { select: { id: true, submissionId: true }, orderBy: { submissionDate: 'desc' }, take: 1 },
         },
       }),
       (this.prisma as any).onefopSubmission.count({ where }),
     ]);
     const claimStates = getEffectiveClaimStatesBatch(items, asOf);
-    const projectedItems = items.map(({ campaign, assignee, company, claimActivityAt: _claimActivityAt, ...item }: any) => {
+    const projectedItems = items.map(({ campaign, assignee, company, supersedes, claimActivityAt: _claimActivityAt, ...item }: any) => {
       const claimState = claimStates.get(item.id);
       const isExpired = claimState?.expired ?? false;
       const effectiveAssigneeId = claimState ? claimState.assigneeId : (item.assigneeId ?? null);
       const effectiveAssigneeName = effectiveAssigneeId ? assigneeName(assignee) : null;
       return {
         ...item,
+        supersedes: supersedes?.[0] ? { id: supersedes[0].id, submissionId: supersedes[0].submissionId } : null,
         campaignName: campaign?.name ?? null,
         // The submission's establishmentId is a database FK. Expose the
         // company's public identifier separately for admin tables.

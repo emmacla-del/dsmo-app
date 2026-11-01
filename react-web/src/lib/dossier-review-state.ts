@@ -64,3 +64,28 @@ export function canSaveDossierReviewProgress(
 export function isDossierRevisionConflict(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409;
 }
+
+export type DossierQueuePrimaryAction = "claim" | "review-issues" | "validate" | "view" | "history";
+
+export function selectDossierQueuePrimaryAction(input: {
+  status: string | null | undefined;
+  assigneeId: string | null | undefined;
+  userId: string | null | undefined;
+  readOnly: boolean;
+  validationDataAvailable: boolean;
+  blockingCount: number;
+  warningCount: number;
+  archived: boolean;
+  claimExpired: boolean;
+  /** canManageDossierListClaim for a free file: role, status and archive allow a claim. */
+  canClaim: boolean;
+}): DossierQueuePrimaryAction {
+  if (input.status === "CORRECTION_REQUESTED") return "history";
+  if (input.status !== "PENDING_REVIEW") return "view";
+  if (input.readOnly || !input.canClaim) return "view";
+  if (input.assigneeId && input.assigneeId !== input.userId && !input.claimExpired) return "view";
+  if (!input.assigneeId || input.claimExpired) return input.archived ? "view" : "claim";
+  if (input.archived) return "view";
+  if (!input.validationDataAvailable || input.blockingCount > 0 || input.warningCount > 0) return "review-issues";
+  return "validate";
+}

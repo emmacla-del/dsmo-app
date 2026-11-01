@@ -1590,6 +1590,19 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       expect(result.items[0]).not.toHaveProperty('claimActivityAt');
     });
 
+    it('projects the prior file reference for a resubmission from the supersedes relation', async () => {
+      const prior = { id: 'prior-id', submissionId: 'ONEFOP-PRIOR' };
+      const prisma: any = {
+        onefopSubmission: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'new-id', submissionId: 'ONEFOP-NEW', status: OnefopStatus.PENDING_REVIEW, supersedes: [prior] }]),
+          count: jest.fn().mockResolvedValue(1),
+        },
+      };
+      const result = await new QuestionnairesService(prisma).listForAdmin({ limit: 10, offset: 0 });
+      expect(prisma.onefopSubmission.findMany.mock.calls[0][0].include.supersedes).toEqual({ select: { id: true, submissionId: true }, orderBy: { submissionDate: 'desc' }, take: 1 });
+      expect(result.items[0]).toMatchObject({ id: 'new-id', status: OnefopStatus.PENDING_REVIEW, supersedes: prior });
+    });
+
     it('skips the page query for count-only requests while keeping the same assignment filter', async () => {
       const prisma: any = {
         onefopSubmission: {

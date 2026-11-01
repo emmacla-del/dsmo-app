@@ -51,6 +51,70 @@ export type DossierPeriod = (typeof DOSSIER_PERIODS)[number];
 export const DOSSIER_ASSIGNMENTS = ["me", "unassigned", "other"] as const;
 export type DossierAssignment = (typeof DOSSIER_ASSIGNMENTS)[number];
 
+/** Filters that make a dossier queue more specific than its status/assignment view. */
+export const DOSSIER_OTHER_FILTER_KEYS = [
+  "companyId", "region", "department", "quarterCode", "late", "overdue",
+  "quality", "search", "formType", "period", "sort",
+] as const;
+
+export function hasDossierOtherFilters(
+  readFilter: (key: typeof DOSSIER_OTHER_FILTER_KEYS[number]) => string | null,
+  campaignId?: string | null,
+): boolean {
+  return DOSSIER_OTHER_FILTER_KEYS.some((key) => Boolean(readFilter(key))) || Boolean(campaignId);
+}
+
+/**
+ * The review queue's views (?queueView= on the submissions tab). « Traités »
+ * is not one of them: it is the existing completed tab (?vue=completed).
+ */
+export const DOSSIER_QUEUE_VIEWS = ["mine", "unassigned", "pending", "corrections"] as const;
+export type DossierQueueView = (typeof DOSSIER_QUEUE_VIEWS)[number];
+
+/** Views a read-only role may open: no claim of its own, nothing to claim. */
+export const READ_ONLY_DOSSIER_QUEUE_VIEWS: readonly DossierQueueView[] = ["pending", "corrections"];
+
+export function parseDossierQueueView(raw: string | null): DossierQueueView | "" {
+  return (DOSSIER_QUEUE_VIEWS as readonly string[]).includes(raw ?? "") ? raw as DossierQueueView : "";
+}
+
+export function dossierQueueViewFilters(view: DossierQueueView): {
+  status: DossierStatus; assignment?: DossierAssignment;
+} {
+  switch (view) {
+    case "mine": return { status: "PENDING_REVIEW", assignment: "me" };
+    case "unassigned": return { status: "PENDING_REVIEW", assignment: "unassigned" };
+    case "pending": return { status: "PENDING_REVIEW" };
+    case "corrections": return { status: "CORRECTION_REQUESTED" };
+  }
+}
+
+/**
+ * The view a URL asks for. An explicit ?queueView= wins. Otherwise the
+ * links other screens already send (pilotage ?status=, home, establishment
+ * ?companyId=, the overdue link) name the view they meant, so they are never
+ * overridden by a default. Returns null only for a bare URL, where the caller
+ * picks « Ma file » or « Non attribués » from the reviewer's claims.
+ * Completed statuses return null too: the page sends those to the completed tab.
+ */
+export function resolveDossierQueueView(input: {
+  requested: DossierQueueView | "";
+  status: DossierStatus | "";
+  assignment: DossierAssignment | "";
+  hasOtherFilters: boolean;
+  readOnly: boolean;
+}): DossierQueueView | null {
+  const allowed = (view: DossierQueueView): DossierQueueView =>
+    input.readOnly && !READ_ONLY_DOSSIER_QUEUE_VIEWS.includes(view) ? "pending" : view;
+  if (input.requested) return allowed(input.requested);
+  if (input.status === "CORRECTION_REQUESTED") return "corrections";
+  if (input.status && input.status !== "PENDING_REVIEW") return null;
+  if (input.assignment === "me") return allowed("mine");
+  if (input.assignment === "unassigned") return allowed("unassigned");
+  if (input.status || input.assignment || input.hasOtherFilters || input.readOnly) return "pending";
+  return null;
+}
+
 /** ?status= on /admin/dossiers; "" (every status) for absent or unknown values. */
 export function parseDossierStatus(raw: string | null): DossierStatus | "" {
   return (DOSSIER_STATUSES as readonly string[]).includes(raw ?? "") ? (raw as DossierStatus) : "";

@@ -7,6 +7,7 @@ import {
   canSaveDossierReviewProgress,
   isActiveDossierClaimOwner,
   isDossierRevisionConflict,
+  selectDossierQueuePrimaryAction,
 } from "./dossier-review-state";
 
 const claim = (values: Partial<DossierClaimState> = {}): DossierClaimState => ({
@@ -59,4 +60,21 @@ test("only an HTTP 409 is treated as a dossier revision or claim conflict", () =
   assert.equal(isDossierRevisionConflict(new ApiError(409, "changed")), true);
   assert.equal(isDossierRevisionConflict(new ApiError(403, "forbidden")), false);
   assert.equal(isDossierRevisionConflict(new Error("changed")), false);
+});
+
+test("queue primary action matches ownership, checks, status, and role", () => {
+  const base = { status: "PENDING_REVIEW", assigneeId: null, userId: "agent-1", readOnly: false, validationDataAvailable: true, blockingCount: 0, warningCount: 0, archived: false, claimExpired: false, canClaim: true };
+  assert.equal(selectDossierQueuePrimaryAction(base), "claim");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, assigneeId: "agent-1", blockingCount: 1 }), "review-issues");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, assigneeId: "agent-1", validationDataAvailable: false }), "review-issues");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, assigneeId: "agent-1" }), "validate");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, assigneeId: "agent-2" }), "view");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, status: "CORRECTION_REQUESTED", assigneeId: "agent-1" }), "history");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, status: "APPROVED" }), "view");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, readOnly: true }), "view");
+  // A role that may not claim never sees Réclamer or Valider, even on its own row.
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, canClaim: false }), "view");
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, assigneeId: "agent-1", canClaim: false }), "view");
+  // Someone else's expired claim is free to take.
+  assert.equal(selectDossierQueuePrimaryAction({ ...base, assigneeId: "agent-2", claimExpired: true }), "claim");
 });
