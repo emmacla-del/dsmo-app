@@ -439,63 +439,6 @@
   gap: var(--cam-space-2);
 }
 
-.cam-admin-account-settings {
-  min-width: 0;
-}
-
-.cam-admin-account-settings > summary {
-  display: flex;
-  min-height: 36px;
-  align-items: center;
-  gap: var(--cam-space-2);
-  padding: 0 var(--cam-space-2);
-  border: var(--cam-border-width) solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--cam-radius-control);
-  color: rgba(255, 255, 255, 0.86);
-  cursor: pointer;
-  font-size: var(--cam-font-size-2xs);
-  font-weight: 600;
-  list-style: none;
-}
-
-.cam-admin-account-settings > summary::-webkit-details-marker {
-  display: none;
-}
-
-.cam-admin-account-settings > summary:hover,
-.cam-admin-account-settings[open] > summary {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--cam-surface);
-}
-
-.cam-admin-account-settings > summary:focus-visible {
-  outline: 2px solid var(--cam-focus);
-  outline-offset: 2px;
-}
-
-.cam-admin-account-settings-chevron {
-  flex: 0 0 auto;
-  margin-left: auto;
-  transition: transform 0.15s ease;
-}
-
-.cam-admin-account-settings[open] .cam-admin-account-settings-chevron {
-  transform: rotate(180deg);
-}
-
-.cam-admin-account-settings-body {
-  display: grid;
-  gap: var(--cam-space-2);
-  padding: var(--cam-space-2) var(--cam-space-1) 0;
-}
-
-.cam-admin-account-settings-body .cam-admin-scope {
-  justify-content: flex-start;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .cam-admin-rail-avatar {
   display: grid;
   place-items: center;
@@ -534,6 +477,7 @@
 
 .cam-admin-rail-logout {
   display: inline-flex;
+  min-height: var(--cam-button-height);
   align-items: center;
   justify-content: center;
   gap: var(--cam-space-2);
@@ -849,6 +793,14 @@
   font-size: var(--cam-font-size-2xs);
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* The registration queue's overdue badge states a number of days.
+   Without tabular figures its width moves with the count -- "11 j"
+   and "12 j" measured 102.641px and 105.250px -- which shifts
+   everything after it on the row. */
+.cam-registration-hub-page [data-slot="badge"] {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Round icon control (search link, notification bell). */
