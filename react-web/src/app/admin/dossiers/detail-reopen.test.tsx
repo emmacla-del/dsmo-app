@@ -47,9 +47,12 @@ const DIAGNOSTIC: DossierDiagnostic = {
   warningAnomalies: [],
 };
 
-function Harness({ returnTo }: { returnTo?: string }) {
+function Harness({ returnTo, openApprove = false }: { returnTo?: string; openApprove?: boolean }) {
   navigationMock.params = { id: DOSSIER.id };
-  navigationMock.searchParams = new URLSearchParams(returnTo ? { returnTo } : undefined);
+  navigationMock.searchParams = new URLSearchParams({
+    ...(returnTo ? { returnTo } : {}),
+    ...(openApprove ? { openApprove: "1" } : {}),
+  });
   return <SubmissionDetailPage />;
 }
 
@@ -225,4 +228,37 @@ test("confirming the dialog reopens this dossier for correction through the API"
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+function renderOpenApprove(diagnostic: DossierDiagnostic) {
+  useAuthStore.setState({ status: "authenticated", user: { id: "user-1", role: "ADMIN_ONEFOP" } as never });
+  const queryClient = createTestQueryClient();
+  return renderWithProviders(<Harness returnTo="/admin/dossiers?vue=submissions&queueView=mine" openApprove />, {
+    locale: "en",
+    queryClient,
+    queryData: [
+      [["admin", "dossier", DOSSIER.id, false], CORRECTION_DOSSIER],
+      [["admin", "diagnostic", DOSSIER.id, false], diagnostic],
+      [["admin", "dossier-claim-state", DOSSIER.id], CLAIM],
+      [["onefop-schema"], loadOnefopSchema()],
+    ],
+  });
+}
+
+test("Valider on a file with a blocking anomaly stays on the workspace and says why", async () => {
+  renderOpenApprove({
+    ...DIAGNOSTIC,
+    axis2BlockingCount: 1,
+    blockingAnomalies: [{ ruleCode: "S4_TOTAL", description: "Total does not match", observedValue: 48, expectedValue: 52 }],
+  });
+  await waitFor(() => assert.ok(screen.getByText("Resolve all blocking issues before approval.")));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(screen.queryByRole("dialog"), null, "no approval dialog on a blocked file");
+  assert.equal((screen.getByRole("button", { name: "Endorse" }) as HTMLButtonElement).disabled, true);
+  assert.deepEqual(navigationMock.replaced.filter((href) => href.includes("preview")), [], "never sent back to the old drawer");
+});
+
+test("Valider on a clean file opens the approval dialog in the workspace", async () => {
+  renderOpenApprove(DIAGNOSTIC);
+  await waitFor(() => assert.ok(screen.getByRole("dialog")));
 });

@@ -685,11 +685,10 @@ function SubmissionDetailContent() {
     if (!shouldOpenApprove || handledOpenApproveRef.current || dossierQuery.isLoading || diagnosticQuery.isLoading) return;
     handledOpenApproveRef.current = true;
     if (dossier && diag && diag.blockingAnomalies.length === 0) {
-      openApproveModal();
+      window.setTimeout(openApproveModal, 0);
       return;
     }
-    router.replace(`${returnTo}${returnTo.includes("?") ? "&" : "?"}preview=${encodeURIComponent(id)}&previewSection=checks`, { scroll: false });
-  }, [diagnosticQuery.isLoading, diag, dossier, dossierQuery.isLoading, id, openApproveModal, returnTo, router, shouldOpenApprove]);
+  }, [diagnosticQuery.isLoading, diag, dossier, dossierQuery.isLoading, openApproveModal, shouldOpenApprove]);
 
   // Section accordion toggle, by section id (the schema's own). `undefined`
   // is "the reader has not chosen yet", which opens the first section as the

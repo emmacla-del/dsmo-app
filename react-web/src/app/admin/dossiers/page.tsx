@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Download, MoreHorizontal, TriangleAlert } from "lucide-react";
-import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getDossierDiagnostic, getDossierNeighbours, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
+import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -17,15 +17,14 @@ import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { adminResultRange, displayedResultOffset, isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildDossierReturnTo } from "@/lib/admin-return";
+import { dossierWorkspaceHref, withoutDrawerParams } from "@/lib/dossier-workspace-link";
 import { dossierQueueScrollKey, readDossierQueueScroll, saveDossierQueueScroll } from "@/lib/dossier-scroll-restore";
-import { dossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
-import { DossierPreviewDrawer } from "@/components/admin/DossierPreviewDrawer";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { CampaignNonRespondentsTable } from "@/components/admin/CampaignNonRespondentsTable";
@@ -357,13 +356,7 @@ function DossiersContent({
   const returnParams = new URLSearchParams(searchParams.toString());
   if (view === "submissions" && activeQueueView) returnParams.set("queueView", activeQueueView);
   const dossierReturnTo = buildDossierReturnTo(returnParams.toString());
-  const previewReturnParams = new URLSearchParams(returnParams);
-  previewReturnParams.delete("preview");
-  previewReturnParams.delete("previewSection");
-  const previewReturnTo = buildDossierReturnTo(previewReturnParams.toString());
   const vue = view;
-  const previewId = vue === "submissions" ? searchParams.get("preview")?.trim() || null : null;
-  const previewFocusChecks = vue === "submissions" && searchParams.get("previewSection") === "checks";
   const isCompletedView = vue === "completed";
   const archivedParam = searchParams.get("completedIncludeArchived") ??
     (legacyFiltersApply ? searchParams.get("includeArchived") : null);
@@ -403,21 +396,8 @@ function DossiersContent({
   const [searchInput, setSearchInput] = useState(requestedQuery);
   const [search, setSearch] = useState(requestedQuery.trim());
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
-  const filterPanelOpen = filtersOpen && !previewId;
+  const filterPanelOpen = filtersOpen;
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
-  const previewTriggerRef = useRef<HTMLButtonElement>(null);
-  const lastPreviewIdRef = useRef<string | null>(previewId);
-  useEffect(() => {
-    if (previewId) setFiltersOpen(false);
-    if (!previewId && lastPreviewIdRef.current) previewTriggerRef.current?.focus();
-    lastPreviewIdRef.current = previewId;
-  }, [previewId]);
-  useEffect(() => {
-    if (!previewNotice) return;
-    const timeout = window.setTimeout(() => setPreviewNotice(null), 8000);
-    return () => window.clearTimeout(timeout);
-  }, [previewNotice]);
   const typeFilter = FORM_TYPES.includes(requestedFormType) ? requestedFormType : "";
   const periodFilter = parseDossierPeriod(filterParam("period"));
   const requestedPage = parseAdminListPage(filterParam("page"));
@@ -632,6 +612,14 @@ function DossiersContent({
     router.replace(`${pathname}?${params.toString()}`);
   }, [pathname, router, searchParams, statusFilter, statusRedirectPending, vue]);
 
+  // Old bookmarks may still carry drawer state. Keep the queue and its filters,
+  // but remove those obsolete parameters from the URL.
+  useEffect(() => {
+    const cleaned = withoutDrawerParams(searchParams.toString());
+    if (cleaned === null) return;
+    router.replace(`${pathname}${cleaned ? `?${cleaned}` : ""}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   const questionnairesQuery = useQuery({
@@ -668,16 +656,6 @@ function DossiersContent({
     enabled: (vue === "submissions" || vue === "completed") && territoryFiltersValid && !statusRedirectPending && !queueViewPending,
     placeholderData: keepPreviousData,
     refetchInterval: vue === "submissions" ? 60_000 : false,
-  });
-
-  const previewNeighbourParams = dossierNeighbourQuery(previewReturnTo, readOnly);
-  const previewNeighboursQuery = useQuery({
-    queryKey: ["admin", "dossier-neighbours", previewId, previewNeighbourParams.filters],
-    queryFn: () => getDossierNeighbours(previewId!, previewNeighbourParams.filters),
-    enabled: Boolean(previewId),
-    retry: false,
-    staleTime: 0,
-    refetchOnMount: "always",
   });
 
   const archiveMutation = useMutation({
@@ -964,10 +942,6 @@ function DossiersContent({
   // already the filtered page. Do not drop rows again here: that would
   // leave `total` and the export describing a different set.
   const dossiers: DossierItem[] = allDossiers;
-  const previewSummary = previewId ? dossiers.find((dossier) => dossier.id === previewId) : undefined;
-  const previewIndex = previewId ? dossiers.findIndex((dossier) => dossier.id === previewId) : -1;
-  const nextDossierId = previewNeighboursQuery.isFetching ? null : previewNeighboursQuery.data?.next?.id ?? null;
-  const previewPosition = previewIndex >= 0 ? previewIndex + 1 : null;
 
   const typeColumnLabel = vue === "completed" ? t("typeColumn") : t("entityTypeColumn");
   const activeFilterChips: Array<{ key: string; label: string; remove: () => void }> = [];
@@ -1027,65 +1001,15 @@ function DossiersContent({
     filterTriggerRef.current?.focus();
   }, []);
 
-  const openDossierPreview = useCallback((id: string, focusChecks = false) => {
-    setFiltersOpen(false);
-    setPreviewNotice(null);
-    router.push(hrefWith(pathname, searchParams.toString(), { preview: id, previewSection: focusChecks ? "checks" : null, decisionNotice: null, endOfQueue: null }), { scroll: false });
-  }, [pathname, router, searchParams]);
-
-  const closeDossierPreview = useCallback(() => {
-    setPreviewNotice(null);
-    router.replace(hrefWith(pathname, searchParams.toString(), { preview: null, previewSection: null }), { scroll: false });
-  }, [pathname, router, searchParams]);
-
-  const advanceToNextDossier = useCallback((id: string | null, validatedRef: string) => {
-    setPreviewNotice(t("dossierDecisionNotice", { id: validatedRef }));
-    if (id) {
-      void queryClient.removeQueries({ queryKey: ["admin", "dossier", id] });
-      void queryClient.removeQueries({ queryKey: ["admin", "dossier-claim-state", id] });
-      void queryClient.removeQueries({ queryKey: ["admin", "diagnostic", id] });
-    }
-    router.replace(hrefWith(pathname, searchParams.toString(), {
-      preview: id,
-      previewSection: null,
-      decisionNotice: id ? null : validatedRef,
-      endOfQueue: id ? null : "1",
-    }), { scroll: false });
-  }, [pathname, queryClient, router, searchParams, t]);
-
-  const openQuickValidation = async (dossier: DossierItem) => {
+  // The workspace loads the file's current checks itself and opens the
+  // approval dialog only on a clean file, so the queue's (possibly stale)
+  // counters are never the gate and a failed check never leaves a dead click.
+  const openQuickValidation = (dossier: DossierItem) => {
     if (!user?.id || dossier.assigneeId !== user.id || dossier.adminStatus !== "PENDING_REVIEW" || dossier.archivedAt || dossier.claimExpired) return;
-    try {
-      // Refresh the diagnostic at the action boundary. Cached queue counters
-      // can be stale if checks changed after the list was loaded.
-      const diagnostic = await queryClient.fetchQuery({
-        queryKey: ["admin", "diagnostic", dossier.id, false],
-        queryFn: () => getDossierDiagnostic(dossier.id),
-        staleTime: 0,
-      });
-      if (diagnostic.blockingAnomalies.length > 0 || diagnostic.warningAnomalies.length > 0) {
-        openDossierPreview(dossier.id, true);
-        return;
-      }
-      const returnParams = new URLSearchParams(searchParams.toString());
-      if (activeQueueView) returnParams.set("queueView", activeQueueView);
-      const returnTo = buildDossierReturnTo(returnParams.toString());
-      const returnQuery = new URLSearchParams({ returnTo, openApprove: "1" });
-      router.push(`/admin/dossiers/${encodeURIComponent(dossier.id)}?${returnQuery.toString()}`, { scroll: false });
-    } catch {
-      // If validation data cannot be fetched, make the reviewer inspect the
-      // issue section instead of presenting a clean-record validation path.
-      openDossierPreview(dossier.id, true);
-    }
+    router.push(dossierWorkspaceHref(dossier.id, dossierReturnTo, { openApprove: true }), { scroll: false });
   };
 
   const toggleFilterPanel = () => {
-    if (previewId) {
-      previewTriggerRef.current = null;
-      router.replace(hrefWith(pathname, searchParams.toString(), { preview: null }), { scroll: false });
-      setFiltersOpen(true);
-      return;
-    }
     setFiltersOpen((open) => !open);
   };
 
@@ -1566,7 +1490,7 @@ function DossiersContent({
   }
 
   return (
-    <section id={`dossier-view-${vue}`} className={`cam-dossier-view cam-dossier-view--${vue}${vue === "submissions" && filterPanelOpen ? " is-filter-open" : ""}${vue === "submissions" && previewId ? " is-preview-open" : ""}`}>
+    <section id={`dossier-view-${vue}`} className={`cam-dossier-view cam-dossier-view--${vue}${vue === "submissions" && filterPanelOpen ? " is-filter-open" : ""}`}>
       {showPageHeader && pageHeader}
       {reopenNotice && <Alert variant="success" className="my-4"><AlertDescription>{reopenNotice}</AlertDescription></Alert>}
       {assignNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{assignNotice}</AlertDescription></Alert>}
@@ -1749,7 +1673,7 @@ function DossiersContent({
           </div>
           <AdminActiveFilterChips filters={activeFilterChips.map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} clearAllLabel={t("clearFilters")} onClearAll={clearAllFilters} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
         </CardContent>}
-        {vue === "submissions" && <div className={`cam-dossier-queue-layout${filterPanelOpen ? " is-filter-open" : ""}${previewId ? " is-preview-open" : ""}`}>
+        {vue === "submissions" && <div className={`cam-dossier-queue-layout${filterPanelOpen ? " is-filter-open" : ""}`}>
         <div className="cam-dossier-queue-main">
         <CardContent className="border-b cam-dossier-submissions-filters">
           <div className="cam-dossier-queue-search-row">
@@ -1821,17 +1745,17 @@ function DossiersContent({
                 const canManageArchive = hasRole(user?.role, DOSSIER_ARCHIVE_ROLES);
                 const hasCompletedActions = (canReadAudit || canManageArchive || (canReopen && d.adminStatus === "APPROVED"));
                 const actionsLabel = t("rowActionsAria", { name: d.companyName ?? d.submissionId });
-                const detailQuery = new URLSearchParams({ returnTo: dossierReturnTo });
-                if (vue === "submissions" && !readOnly && d.assigneeId && d.assigneeId !== user?.id) detailQuery.set("readOnly", "true");
-                if (isCompletedView && includeArchived) detailQuery.set("includeArchived", "true");
-                const detailHref = `/admin/dossiers/${encodeURIComponent(d.id)}?${detailQuery.toString()}`;
+                const detailHref = dossierWorkspaceHref(d.id, dossierReturnTo, {
+                  readOnly: vue === "submissions" && !readOnly && Boolean(d.assigneeId) && d.assigneeId !== user?.id,
+                  includeArchived: isCompletedView && includeArchived,
+                });
                 const primaryAction = selectDossierQueuePrimaryAction({ status: d.adminStatus, assigneeId: d.assigneeId, userId: user?.id, readOnly, validationDataAvailable: d.validationDataAvailable, blockingCount: d.blockingCount, warningCount: d.warningCount, archived: Boolean(d.archivedAt), claimExpired: Boolean(d.claimExpired), canClaim: canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), null, user?.id, user?.role) });
                 const primaryActionButton = primaryAction === "claim"
                   ? <Button type="button" size="sm" variant="default" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
                   : primaryAction === "review-issues"
-                    ? <Button type="button" size="sm" variant="default" onClick={(event) => { previewTriggerRef.current = event.currentTarget; openDossierPreview(d.id, true); }}>{t("reviewIssuesButton")}</Button>
+                    ? <Button asChild size="sm" variant="default"><Link href={dossierWorkspaceHref(d.id, dossierReturnTo)}>{t("reviewIssuesButton")}</Link></Button>
                     : primaryAction === "validate"
-                      ? <Button type="button" size="sm" variant="default" onClick={() => { void openQuickValidation(d); }}>{t("validateQueueButton")}</Button>
+                      ? <Button type="button" size="sm" variant="default" onClick={() => openQuickValidation(d)}>{t("validateQueueButton")}</Button>
                       : primaryAction === "history"
                         ? <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("correctionHistoryButton")}</Link></Button>
                         : <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("openFileButton")}</Link></Button>;
@@ -1948,23 +1872,6 @@ function DossiersContent({
         </CardContent>
         </div>
         {filterPanelOpen && submissionFilterSidebar}
-        {previewId && <DossierPreviewDrawer
-          key={previewId}
-          dossierId={previewId}
-          summary={previewSummary ? { ...previewSummary, formTypeLabel: previewSummary.formType ? queueTypeLabel(previewSummary.formType) : null } : undefined}
-          fullDossierHref={`/admin/dossiers/${encodeURIComponent(previewId)}?returnTo=${encodeURIComponent(previewReturnTo)}`}
-          userId={user?.id}
-          role={user?.role}
-          focusChecks={previewFocusChecks}
-          nextDossierId={nextDossierId}
-          neighboursLoaded={previewNeighboursQuery.isSuccess && !previewNeighboursQuery.isFetching}
-          neighbourFilters={previewNeighbourParams.filters}
-          previewPosition={previewPosition}
-          previewTotal={dossiers.length}
-          notice={previewNotice}
-          onAdvance={advanceToNextDossier}
-          onClose={closeDossierPreview}
-        />}
         </div>}
         {archiveTarget && <ArchiveActions
           archived={false}
