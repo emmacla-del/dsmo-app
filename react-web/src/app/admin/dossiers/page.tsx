@@ -1753,16 +1753,16 @@ function DossiersContent({
                   </TableCell>
                   <TableCell className="align-top whitespace-normal">
                     <span className="cam-dossier-cell-primary" title={campaignName}>{campaignName}</span>
-                    <span className="block text-sm text-muted-foreground">{periodLabel}</span>
+                    <span className="cam-dossier-cell-secondary">{periodLabel}</span>
                   </TableCell>
                   <TableCell className="align-top whitespace-normal">
                     <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
-                    {d.rejectionReason && <span className="mt-1 block text-sm text-muted-foreground" title={d.rejectionReason}>{d.rejectionReason}</span>}
+                    {d.rejectionReason && <span className="cam-dossier-cell-secondary" title={d.rejectionReason}>{d.rejectionReason}</span>}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">{stamp(d.reviewedAt, false, locale)}</TableCell>
+                  <TableCell className="whitespace-nowrap"><span className="cam-dossier-date-primary">{stamp(d.reviewedAt, true, locale)}</span></TableCell>
                   <TableCell>{d.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <TableCell className="cam-dossier-action-cell align-top">
+                    <div className="cam-dossier-row-actions">
                       {openFile}
                       {hasCompletedActions && rowMenu(<>
                         {canReadAudit && <DropdownMenuItem asChild><Link href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link></DropdownMenuItem>}
@@ -1797,7 +1797,7 @@ function DossiersContent({
                         {!d.validationDataAvailable
                           ? <span className="cam-dossier-cell-secondary">{t("validationDataUnavailable")}</span>
                           : d.blockingCount === 0 && d.warningCount === 0
-                            ? <span className="cam-dossier-cell-secondary">{t("noOpenIssuesRecorded")}</span>
+                            ? <span className="cam-dossier-checks-clear"><span aria-hidden="true">—</span><span className="sr-only">{t("noOpenIssuesRecorded")}</span></span>
                             : null}
                       </div>
                     </div>

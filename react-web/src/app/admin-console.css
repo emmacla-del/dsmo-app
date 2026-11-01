@@ -1489,7 +1489,7 @@
 
 .cam-admin.is-dossier-workflow .cam-dossier-quick-filter {
   display: inline-flex;
-  min-height: 34px;
+  min-height: var(--cam-button-height);
   align-items: center;
   gap: 7px;
   padding: 5px 11px;
@@ -1527,7 +1527,7 @@
 
 .cam-admin.is-dossier-workflow .cam-dossier-quick-filter:focus-visible,
 .cam-dossier-filter-trigger:focus-visible {
-  outline: 3px solid var(--cam-console-navy-44);
+  outline: 3px solid var(--cam-focus);
   outline-offset: 2px;
 }
 
@@ -5780,9 +5780,6 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-page-header .cam-admin-page-title,
 .cam-admin.is-dossier-workflow .cam-admin-page-title {
   color: var(--cam-console-navy-62);
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: 0;
   line-height: 1.2;
 }
 
@@ -7664,9 +7661,6 @@ a.cam-dash-review-row:hover {
 /* CAMLEAP declarations: formal, readable review workspace. */
 .cam-admin.is-dossier-workflow .cam-admin-page-title {
   color: var(--cam-console-navy-61);
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.015em;
   line-height: 1.2;
 }
 
@@ -8098,7 +8092,9 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-name,
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-primary {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-primary,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-record-name,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-cell-primary {
   display: block;
   max-width: 100%;
   color: var(--cam-console-navy-64);
@@ -8110,7 +8106,9 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-meta,
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-secondary,
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-owner {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-owner,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-cell-secondary,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-owner {
   display: block;
   max-width: 100%;
   color: var(--cam-console-navy-46);
@@ -8295,7 +8293,8 @@ a.cam-dash-review-row:hover {
   overflow-wrap: anywhere;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-primary {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-primary,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-date-primary {
   color: var(--cam-console-navy-46);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -9042,8 +9041,8 @@ a.cam-dash-review-row:hover {
 
 .cam-dossier-filter-close {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: var(--cam-button-height);
+  height: var(--cam-button-height);
   flex: 0 0 auto;
   place-items: center;
   border: 1px solid var(--cam-border);
@@ -9180,11 +9179,13 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(6) { width: 130px !important; }
 
 .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-link {
-  color: var(--cam-console-navy-44);
+  color: inherit;
   text-decoration: none;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-link:hover {
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-link:hover,
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-link:focus-visible {
+  color: var(--cam-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -9732,50 +9733,21 @@ a.cam-dash-review-row:hover {
   gap: 6px;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-row-actions > a[data-slot="button"] {
+/* Row actions: one icon-only square for the open and overflow triggers,
+   one labelled shape for Validate and Review issues. They are the same
+   34px tall object; only the button variant's colour separates the
+   primary action from the secondary one. */
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > a[data-slot="button"],
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button[data-slot="button"] {
   flex: 0 0 34px;
   width: 34px;
   min-width: 34px;
   height: 34px;
   padding: 0;
-  white-space: normal !important;
   text-align: center;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button[data-slot="button"] {
-  flex: 0 0 36px;
-  width: 36px;
-  height: 34px;
-  min-width: 36px;
-  padding: 0;
-}
-
-.cam-admin.is-dossier-workflow .cam-dossier-row-actions > a.cam-dossier-open-action[data-slot="button"] {
-  flex: 0 0 34px;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  padding: 0;
-  justify-self: start;
-}
-
-.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-open-action[data-slot="button"] {
-  flex: 0 0 34px;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  padding: 0;
-}
-
-.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-validate-action[data-slot="button"] {
-  flex: 0 1 auto;
-  width: auto;
-  min-width: 0;
-  min-height: 34px;
-  padding-inline: 9px;
-  white-space: nowrap;
-}
-
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-validate-action[data-slot="button"],
 .cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-review-issues-action[data-slot="button"] {
   flex: 0 1 auto;
   width: auto;
@@ -10160,5 +10132,65 @@ a.cam-dash-review-row:hover {
 
   .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
     margin-left: 0;
+  }
+}
+
+/* A clean record states its cleanliness with a dash, not a sentence
+   repeated down every row of the column. The wording stays in the
+   accessibility tree, so a screen reader still hears it per row. */
+.cam-admin.is-dossier-workflow .cam-dossier-checks-clear {
+  display: block;
+  color: var(--cam-console-navy-47);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Refreshing retained results must not move the table under the reader's
+   cursor. The polite status paragraph that AdminTablePanel renders above
+   the card is taken out of the flow -- it keeps announcing, it just stops
+   pushing -- and the panel shows a 2px indeterminate bar on its own top
+   edge instead. Scoped to this console: every other admin page keeps the
+   paragraph it has always shown. */
+.cam-admin.is-dossier-workflow .cam-admin-table-panel-card[data-slot="card"] {
+  position: relative;
+}
+
+.cam-admin.is-dossier-workflow .cam-admin-table-panel-card > p[role="status"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cam-admin.is-dossier-workflow .cam-admin-table-panel[aria-busy="true"] .cam-admin-table-panel-card::before {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 2px;
+  background-image: linear-gradient(90deg, transparent, var(--cam-primary), transparent);
+  background-repeat: no-repeat;
+  background-size: 38% 100%;
+  animation: cam-dossier-refresh 1100ms linear infinite;
+}
+
+@keyframes cam-dossier-refresh {
+  from { background-position: -38% 0; }
+  to { background-position: 138% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-admin.is-dossier-workflow .cam-admin-table-panel[aria-busy="true"] .cam-admin-table-panel-card::before {
+    animation: none;
+    background-image: none;
+    background-color: var(--cam-primary);
+    opacity: 0.45;
   }
 }
