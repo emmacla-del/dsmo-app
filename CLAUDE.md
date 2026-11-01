@@ -1385,6 +1385,71 @@ Approved changes on record:
   variable, export, PDF or dataset version changes — this is administrative
   routing. Approved by the owner in chat, 2026-10-27; the migration was applied to production on 2026-10-27.
 
+- 2026-11-01 — a reviewer may explain an advisory warning from the dossier
+  workspace, recorded under a resolution type of its own (schema change;
+  migration `20261101120000_anomaly_reviewer_explanation`;
+  `ExplainFindingAction` in `react-web/src/components/admin/DossierExplainFinding.tsx`,
+  `explainFindingAnomalies` in `react-web/src/lib/dossier-explain.ts`, the
+  REVIEWER_EXPLANATION guard in `EligibilityEngineService.resolveAnomaly`).
+  Issue: the workspace showed findings but offered no way to assess one, so an
+  advisory warning a reviewer had checked stayed open until endorsement and was
+  justified there in a sentence about the whole file. The resolve route
+  already existed (claim, territory and revision enforced) and only the
+  Quality Centre called it. Decision: « Expliquer » on each WARNING finding,
+  for the claim holder only, with a written note (10–2,000 characters); every
+  stored row of the finding (one per sex) is closed in turn, each call
+  expecting the next file revision, and a refusal stops at once. The
+  explained warnings stay listed with note, author and date. NOT for
+  blocking findings: the server refuses REVIEWER_EXPLANATION on an anomaly
+  whose `isBlocking` is true (400, bilingual), so which check blocks (§7) is
+  unchanged. CONSEQUENCE, accepted by the owner: an explained warning no
+  longer counts as open, so endorsement no longer asks for a justification
+  for it — the justification now sits on the finding itself. WHY A NEW TYPE:
+  the Quality Centre describes FIELD_INSPECTION as an on-site check by a sworn
+  ONEFOP agent; a desk explanation stored under it would have stated, in the
+  audit trail, an inspection that never took place. `AnomalyResolutionType`
+  gains REVIEWER_EXPLANATION (additive `ADD VALUE`, no row read or
+  rewritten); it maps to RESOLVED, never WAIVED; LEGAL_DEROGATION stays
+  national-only; the Quality Centre's dialog does not offer the new type. No
+  statistical variable, export, PDF or dataset version changes — eligibility
+  depends on open BLOCKING anomalies only, which this cannot close. Approved
+  by the owner in chat, 2026-11-01, after the FIELD_INSPECTION mapping was
+  set aside. Proposal and Part B (observations on answers, not started):
+  `docs/plans/dossier-field-observations.md`.
+
+- 2026-11-01 — a pending file's coherence warnings can be re-checked with the
+  current rules (schema change; migration `20261101130000_anomaly_rule_recheck`;
+  `QuestionnairesService.recheckCoherence` / `recheckPendingCoherence`,
+  `POST /admin/questionnaires/:id/coherence/recheck` and
+  `POST /admin/questionnaires/coherence/recheck-pending`; « Recalculer les
+  contrôles » in the dossier workspace). Issue: a file keeps the warnings
+  computed when it was filed. A rule added or corrected since left real gaps
+  unrecorded, so nothing asked about them at endorsement, and left false
+  warnings open: every employer file filed before the S22Q03 fix of the same
+  day carries a diploma warning whose figures agree. Decision (owner, in chat,
+  2026-11-01): the re-check recomputes the flags exactly as submission does
+  (`previewCoherence`), ADDS an open, non-blocking warning for each rule that
+  now fires with no row, and CLOSES each open coherence warning whose rule no
+  longer fires as RESOLVED with a new resolution type, `RULE_RECHECK`
+  (additive `ADD VALUE`, no row rewritten), resolvedBy null: the system
+  closed it, and the history says so (« Clos à la revérification »). SCOPE,
+  chosen by the owner: PENDING_REVIEW files only; a decided, corrected or
+  superseded file keeps what it was decided on. It touches only coherence
+  warnings (`COHERENCE`, `VT_COHERENCE`), never a blocking or completeness
+  anomaly, never a rule a reviewer has explained; a rule closed by an earlier
+  re-check that fires again is added again. Each change moves the file's
+  revision (a decision taken on the old version is refused) and writes
+  COHERENCE_RECHECKED with what was added and closed. Who: the per-file route
+  is SURVEY_ADMIN_ROLES inside the actor's territory, read-only roles refused
+  (`findForDecision`); the all-pending route is the national ONEFOP admins
+  only, one file at a time (session pool). `RULE_RECHECK` is refused on the
+  resolve route for everyone, a national admin included. Which check blocks
+  (§7) is unchanged: re-check warnings are advisory like all coherence
+  warnings. No statistical variable, export, PDF or dataset version changes.
+  TO DO ONCE after deploy: run `recheck-pending` as a national admin, so the
+  files already filed lose their false S22Q03 warnings and gain the warnings
+  now due.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
