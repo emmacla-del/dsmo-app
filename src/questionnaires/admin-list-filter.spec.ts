@@ -123,12 +123,33 @@ describe('buildAdminListWhere', () => {
   });
 
   it('filters assignment me, unassigned and other against the signed-in officer', () => {
-    expect(buildAdminListWhere({ assignment: 'me', assigneeId: 'officer-1' }).AND)
-      .toContainEqual({ assigneeId: 'officer-1' });
-    expect(buildAdminListWhere({ assignment: 'unassigned' }).AND)
-      .toContainEqual({ assigneeId: null });
-    expect(buildAdminListWhere({ assignment: 'other', assigneeId: 'officer-1' }).AND)
-      .toContainEqual({ AND: [{ assigneeId: { not: null } }, { assigneeId: { not: 'officer-1' } }] });
+    const cutoff = new Date('2026-09-29T00:00:00.000Z');
+    const me = buildAdminListWhere({ assignment: 'me', assigneeId: 'officer-1' }, undefined, NOW).AND;
+    expect(me).toContainEqual({ status: { in: ['PENDING_REVIEW', 'CORRECTION_REQUESTED'] } });
+    expect(me).toContainEqual({
+      OR: [{ claimActivityAt: null }, { claimActivityAt: { gt: cutoff } }],
+    });
+    expect(me).toContainEqual({ assigneeId: 'officer-1' });
+
+    const unassigned = buildAdminListWhere({ assignment: 'unassigned' }, undefined, NOW).AND;
+    expect(unassigned).toContainEqual({
+      OR: [
+        { assigneeId: null },
+        { status: { notIn: ['PENDING_REVIEW', 'CORRECTION_REQUESTED'] } },
+        { AND: [
+          { status: { in: ['PENDING_REVIEW', 'CORRECTION_REQUESTED'] } },
+          { assigneeId: { not: null } },
+          { claimActivityAt: { lte: cutoff } },
+        ] },
+      ],
+    });
+
+    const other = buildAdminListWhere({ assignment: 'other', assigneeId: 'officer-1' }, undefined, NOW).AND;
+    expect(other).toContainEqual({ status: { in: ['PENDING_REVIEW', 'CORRECTION_REQUESTED'] } });
+    expect(other).toContainEqual({
+      OR: [{ claimActivityAt: null }, { claimActivityAt: { gt: cutoff } }],
+    });
+    expect(other).toContainEqual({ AND: [{ assigneeId: { not: null } }, { assigneeId: { not: 'officer-1' } }] });
   });
 
   it('matches nothing for me or other when the officer id is missing', () => {

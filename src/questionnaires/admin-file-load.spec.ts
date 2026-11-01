@@ -108,10 +108,10 @@ describe('review decisions read only what they need', () => {
   it('approve, opened from the receipt reference, selects a few fields and writes under the dossier id', async () => {
     const { prisma, service } = setup();
     prisma.onefopSubmission.findFirst
-      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', campaignId: null, establishmentId: 'e-1', updatedAt: REVISION, assigneeId: 'admin-1', archivedAt: null })
-      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', anomalies: [], updatedAt: REVISION, assigneeId: 'admin-1', archivedAt: null });
+      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', campaignId: null, establishmentId: 'e-1', updatedAt: REVISION, revision: 1, assigneeId: 'admin-1', archivedAt: null })
+      .mockResolvedValueOnce({ id: 'db-1', status: 'PENDING_REVIEW', anomalies: [], updatedAt: REVISION, revision: 1, assigneeId: 'admin-1', archivedAt: null });
 
-    await service.approve('ref-1', 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString());
+    await service.approve('ref-1', 'admin-1', territory('ADMIN_ONEFOP'), 1);
 
     const lookup = prisma.onefopSubmission.findFirst.mock.calls[0][0];
     expect(lookup.select).toEqual(expect.objectContaining({ id: true, status: true }));
@@ -121,9 +121,12 @@ describe('review decisions read only what they need', () => {
     expect(prisma.onefopSubmission.updateMany.mock.calls[0][0].where).toEqual({
       id: 'db-1',
       status: 'PENDING_REVIEW',
-      updatedAt: REVISION,
+      revision: 1,
       assigneeId: 'admin-1',
       archivedAt: null,
+      // The approve guard re-checks anomalies inside the conditional update, so
+      // an anomaly raised after assertCanApprove cannot slip past the decision.
+      anomalies: { none: { status: 'OPEN' } },
     });
     expect(prisma.onefopSubmission.updateMany.mock.calls[0][0].data).toEqual(
       expect.objectContaining({ assigneeId: null }),
@@ -136,22 +139,22 @@ describe('review decisions read only what they need', () => {
       prisma.onefopSubmission.findFirst.mockResolvedValue({
         id: 'db-1',
         status: 'PENDING_REVIEW',
-        updatedAt: REVISION,
+        revision: 1,
         assigneeId: 'admin-1',
         archivedAt: null,
       });
       if (act === 'reject') {
-        await service.reject('ref-1', 'Motif suffisamment long', 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString());
+        await service.reject('ref-1', 'Motif suffisamment long', 'admin-1', territory('ADMIN_ONEFOP'), 1);
       } else {
         await service.requestCorrection(
-          'ref-1', 'Commentaire assez long', true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+          'ref-1', 'Commentaire assez long', true, 'admin-1', territory('ADMIN_ONEFOP'), 1,
         );
       }
       expect(prisma.onefopSubmission.findFirst.mock.calls[0][0].select).toBeDefined();
       expect(prisma.onefopSubmission.updateMany.mock.calls[0][0].where).toEqual({
         id: 'db-1',
         status: 'PENDING_REVIEW',
-        updatedAt: REVISION,
+        revision: 1,
         assigneeId: 'admin-1',
         archivedAt: null,
       });
@@ -164,13 +167,14 @@ describe('review decisions read only what they need', () => {
       id: 'db-1',
       status: 'PENDING_REVIEW',
       updatedAt: REVISION,
+      revision: 1,
       assigneeId: null,
       archivedAt: null,
     });
     const call = act === 'reject'
-      ? service.reject('ref-1', 'Motif suffisamment long', 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString())
+      ? service.reject('ref-1', 'Motif suffisamment long', 'admin-1', territory('ADMIN_ONEFOP'), 1)
       : service.requestCorrection(
-          'ref-1', 'Commentaire assez long', true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+          'ref-1', 'Commentaire assez long', true, 'admin-1', territory('ADMIN_ONEFOP'), 1,
         );
     await expect(call).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
@@ -182,13 +186,14 @@ describe('review decisions read only what they need', () => {
       id: 'db-1',
       status: 'PENDING_REVIEW',
       updatedAt: REVISION,
+      revision: 1,
       assigneeId: 'other-admin',
       archivedAt: null,
     });
     const call = act === 'reject'
-      ? service.reject('ref-1', 'Motif suffisamment long', 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString())
+      ? service.reject('ref-1', 'Motif suffisamment long', 'admin-1', territory('ADMIN_ONEFOP'), 1)
       : service.requestCorrection(
-          'ref-1', 'Commentaire assez long', true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+          'ref-1', 'Commentaire assez long', true, 'admin-1', territory('ADMIN_ONEFOP'), 1,
         );
     await expect(call).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();

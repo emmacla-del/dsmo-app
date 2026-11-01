@@ -156,7 +156,7 @@ describe('AdminQuestionnairesController.getAll — list params', () => {
     const calls = service.listForAdmin.mock.calls;
     expect(buildAdminListWhere(calls[0][0]).AND).toEqual(expect.arrayContaining([
       { anomalies: { none: { status: 'OPEN' } } },
-      { assigneeId: null },
+      expect.objectContaining({ OR: expect.arrayContaining([{ assigneeId: null }]) }),
     ]));
     expect(buildAdminListWhere(calls[1][0]).AND).toEqual(expect.arrayContaining([
       { anomalies: { some: { status: 'OPEN', isBlocking: false } } },
@@ -233,10 +233,11 @@ describe('AdminQuestionnairesController.exportDossiers', () => {
     expect(exported).toMatchObject({
       region: 'Centre', campaignId: 'campaign-9', quality: 'warnings', assignment: 'other', assigneeId: 'a1',
     });
-    expect(buildAdminListWhere(exported)).toEqual(buildAdminListWhere({
+    const asOf = new Date('2026-10-30T00:00:00.000Z');
+    expect(buildAdminListWhere(exported, undefined, asOf)).toEqual(buildAdminListWhere({
       region: 'Centre', campaignId: 'campaign-9', quality: 'warnings', assignment: 'other', assigneeId: 'a1',
-    }));
-    expect(buildAdminListWhere(exported).AND).toEqual(expect.arrayContaining([
+    }, undefined, asOf));
+    expect(buildAdminListWhere(exported, undefined, asOf).AND).toEqual(expect.arrayContaining([
       { campaignId: 'campaign-9' },
       { anomalies: { some: { status: 'OPEN', isBlocking: false } } },
       { AND: [{ assigneeId: { not: null } }, { assigneeId: { not: 'a1' } }] },

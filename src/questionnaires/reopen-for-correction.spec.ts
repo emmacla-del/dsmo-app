@@ -24,6 +24,7 @@ function setup({ status = 'APPROVED', roundOpen = true, assigneeId = null } = {}
     department: 'Wouri',
     departmentId: null,
     updatedAt: REVISION,
+    revision: 1,
     assigneeId,
     archivedAt: null,
   };
@@ -52,12 +53,12 @@ describe('QuestionnairesService.reopenForCorrection', () => {
   it('returns an endorsed file for correction, with the reason, and records AUDIT_REOPEN', async () => {
     const { service, prisma } = setup();
     const updated: any = await service.reopenForCorrection(
-      'db-1', REASON, true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+      'db-1', REASON, true, 'admin-1', territory('ADMIN_ONEFOP'), 1,
     );
 
     expect(updated.status).toBe('CORRECTION_REQUESTED');
     expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith({
-      where: { id: 'db-1', status: 'APPROVED', updatedAt: REVISION, assigneeId: null, archivedAt: null },
+      where: { id: 'db-1', status: 'APPROVED', revision: 1, assigneeId: null, archivedAt: null },
       data: expect.objectContaining({
         status: 'CORRECTION_REQUESTED',
         rejectionReason: REASON,
@@ -82,7 +83,7 @@ describe('QuestionnairesService.reopenForCorrection', () => {
   it('reopens a file held by another reviewer without taking the claim', async () => {
     const { service, prisma } = setup({ assigneeId: 'other-admin' });
     const updated: any = await service.reopenForCorrection(
-      'db-1', REASON, true, 'admin-1', territory('ADMIN_ONEFOP'), REVISION.toISOString(),
+      'db-1', REASON, true, 'admin-1', territory('ADMIN_ONEFOP'), 1,
     );
 
     expect(updated.status).toBe('CORRECTION_REQUESTED');
@@ -91,7 +92,7 @@ describe('QuestionnairesService.reopenForCorrection', () => {
       where: {
         id: 'db-1',
         status: 'APPROVED',
-        updatedAt: REVISION,
+        revision: 1,
         assigneeId: 'other-admin',
         archivedAt: null,
       },
@@ -102,7 +103,7 @@ describe('QuestionnairesService.reopenForCorrection', () => {
   it('is open to SUPER_ADMIN too', async () => {
     const { service } = setup();
     await expect(
-      service.reopenForCorrection('db-1', REASON, true, 'sa-1', territory('SUPER_ADMIN'), REVISION.toISOString()),
+      service.reopenForCorrection('db-1', REASON, true, 'sa-1', territory('SUPER_ADMIN'), 1),
     ).resolves.toBeTruthy();
   });
 
@@ -110,7 +111,7 @@ describe('QuestionnairesService.reopenForCorrection', () => {
     const { service } = setup();
     await expect(
       service.reopenForCorrection(
-        'db-1', REASON, true, 'sub-admin-1', territory('ADMIN_ONEFOP_SUBMISSIONS'), REVISION.toISOString(),
+        'db-1', REASON, true, 'sub-admin-1', territory('ADMIN_ONEFOP_SUBMISSIONS'), 1,
       ),
     ).resolves.toBeTruthy();
   });
@@ -138,7 +139,7 @@ describe('QuestionnairesService.reopenForCorrection', () => {
     for (const status of ['PENDING_REVIEW', 'CORRECTION_REQUESTED', 'REJECTED', 'DRAFT']) {
       const { service, prisma } = setup({ status });
       await expect(
-        service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'), REVISION.toISOString()),
+        service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'), 1),
       ).rejects.toThrow(/Seul un dossier visé/);
       expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     }
@@ -147,7 +148,7 @@ describe('QuestionnairesService.reopenForCorrection', () => {
   it('refuses when the period is closed: the respondent could not resubmit', async () => {
     const { service, prisma } = setup({ roundOpen: false });
     await expect(
-      service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'), REVISION.toISOString()),
+      service.reopenForCorrection('db-1', REASON, true, 'a', territory('SUPER_ADMIN'), 1),
     ).rejects.toThrow(/n'est plus ouverte/);
     expect(prisma.submissionRound.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ quarterCode: 'QUARTERLY_2026_T4_001' }) }),

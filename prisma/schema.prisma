@@ -920,6 +920,12 @@ model OnefopSubmission {
   // Agent the file's review is assigned to (phase 5, team workflow). Null
   // means unclaimed.
   assigneeId            String?
+  // Timestamp of the last claim or reviewer-authored progress action. NULL
+  // means the claim is legacy/untracked, has been released, or is ineligible.
+  claimActivityAt       DateTime?
+  // Monotonic compare-and-swap token for admin mutations. Unlike updatedAt,
+  // this cannot collide when two writes occur within the same millisecond.
+  revision              Int                           @default(0)
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
   companyId             String?
@@ -998,6 +1004,7 @@ model OnefopSubmission {
   @@index([region])
   @@index([submittedBy])
   @@index([assigneeId])
+  @@index([status, assigneeId, claimActivityAt], map: "onefop_submissions_claim_activity_idx")
   @@index([establishmentId], map: "idx_onefop_submissions_establishmentId")
   @@index([quarterCode], map: "idx_onefop_submissions_quarterCode")
   @@index([taxNumber])

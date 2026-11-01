@@ -608,6 +608,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   },
   { fr: 'Ce dossier au statut {0} ne peut pas être décidé.', en: 'A file with status {0} cannot be decided.' },
   {
+    fr: 'Une justification est requise pour viser un dossier avec des anomalies non bloquantes ouvertes.',
+    en: 'A justification is required to endorse a file with open non-blocking anomalies.',
+  },
+  {
     fr: 'Le dossier a changé depuis sa dernière lecture. Rechargez-le avant de confirmer.',
     en: 'The file has changed since it was last read. Reload it before confirming.',
   },

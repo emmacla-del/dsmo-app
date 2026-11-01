@@ -2,7 +2,7 @@
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { AnomalyResolutionType, AnomalySeverity, AnomalyStatus, OnefopStatus, UserRole } from '@prisma/client';
 import { StatisticalExclusionReason } from '../types/eligibility.types';
-import { ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('EligibilityEngineService', () => {
   let service: EligibilityEngineService;
@@ -243,6 +243,7 @@ describe('EligibilityEngineService', () => {
         service.resolveAnomaly('ano-1', regionalUser, {
           resolutionType: AnomalyResolutionType.LEGAL_DEROGATION,
           resolutionNote: 'Tentative de dispense locale',
+          expectedRevision: 1,
         })
       ).rejects.toThrow(ForbiddenException);
     });
@@ -253,15 +254,25 @@ describe('EligibilityEngineService', () => {
         ruleCode: 'RULE-1',
         submissionId: 'sub-1',
         status: AnomalyStatus.OPEN,
-        submission: { region: 'Centre' },
+        submission: {
+          id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-2',
+          archivedAt: null, revision: 1, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
       }).mockResolvedValueOnce({ id: 'ano-1', status: AnomalyStatus.WAIVED });
 
       const superAdmin = { id: 'usr-super', role: UserRole.SUPER_ADMIN };
       const res = await service.resolveAnomaly('ano-1', superAdmin, {
         resolutionType: AnomalyResolutionType.LEGAL_DEROGATION,
         resolutionNote: 'Arrêté ministériel dérogatoire N° 2026/04',
+        expectedRevision: 1,
       });
 
+      expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'sub-1', revision: 1, assigneeId: 'reviewer-2',
+        }),
+        data: expect.objectContaining({ revision: { increment: 1 }, updatedAt: expect.any(Date) }),
+      }));
       expect(prisma.onefopAnomaly.updateMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ id: 'ano-1', status: AnomalyStatus.OPEN }),
         data: expect.objectContaining({ status: AnomalyStatus.WAIVED }),
@@ -274,23 +285,140 @@ describe('EligibilityEngineService', () => {
       expect(res.status).toBe(AnomalyStatus.WAIVED);
     });
 
+    it('requires a dossier revision for privileged waivers and leaves both rows untouched when it is missing', async () => {
+      prisma.onefopAnomaly.findUnique.mockResolvedValue({
+        id: 'ano-1', status: AnomalyStatus.OPEN,
+        submission: {
+          id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-2',
+          archivedAt: null, revision: 1, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
+      });
+
+      await expect(service.resolveAnomaly('ano-1', { id: 'usr-super', role: UserRole.SUPER_ADMIN }, {
+        resolutionType: AnomalyResolutionType.LEGAL_DEROGATION,
+        resolutionNote: 'Arrêté ministériel dérogatoire N° 2026/04',
+      } as any)).rejects.toThrow(BadRequestException);
+
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+      expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('does not resolve an anomaly when the dossier revision changes before the waiver CAS', async () => {
+      const revision = 1;
+      prisma.onefopAnomaly.findUnique.mockResolvedValue({
+        id: 'ano-1', status: AnomalyStatus.OPEN,
+        submission: {
+          id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-2',
+          archivedAt: null, revision, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
+      });
+      prisma.onefopSubmission.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.resolveAnomaly('ano-1', { id: 'usr-super', role: UserRole.SUPER_ADMIN }, {
+        resolutionType: AnomalyResolutionType.LEGAL_DEROGATION,
+        resolutionNote: 'Arrêté ministériel dérogatoire N° 2026/04',
+        expectedRevision: revision,
+      })).rejects.toThrow(ConflictException);
+
+      expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an ordinary resolution with a stale dossier revision before mutation', async () => {
+      const currentRevision = 2;
+      prisma.onefopAnomaly.findUnique.mockResolvedValue({
+        id: 'ano-stale',
+        status: AnomalyStatus.OPEN,
+        submission: {
+          id: 'sub-stale', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-1',
+          archivedAt: null, revision: currentRevision, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
+      });
+
+      await expect(service.resolveAnomaly('ano-stale', {
+        id: 'reviewer-1', role: UserRole.REGIONAL_ADMIN, region: 'Centre',
+      }, {
+        resolutionType: AnomalyResolutionType.DECLARANT_CORRECTION,
+        resolutionNote: 'Les pièces justificatives confirment la déclaration.',
+        expectedRevision: 1,
+      })).rejects.toThrow(ConflictException);
+
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+      expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('allows only one of two anomaly resolutions to consume the same dossier revision', async () => {
+      const revision = 7;
+      const submission = {
+        id: 'sub-concurrent',
+        status: OnefopStatus.PENDING_REVIEW,
+        assigneeId: 'reviewer-1',
+        archivedAt: null,
+        revision,
+        claimActivityAt: new Date(Date.now() - 60 * 60 * 1000),
+        region: 'Centre',
+      };
+      const anomalies = new Map<string, { id: string; ruleCode: string; submissionId: string; status: AnomalyStatus }>([
+        ['ano-a', { id: 'ano-a', ruleCode: 'RULE-A', submissionId: submission.id, status: AnomalyStatus.OPEN }],
+        ['ano-b', { id: 'ano-b', ruleCode: 'RULE-B', submissionId: submission.id, status: AnomalyStatus.OPEN }],
+      ]);
+      let storedRevision = revision;
+      prisma.onefopAnomaly.findUnique.mockImplementation(async ({ where, include }: any) => {
+        const anomaly = anomalies.get(where.id);
+        if (!anomaly) return null;
+        return include ? { ...anomaly, submission: { ...submission, revision: storedRevision } } : { ...anomaly };
+      });
+      prisma.onefopSubmission.updateMany.mockImplementation(async ({ where, data }: any) => {
+        if (where.revision !== storedRevision) return { count: 0 };
+        storedRevision += data.revision.increment;
+        submission.revision = storedRevision;
+        submission.claimActivityAt = data.claimActivityAt;
+        return { count: 1 };
+      });
+      prisma.onefopAnomaly.updateMany.mockImplementation(async ({ where, data }: any) => {
+        const anomaly = anomalies.get(where.id);
+        if (!anomaly || anomaly.status !== where.status) return { count: 0 };
+        Object.assign(anomaly, data);
+        return { count: 1 };
+      });
+
+      const actor = { id: 'reviewer-1', role: UserRole.REGIONAL_ADMIN, region: 'Centre' };
+      const resolve = (id: string) => service.resolveAnomaly(id, actor, {
+        resolutionType: AnomalyResolutionType.DECLARANT_CORRECTION,
+        resolutionNote: 'Les justificatifs confirment cette valeur.',
+        expectedRevision: revision,
+      });
+      const results = await Promise.allSettled([resolve('ano-a'), resolve('ano-b')]);
+
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      const conflict = results.find((result) => result.status === 'rejected') as PromiseRejectedResult;
+      expect(conflict.reason).toBeInstanceOf(ConflictException);
+      expect(storedRevision).toBe(revision + 1);
+      expect([...anomalies.values()].filter((anomaly) => anomaly.status === AnomalyStatus.RESOLVED)).toHaveLength(1);
+      expect(prisma.onefopAnomaly.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.auditLog.create).toHaveBeenCalledTimes(2);
+    });
+
     it('requires active ownership for an ordinary anomaly resolution and records it as review progress', async () => {
-      const revision = new Date('2026-10-29T10:00:00.000Z');
+      const revision = 1;
       const anomaly = {
         id: 'ano-2', ruleCode: 'RULE-2', submissionId: 'sub-2', status: AnomalyStatus.OPEN,
-        submission: { id: 'sub-2', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-1', archivedAt: null, updatedAt: revision, region: 'Centre' },
+        submission: { id: 'sub-2', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-1', archivedAt: null, revision, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre' },
       };
       prisma.onefopAnomaly.findUnique.mockResolvedValueOnce(anomaly).mockResolvedValueOnce({ ...anomaly, status: AnomalyStatus.RESOLVED });
 
       const resolved = await service.resolveAnomaly('ano-2', { id: 'reviewer-1', role: UserRole.REGIONAL_ADMIN, region: 'Centre' }, {
         resolutionType: AnomalyResolutionType.DECLARANT_CORRECTION,
         resolutionNote: 'Les pièces jointes confirment la valeur déclarée.',
-        expectedRevision: revision.toISOString(),
+        expectedRevision: revision,
       });
 
       expect(resolved.status).toBe(AnomalyStatus.RESOLVED);
       expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: expect.objectContaining({ id: 'sub-2', assigneeId: 'reviewer-1', updatedAt: revision }),
+        where: expect.objectContaining({ id: 'sub-2', assigneeId: 'reviewer-1', revision }),
+        data: expect.objectContaining({ claimActivityAt: expect.any(Date), revision: { increment: 1 } }),
       }));
       expect(prisma.auditLog.create.mock.calls.map((call: any[]) => call[0].data.action)).toEqual([
         'ANOMALY_RESOLVED', 'DOSSIER_REVIEW_PROGRESS_SAVED',
@@ -300,13 +428,69 @@ describe('EligibilityEngineService', () => {
     it('forbids an ordinary anomaly resolution by a different claim holder', async () => {
       prisma.onefopAnomaly.findUnique.mockResolvedValue({
         id: 'ano-3', status: AnomalyStatus.OPEN,
-        submission: { id: 'sub-3', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-2', archivedAt: null, updatedAt: new Date(), region: 'Centre' },
+        submission: { id: 'sub-3', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-2', archivedAt: null, revision: 1, updatedAt: new Date(), region: 'Centre' },
       });
 
       await expect(service.resolveAnomaly('ano-3', { id: 'reviewer-1', role: UserRole.REGIONAL_ADMIN, region: 'Centre' }, {
         resolutionType: AnomalyResolutionType.DECLARANT_CORRECTION,
         resolutionNote: 'Les pièces jointes confirment la valeur déclarée.',
+        expectedRevision: 1,
       })).rejects.toThrow(ForbiddenException);
+      expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('clears an expired claim only when its former owner attempts anomaly resolution', async () => {
+      const revision = 1;
+      prisma.onefopAnomaly.findUnique.mockResolvedValue({
+        id: 'ano-expired', status: AnomalyStatus.OPEN,
+        submission: {
+          id: 'sub-expired', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-1',
+          archivedAt: null, revision, claimActivityAt: new Date(Date.now() - 13 * 60 * 60 * 1000), updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
+      });
+
+      await expect(service.resolveAnomaly('ano-expired', {
+        id: 'reviewer-1', role: UserRole.REGIONAL_ADMIN, region: 'Centre',
+      }, {
+        resolutionType: AnomalyResolutionType.DECLARANT_CORRECTION,
+        resolutionNote: 'Les pièces jointes confirment la déclaration.',
+        expectedRevision: revision,
+      })).rejects.toThrow(ConflictException);
+
+      expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: 'sub-expired', assigneeId: 'reviewer-1', revision }),
+        data: expect.objectContaining({ assigneeId: null, claimActivityAt: null, revision: { increment: 1 } }),
+      }));
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'DOSSIER_CLAIM_EXPIRED', resourceId: 'sub-expired',
+          details: expect.objectContaining({ previousAssigneeId: 'reviewer-1', reason: 'INACTIVITY' }),
+        }),
+      }));
+      expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('does not inspect, clear, or expiration-audit an expired claim for another anomaly reviewer', async () => {
+      const revision = 1;
+      prisma.onefopAnomaly.findUnique.mockResolvedValue({
+        id: 'ano-expired', status: AnomalyStatus.OPEN,
+        submission: {
+          id: 'sub-expired', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'reviewer-2',
+          archivedAt: null, revision, claimActivityAt: new Date(Date.now() - 13 * 60 * 60 * 1000), updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
+      });
+
+      await expect(service.resolveAnomaly('ano-expired', {
+        id: 'reviewer-1', role: UserRole.REGIONAL_ADMIN, region: 'Centre',
+      }, {
+        resolutionType: AnomalyResolutionType.DECLARANT_CORRECTION,
+        resolutionNote: 'Les pièces jointes confirment la déclaration.',
+        expectedRevision: revision,
+      })).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.auditLog.findFirst).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
       expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
@@ -337,6 +521,32 @@ describe('EligibilityEngineService', () => {
 
       const where = prisma.onefopAnomaly.count.mock.calls[0][0].where;
       expect(where.ruleFamily).toBeUndefined();
+    });
+
+    it('returns the monotonic dossier revision in the anomaly registry projection', async () => {
+      const updatedAt = new Date('2026-10-29T10:00:00.123Z');
+      const revision = 18;
+      prisma.onefopSubmission.findMany.mockResolvedValue([]);
+      prisma.onefopAnomaly.count.mockResolvedValue(1);
+      prisma.onefopAnomaly.findMany.mockResolvedValue([{
+        id: 'ano-revision',
+        status: AnomalyStatus.OPEN,
+        submission: { id: 'sub-revision', updatedAt, revision },
+        resolvedBy: null,
+      }]);
+
+      const result = await service.listAnomalies({}, { role: UserRole.ADMIN_ONEFOP } as any);
+
+      expect(prisma.onefopAnomaly.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        include: expect.objectContaining({
+          submission: expect.objectContaining({
+            select: expect.objectContaining({ updatedAt: true, revision: true }),
+          }),
+        }),
+      }));
+      expect(result.items[0].submission.updatedAt).toEqual(updatedAt);
+      expect(result.items[0].submission.revision).toBe(revision);
+      expect(JSON.parse(JSON.stringify(result)).items[0].submission.updatedAt).toBe(updatedAt.toISOString());
     });
   });
 
@@ -448,6 +658,27 @@ describe('EligibilityEngineService.executeBulkVisa — companion fixes', () => {
     const [{ where }] = tx.onefopSubmission.updateMany.mock.calls[0];
     expect(where).toMatchObject({ status: OnefopStatus.PENDING_REVIEW });
   });
+
+  it('does not clear or expiration-audit another reviewer\'s expired claim during bulk visa', async () => {
+    buildEngine([{
+      id: 's1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'former-owner',
+      updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre', department: 'Mfoundi', anomalies: [],
+    }]);
+    tx.auditLog.findFirst.mockResolvedValue({
+      action: 'DOSSIER_ASSIGNED', userId: 'former-owner',
+      timestamp: new Date(Date.now() - 13 * 60 * 60 * 1000), details: { assigneeId: 'former-owner' },
+    });
+
+    const result = await engine.executeBulkVisa(
+      { id: 'actor', role: UserRole.SUPER_ADMIN, email: 'a@a.cm' },
+      { submissionIds: ['s1'], certified: true },
+    );
+
+    expect(result.rejectedItems[0]).toMatchObject({ id: 's1', reason: expect.stringMatching(/autre agent/i) });
+    expect(tx.onefopSubmission.updateMany).not.toHaveBeenCalled();
+    expect(tx.auditLog.findFirst).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
 });
 
 // ── executeBulkReject ─────────────────────────────────────────────────────────
@@ -477,7 +708,7 @@ describe('EligibilityEngineService.executeBulkReject', () => {
   };
 
   function sub(id: string, status: OnefopStatus, region = 'Centre', department = 'Mfoundi') {
-    return { id, status, assigneeId: 'actor-1', updatedAt: new Date('2026-01-01T00:00:00Z'), region, department };
+    return { id, status, assigneeId: 'actor-1', revision: 1, claimActivityAt: null, updatedAt: new Date('2026-01-01T00:00:00Z'), region, department };
   }
 
   it('rejects PENDING_REVIEW and writes one audit record', async () => {
@@ -512,7 +743,7 @@ describe('EligibilityEngineService.executeBulkReject', () => {
     const [{ where }] = tx.onefopSubmission.updateMany.mock.calls[0];
     expect(where.status).toBe(OnefopStatus.PENDING_REVIEW);
     expect(where.assigneeId).toBe(actor.id);
-    expect(where.updatedAt).toBeInstanceOf(Date);
+    expect(where.revision).toBe(1);
   });
 
   it('reports missing IDs with the generic message', async () => {
@@ -594,8 +825,8 @@ describe('EligibilityEngineService.executeBulkReject', () => {
 import { QuestionnairesService } from './questionnaires.service';
 
 describe('QuestionnairesService.reject — companion fixes', () => {
-  function buildService(existingStatus: string) {
-    const submission = { id: 's1', status: existingStatus, updatedAt: new Date('2026-01-01T00:00:00.000Z'), assigneeId: 'actor-1', archivedAt: null, region: 'Centre', department: 'Mfoundi' };
+  function buildService(existingStatus: string, overrides: Record<string, unknown> = {}) {
+    const submission = { id: 's1', status: existingStatus, revision: 1, claimActivityAt: null, updatedAt: new Date('2026-01-01T00:00:00.000Z'), assigneeId: 'actor-1', archivedAt: null, region: 'Centre', department: 'Mfoundi', ...overrides };
     const prisma: any = {
       $transaction: jest.fn(async (callback: any) => callback(prisma)),
       onefopSubmission: {
@@ -631,7 +862,7 @@ describe('QuestionnairesService.reject — companion fixes', () => {
 
   it('succeeds for PENDING_REVIEW and writes AUDIT_REJECT', async () => {
     const { service, prisma } = buildService('PENDING_REVIEW');
-    await service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1');
+    await service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1', undefined, 1);
     expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
     const [{ data }] = prisma.auditLog.create.mock.calls[0];
     expect(data.action).toBe('AUDIT_REJECT');
@@ -644,21 +875,29 @@ describe('QuestionnairesService.reject — companion fixes', () => {
 
   it('refuses an ordinary decision by an officer who does not own the active claim', async () => {
     const { service, prisma } = buildService('PENDING_REVIEW');
-    await expect(service.reject('s1', 'Justification valide et suffisamment longue', 'different-agent'))
+    await expect(service.reject('s1', 'Justification valide et suffisamment longue', 'different-agent', undefined, 1))
       .rejects.toThrow(ForbiddenException);
     expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 
-  it('clears and refuses a decision when the caller claim has expired', async () => {
-    const { service, prisma } = buildService('PENDING_REVIEW');
-    prisma.auditLog.findFirst.mockResolvedValue({
-      action: 'DOSSIER_ASSIGNED',
-      userId: 'actor-1',
-      timestamp: new Date(Date.now() - 13 * 60 * 60 * 1000),
-      details: { assigneeId: 'actor-1' },
+  it('does not clear or audit an expired claim when a different reviewer attempts the same decision', async () => {
+    const { service, prisma } = buildService('PENDING_REVIEW', {
+      claimActivityAt: new Date(Date.now() - 13 * 60 * 60 * 1000),
     });
-    await expect(service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1'))
+
+    await expect(service.reject('s1', 'Justification valide et suffisamment longue', 'different-agent', undefined, 1))
+      .rejects.toThrow(ForbiddenException);
+
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('clears and refuses a decision when the caller claim has expired', async () => {
+    const { service, prisma } = buildService('PENDING_REVIEW', {
+      claimActivityAt: new Date(Date.now() - 13 * 60 * 60 * 1000),
+    });
+    await expect(service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1', undefined, 1))
       .rejects.toThrow(/réclamation a expiré/i);
     expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ assigneeId: 'actor-1' }),
@@ -676,7 +915,7 @@ describe('QuestionnairesService.reject — companion fixes', () => {
   it('succeeds for CORRECTION_REQUESTED', async () => {
     const { service } = buildService('CORRECTION_REQUESTED');
     await expect(
-      service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1'),
+      service.reject('s1', 'Justification valide et suffisamment longue', 'actor-1', undefined, 1),
     ).resolves.not.toThrow();
   });
 });

@@ -33,6 +33,7 @@ import {
   CLAIM_PROGRESS_AUDIT_ACTION,
   claimInactivityMs,
   getEffectiveClaimState,
+  getEffectiveClaimStatesBatch,
 } from './review-claim-policy';
 import { AdminListFilters, AdminListSort, buildAdminListWhere } from './admin-list-filter';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
@@ -1626,7 +1627,12 @@ export class QuestionnairesService {
       for (const id of ids) {
         const { count } = await this.prisma.onefopSubmission.updateMany({
           where: { id, status: 'CORRECTION_REQUESTED' },
-          data: { status: 'SUPERSEDED', supersededById: replacingId },
+          data: {
+            status: 'SUPERSEDED',
+            supersededById: replacingId,
+            claimActivityAt: null,
+            revision: { increment: 1 },
+          },
         });
         if (count > 0) closed.push(id);
       }
@@ -3581,7 +3587,8 @@ export class QuestionnairesService {
     territory?: Territory,
     includeArchived = false,
   ): Promise<{ items: any[]; total: number }> {
-    const where = buildAdminListWhere(filters, territory, new Date(), includeArchived);
+    const asOf = new Date();
+    const where = buildAdminListWhere(filters, territory, asOf, includeArchived);
     const direction = filters.sort === 'oldest' ? 'asc' : 'desc';
 
     // limit=0 is a count-only request (the admin questionnaires page shows
@@ -3612,23 +3619,31 @@ export class QuestionnairesService {
       }),
       (this.prisma as any).onefopSubmission.count({ where }),
     ]);
-    const projectedItems = items.map(({ campaign, assignee, company, ...item }: any) => ({
-      ...item,
-      campaignName: campaign?.name ?? null,
-      // The submission's establishmentId is a database FK. Expose the
-      // company's public identifier separately for admin tables.
-      companyEstablishmentId: company?.establishmentId ?? null,
-      companyRegistrationStatus: company?.user?.status ?? null,
-      assigneeId: item.assigneeId ?? null,
-      assigneeName: assigneeName(assignee),
-      reviewedBy: item.reviewedBy ?? null,
-      reviewedAt: item.reviewedAt?.toISOString?.() ?? null,
-      rejectionReason: item.rejectionReason ?? null,
-      archivedAt: item.archivedAt?.toISOString?.() ?? null,
-      archivedBy: item.archivedBy ?? null,
-      archiveReason: item.archiveReason ?? null,
-      archivedByUser: item.archivedByUser ?? null,
-    }));
+    const claimStates = getEffectiveClaimStatesBatch(items, asOf);
+    const projectedItems = items.map(({ campaign, assignee, company, claimActivityAt: _claimActivityAt, ...item }: any) => {
+      const claimState = claimStates.get(item.id);
+      const isExpired = claimState?.expired ?? false;
+      const effectiveAssigneeId = claimState ? claimState.assigneeId : (item.assigneeId ?? null);
+      const effectiveAssigneeName = effectiveAssigneeId ? assigneeName(assignee) : null;
+      return {
+        ...item,
+        campaignName: campaign?.name ?? null,
+        // The submission's establishmentId is a database FK. Expose the
+        // company's public identifier separately for admin tables.
+        companyEstablishmentId: company?.establishmentId ?? null,
+        companyRegistrationStatus: company?.user?.status ?? null,
+        assigneeId: effectiveAssigneeId,
+        assigneeName: effectiveAssigneeName,
+        claimExpired: isExpired,
+        reviewedBy: item.reviewedBy ?? null,
+        reviewedAt: item.reviewedAt?.toISOString?.() ?? null,
+        rejectionReason: item.rejectionReason ?? null,
+        archivedAt: item.archivedAt?.toISOString?.() ?? null,
+        archivedBy: item.archivedBy ?? null,
+        archiveReason: item.archiveReason ?? null,
+        archivedByUser: item.archivedByUser ?? null,
+      };
+    });
     return { items: projectedItems, total };
   }
 
@@ -3661,18 +3676,23 @@ export class QuestionnairesService {
     // the page take ~25 s through the session-mode pooler.
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory), includeArchived ? { OR: [NOT_ARCHIVED, ARCHIVED_ONLY] } : NOT_ARCHIVED] },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true, establishment: { include: { company: { select: { yearOfCreation: true } } } } },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true, establishment: { include: { company: { select: { yearOfCreation: true } } } }, assignee: { select: { id: true, firstName: true, lastName: true, email: true } } },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     // The establishment is loaded only for the registered founding year, which
     // the review panel falls back to when the questionnaire collects none.
     // It is flattened rather than returned, so the response gains one field
     // and not the establishment row.
-    const { establishment, ...rest } = submission;
+    const { establishment, assignee, claimActivityAt: _claimActivityAt, ...rest } = submission;
+    const claimState = getEffectiveClaimState(submission);
+
     return {
       ...rest,
       rawData: withoutStaffNames(rest.rawData, territory?.role),
       yearOfCreation: establishment?.company?.yearOfCreation ?? null,
+      assigneeId: claimState.assigneeId,
+      assigneeName: claimState.assigneeId ? assigneeName(assignee) : null,
+      claimExpired: claimState.expired,
     };
   }
 
@@ -3694,8 +3714,15 @@ export class QuestionnairesService {
 
       const archivedAt = new Date();
       const updated = await tx.onefopSubmission.updateMany({
-        where: { id: submission.id, ...NOT_ARCHIVED, updatedAt: submission.updatedAt },
-        data: { archivedAt, archivedBy: actorId, archiveReason: normalizedReason, assigneeId: null },
+        where: { id: submission.id, ...NOT_ARCHIVED, revision: submission.revision },
+        data: {
+          archivedAt,
+          archivedBy: actorId,
+          archiveReason: normalizedReason,
+          assigneeId: null,
+          claimActivityAt: null,
+          revision: { increment: 1 },
+        },
       });
       if (updated.count !== 1) throw new ConflictException('Le statut d’archivage a changé. Rechargez la page.');
       await tx.auditLog.create({
@@ -3720,8 +3747,14 @@ export class QuestionnairesService {
       if (!submission.archivedAt) throw new BadRequestException('Ce dossier n’est pas archivé.');
 
       const updated = await tx.onefopSubmission.updateMany({
-        where: { id: submission.id, ...ARCHIVED_ONLY, updatedAt: submission.updatedAt },
-        data: { archivedAt: null, archivedBy: null, archiveReason: null },
+        where: { id: submission.id, ...ARCHIVED_ONLY, revision: submission.revision },
+        data: {
+          archivedAt: null,
+          archivedBy: null,
+          archiveReason: null,
+          claimActivityAt: null,
+          revision: { increment: 1 },
+        },
       });
       if (updated.count !== 1) throw new ConflictException('Le statut d’archivage a changé. Rechargez la page.');
       await tx.auditLog.create({
@@ -3751,8 +3784,10 @@ export class QuestionnairesService {
           id: true,
           status: true,
           updatedAt: true,
+          revision: true,
           archivedAt: true,
           assigneeId: true,
+          claimActivityAt: true,
           region: true,
           department: true,
           regionId: true,
@@ -3771,40 +3806,41 @@ export class QuestionnairesService {
       }
 
       const now = new Date();
-      const state = await getEffectiveClaimState(tx, submission, now);
+      const state = getEffectiveClaimState(submission, now);
       if (assigneeId === null) {
         if (!submission.assigneeId) {
           return { id: submission.id, assigneeId: null, assigneeName: null, lastActivityAt: null, expiresAt: null };
         }
-        if (submission.assigneeId !== actorId || state.expired) {
-          if (state.expired) {
-            const expiredRelease = await tx.onefopSubmission.updateMany({
-              where: { id: submission.id, status: submission.status, assigneeId: submission.assigneeId, updatedAt: submission.updatedAt },
-              data: { assigneeId: null, updatedAt: now },
-            });
-            if (expiredRelease.count !== 1) throw new ConflictException('Le dossier a changé pendant la libération de la réclamation. Rechargez-le.');
-            await tx.auditLog.create({
-              data: {
-                userId: actorId,
-                action: CLAIM_EXPIRED_AUDIT_ACTION,
-                resourceType: 'OnefopSubmission',
-                resourceId: submission.id,
-                timestamp: now,
-                details: {
-                  previousAssigneeId: submission.assigneeId,
-                  reason: 'INACTIVITY',
-                  actorRole: territory?.role ?? null,
-                },
-              },
-            });
-            return { id: submission.id, assigneeId: null, assigneeName: null, lastActivityAt: state.lastActivityAt, expiresAt: state.expiresAt, expired: true };
-          }
+        if (submission.assigneeId !== actorId) {
           throw new ForbiddenException('Seul le titulaire de la réclamation peut la libérer.');
         }
 
+        if (state.expired) {
+          const expiredRelease = await tx.onefopSubmission.updateMany({
+            where: { id: submission.id, status: submission.status, assigneeId: actorId, revision: submission.revision },
+            data: { assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: now },
+          });
+          if (expiredRelease.count !== 1) throw new ConflictException('Le dossier a changé pendant la libération de la réclamation. Rechargez-le.');
+          await tx.auditLog.create({
+            data: {
+              userId: actorId,
+              action: CLAIM_EXPIRED_AUDIT_ACTION,
+              resourceType: 'OnefopSubmission',
+              resourceId: submission.id,
+              timestamp: now,
+              details: {
+                previousAssigneeId: actorId,
+                reason: 'INACTIVITY',
+                actorRole: territory?.role ?? null,
+              },
+            },
+          });
+          return { id: submission.id, assigneeId: null, assigneeName: null, lastActivityAt: state.lastActivityAt, expiresAt: state.expiresAt, expired: true };
+        }
+
         const released = await tx.onefopSubmission.updateMany({
-          where: { id: submission.id, status: submission.status, assigneeId: actorId, updatedAt: submission.updatedAt },
-          data: { assigneeId: null, updatedAt: now },
+          where: { id: submission.id, status: submission.status, assigneeId: actorId, revision: submission.revision },
+          data: { assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: now },
         });
         if (released.count !== 1) throw new ConflictException('Le dossier a changé pendant la libération de la réclamation. Rechargez-le.');
         await tx.auditLog.create({
@@ -3839,10 +3875,10 @@ export class QuestionnairesService {
           id: submission.id,
           status: submission.status,
           assigneeId: submission.assigneeId,
-          updatedAt: submission.updatedAt,
+          revision: submission.revision,
           archivedAt: null,
         },
-        data: { assigneeId: actorId, updatedAt: now },
+        data: { assigneeId: actorId, claimActivityAt: now, revision: { increment: 1 }, updatedAt: now },
       });
       if (claimed.count !== 1) throw new ConflictException('Ce dossier vient d’être réclamé ou modifié par un autre agent. Rechargez-le.');
       await tx.auditLog.create({
@@ -3883,6 +3919,7 @@ export class QuestionnairesService {
         id: true,
         status: true,
         assigneeId: true,
+        claimActivityAt: true,
         archivedAt: true,
         region: true,
         department: true,
@@ -3892,7 +3929,7 @@ export class QuestionnairesService {
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     assertReadTerritorialAuthority(territory, submission);
-    const state = await getEffectiveClaimState(this.prisma as any, submission);
+    const state = getEffectiveClaimState(submission);
     const owner = state.assigneeId
       ? await (this.prisma as any).user.findUnique({
           where: { id: state.assigneeId },
@@ -3942,29 +3979,36 @@ export class QuestionnairesService {
     };
   }
 
-  async saveReviewProgress(id: string, note: string, expectedRevision: string, actorId: string, territory?: Territory) {
+  async saveReviewProgress(id: string, note: string, expectedRevision: number, actorId: string, territory?: Territory) {
     const normalizedNote = typeof note === 'string' ? note.trim() : '';
     if (normalizedNote.length < 10 || normalizedNote.length > 2000) {
       throw new BadRequestException('La note de progression doit comporter entre 10 et 2000 caractères.');
     }
-    const revision = new Date(expectedRevision);
-    if (Number.isNaN(revision.getTime())) throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier.');
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+      throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier.');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const submission = await tx.onefopSubmission.findFirst({
         where: { AND: [{ OR: [{ id }, { submissionId: id }] }, NOT_ARCHIVED] },
-        select: { id: true, status: true, updatedAt: true, assigneeId: true, archivedAt: true, region: true, department: true, regionId: true, departmentId: true },
+        select: { id: true, status: true, revision: true, claimActivityAt: true, assigneeId: true, archivedAt: true, region: true, department: true, regionId: true, departmentId: true },
       });
       if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
       assertTerritorialAuthority(territory, submission);
-      if (submission.updatedAt?.getTime() !== revision.getTime()) throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant d’enregistrer votre progression.');
-      const state = await getEffectiveClaimState(tx, submission);
-      if (!state.eligible) throw new BadRequestException(`Ce dossier au statut ${submission.status} ne peut plus recevoir de progression de revue.`);
+      if (submission.revision !== expectedRevision) throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant d’enregistrer votre progression.');
+      if (!['PENDING_REVIEW', 'CORRECTION_REQUESTED'].includes(submission.status) || submission.archivedAt) {
+        throw new BadRequestException(`Ce dossier au statut ${submission.status} ne peut plus recevoir de progression de revue.`);
+      }
+      if (submission.assigneeId !== actorId) {
+        throw new ForbiddenException('Vous devez détenir une réclamation active pour enregistrer la progression.');
+      }
+
+      const state = getEffectiveClaimState(submission);
       if (state.expired) {
         const clearedAt = new Date();
         const cleared = await tx.onefopSubmission.updateMany({
-          where: { id: submission.id, status: submission.status, assigneeId: submission.assigneeId, updatedAt: revision },
-          data: { assigneeId: null, updatedAt: clearedAt },
+          where: { id: submission.id, status: submission.status, assigneeId: actorId, revision: expectedRevision },
+          data: { assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: clearedAt },
         });
         if (cleared.count !== 1) throw new ConflictException('La réclamation a changé pendant l’enregistrement. Rechargez le dossier.');
         await tx.auditLog.create({
@@ -3975,7 +4019,7 @@ export class QuestionnairesService {
             resourceId: submission.id,
             timestamp: clearedAt,
             details: {
-              previousAssigneeId: submission.assigneeId,
+              previousAssigneeId: actorId,
               reason: 'INACTIVITY',
               actorRole: territory?.role ?? null,
             },
@@ -3983,12 +4027,11 @@ export class QuestionnairesService {
         });
         return { expired: true as const };
       }
-      if (state.assigneeId !== actorId) throw new ForbiddenException('Vous devez détenir une réclamation active pour enregistrer la progression.');
 
       const now = new Date();
       const updated = await tx.onefopSubmission.updateMany({
-        where: { id: submission.id, status: submission.status, assigneeId: actorId, updatedAt: revision, archivedAt: null },
-        data: { updatedAt: now },
+        where: { id: submission.id, status: submission.status, assigneeId: actorId, revision: expectedRevision, archivedAt: null },
+        data: { claimActivityAt: now, revision: { increment: 1 }, updatedAt: now },
       });
       if (updated.count !== 1) throw new ConflictException('Ce dossier a changé pendant l’enregistrement. Rechargez-le.');
       await tx.auditLog.create({
@@ -4009,6 +4052,7 @@ export class QuestionnairesService {
         lastActivityAt: now,
         expiresAt: new Date(now.getTime() + this.claimInactivityMs()),
         updatedAt: now,
+        revision: expectedRevision + 1,
       };
     }).then((result) => {
       if ('expired' in result && result.expired) throw new ConflictException('Votre réclamation a expiré. Réclamez de nouveau le dossier pour continuer.');
@@ -4027,7 +4071,7 @@ export class QuestionnairesService {
     }
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
-      select: { id: true, status: true, updatedAt: true, assigneeId: true, archivedAt: true, quarterCode: true, campaignId: true, establishmentId: true, companyId: true, region: true, regionId: true, department: true, departmentId: true },
+      select: { id: true, status: true, revision: true, claimActivityAt: true, assigneeId: true, archivedAt: true, quarterCode: true, campaignId: true, establishmentId: true, companyId: true, region: true, regionId: true, department: true, departmentId: true },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     if (submission.archivedAt) throw new BadRequestException('Cette fiche est archivée.');
@@ -4036,35 +4080,40 @@ export class QuestionnairesService {
 
   /**
    * Apply a review decision only to the exact revision the reviewer opened.
-   * The conditional update is atomic: a concurrent edit or decision changes
-   * updatedAt (and usually status), making the updateMany match zero rows.
+   * The conditional update is atomic: any concurrent dossier mutation bumps
+   * revision, making the updateMany match zero rows even within one DB millisecond.
    * Keeping the audit entry in the same transaction prevents a rejected stale
    * decision from leaving an audit event behind.
    */
   private async updateDecisionAtRevision(
     submission: any,
-    expectedRevision: string | undefined,
+    expectedRevision: number,
     actorId: string | undefined,
     data: Record<string, unknown>,
     auditData?: Record<string, unknown>,
     requireOwner = true,
+    anomalyGuard?: { noOpenAnomalies: true } | { reviewedWarningIds: string[] },
   ) {
-    const revisionText = expectedRevision?.trim() || submission.updatedAt?.toISOString?.();
-    const revision = revisionText ? new Date(revisionText) : null;
-    if (!revision || Number.isNaN(revision.getTime())) {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
       throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier avant de confirmer.');
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
       if (requireOwner) {
         if (!actorId) throw new ForbiddenException('Un agent habilité doit détenir la réclamation active pour prendre cette décision.');
-        const state = await getEffectiveClaimState(tx, submission);
-        if (!state.eligible) throw new BadRequestException(`Ce dossier au statut ${submission.status} ne peut pas être décidé.`);
+        if (!['PENDING_REVIEW', 'CORRECTION_REQUESTED'].includes(submission.status) || submission.archivedAt) {
+          throw new BadRequestException(`Ce dossier au statut ${submission.status} ne peut pas être décidé.`);
+        }
+        if (submission.assigneeId !== actorId) {
+          throw new ForbiddenException('Vous devez détenir la réclamation active de ce dossier pour prendre cette décision.');
+        }
+
+        const state = getEffectiveClaimState(submission);
         if (state.expired) {
           const clearedAt = new Date();
           const expiredRelease = await tx.onefopSubmission.updateMany({
-            where: { id: submission.id, status: submission.status, assigneeId: submission.assigneeId, updatedAt: revision, archivedAt: null },
-            data: { assigneeId: null, updatedAt: clearedAt },
+            where: { id: submission.id, status: submission.status, assigneeId: actorId, revision: expectedRevision, archivedAt: null },
+            data: { assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: clearedAt },
           });
           if (expiredRelease.count !== 1) throw new ConflictException('Le dossier a changé depuis sa dernière lecture. Rechargez-le avant de confirmer.');
           await tx.auditLog.create({
@@ -4075,15 +4124,12 @@ export class QuestionnairesService {
               resourceId: submission.id,
               timestamp: clearedAt,
               details: {
-                previousAssigneeId: submission.assigneeId,
+                previousAssigneeId: actorId,
                 reason: 'INACTIVITY',
               },
             },
           });
           return { kind: 'expired' as const };
-        }
-        if (state.assigneeId !== actorId) {
-          throw new ForbiddenException('Vous devez détenir la réclamation active de ce dossier pour prendre cette décision.');
         }
       }
 
@@ -4091,11 +4137,22 @@ export class QuestionnairesService {
         where: {
           id: submission.id,
           status: submission.status,
-          updatedAt: revision,
+          revision: expectedRevision,
           ...(requireOwner ? { assigneeId: actorId } : { assigneeId: submission.assigneeId }),
           archivedAt: null,
+          ...(anomalyGuard && 'noOpenAnomalies' in anomalyGuard
+            ? { anomalies: { none: { status: 'OPEN' } } }
+            : anomalyGuard && 'reviewedWarningIds' in anomalyGuard
+              ? { anomalies: { none: {
+                  status: 'OPEN',
+                  OR: [
+                    { isBlocking: true },
+                    { isBlocking: false, id: { notIn: anomalyGuard.reviewedWarningIds } },
+                  ],
+                } } }
+              : {}),
         },
-        data: { ...data, assigneeId: null } as any,
+        data: { ...data, assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: new Date() } as any,
       });
       if (result.count !== 1) {
         throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant de confirmer.');
@@ -4109,13 +4166,11 @@ export class QuestionnairesService {
     return result.value;
   }
 
-  private assertDecisionRevision(submission: any, expectedRevision?: string): void {
-    if (!expectedRevision) return;
-    const expected = new Date(expectedRevision);
-    if (Number.isNaN(expected.getTime())) {
+  private assertDecisionRevision(submission: any, expectedRevision: unknown): asserts expectedRevision is number {
+    if (typeof expectedRevision !== 'number' || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
       throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier avant de confirmer.');
     }
-    if (!(submission.updatedAt instanceof Date) || submission.updatedAt.getTime() !== expected.getTime()) {
+    if (submission.revision !== expectedRevision) {
       throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant de confirmer.');
     }
   }
@@ -4172,13 +4227,18 @@ export class QuestionnairesService {
   return true;
 }
 
-  async approve(id: string, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
+  async approve(id: string, reviewedBy?: string, territory?: Territory, expectedRevision?: number, comment?: string) {
     const submission = await this.findForDecision(id, territory);
     this.assertDecisionRevision(submission, expectedRevision);
     if (submission.status !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Impossible d'approuver un dossier au statut ${submission.status}.`);
     }
-    await this.eligibilityEngine!.assertCanApprove(submission.id);
+    const diagnostic = await this.eligibilityEngine!.assertCanApprove(submission.id);
+    const justification = typeof comment === 'string' ? comment.trim() : '';
+    const openWarnings = diagnostic.warningAnomalies ?? [];
+    if (openWarnings.length > 0 && !justification) {
+      throw new BadRequestException('Une justification est requise pour viser un dossier avec des anomalies non bloquantes ouvertes.');
+    }
     const auditData = reviewedBy ? {
       userId: reviewedBy,
       action: 'AUDIT_APPROVE',
@@ -4190,6 +4250,11 @@ export class QuestionnairesService {
         previousStatus: submission.status,
         newStatus: 'APPROVED',
         viaCentralFallback: this.isViaCentralFallback(territory, submission),
+        ...(openWarnings.length > 0 ? {
+          justification,
+          warningCount: openWarnings.length,
+          warningRuleCodes: openWarnings.map((anomaly) => anomaly.ruleCode).filter(Boolean),
+        } : {}),
       },
     } : undefined;
     const updated = await this.updateDecisionAtRevision(
@@ -4198,13 +4263,17 @@ export class QuestionnairesService {
       reviewedBy,
       { status: 'APPROVED', reviewedBy: reviewedBy ?? null, reviewedAt: new Date() },
       auditData,
+      true,
+      openWarnings.length > 0
+        ? { reviewedWarningIds: openWarnings.map((anomaly) => anomaly.id) }
+        : { noOpenAnomalies: true },
     );
     // Campaign progress B4: best-effort, never fails the approval.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'VALIDATED');
     return updated;
   }
 
-  async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
+  async reject(id: string, reason: string, reviewedBy?: string, territory?: Territory, expectedRevision?: number) {
     if (!reason || reason.trim().length < 10) {
       throw new BadRequestException('La justification du rejet doit comporter au moins 10 caractères.');
     }
@@ -4231,7 +4300,7 @@ export class QuestionnairesService {
     return updated;
   }
 
-  async requestCorrection(id: string, comments: string, certified: boolean, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
+  async requestCorrection(id: string, comments: string, certified: boolean, reviewedBy?: string, territory?: Territory, expectedRevision?: number) {
     if (certified !== true) {
       throw new BadRequestException('La certification est requise pour confirmer la demande de correction.');
     }
@@ -4274,7 +4343,7 @@ export class QuestionnairesService {
    *   CORRECTION_REQUESTED, the reason shown to the respondent, who submits
    *   a corrected declaration as a new file for review.
    */
-  async reopenForCorrection(id: string, reason: string, certified: boolean, reviewedBy?: string, territory?: Territory, expectedRevision?: string) {
+  async reopenForCorrection(id: string, reason: string, certified: boolean, reviewedBy?: string, territory?: Territory, expectedRevision?: number) {
     if (!territory?.role || !REOPEN_ROLES.includes(territory.role)) {
       throw new ForbiddenException('Seuls les administrateurs centraux de l\'ONEFOP peuvent rouvrir un dossier visé.');
     }
@@ -4387,7 +4456,8 @@ export class QuestionnairesService {
   ): Promise<void> {
     const EXPORT_MAX_ROWS = 50_000;
     const BATCH_SIZE = 500;
-    const where = buildAdminListWhere(filters, territory, new Date(), includeArchived);
+    const asOf = new Date();
+    const where = buildAdminListWhere(filters, territory, asOf, includeArchived);
 
     const count: number = await (this.prisma as any).onefopSubmission.count({ where });
     if (count > EXPORT_MAX_ROWS) {

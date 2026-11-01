@@ -22,6 +22,8 @@ const submission = {
   regionId: null,
   departmentId: null,
   updatedAt: REVISION,
+  revision: 1,
+  claimActivityAt: null,
 };
 
 const territory = (role: string, region = 'Littoral', department = 'Wouri') => ({
@@ -154,7 +156,7 @@ describe('CENTRAL_AGENT remains read-only', () => {
   it('cannot save progress', async () => {
     const { service, prisma } = setup({ assigneeId: 'central-1' });
     await expect(
-      service.saveReviewProgress('db-1', 'Contrôle des effectifs', REVISION.toISOString(), 'central-1', territory('CENTRAL_AGENT')),
+      service.saveReviewProgress('db-1', 'Contrôle des effectifs', 1, 'central-1', territory('CENTRAL_AGENT')),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
   });
@@ -162,10 +164,10 @@ describe('CENTRAL_AGENT remains read-only', () => {
   it.each(['approve', 'reject', 'correction'] as const)('cannot %s, even if named as assignee', async (action) => {
     const { service, prisma } = setup({ assigneeId: 'central-1' });
     const call = action === 'approve'
-      ? service.approve('db-1', 'central-1', territory('CENTRAL_AGENT'), REVISION.toISOString())
+      ? service.approve('db-1', 'central-1', territory('CENTRAL_AGENT'), 1)
       : action === 'reject'
-        ? service.reject('db-1', 'Motif suffisamment long', 'central-1', territory('CENTRAL_AGENT'), REVISION.toISOString())
-        : service.requestCorrection('db-1', 'Commentaire assez long', true, 'central-1', territory('CENTRAL_AGENT'), REVISION.toISOString());
+        ? service.reject('db-1', 'Motif suffisamment long', 'central-1', territory('CENTRAL_AGENT'), 1)
+        : service.requestCorrection('db-1', 'Commentaire assez long', true, 'central-1', territory('CENTRAL_AGENT'), 1);
     await expect(call).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
   });

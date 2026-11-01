@@ -29,6 +29,8 @@ function submissionTarget(overrides: Record<string, any> = {}) {
     id: 'sub-1',
     status: 'PENDING_REVIEW',
     updatedAt: new Date('2026-10-29T10:00:00.000Z'),
+    revision: 0,
+    claimActivityAt: null,
     archivedAt: null,
     assigneeId: null,
     region: 'Centre',
@@ -119,13 +121,25 @@ describe('Phase 5 team workflow', () => {
     expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
   });
 
+  it('does not let an authorized national administrator release another user\'s active claim through the self-claim route', async () => {
+    const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'owner-1' }));
+    prisma.user.findFirst.mockResolvedValueOnce(activeAgent({ id: 'actor-n', role: 'ADMIN_ONEFOP_SUBMISSIONS', region: null }));
+    prisma.auditLog.findFirst.mockResolvedValue({
+      action: 'DOSSIER_ASSIGNED', userId: 'owner-1', timestamp: new Date(), details: { assigneeId: 'owner-1' },
+    });
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.assignSubmission('sub-1', null, 'actor-n', national)).rejects.toThrow(ForbiddenException);
+
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it('reclaims after twelve inactive hours and records that the prior claim had expired', async () => {
     const prisma = transactionalPrisma();
     const lastActivity = new Date(Date.now() - 13 * 60 * 60 * 1000);
-    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'former-agent' }));
-    prisma.auditLog.findFirst.mockResolvedValue({
-      action: 'DOSSIER_ASSIGNED', userId: 'former-agent', timestamp: lastActivity, details: { assigneeId: 'former-agent' },
-    });
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'former-agent', claimActivityAt: lastActivity }));
     const service = new QuestionnairesService(prisma);
 
     const result = await service.assignSubmission('sub-1', 'actor-a', 'actor-a', regionalA);
@@ -143,21 +157,21 @@ describe('Phase 5 team workflow', () => {
 
   it('saves a meaningful progress note as auditable claim activity', async () => {
     const prisma = transactionalPrisma();
-    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'actor-a' }));
-    prisma.auditLog.findFirst.mockResolvedValue({
-      action: 'DOSSIER_ASSIGNED', userId: 'actor-a', timestamp: new Date(Date.now() - 60 * 60 * 1000), details: { assigneeId: 'actor-a' },
-    });
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({
+      assigneeId: 'actor-a', revision: 1, claimActivityAt: new Date(Date.now() - 60 * 60 * 1000),
+    }));
     const service = new QuestionnairesService(prisma);
 
     const result = await service.saveReviewProgress(
-      'sub-1', 'Comparaison des effectifs avec les pièces justificatives.', '2026-10-29T10:00:00.000Z', 'actor-a', regionalA,
+      'sub-1', 'Comparaison des effectifs avec les pièces justificatives.', 1, 'actor-a', regionalA,
     );
 
     expect(result).toMatchObject({ submissionId: 'sub-1', assigneeId: 'actor-a', actorId: 'actor-a' });
     expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: 'sub-1', assigneeId: 'actor-a' }),
-      data: expect.objectContaining({ updatedAt: expect.any(Date) }),
+      where: expect.objectContaining({ id: 'sub-1', assigneeId: 'actor-a', revision: 1 }),
+      data: expect.objectContaining({ claimActivityAt: expect.any(Date), revision: { increment: 1 }, updatedAt: expect.any(Date) }),
     }));
+    expect(result).toMatchObject({ revision: 2, lastActivityAt: expect.any(Date) });
     expect(prisma.auditLog.create.mock.calls[0][0].data).toMatchObject({
       action: 'DOSSIER_REVIEW_PROGRESS_SAVED',
       userId: 'actor-a',
@@ -165,16 +179,45 @@ describe('Phase 5 team workflow', () => {
     });
   });
 
-  it('does not let a progress note revive an expired claim and synchronously clears it', async () => {
+  it('rejects a stale progress revision without writing progress or an audit event', async () => {
     const prisma = transactionalPrisma();
-    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({ assigneeId: 'actor-a' }));
-    prisma.auditLog.findFirst.mockResolvedValue({
-      action: 'DOSSIER_ASSIGNED', userId: 'actor-a', timestamp: new Date(Date.now() - 13 * 60 * 60 * 1000), details: { assigneeId: 'actor-a' },
-    });
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({
+      assigneeId: 'actor-a', revision: 2, claimActivityAt: new Date(),
+    }));
     const service = new QuestionnairesService(prisma);
 
     await expect(service.saveReviewProgress(
-      'sub-1', 'Comparaison approfondie avec les justificatifs.', '2026-10-29T10:00:00.000Z', 'actor-a', regionalA,
+      'sub-1', 'Comparaison des effectifs avec les justificatifs.', 1, 'actor-a', regionalA,
+    )).rejects.toThrow(ConflictException);
+
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale review-decision revision without changing the dossier or auditing it', async () => {
+    const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({
+      assigneeId: 'actor-a', revision: 2,
+    }));
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.requestCorrection(
+      'sub-1', 'Veuillez préciser les justificatifs du dossier.', true, 'actor-a', regionalA, 1,
+    )).rejects.toThrow(ConflictException);
+
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('does not let a progress note revive an expired claim and synchronously clears it', async () => {
+    const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({
+      assigneeId: 'actor-a', revision: 1, claimActivityAt: new Date(Date.now() - 13 * 60 * 60 * 1000),
+    }));
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.saveReviewProgress(
+      'sub-1', 'Comparaison approfondie avec les justificatifs.', 1, 'actor-a', regionalA,
     )).rejects.toThrow(ConflictException);
     expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ assigneeId: null }),
@@ -188,6 +231,21 @@ describe('Phase 5 team workflow', () => {
     });
   });
 
+  it('does not clear or emit an expiration audit when another reviewer tries to save progress on an expired claim', async () => {
+    const prisma = transactionalPrisma();
+    prisma.onefopSubmission.findFirst.mockResolvedValue(submissionTarget({
+      assigneeId: 'owner-1', revision: 1, claimActivityAt: new Date(Date.now() - 13 * 60 * 60 * 1000),
+    }));
+    const service = new QuestionnairesService(prisma);
+
+    await expect(service.saveReviewProgress(
+      'sub-1', 'Comparaison approfondie avec les justificatifs.', 1, 'actor-a', regionalA,
+    )).rejects.toThrow(ForbiddenException);
+
+    expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it('allows only one of two simultaneous claims using the row compare-and-swap', async () => {
     const row: any = submissionTarget({ updatedAt: new Date('2026-10-29T10:00:00.000Z') });
     const events: any[] = [];
@@ -195,7 +253,7 @@ describe('Phase 5 team workflow', () => {
       if (where.id !== undefined && row.id !== where.id) return false;
       if (where.status !== undefined && row.status !== where.status) return false;
       if (where.assigneeId !== undefined && row.assigneeId !== where.assigneeId) return false;
-      if (where.updatedAt !== undefined && row.updatedAt.getTime() !== where.updatedAt.getTime()) return false;
+      if (where.revision !== undefined && row.revision !== where.revision) return false;
       if (where.archivedAt === null && row.archivedAt !== null) return false;
       return true;
     };
@@ -204,7 +262,9 @@ describe('Phase 5 team workflow', () => {
         findFirst: jest.fn(async () => ({ ...row })),
         updateMany: jest.fn(async ({ where, data }: any) => {
           if (!matches(where)) return { count: 0 };
-          Object.assign(row, data);
+          const { revision: revisionChange, ...otherData } = data;
+          Object.assign(row, otherData);
+          if (revisionChange?.increment) row.revision += revisionChange.increment;
           return { count: 1 };
         }),
       },
@@ -238,8 +298,8 @@ describe('Phase 5 team workflow', () => {
   it('P5-3 bulk correction only sends PENDING_REVIEW files back, audits each one and keeps the campaign in progress', async () => {
     const prisma = transactionalPrisma();
     prisma.onefopSubmission.findMany.mockResolvedValue([
-      { id: 'pending-1', status: 'PENDING_REVIEW', assigneeId: 'actor-n', updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre', department: 'Mf', campaignId: 'camp-1', establishmentId: 'est-1', companyId: null },
-      { id: 'correction-1', status: 'CORRECTION_REQUESTED', assigneeId: 'actor-n', updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre', department: 'Mf', campaignId: null, establishmentId: null, companyId: null },
+      { id: 'pending-1', status: 'PENDING_REVIEW', assigneeId: 'actor-n', revision: 1, claimActivityAt: null, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre', department: 'Mf', campaignId: 'camp-1', establishmentId: 'est-1', companyId: null },
+      { id: 'correction-1', status: 'CORRECTION_REQUESTED', assigneeId: 'actor-n', revision: 1, claimActivityAt: null, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre', department: 'Mf', campaignId: null, establishmentId: null, companyId: null },
     ]);
     const engine = new EligibilityEngineService(prisma);
 
@@ -301,11 +361,16 @@ describe('Phase 5 team workflow', () => {
       onefopSubmission: {
         findMany: jest.fn(async () => [{
           id: 'sub-1',
+          status: 'PENDING_REVIEW',
+          archivedAt: null,
           assigneeId: 'agent-1',
           assignee: { id: 'agent-1', firstName: 'Ada', lastName: 'Ngo', email: 'agent@onefop.cm' },
           campaign: null,
         }]),
         count: jest.fn(async () => 1),
+      },
+      auditLog: {
+        findMany: jest.fn(async () => []),
       },
     };
     const questionnaires = new QuestionnairesService(prisma);

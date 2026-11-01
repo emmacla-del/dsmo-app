@@ -2,6 +2,7 @@ import { AnomalyStatus, OnefopEntityType, OnefopStatus } from '@prisma/client';
 import { Territory, territoryWhere } from '../auth/territory';
 import { archiveState } from '../common/archive-predicate';
 import { reviewOverdueBefore } from './review-delay';
+import { CLAIMABLE_REVIEW_STATUSES, claimActivityCutoff } from './review-claim-policy';
 
 /**
  * Filters of the admin dossier list. The single source of the list's Prisma
@@ -122,13 +123,37 @@ export function buildAdminListWhere(
     and.push({ anomalies: { some: { status: AnomalyStatus.OPEN, isBlocking: true } } });
   }
   if (filters.assignment === 'unassigned') {
-    and.push({ assigneeId: null });
+    // A retained raw assignee is not an effective owner after a claimable
+    // review status ends or its tracked activity expires. A NULL activity
+    // timestamp remains a legacy untracked claim and is intentionally active.
+    and.push({
+      OR: [
+        { assigneeId: null },
+        { status: { notIn: [...CLAIMABLE_REVIEW_STATUSES] } },
+        {
+          AND: [
+            { status: { in: [...CLAIMABLE_REVIEW_STATUSES] } },
+            { assigneeId: { not: null } },
+            { claimActivityAt: { lte: claimActivityCutoff(now) } },
+          ],
+        },
+      ],
+    });
   } else if (filters.assignment === 'me' || filters.assignment === 'other' || filters.assigneeId) {
     // No officer id cannot mean "everyone" or "everyone else": match nothing.
     if (!filters.assigneeId) and.push({ id: { in: [] } });
-    else if (filters.assignment === 'other') {
-      and.push({ AND: [{ assigneeId: { not: null } }, { assigneeId: { not: filters.assigneeId } }] });
-    } else and.push({ assigneeId: filters.assigneeId });
+    else {
+      and.push({ status: { in: [...CLAIMABLE_REVIEW_STATUSES] } });
+      and.push({
+        OR: [
+          { claimActivityAt: null },
+          { claimActivityAt: { gt: claimActivityCutoff(now) } },
+        ],
+      });
+      if (filters.assignment === 'other') {
+        and.push({ AND: [{ assigneeId: { not: null } }, { assigneeId: { not: filters.assigneeId } }] });
+      } else and.push({ assigneeId: filters.assigneeId });
+    }
   }
   if (filters.late) and.push({ isLate: true });
   // ADR-0001: OVERDUE is derived (PENDING_REVIEW + cutoff), not stored. It is

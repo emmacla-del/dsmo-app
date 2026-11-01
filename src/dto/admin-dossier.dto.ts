@@ -1,5 +1,5 @@
 // src/dto/admin-dossier.dto.ts
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDefined, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { AnomalyResolutionType } from '@prisma/client';
 
 export class BulkRejectDto {
@@ -61,11 +61,13 @@ export class ResolveAnomalyDto {
   @IsString()
   evidenceUrl?: string;
 
-  // Optional for legacy callers. When supplied, the ordinary resolution must
-  // still be based on the revision that the reviewer opened.
-  @IsOptional()
-  @IsDateString()
-  expectedRevision?: string;
+  // Required for both ordinary resolutions and privileged waivers so every
+  // mutation is tied to the dossier revision the reviewer opened.
+  @IsDefined()
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  expectedRevision: number;
 }
 
 /** A non-empty, reviewer-authored progress note; reads and heartbeats do not extend a claim. */
@@ -76,6 +78,23 @@ export class SaveReviewProgressDto {
   @MaxLength(2000)
   note: string;
 
-  @IsDateString()
-  expectedRevision: string;
+  @IsDefined()
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  expectedRevision: number;
+}
+
+/** Approval confirmation; an explanation is required when open warnings remain. */
+export class ApproveDossierDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  comment?: string;
+
+  @IsDefined()
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  expectedRevision: number;
 }

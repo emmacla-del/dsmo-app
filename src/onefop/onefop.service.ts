@@ -96,6 +96,8 @@ export class OnefopService {
                 where: { id: existing.id },
                 data: {
                     rawData: data,
+                    claimActivityAt: null,
+                    revision: { increment: 1 },
                     updatedAt: new Date(),
                 }
             });
@@ -105,6 +107,9 @@ export class OnefopService {
                 data: {
                     status: 'PENDING_REVIEW',
                     rawData: data,
+                    assigneeId: null,
+                    claimActivityAt: null,
+                    revision: { increment: 1 },
                     updatedAt: new Date(),
                 }
             });

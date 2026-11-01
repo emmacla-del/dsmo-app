@@ -60,7 +60,15 @@ describe('a resubmission closes the correction requests it answers', () => {
       status: { in: ['PENDING_REVIEW', 'APPROVED', 'CORRECTION_REQUESTED'] },
     });
     expect(updates).toEqual([
-      { where: { id: 'old-file', status: 'CORRECTION_REQUESTED' }, data: { status: 'SUPERSEDED', supersededById: 'new-file' } },
+      {
+        where: { id: 'old-file', status: 'CORRECTION_REQUESTED' },
+        data: {
+          status: 'SUPERSEDED',
+          supersededById: 'new-file',
+          claimActivityAt: null,
+          revision: { increment: 1 },
+        },
+      },
     ]);
     expect(audits).toHaveLength(1);
     expect(audits[0].data).toEqual([

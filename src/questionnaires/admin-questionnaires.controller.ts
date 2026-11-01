@@ -22,7 +22,7 @@ import { Roles } from '../auth/roles.decorator';
 import { READ_ONLY_NATIONAL_ROLES, SURVEY_ADMIN_ROLES } from '../auth/staff-scope';
 import { QuestionnairesService } from './questionnaires.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
-import { BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto, SaveReviewProgressDto } from '../dto/admin-dossier.dto';
+import { ApproveDossierDto, BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto, SaveReviewProgressDto } from '../dto/admin-dossier.dto';
 import { AssignRecordDto } from '../common/assign.dto';
 import { territoryFromUser } from '../auth/territory';
 import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
@@ -185,8 +185,8 @@ export class AdminQuestionnairesController {
     private readonly eligibilityEngine: EligibilityEngineService,
   ) {}
 
-  private requireExpectedRevision(value: unknown): string {
-    if (typeof value !== 'string' || !value.trim() || Number.isNaN(new Date(value).getTime())) {
+  private requireExpectedRevision(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0 || value > 2147483647) {
       throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier avant de confirmer.');
     }
     return value;
@@ -287,6 +287,7 @@ export class AdminQuestionnairesController {
    * Resolve or waive an anomaly with audit footprint
    */
   @Patch('anomalies/:id/resolve')
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, skipMissingProperties: false }))
   async resolveAnomaly(
     @Param('id') id: string,
     @Body() dto: ResolveAnomalyDto,
@@ -472,12 +473,14 @@ export class AdminQuestionnairesController {
   }
 
   @Patch(':id/approve')
-  async approve(@Param('id') id: string, @Body('expectedRevision') expectedRevision: unknown, @Request() req: any) {
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  async approve(@Param('id') id: string, @Body() body: ApproveDossierDto, @Request() req: any) {
     return this.service.approve(
       id,
       req.user?.id,
       territoryFromUser(req.user),
-      this.requireExpectedRevision(expectedRevision),
+      this.requireExpectedRevision(body?.expectedRevision),
+      body?.comment,
     );
   }
 

@@ -96,7 +96,15 @@ describe('Phase 4 archive lifecycle', () => {
   it('restores a declaration and writes its audit row', async () => {
     const { service, tx } = dossierService({ id: 'd1', region: 'Centre', department: 'Mfoundi', archivedAt: new Date(), archiveReason: 'old' });
     await service.restoreSubmission('d1', undefined, 'admin1', regional as any);
-    expect(tx.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { archivedAt: null, archivedBy: null, archiveReason: null } }));
+    expect(tx.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        archivedAt: null,
+        archivedBy: null,
+        archiveReason: null,
+        claimActivityAt: null,
+        revision: { increment: 1 },
+      }),
+    }));
     expect(tx.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ action: 'DOSSIER_RESTORED', resourceId: 'd1' }) }));
   });
 

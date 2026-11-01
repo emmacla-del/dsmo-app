@@ -53,18 +53,21 @@ export class EligibilityEngineService {
 
   private async bulkOwnershipFailure(tx: any, candidate: any, actorId: string): Promise<string | null> {
     if (candidate.archivedAt) return 'Dossier archivé et non réclamable.';
-    const claim = await getEffectiveClaimState(tx, candidate);
+    if (!candidate.assigneeId) return 'Dossier non réclamé par cet agent.';
+    if (candidate.assigneeId !== actorId) return 'Dossier réclamé par un autre agent.';
+
+    const claim = getEffectiveClaimState(candidate);
     if (claim.expired) {
       const clearedAt = new Date();
       const released = await tx.onefopSubmission.updateMany({
         where: {
           id: candidate.id,
           status: candidate.status,
-          assigneeId: candidate.assigneeId,
-          updatedAt: candidate.updatedAt,
+          assigneeId: actorId,
+          revision: candidate.revision,
           archivedAt: null,
         },
-        data: { assigneeId: null, updatedAt: clearedAt },
+        data: { assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: clearedAt },
       });
       if (released.count === 1) {
         await tx.auditLog.create({
@@ -75,7 +78,7 @@ export class EligibilityEngineService {
             resourceId: candidate.id,
             timestamp: clearedAt,
             details: {
-              previousAssigneeId: candidate.assigneeId,
+              previousAssigneeId: actorId,
               reason: 'INACTIVITY',
             },
           },
@@ -84,8 +87,6 @@ export class EligibilityEngineService {
       }
       return 'Dossier modifié simultanément; rechargez-le avant une nouvelle action.';
     }
-    if (!claim.assigneeId) return 'Dossier non réclamé par cet agent.';
-    if (claim.assigneeId !== actorId) return 'Dossier réclamé par un autre agent.';
     return null;
   }
 
@@ -95,10 +96,16 @@ export class EligibilityEngineService {
         id: candidate.id,
         status: candidate.status,
         assigneeId: actorId,
-        updatedAt: candidate.updatedAt,
+        revision: candidate.revision,
         archivedAt: null,
       },
-      data: { ...data, assigneeId: null, updatedAt: new Date() },
+      data: {
+        ...data,
+        assigneeId: null,
+        claimActivityAt: null,
+        revision: { increment: 1 },
+        updatedAt: new Date(),
+      },
     });
     return result.count === 1;
   }
@@ -307,8 +314,8 @@ export class EligibilityEngineService {
 
   /**
    * Asserts that a dossier can be administratively approved (Axis 1 Visa).
-   * A dossier CANNOT be approved while it has an OPEN + BLOCKING anomaly.
-   * Throws BadRequestException if any open blocking anomalies are present.
+   * Blocking anomalies prevent approval. Nonblocking warnings are returned
+   * so approval can require a reviewer justification.
    */
   async assertCanApprove(submissionId: string): Promise<DossierDiagnostic> {
     const diagnostic = await this.evaluateDossier(submissionId);
@@ -685,16 +692,21 @@ export class EligibilityEngineService {
       const nextStatus = legalWaiver ? AnomalyStatus.WAIVED : AnomalyStatus.RESOLVED;
       const now = new Date();
 
+      if (!Number.isSafeInteger(dto.expectedRevision) || dto.expectedRevision < 0) {
+        throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier.');
+      }
+      const revision = dto.expectedRevision;
+      if (submission.revision !== revision) throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant de confirmer.');
+
       if (!legalWaiver) {
-        const revision = dto.expectedRevision ? new Date(dto.expectedRevision) : submission.updatedAt;
-        if (!revision || Number.isNaN(revision.getTime())) throw new BadRequestException('La version du dossier est absente ou invalide. Rechargez le dossier.');
-        if (submission.updatedAt?.getTime() !== revision.getTime()) throw new ConflictException('Ce dossier a été modifié depuis son ouverture. Rechargez-le avant de confirmer.');
-        const claim = await getEffectiveClaimState(tx, submission, now);
+        if (submission.assigneeId !== actor.id) throw new ForbiddenException('Vous devez détenir la réclamation active de ce dossier pour résoudre cette anomalie.');
+
+        const claim = getEffectiveClaimState(submission, now);
         if (!claim.eligible) throw new BadRequestException(`Ce dossier ne peut plus recevoir de revue au statut ${submission.status}.`);
         if (claim.expired) {
           const cleared = await tx.onefopSubmission.updateMany({
-            where: { id: submission.id, status: submission.status, assigneeId: submission.assigneeId, updatedAt: revision, archivedAt: null },
-            data: { assigneeId: null, updatedAt: now },
+            where: { id: submission.id, status: submission.status, assigneeId: actor.id, revision, archivedAt: null },
+            data: { assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: now },
           });
           if (cleared.count !== 1) throw new ConflictException('Le dossier a changé pendant la vérification de la réclamation.');
           await tx.auditLog.create({
@@ -705,17 +717,31 @@ export class EligibilityEngineService {
               resourceId: submission.id,
               timestamp: now,
               details: {
-                previousAssigneeId: submission.assigneeId,
+                previousAssigneeId: actor.id,
                 reason: 'INACTIVITY',
               },
             },
           });
           return { kind: 'expired' as const };
         }
-        if (claim.assigneeId !== actor.id) throw new ForbiddenException('Vous devez détenir la réclamation active de ce dossier pour résoudre cette anomalie.');
         const parentUpdated = await tx.onefopSubmission.updateMany({
-          where: { id: submission.id, status: submission.status, assigneeId: actor.id, updatedAt: revision, archivedAt: null },
-          data: { updatedAt: now },
+          where: { id: submission.id, status: submission.status, assigneeId: actor.id, revision, archivedAt: null },
+          data: { claimActivityAt: now, revision: { increment: 1 }, updatedAt: now },
+        });
+        if (parentUpdated.count !== 1) throw new ConflictException('Le dossier a été modifié simultanément. Rechargez-le.');
+      } else {
+        // A waiver bypasses claim ownership, but it still consumes the exact
+        // dossier revision. The conditional write both detects stale reads
+        // atomically and locks the parent row until the anomaly update commits.
+        const parentUpdated = await tx.onefopSubmission.updateMany({
+          where: {
+            id: submission.id,
+            status: submission.status,
+            assigneeId: submission.assigneeId,
+            revision,
+            archivedAt: null,
+          },
+          data: { revision: { increment: 1 }, updatedAt: now },
         });
         if (parentUpdated.count !== 1) throw new ConflictException('Le dossier a été modifié simultanément. Rechargez-le.');
       }
@@ -958,6 +984,8 @@ export class EligibilityEngineService {
           status: true,
           assigneeId: true,
           updatedAt: true,
+          revision: true,
+          claimActivityAt: true,
           archivedAt: true,
           region: true,
           department: true,
@@ -1104,6 +1132,8 @@ export class EligibilityEngineService {
           status: true,
           assigneeId: true,
           updatedAt: true,
+          revision: true,
+          claimActivityAt: true,
           archivedAt: true,
           region: true,
           department: true,
@@ -1320,6 +1350,8 @@ export class EligibilityEngineService {
             select: {
               id: true,
               submissionId: true,
+              updatedAt: true,
+              revision: true,
               formType: true,
               region: true,
               department: true,
