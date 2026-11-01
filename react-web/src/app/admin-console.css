@@ -314,6 +314,118 @@
   padding-top: var(--cam-space-3);
   border-top: var(--cam-border-width) solid rgba(255, 255, 255, 0.1);
 }
+/* The signed-in identity: a disclosure button and the menu it opens.
+   Both live on the dark rail, so the washes stay rgba tints of it and the
+   focus ring is white -- var(--cam-focus) resolves to the teal primary,
+   which reaches only 1.78:1 on the green rail and 2.62:1 on the navy one,
+   short of the 3:1 WCAG 1.4.11 asks of a focus indicator. */
+.cam-admin-account-trigger {
+  display: flex;
+  min-height: var(--cam-button-height);
+  width: 100%;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-1) var(--cam-space-2);
+  border: var(--cam-border-width) solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--cam-radius-control);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cam-admin-account-trigger:hover,
+.cam-admin-account-trigger[aria-expanded="true"] {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cam-admin-account-trigger:focus-visible {
+  outline: 2px solid var(--cam-white);
+  outline-offset: 2px;
+}
+
+/* The name and role stack in the middle and take the slack, so the two
+   lines have a width to be truncated against. */
+.cam-admin-account-trigger-copy {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cam-admin-account-trigger-chevron {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.6);
+  transition: transform 0.15s ease;
+}
+
+.cam-admin-account-trigger-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-admin-account-trigger,
+  .cam-admin-account-trigger-chevron {
+    transition: none;
+  }
+}
+
+/* The menu stays in flow under the trigger: the rail scrolls on its own,
+   and a floating panel would be clipped by that scroll. A tint of the rail
+   cannot separate from the rail (1.3:1 at best either way), so the layer is
+   read from its hairline, which carries 3.68:1 on the green rail. */
+.cam-admin-account-menu {
+  display: grid;
+  gap: var(--cam-space-1);
+  padding: var(--cam-space-2);
+  border: var(--cam-border-width) solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--cam-radius-control);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.cam-admin-account-menu-link {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: 0 var(--cam-space-2);
+  border-radius: var(--cam-radius-control);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cam-admin-account-menu-link:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--cam-surface);
+}
+
+.cam-admin-account-menu-link:focus-visible {
+  outline: 2px solid var(--cam-white);
+  outline-offset: 2px;
+}
+
+/* Two stated facts, not controls: label on the left, value on the right. */
+.cam-admin-account-menu-territory,
+.cam-admin-account-menu-language {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+  padding: 0 var(--cam-space-2);
+}
+
+.cam-admin-account-menu-territory > span:first-child,
+.cam-admin-account-menu-language > span:first-child {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--cam-font-size-3xs);
+  font-weight: 500;
+}
 
 .cam-admin-rail-user {
   display: flex;
@@ -417,7 +529,7 @@
 
 .cam-admin-rail-user-role {
   font-size: var(--cam-font-size-3xs);
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .cam-admin-rail-logout {
@@ -444,7 +556,7 @@
 }
 
 .cam-admin-rail-logout:focus-visible {
-  outline: 2px solid var(--cam-focus);
+  outline: 2px solid var(--cam-white);
   outline-offset: 2px;
 }
 
@@ -9735,6 +9847,27 @@ a.cam-dash-review-row:hover {
   vertical-align: top;
 }
 
+/* The preview takes 360px of the queue's width, so the table scrolls
+   horizontally. Keep the row's actions in view: without this the reviewer
+   has to scroll to the far right before opening the next file. */
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open .cam-dossier-review-queue-table thead th.cam-dossier-actions-heading,
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open .cam-dossier-review-queue-table tbody td.cam-dossier-action-cell {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--cam-surface);
+  box-shadow: -1px 0 0 var(--cam-border);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open .cam-dossier-review-queue-table thead th.cam-dossier-actions-heading {
+  z-index: 3;
+  background: var(--cam-admin-table-header-bg);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open .cam-dossier-review-queue-table tbody tr:hover > td.cam-dossier-action-cell {
+  background: var(--cam-bg);
+}
+
 .cam-admin.is-dossier-workflow .cam-dossier-row-actions {
   display: flex;
   min-width: 0;
@@ -9948,7 +10081,8 @@ a.cam-dash-review-row:hover {
   border-bottom: 1px solid var(--cam-console-navy-21);
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-preview-approve {
+.cam-admin.is-dossier-workflow .cam-dossier-preview-approve,
+.cam-admin.is-dossier-workflow .cam-dossier-preview-decision-action {
   width: 100%;
 }
 
