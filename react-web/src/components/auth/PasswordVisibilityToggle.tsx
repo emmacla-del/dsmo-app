@@ -1,4 +1,4 @@
-// Quiet inline password-visibility control matching the HTML mockup.
+// Quiet inline password-visibility control.
 // Sits inside the password input row with SVG eye/eye-off icons.
 export function PasswordVisibilityToggle({
   obscured,

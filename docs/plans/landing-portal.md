@@ -4,9 +4,13 @@
 **Status:** five routes, their layouts and their tests are committed.
 The shape itself is under review against §Who the front door is for, which
 was written after them; the gaps are listed under §Open.
-**Source:** `docs/mockups/landing-camleap-canonical.html` (the owner's
-reference for the palette), and the owner's second reference mockup of
-2026-10-13 for the layout. Neither is ported as HTML.
+**Source:** two reference mockups of 2026-10-12 and 2026-10-13 (the first
+for the palette, the second for the layout). Neither was ported as HTML,
+and both files were removed from the repository on 2026-11-01 — the
+palette now lives in `react-web/src/app/tokens.css` and the layout in the
+five committed routes, which are the record. The paragraphs below that
+describe what the mockups showed are kept as history, not as a source to
+build from.
 
 ## CAMLEAP is two things
 

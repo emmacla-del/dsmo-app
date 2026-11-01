@@ -2900,7 +2900,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
   gap: var(--cam-space-4);
 }
 
-/* ── Modernized Card & Section Design (Mockup-aligned) ── */
+/* ── Dashboard card & section design ── */
 .cam-dash-eyebrow {
   font-size: 11px;
   letter-spacing: 0.13em;
@@ -5780,8 +5780,8 @@ a.cam-dash-review-row:hover {
   }
 }
 
-/* Dossier workspace: desktop geometry and color tokens intentionally
-   mirror camleap_admin_mockup_revised.html. */
+/* Dossier workspace: desktop geometry and colour. The design source is
+   docs/standards/ui-grammar.md and the tokens in src/app/tokens.css. */
 .cam-admin.is-dossier-workflow .cam-dossier-page--single {
   gap: 10px;
 }
@@ -6656,7 +6656,7 @@ a.cam-dash-review-row:hover {
   }
 }
 
-/* Match the mockup's 13px / 1.45 Segoe UI type rhythm on the dossier page. */
+/* The dossier page's compact type rhythm: 14px on a 1.45 leading. */
 .cam-admin.is-dossier-workflow .cam-dossier-page--single {
   font-size: 14px;
   line-height: 1.45;
@@ -6803,9 +6803,9 @@ a.cam-dash-review-row:hover {
   }
 }
 
-/* Shared shadcn-based frame for admin data tables. The mockup informs the
-   panel proportions, cool header tint and compact grid; project color and
-   radius tokens keep it consistent with the rest of the console. */
+/* Shared shadcn-based frame for admin data tables: panel proportions, a
+   cool header tint and a compact grid, on the project's own colour and
+   radius tokens so it stays consistent with the rest of the console. */
 .cam-admin-table-panel {
   width: 100%;
   min-width: 0;

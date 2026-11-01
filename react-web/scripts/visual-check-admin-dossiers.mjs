@@ -1,35 +1,40 @@
+// Screenshot and computed-typography capture for /admin/dossiers.
+//
+// This script used to diff the running app against an HTML mockup held
+// outside the repository. The mockup comparison is gone: the console's
+// design source is docs/standards/ui-grammar.md and src/app/tokens.css,
+// not a picture. What remains is evidence capture — screenshots plus the
+// computed font and colour facts of the page's key surfaces, so a visual
+// change can be stated in numbers rather than argued from a screenshot.
 import { mkdir } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
-import sharp from "sharp";
 
 const baseUrl = process.env.ADMIN_DOSSIERS_BASE_URL ?? "http://localhost:3000";
-const mockupPath = process.env.ADMIN_DOSSIERS_MOCKUP ?? "C:/Users/win/Downloads/camleap_admin_mockup_revised.html";
 const outputDir = resolve(process.env.ADMIN_DOSSIERS_OUTPUT ?? ".visual-check/admin-dossiers");
 const typographySelectors = {
-  title: [".cam-admin-page-title", ".head h1"],
-  subtitle: [".cam-admin-page-subtitle", ".head .muted"],
-  tab: [".cam-admin-tab", ".tab"],
-  campaignLabel: [".cam-dossier-campaign > span", ".campaign > .muted"],
-  campaignSelect: [".cam-dossier-campaign select", ".campaign select"],
-  kpiLabel: [".cam-dossier-kpi div > span", ".kpi label"],
-  kpiValue: [".cam-dossier-kpi strong", ".kpi strong"],
-  sectionHeading: [".cam-dossier-submissions-card h2", ".panel h2"],
-  table: [".cam-dossier-submissions-table table", "#subtable"],
-  tableHeader: [".cam-dossier-submissions-table th", "#subtable th"],
-  tableCell: [".cam-dossier-submissions-table td", "#subtable td"],
-  completedTable: [".cam-dossier-completed-table table", "#ctable"],
-  coverageTable: [".cam-dossier-coverage-table table", "#coverage table"],
-  filter: [".cam-dossier-submissions-card select", ".filter"],
-  search: [".cam-dossier-submissions-card input", ".search"],
-  badge: ['.cam-dossier-submissions-table [data-slot="badge"]', ".badge"],
-  footer: [".cam-dossier-view--submissions > div.flex.flex-wrap.items-center.justify-end", ".foot"],
+  title: ".cam-admin-page-title",
+  subtitle: ".cam-admin-page-subtitle",
+  tab: ".cam-admin-tab",
+  campaignLabel: ".cam-dossier-campaign > span",
+  campaignSelect: ".cam-dossier-campaign select",
+  kpiLabel: ".cam-dossier-kpi div > span",
+  kpiValue: ".cam-dossier-kpi strong",
+  sectionHeading: ".cam-dossier-submissions-card h2",
+  table: ".cam-dossier-submissions-table table",
+  tableHeader: ".cam-dossier-submissions-table th",
+  tableCell: ".cam-dossier-submissions-table td",
+  completedTable: ".cam-dossier-completed-table table",
+  coverageTable: ".cam-dossier-coverage-table table",
+  filter: ".cam-dossier-submissions-card select",
+  search: ".cam-dossier-submissions-card input",
+  badge: '.cam-dossier-submissions-table [data-slot="badge"]',
+  footer: ".cam-dossier-view--submissions > div.flex.flex-wrap.items-center.justify-end",
 };
-async function readTypography(page, reference = false) {
-  return page.evaluate(({ selectors, reference }) => Object.fromEntries(
-    Object.entries(selectors).map(([name, candidates]) => {
-      const element = document.querySelector(candidates[reference ? 1 : 0]);
+async function readTypography(page) {
+  return page.evaluate((selectors) => Object.fromEntries(
+    Object.entries(selectors).map(([name, selector]) => {
+      const element = document.querySelector(selector);
       if (!element) return [name, null];
       const style = getComputedStyle(element);
       return [name, {
@@ -37,9 +42,11 @@ async function readTypography(page, reference = false) {
         fontSize: style.fontSize,
         fontWeight: style.fontWeight,
         lineHeight: style.lineHeight,
+        color: style.color,
+        backgroundColor: style.backgroundColor,
       }];
     }),
-  ), { selectors: typographySelectors, reference });
+  ), typographySelectors);
 }
 async function verifyFilterDisclosure(page, { active = false, locale = "fr" } = {}) {
   const disclosure = page.locator(".cam-admin-filter-disclosure").first();
@@ -377,34 +384,15 @@ try {
   if (await page.getByRole("button", { name: /Exporter/ }).count()) throw new Error("Read-only role received export actions.");
   readOnlyFixture = false;
 
-  const mockup = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-  await mockup.goto(pathToFileURL(resolve(mockupPath)).href, { waitUntil: "load" });
-  const mockupBaseline = resolve(outputDir, "mockup-1440x900.png");
-  const mockupTypography = await readTypography(mockup, true);
-  await mockup.screenshot({ path: mockupBaseline });
+  // Computed type and colour facts for the page's key surfaces. Compare two
+  // runs of this file to state a visual change in numbers.
   await import("node:fs/promises").then(({ writeFile }) => writeFile(
     resolve(outputDir, "typography.json"),
-    JSON.stringify(Object.fromEntries(Object.keys(typographySelectors).map((key) => [key, { app: appTypography[key], mockup: mockupTypography[key] }])), null, 2),
+    JSON.stringify(appTypography, null, 2),
   ));
-  const width = 1440;
-  const height = 900;
-  const appPixels = await sharp(appBaseline).resize(width, height, { fit: "fill" }).removeAlpha().raw().toBuffer();
-  const mockupPixels = await sharp(mockupBaseline).resize(width, height, { fit: "fill" }).removeAlpha().raw().toBuffer();
-  const diff = Buffer.alloc(width * height * 3);
-  let changedPixels = 0;
-  for (let i = 0; i < diff.length; i += 3) {
-    const delta = Math.max(
-      Math.abs(appPixels[i] - mockupPixels[i]),
-      Math.abs(appPixels[i + 1] - mockupPixels[i + 1]),
-      Math.abs(appPixels[i + 2] - mockupPixels[i + 2]),
-    );
-    if (delta > 20) changedPixels++;
-    diff[i] = diff[i + 1] = diff[i + 2] = delta;
-  }
-  await sharp(appBaseline).composite([{ input: mockupBaseline, blend: "over", opacity: 0.5 }]).png().toFile(resolve(outputDir, "overlay-1440x900.png"));
-  await sharp(diff, { raw: { width, height, channels: 3 } }).png().toFile(resolve(outputDir, "difference-1440x900.png"));
   if (errors.length) throw new Error(`Browser errors: ${errors.join("; ")}`);
-  console.log(`Visual check passed. Changed pixels at threshold 20: ${changedPixels}/${width * height}. Screenshots: ${outputDir}`);
+  console.log(`Visual check passed. Screenshots and typography.json: ${outputDir}`);
+  console.log(`Baseline screenshot: ${appBaseline}`);
 } finally {
   await browser.close();
 }
