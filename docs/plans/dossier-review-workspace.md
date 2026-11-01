@@ -87,12 +87,51 @@ Not UI work; a precondition.
 
 Detailed brief below.
 
-### Phase 1.5 — Sticky decision toolbar
+### Phase 1.5 — Sticky decision bar and file header
 
-A toolbar in the workspace that stays visible while scrolling, holding the
-decisions the current user may take on this file. One primary action. Same
-eligibility rules as today (`dossier-axes.ts`, `dossier-review-state.ts`);
-server checks unchanged. Frontend only.
+The first half of the review desk (see « Workspace layout target » below):
+the header and the decision bar. Frontend only; same eligibility rules as
+today (`dossier-axes.ts`, `dossier-review-state.ts`); server checks unchanged.
+
+- The header names the file by its organisation, then reference, type,
+  territory, date received, and the respondent on one line. The respondent
+  and organisation cards leave the left column.
+- A bar that stays visible while scrolling (`position: sticky`, no scrollbar
+  of its own): status, claim state inline (« Réclamé par vous · expire
+  18:40 » with Libérer / Réclamer), Previous / position / Next, then the
+  decisions. Rejeter and Demander une correction are secondary; Viser is
+  the only green action (§11). The claim panel's claim half moves here;
+  its notes move to the history section (Phase 3).
+
+Phase 1.5 ships in two commits, in this order, with an audit between them
+(owner's decision, 2026-11-01): first make the workspace do what the queue's
+preview drawer does well, then remove the drawer.
+
+**1.5a — the workspace takes over the drawer's strengths.** Besides the
+header and bar above:
+
+- Retour à la file returns to the same view, filters, page and scroll
+  position (`returnTo` carries them; verify, do not assume).
+- The header, the decision bar and the checks render before the answer
+  tables finish loading; the answers fill in below. A reviewer never waits
+  on a blank page.
+- Next after a decision opens the following file directly (Phase 2,
+  already in place).
+- The queue row already shows status, blocking and warning counts and the
+  assignee; that is the quick look without opening anything.
+
+**1.5b — remove the preview drawer**, only once the 1.5a audit confirms all
+four points. Remove `DossierPreviewDrawer`, the queue URL's `preview` /
+`previewSection` handling and the drawer's styles; « Examiner les
+anomalies » and « Valider » open the workspace directly, keeping the queue's
+filters for Previous / Next and for the way back. Bulk endorsement stays as
+the fast path for many clean files, with its certification.
+
+Why: the drawer shows none of the answers, yet can endorse; endorsing from a
+summary weakens what an endorsement attests. It is also a third way to
+endorse beside the workspace and bulk. If 1.5a falls short on any of the
+four points, the fallback is to keep the drawer as a read-only quick look
+(identity, checks, « Ouvrir le dossier »), with its endorse removed.
 
 ### Phase 2 — Continuous review
 
@@ -109,9 +148,20 @@ Previous / Next across the reviewer's current queue, not just the loaded page.
 
 ### Phase 3 — Workspace optimisation
 
-- Persistent section index over the read-only answers.
+The second half of the review desk (see « Workspace layout target » below).
+
+- Left rail: the checks (blocking count, warning count, eligibility — the
+  three axes kept, in compact form, replacing the boxed strip) above a
+  section index that jumps to each section. Sticky, no inner scrollbar (§13).
+- One continuous column: « À vérifier » first, then every section open
+  (no accordion; the 2026-10-19 « one continuous column » rule), separated
+  by rules rather than boxes.
 - Findings panel: blocking and advisory visibly distinct, observed/expected
   values, resolution status.
+- One history: the claim panel's progress notes and the decision timeline
+  merged into a single « Notes et historique » section at the end.
+- Fewer containers (§8): drop the card/box chrome around sections, the
+  diagnostic strip and the anomaly lists.
 - Grouping by questionnaire section and jumping to a field ONLY once a
   rule → section/field mapping exists and the ONEFOP domain agent has
   reviewed it. Until then, group by rule family. A wrong anchor misleads a
@@ -141,6 +191,58 @@ None of these starts without its own approval in chat, recorded in CLAUDE.md.
   individual review times or ranking reviewers is a staff-monitoring policy
   question for the owner, not a dashboard default.
 - These are administrative (LMIS) metrics, not Observatory statistics (§4).
+
+## Workspace layout target — the review desk
+
+Adopted by the owner on 2026-11-01 after a read of
+`react-web/src/app/admin/dossiers/[id]/page.tsx` and `DossierClaimPanel.tsx`.
+The page showed everything, but in storage order, not review order. Built in
+Phases 1.5 and 3; nothing here changes a guard, a dialog, a role or a
+territory rule.
+
+What slowed a reviewer down:
+
+1. The decisions sat in a header that scrolls away.
+2. Anomalies came last, below every questionnaire section.
+3. Answers were an accordion, one section open at a time.
+4. The title was the reference number, not the organisation.
+5. Respondent and organisation cards held a third of the width, squeezing
+   the wide statistical tables.
+6. The claim panel (owner, expiry, notes box, notes history) pushed the
+   content down before the first answer.
+7. Status shown twice (header badge and first diagnostic box); two
+   histories (claim notes and the timeline).
+8. Cards, boxed disclosures, a boxed strip and boxed lists: a dashboard
+   feel, not an official form (§8).
+
+Target, top to bottom:
+
+```
+┌ Header ── Organisation name · ref · type · territory · received ───────┐
+│           Respondent · function · phone · e-mail                      │
+├ Decision bar (sticky) ─────────────────────────────────────────────────┤
+│ Status · Réclamé par vous, expire 18:40 [Libérer]   ‹ 3/42 ›           │
+│                       [Rejeter] [Demander une correction] [Viser]      │
+├ Rail (sticky) ─┬ Answers, one column ──────────────────────────────────┤
+│ Contrôles      │ À vérifier (blocking red, advisory amber,             │
+│  1 bloquante   │   observed / expected, section)                       │
+│  2 avertiss.   │ 1. Identification                                     │
+│  Éligibilité   │ 2. … every section open                               │
+│ Sections       │ …                                                     │
+│  index         │ Notes et historique                                   │
+└────────────────┴───────────────────────────────────────────────────────┘
+```
+
+Goal: a clean file decided in three actions (Réclamer, Viser, confirm)
+without scrolling; a problem file opens on its problems.
+
+Per-section markers in the rail (which section holds a finding) wait for the
+rule → section mapping of Phase 3; until it exists and the ONEFOP domain
+agent has reviewed it, the rail shows totals only.
+
+Responsive: below tablet width the rail stacks above the answers and the
+decision bar wraps; the bar stays sticky. Wide tables keep their own
+horizontal scroll (§13), never a second vertical one.
 
 ## Phase 1 brief — queue optimisation
 
