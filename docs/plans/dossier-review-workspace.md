@@ -176,11 +176,22 @@ answers would share a tab bar with features that do not exist; and its side
 columns scroll on their own (§13). Kept from it: the section state and the
 open count above, and, later, findings that point to their answer (below).
 
+Phase 3b, 2026-11-01 (owner's request: reviewers must be led straight to
+what is flagged): every form's tables now render read-only from the wizard's
+own definitions (labels, groups, totals; no cell codes, full width, no
+sideways scroll on a desktop), variable codes are gone from the reviewer's
+screen, a rule fired per sex is one finding with a men / women / total
+breakdown worded in the reader's language, and each finding links to — and
+is marked on — the TABLES its rule compares, with the rail counting flags per
+section. The table list per rule is restated from the server's own checks
+(`react-web/src/lib/finding-targets.ts`): a fact about the rule, not a guess.
+A rule it does not list gets no link. Background refreshes no longer grey the
+decisions out; the server's revision check stays the guard.
+
 Deferred, each with what it waits for:
-- Findings that link to their answer (« aller à la réponse », the answer
-  highlighted, stepping from finding to finding): the rule → field mapping,
-  reviewed by the ONEFOP domain agent. When it exists, the findings list
-  goes in the rail under « Contrôles », not in a third column.
+- Findings that point to the exact CELL (the cell highlighted, stepping from
+  cell to cell): a rule → cell mapping, reviewed by the ONEFOP domain agent.
+  Table-level links (above) are in place; this is the finer step.
 - Reviewer flags on individual answers, each with a note, feeding the
   correction request: a new record type, so a schema change (§21).
 - Comparing a resubmission with the file it replaces, answer by answer:
