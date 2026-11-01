@@ -22,7 +22,7 @@ import { ReviewStatisticalTable, reviewTableDefinition } from "./ReviewStatistic
 
 /** A paper question number (« 2.1 », « 4.10 ») is shown; a variable name (« S21Q01 ») never is (§8). */
 function paperNumber(code: string | null): string | null {
-  return code && /^d+(.d+)*[a-z]?$/i.test(code) ? code : null;
+  return code && /^\d+(\.\d+)*[a-z]?$/i.test(code) ? code : null;
 }
 
 /** « Avez-vous des chiffres ? » is read inside its table, not listed as a question of its own. */
@@ -159,10 +159,12 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
                 id={dossierFieldAnchor(field.id)}
                 className={`cam-dossier-field${field.table || field.type === "repeating_table" ? " cam-dossier-field--wide" : ""}${flags[dossierFieldAnchor(field.id)] ? (flags[dossierFieldAnchor(field.id)].some((flag) => flag.severity === "blocking") ? " is-flagged is-flagged--blocking" : " is-flagged is-flagged--warning") : ""}`}
               >
-                {flags[dossierFieldAnchor(field.id)] && <PlacedFlagNotice flags={flags[dossierFieldAnchor(field.id)]} label={flagLabel} back={flagBack} />}
+                {/* The subsection heading first: a notice above it read as
+                    belonging to the table before. */}
                 {headingAt.has(field.id) && (
                   <div className="cam-admin-label" style={{ gridColumn: "1 / -1" }}>{headingAt.get(field.id)}</div>
                 )}
+                {flags[dossierFieldAnchor(field.id)] && <PlacedFlagNotice flags={flags[dossierFieldAnchor(field.id)]} label={flagLabel} back={flagBack} />}
                 <AnswerField
                   field={field}
                   data={data}

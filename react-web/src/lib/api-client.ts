@@ -1068,6 +1068,17 @@ export function saveDossierReviewProgress(id: string, note: string, expectedRevi
   });
 }
 
+/** What a coherence re-check changed: warnings added (now due) and closed (figures agree). */
+export interface CoherenceRecheckResult {
+  added: number;
+  closed: number;
+}
+
+/** Re-run the coherence checks on a pending file with the current rules (CLAUDE.md §21, 2026-11-01). */
+export function recheckDossierCoherence(id: string) {
+  return apiFetch<CoherenceRecheckResult>(`/admin/questionnaires/${encodeURIComponent(id)}/coherence/recheck`, { method: "POST" });
+}
+
 export function getDossierDiagnostic(id: string, includeArchived = false) {
   const suffix = includeArchived ? "?includeArchived=true" : "";
   return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic${suffix}`);

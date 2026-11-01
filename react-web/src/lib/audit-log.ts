@@ -80,6 +80,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; tone: Tone }> = {
   USER_SUSPENDED: { label: "Compte utilisateur suspendu", tone: "warning" },
   ANOMALY_RESOLVED:        { label: "Anomalie résolue", tone: "success" },
   ANOMALY_WAIVED:          { label: "Anomalie dérogée", tone: "warning" },
+  COHERENCE_RECHECKED:     { label: "Contrôles recalculés", tone: "info" },
   USER_TERRITORY_CHANGED:  { label: "Rôle / territoire modifié", tone: "info" },
   CREATE_COMPANY_PROFILE:  { label: "Établissement créé", tone: "info" },
   UPDATE_COMPANY:          { label: "Établissement modifié", tone: "neutral" },
@@ -143,6 +144,7 @@ const AUDIT_ACTION_LABELS_EN: Record<string, string> = {
   USER_SUSPENDED: "User account suspended",
   ANOMALY_RESOLVED: "Anomaly resolved",
   ANOMALY_WAIVED: "Anomaly waived",
+  COHERENCE_RECHECKED: "Checks re-run",
   USER_TERRITORY_CHANGED: "Role / territory changed",
   CREATE_COMPANY_PROFILE: "Establishment created",
   UPDATE_COMPANY: "Establishment updated",
@@ -237,6 +239,11 @@ export function auditDetailsSummary(e: AuditLogEntry, locale: UiLocale = "fr"): 
     case "ANOMALY_RESOLVED":
     case "ANOMALY_WAIVED":
       return [text(d.ruleCode), text(d.resolutionNote)].filter(Boolean).join(" — ") || "—";
+    case "COHERENCE_RECHECKED": {
+      const added = Array.isArray(d.added) ? d.added.length : 0;
+      const closed = Array.isArray(d.closed) ? d.closed.length : 0;
+      return en ? `${added} warning(s) added, ${closed} closed` : `${added} avertissement(s) ajouté(s), ${closed} clos`;
+    }
     case "USER_TERRITORY_CHANGED":
       return en ? "Role and geographical scope" : "Rôle et périmètre géographique";
     case "COMPANY_REGISTRATION_APPROVED":

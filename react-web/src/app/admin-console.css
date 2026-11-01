@@ -5371,7 +5371,10 @@ a.cam-dash-review-row:hover {
 }
 
 /* ── Dossier detail (admin/dossiers/[id]) ── */
-.cam-dossier-workspace-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--cam-space-5); align-items: start; }
+/* The rail is an index, not a column of content: 200px leaves the answers,
+   and their wide tables, the width they need (it was 260px). */
+.cam-dossier-workspace-layout { --cam-dossier-rail-width: 200px; display: grid; grid-template-columns: var(--cam-dossier-rail-width) minmax(0, 1fr); gap: var(--cam-space-5); align-items: start; }
+.cam-dossier-axis-text.is-error { color: var(--cam-error); font-weight: var(--cam-font-weight-semibold); }
 .cam-dossier-rail { position: sticky; top: calc(var(--cam-space-5) + 64px); display: grid; gap: var(--cam-space-5); }
 .cam-dossier-rail h2 { margin: 0 0 var(--cam-space-2); font-size: var(--cam-font-size-sm); }
 .cam-dossier-rail nav { display: grid; gap: var(--cam-space-2); }
@@ -5384,25 +5387,62 @@ a.cam-dash-review-row:hover {
 .cam-dossier-findings .is-warning { border-color: var(--cam-warning); }
 .cam-dossier-findings .is-blocking > p,
 .cam-dossier-findings .is-warning > p { margin: 0 0 var(--cam-space-1); }
+/* An explained warning: closed by a reviewer's note, so neutral, not amber. */
+.cam-dossier-findings div.is-explained { margin-block: var(--cam-space-2); padding-inline-start: var(--cam-space-3); border-inline-start: 3px solid var(--cam-border); }
+.cam-dossier-findings div.is-explained > p { margin: 0 0 var(--cam-space-1); }
 .cam-dossier-finding-figures { border-collapse: collapse; margin: var(--cam-space-1) 0 var(--cam-space-2); font-size: var(--cam-font-size-sm); }
 .cam-dossier-finding-figures th,
 .cam-dossier-finding-figures td { padding: 2px var(--cam-space-3) 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
 .cam-dossier-finding-figures thead th { color: var(--cam-text-muted); font-weight: 600; }
 .cam-dossier-finding-links a { color: var(--cam-primary); text-decoration: underline; }
+/* A numbered finding: its number and colour repeat on every figure it marks. */
+.cam-dossier-finding-title { display: flex; align-items: baseline; gap: var(--cam-space-2); }
+.cam-dossier-finding-title > span[aria-hidden] { flex: none; transform: translateY(-1px); }
+.cam-dossier-finding-compare { display: grid; gap: var(--cam-space-1); margin: var(--cam-space-2) 0; }
+.cam-dossier-finding-compare > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--cam-space-2); }
+.cam-dossier-finding-compare dt { min-width: 4.5rem; color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); }
+.cam-dossier-finding-compare dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--cam-space-1) var(--cam-space-2); margin: 0; font-size: var(--cam-font-size-sm); }
+.cam-dossier-finding-compare strong { font-variant-numeric: tabular-nums; }
+.cam-dossier-finding-compare-sep { color: var(--cam-text-muted); }
+/* A jump to a compared table (VT) or answer lands below the sticky decision bar. */
+.cam-dossier-vt-table,
+.cam-dossier-field { scroll-margin-top: 120px; }
+.cam-dossier-finding-targets { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--cam-space-1) var(--cam-space-4); margin: var(--cam-space-2) 0; }
+.cam-dossier-finding-targets > a { color: var(--cam-primary); text-decoration: underline; }
+.cam-dossier-finding-targets details { min-width: 0; flex-basis: 100%; }
+.cam-dossier-finding-targets summary { width: fit-content; color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); cursor: pointer; }
+.cam-dossier-finding-targets ul { display: grid; gap: var(--cam-space-1); margin: var(--cam-space-1) 0 0; padding: 0; list-style: none; }
+.cam-dossier-finding-targets li { min-width: 0; }
+.cam-dossier-finding-targets li a { display: block; overflow: hidden; color: var(--cam-primary); font-size: var(--cam-font-size-sm); white-space: nowrap; text-overflow: ellipsis; text-decoration: underline; }
 /* A flagged answer, marked where it sits: a coloured edge and the finding
    said above it, so a reviewer who scrolls finds it without the list. */
-.cam-dossier-field.is-flagged { padding-inline-start: var(--cam-space-3); border-inline-start: 3px solid var(--cam-warning); }
-.cam-dossier-field.is-flagged--blocking { border-inline-start-color: var(--cam-error); }
+/* A flagged answer is marked by the notice right above it; a second rule down
+   the whole table repeated it (§8). The classes stay for tests and anchors. */
 .cam-dossier-field-flag { margin: 0 0 var(--cam-space-3); padding: var(--cam-space-2) var(--cam-space-3); border-inline-start: 3px solid var(--cam-warning); background: var(--cam-warning-bg, transparent); font-size: var(--cam-font-size-sm); }
 .cam-dossier-field-flag.is-blocking { border-inline-start-color: var(--cam-error); background: var(--cam-error-bg, transparent); }
 .cam-dossier-field-flag ul { margin: var(--cam-space-1) 0; padding-inline-start: var(--cam-space-4); }
 .cam-dossier-field-flag a { color: var(--cam-primary); text-decoration: underline; }
-.cam-dossier-rail-flag { color: var(--cam-warning); font-weight: 600; }
+.cam-dossier-rail-flag { color: var(--cam-warning); font-weight: 600; white-space: nowrap; }
 .cam-dossier-rail-flag.is-blocking { color: var(--cam-error); }
 .cam-dossier-findings h2, .cam-dossier-section > h2 { margin: 0; padding-block: var(--cam-space-3); border-bottom: var(--cam-border-width) solid var(--cam-border); font-size: var(--cam-font-size-lg); }
 .cam-dossier-section-body { padding: var(--cam-space-2) 0 var(--cam-space-4); }
 .cam-dossier-section > h2::after { content: none; }
 .cam-dossier-history-section { scroll-margin-top: 80px; }
+
+/* Review workspace reading sizes. The console's 13px meta and label steps
+   suit dense lists; a file is read line by line, so in the workspace they step
+   up to 14px, running text sits at the answers' 15px, and the rail reads at
+   one size instead of the browser's 16px links beside 13px states. Tables keep
+   --cam-table-fs (14px), as in the wizard. */
+.cam-dossier-workspace-layout .cam-admin-meta,
+.cam-dossier-workspace-layout .cam-admin-label,
+.cam-dossier-decision-bar .cam-admin-meta { font-size: var(--cam-font-size-sm); }
+.cam-dossier-findings p,
+.cam-dossier-section-body > p { font-size: var(--cam-font-size-base); line-height: var(--cam-line-height-copy, 1.45); }
+.cam-dossier-findings p.cam-admin-meta { font-size: var(--cam-font-size-sm); }
+.cam-dossier-rail { font-size: var(--cam-font-size-sm); line-height: var(--cam-line-height-ui, 1.4); }
+.cam-dossier-rail h2 { font-size: var(--cam-font-size-base); }
+.cam-dossier-rail .cam-admin-meta { font-size: inherit; }
 .cam-dossier-findings { scroll-margin-top: 80px; }
 @media (max-width: 1199px) { .cam-dossier-workspace-layout { grid-template-columns: minmax(0, 1fr); } .cam-dossier-rail { position: static; } }
 .cam-dossier-axes {
@@ -5536,7 +5576,8 @@ a.cam-dash-review-row:hover {
    and figures stay on one line. A narrow screen still scrolls sideways. */
 .cam-grid-readonly th,
 .cam-grid-readonly td { min-width: 0; }
-.cam-grid-readonly thead th { white-space: normal; overflow-wrap: anywhere; hyphens: auto; }
+/* Headings wrap between words, never inside one (« plus » split as « pl-us »). */
+.cam-grid-readonly thead th { white-space: normal; overflow-wrap: normal; }
 .cam-grid-readonly tbody td,
 .cam-grid-readonly tfoot td { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
 .cam-dossier-field--wide {
@@ -5547,10 +5588,14 @@ a.cam-dash-review-row:hover {
   margin-top: var(--cam-space-4);
 }
 
+/* The question, read before its answer: 14px in the text colour. It was 11px
+   grey, smaller than the answer under it, and the hardest line to read on a
+   page whose job is reading. */
 .cam-dossier-fields dt {
-  font-size: var(--cam-font-size-3xs);
-  font-weight: 600;
-  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold, 600);
+  line-height: var(--cam-line-height-label, 1.3);
+  color: var(--cam-text);
 }
 
 .cam-dossier-fields dd {
@@ -5670,6 +5715,75 @@ a.cam-dash-review-row:hover {
   font-weight: 600;
   color: var(--cam-green);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Review desk: one document ─────────────────────────────────────────
+   The workspace reads as one document on the page ground: no white strips,
+   no cards, one left edge, one rule under the header (§8). These rules come
+   last in the dossier block so they win over the older card styles above. */
+
+/* The header ends where the decision bar begins: one rule, not two. */
+.cam-admin-page-header:has(+ .cam-dossier-decision-bar) {
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+/* Header facts read as one line of facts, separated, not spaced apart. */
+.cam-dossier-header-facts { column-gap: var(--cam-space-2); }
+.cam-dossier-header-facts > span + span::before {
+  content: "·";
+  margin-inline-end: var(--cam-space-2);
+  color: var(--cam-text-muted);
+}
+
+/* The bar sits on the page ground, ruled above and below; it stays opaque
+   for its sticky position. */
+.cam-dossier-decision-bar {
+  margin-bottom: var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-bg);
+}
+
+/* One left edge: findings, Identification and every section start at the
+   column's edge (sections were indented 24px, Identification was not). */
+.cam-dossier-section-body { padding: var(--cam-space-2) 0 var(--cam-space-4); }
+
+/* A findings group is a heading over its findings; only each finding carries
+   the severity rule (the group carried one too, so findings sat double-ruled). */
+.cam-dossier-findings-group.is-blocking,
+.cam-dossier-findings-group.is-warning {
+  margin-block: var(--cam-space-4);
+  padding: 0;
+  border: 0;
+}
+
+/* Headings: sections in semibold; the rail's two headings as labels. */
+.cam-dossier-findings h2,
+.cam-dossier-section > h2 { font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-rail h2 {
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text-muted);
+}
+
+/* Read-only tables are paper, not raised cards. */
+.cam-grid-readonly { box-shadow: none; }
+
+/* Notes and history: a section like the others, in the answer column. */
+.cam-dossier-history-section {
+  margin-top: var(--cam-space-4);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.cam-dossier-history-section > .cam-admin-section-head { padding-inline: 0; }
+.cam-dossier-history-section > .cam-admin-section-head .cam-admin-h2 {
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-dossier-history-section > .cam-admin-section-body { padding-inline: 0; }
+@media (min-width: 1200px) {
+  .cam-dossier-history-section { margin-inline-start: calc(200px + var(--cam-space-5)); }
 }
 
 @media (max-width: 1199px) {

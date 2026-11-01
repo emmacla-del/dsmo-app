@@ -34,6 +34,11 @@ const SCHEMA_ENTITY_KEY: Record<string, string> = {
 /** The entity the schema describes for this file, or null for a formType the
  * schema does not know — in which case no section is shown, rather than
  * another type's. */
+/** The schema's name for this file's form ("enterprise", "projectProgram"…), or null. */
+export function dossierEntityKey(formType: string | null | undefined): string | null {
+  return (formType && SCHEMA_ENTITY_KEY[formType]) || null;
+}
+
 export function dossierEntity(
   schema: { entities: Record<string, OnefopEntity> } | null | undefined,
   formType: string | null | undefined,

@@ -294,7 +294,7 @@ test("the rail counts the open findings and every link in its index reaches a se
   const { container } = renderWorkspace();
   const rail = screen.getByRole("navigation", { name: "Dossier section index" });
   assert.ok(container.textContent?.includes("1 blocking"));
-  assert.ok(container.textContent?.includes("1 warnings"));
+  assert.ok(container.textContent?.includes("1 warning"));
   const targets = [...rail.querySelectorAll("a")].map((link) => link.getAttribute("href") ?? "");
   assert.equal(targets[0], "#dossier-verify", "« To verify » comes first");
   assert.equal(targets.at(-1), "#dossier-history", "« Notes and history » comes last");
@@ -366,7 +366,7 @@ test("a rule fired for men, women and total is one finding, worded, with links t
   assert.ok(findings.textContent?.includes("To verify · 1"), "three anomalies, one rule, one thing to check");
   assert.ok(findings.textContent?.includes("Recruitment broken down by diploma"), "worded in the reader's language");
   assert.ok(!/S22Q0d/.test(findings.textContent ?? ""), "no variable code in the finding");
-  const links = [...findings.querySelectorAll(".cam-dossier-finding-links a")].map((link) => link.getAttribute("href") ?? "");
+  const links = [...findings.querySelectorAll(".cam-dossier-finding-targets a")].map((link) => link.getAttribute("href") ?? "");
   assert.deepEqual(links, ["#dossier-field-S22Q03", "#dossier-field-S22Q01", "#dossier-field-S22Q02"]);
   for (const href of links) assert.ok(container.querySelector(href), `${href} exists on the page`);
 });
@@ -391,7 +391,10 @@ test("a flagged table is marked where it sits, and the rail shows which section 
       expectedValue: 2,
     }],
   };
-  const { container } = renderWorkspace({ diagnostic });
+  // The figures behind the warning: 3 men with a disability, 2 men recruited.
+  // A stored warning the figures do not show is not placed on tables.
+  const dossier = { ...CORRECTION_DOSSIER, rawData: { s22q01_total_male_total: 2, s22q04_total_permanent_male: 3 } };
+  const { container } = renderWorkspace({ diagnostic, dossier });
   const disability = container.querySelector("#dossier-field-S22Q04")!;
   assert.ok(disability.classList.contains("is-flagged"), "the table carries the mark");
   const notice = disability.querySelector(".cam-dossier-field-flag")!;

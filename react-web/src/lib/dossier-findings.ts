@@ -5,6 +5,8 @@
  * resolution status to show here; a resolved or waived anomaly leaves the list.
  */
 export interface DossierFinding {
+  /** The stored anomaly row, which the resolve route acts on. */
+  id?: string;
   ruleCode: string;
   ruleFamily?: string | null;
   description?: string | null;
@@ -52,6 +54,8 @@ export interface MergedFinding<T extends DossierFinding = DossierFinding> {
   ruleCode: string;
   /** The first anomaly of the rule, for its wording. */
   finding: T;
+  /** Every stored anomaly the rule raised, men before women before total. */
+  anomalies: T[];
   /** One line per sex the rule fired for, men before women before total. */
   rows: Array<{ sex: FindingSex | null; observed: unknown; expected: unknown }>;
 }
@@ -67,9 +71,15 @@ export function mergeSameRule<T extends DossierFinding>(findings: T[]): MergedFi
   for (const finding of findings) {
     const row = { sex: findingSex(finding.description), observed: finding.observedValue, expected: finding.expectedValue };
     const existing = merged.get(finding.ruleCode);
-    if (existing) existing.rows.push(row);
-    else merged.set(finding.ruleCode, { ruleCode: finding.ruleCode, finding, rows: [row] });
+    if (existing) {
+      existing.rows.push(row);
+      existing.anomalies.push(finding);
+    } else merged.set(finding.ruleCode, { ruleCode: finding.ruleCode, finding, anomalies: [finding], rows: [row] });
   }
-  for (const entry of merged.values()) entry.rows.sort((a, b) => (order[a.sex ?? ""] ?? 3) - (order[b.sex ?? ""] ?? 3));
+  const rank = (sex: FindingSex | null) => order[sex ?? ""] ?? 3;
+  for (const entry of merged.values()) {
+    entry.rows.sort((a, b) => rank(a.sex) - rank(b.sex));
+    entry.anomalies.sort((a, b) => rank(findingSex(a.description)) - rank(findingSex(b.description)));
+  }
   return [...merged.values()];
 }

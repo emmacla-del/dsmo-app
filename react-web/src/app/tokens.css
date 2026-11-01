@@ -188,6 +188,18 @@
   --cam-info-bg: #ebf4f9;
   --cam-info-border: #b6d7ea;
 
+  /* Anomaly identity (review workspace): each finding is numbered and drawn in
+     one of these on its list entry and on every figure it compares, so two
+     findings on one page are told apart at a glance. Chosen away from the
+     severity hues (red, amber) and the brand green; each carries a white
+     number at 4.5:1 or more. Beyond five, the colours repeat and the number
+     still tells them apart. Owner's request, 2026-11-01. */
+  --cam-anomaly-1: #1a6896;
+  --cam-anomaly-2: #6b3fa0;
+  --cam-anomaly-3: #a3266f;
+  --cam-anomaly-4: #4f5d12;
+  --cam-anomaly-5: #475569;
+
   /* ── Aliases for admin consolidation ── */
   --cam-ink: var(--cam-text);
   --cam-line: var(--cam-border);

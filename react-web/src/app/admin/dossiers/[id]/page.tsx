@@ -30,6 +30,12 @@ import { mergeDossierHistory, type DossierHistoryEntry } from "@/lib/dossier-his
 import { groupDossierFindings, mergeSameRule } from "@/lib/dossier-findings";
 import { findingTargets, placeFindings, sectionFlagCount } from "@/lib/finding-targets";
 import { PlacedFlagNotice } from "@/components/admin/DossierAnswerSections";
+import { ExplainFindingAction, ExplainedFindings, RecheckCoherenceAction, explainedFindingsKey, useExplainedFindings } from "@/components/admin/DossierExplainFinding";
+import { FindingCompare, VtFindingCompare } from "@/components/admin/DossierFindingFigures";
+import { vtFindingFigures, type VtFigure } from "@/lib/vt-finding-figures";
+import { AnomalyNumber, CoherenceProvider, type AnomalyMarker } from "@/components/onefop/coherence/Coherence";
+import { reviewCellChecks, sameRule } from "@/lib/dossier-cell-checks";
+import type { FormData } from "@/lib/onefop-schema";
 import { ruleFamilyLabel } from "@/lib/anomaly-registry";
 import { dossierClaimStateKey, useDossierClaim } from "@/lib/use-dossier-claim";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
@@ -42,6 +48,7 @@ import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import {
   detailAnswerValue,
   dossierEntity,
+  dossierEntityKey,
   dossierSections,
   dossierSectionState,
   questionnaireAsks,
@@ -84,15 +91,14 @@ function hasFigures(observed: unknown, expected: unknown): boolean {
 // to say why the table is withheld rather than call it empty.
 const STAFF_NAME_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMISSIONS"];
 
-// Badge colours per tone for the three-axis strip (lib/dossier-axes.ts).
-// Axis verdict -> .cam-dossier-pill modifier. `neutral` keeps the base pill
-// with no modifier: it is the absence of a verdict (the diagnostic could not
-// be read, or the axis does not apply), not a fourth kind of verdict.
-const AXIS_PILL: Record<AxisTone, string> = {
-  success: "cam-dossier-pill--ok",
-  warning: "cam-dossier-pill--warn",
-  error: "cam-dossier-pill--error",
-  neutral: "",
+// An axis verdict in the rail is a line of text (lib/dossier-axes.ts). Only an
+// error is coloured: a badge beside the bar's status badge read as a second
+// status, and colour on every line said nothing.
+const AXIS_TEXT_CLASS: Record<AxisTone, string> = {
+  success: "cam-dossier-axis-text",
+  warning: "cam-dossier-axis-text",
+  error: "cam-dossier-axis-text is-error",
+  neutral: "cam-dossier-axis-text",
 };
 
 /**
@@ -341,10 +347,8 @@ function SubmissionDetailContent() {
     : diagnosticQuery.isError || !diag
       ? "unavailable"
       : "ready";
-  const axisBadge = (badge: AxisBadge) => (
-    <span className={`cam-dossier-pill ${AXIS_PILL[badge.tone]}`.trimEnd()}>
-      {t(badge.key, badge.values)}
-    </span>
+  const axisText = (badge: AxisBadge) => (
+    <span className={AXIS_TEXT_CLASS[badge.tone]}>{t(badge.key, badge.values)}</span>
   );
   const detail: Detail = dossier ? entityDetail(dossier) : {};
   const structure = dossier ? structureFacts(dossier) : [];
@@ -621,6 +625,69 @@ function SubmissionDetailContent() {
   const [approveComment, setApproveComment] = useState("");
   const hasOpenWarnings = (diag?.warningAnomalies.length ?? 0) > 0;
   const approvalChecksReady = diagnosticState === "ready" && (diag?.blockingAnomalies.length ?? 0) === 0;
+  const explained = useExplainedFindings(dossier?.id);
+  // The cells behind each open finding, recomputed from the figures as filed,
+  // so the tables mark what disagrees and say what it is compared with.
+  // Joined to a string so the memo reruns when the codes change, not on each render.
+  const openRuleKey = diagnosticState === "ready"
+    ? [...(diag?.blockingAnomalies ?? []), ...(diag?.warningAnomalies ?? [])].map((item) => String(item.ruleCode)).join("|")
+    : "";
+  const settledRuleKey = explained.items.map((item) => item.ruleCode).join("|");
+  // Nothing is recomputed until both lists are read: before that, every gap
+  // would look unreported for a moment.
+  const checksReady = diagnosticState === "ready" && !explained.query.isLoading;
+  const filedData = checksReady ? dossier?.rawData : null;
+  // Detection needs the explained list: a role that cannot read it would see
+  // an explained rule come back as « detected », so it gets no detection.
+  const canDetect = explained.query.isSuccess;
+  const cellChecks = useMemo(() => {
+    const checks = reviewCellChecks(
+      (filedData ?? null) as FormData | null,
+      dossierEntityKey(formType),
+      openRuleKey ? openRuleKey.split("|") : [],
+      settledRuleKey ? settledRuleKey.split("|") : [],
+    );
+    return canDetect ? checks : { ...checks, flags: checks.flags.filter((flag) => !checks.detected.includes(flag)), detected: [] };
+  }, [filedData, formType, openRuleKey, settledRuleKey, canDetect]);
+  // Detected on review, one entry per rule (the checker raises one per sex).
+  const detectedByRule = [...cellChecks.detected.reduce((byRule, flag) => {
+    byRule.set(flag.code, [...(byRule.get(flag.code) ?? []), flag]);
+    return byRule;
+  }, new Map<string, typeof cellChecks.detected>())];
+  // Each finding with figures to show gets a number and a colour, in list
+  // order (stored findings, then those detected on review); its figures carry
+  // the same number and colour in the tables.
+  // VT rules compare table totals, which each stored warning states
+  // (« (4.1: 12, hommes) »): the tables are marked, not cells.
+  const vtFiguresByRule = new Map<string, VtFigure[]>();
+  if (isVt) {
+    for (const item of mergeSameRule([...(diag?.blockingAnomalies ?? []), ...(diag?.warningAnomalies ?? [])])) {
+      const figures = item.anomalies.flatMap((anomaly) => vtFindingFigures(anomaly.description));
+      if (figures.length >= 2) vtFiguresByRule.set(item.ruleCode, figures);
+    }
+  }
+  const markedRules = [
+    ...groupDossierFindings(diag?.blockingAnomalies ?? [], diag?.warningAnomalies ?? [])
+      .flatMap((group) => mergeSameRule(group.findings).map((item) => item.ruleCode)),
+    ...detectedByRule.map(([code]) => code),
+  ].filter((code, index, all) => all.indexOf(code) === index
+    && (cellChecks.flags.some((flag) => sameRule(code, flag.code)) || vtFiguresByRule.has(code)));
+  const ruleMarkers = new Map<string, AnomalyMarker>(markedRules.map((code, index) =>
+    [code, { n: index + 1, color: `var(--cam-anomaly-${(index % 5) + 1})` }]));
+  // VT table paper number → the numbered findings that compare it.
+  const vtTableMarkers: Record<string, AnomalyMarker[]> = {};
+  for (const [code, figures] of vtFiguresByRule) {
+    const marker = ruleMarkers.get(code);
+    if (!marker) continue;
+    for (const table of new Set(figures.map((figure) => figure.code))) {
+      if (!(vtTableMarkers[table] ??= []).some((item) => item.n === marker.n)) vtTableMarkers[table].push(marker);
+    }
+  }
+  const flagMarkers: Record<string, AnomalyMarker> = {};
+  for (const flag of cellChecks.flags) {
+    const code = markedRules.find((rule) => sameRule(rule, flag.code));
+    if (code) flagMarkers[flag.key] = ruleMarkers.get(code)!;
+  }
   // A rule that fired for men, women and total is one thing to check.
   const blockingFindings = mergeSameRule(diag?.blockingAnomalies ?? []).length;
   const warningFindings = mergeSameRule(diag?.warningAnomalies ?? []).length;
@@ -632,7 +699,8 @@ function SubmissionDetailContent() {
   const placedFlags = placeFindings([
     ...mergeSameRule(diag?.blockingAnomalies ?? []).map((item) => ({ severity: "blocking" as const, ruleCode: item.ruleCode, text: findingSentence(item.ruleCode, item.finding.description) })),
     ...mergeSameRule(diag?.warningAnomalies ?? []).map((item) => ({ severity: "warning" as const, ruleCode: item.ruleCode, text: findingSentence(item.ruleCode, item.finding.description) })),
-  ], entity, locale);
+  // A finding the figures do not show is not placed on tables that agree.
+  ].filter((item) => !cellChecks.notFound.has(item.ruleCode)), entity, locale);
   const railFlag = (flag: { count: number; blocking: boolean }) => flag.count > 0
     ? <span className={`cam-dossier-rail-flag${flag.blocking ? " is-blocking" : ""}`} aria-label={t("railFlagged", { count: flag.count })}> · {t("railFlagged", { count: flag.count })}</span>
     : null;
@@ -905,6 +973,7 @@ function SubmissionDetailContent() {
           diagnostic (lib/dossier-axes.ts). The strip's left edge followed a
           fixed amber; .cam-dossier-axes carries is-approved / is-rejected, so
           it now follows the dossier's own decision. */}
+      <CoherenceProvider flags={cellChecks.flags} readOnly markers={flagMarkers}>
       <div className="cam-dossier-workspace-layout">
         <aside className="cam-dossier-rail">
           <section aria-labelledby="dossier-controls-title">
@@ -912,10 +981,21 @@ function SubmissionDetailContent() {
             {/* The status is the decision bar's; the rail says what is left to check
                 and whether the file can enter the statistics. */}
             <p>{diagnosticState === "ready"
-              ? <>{t("blockingCount", { count: blockingFindings })} · {t("warningCount", { count: warningFindings })}</>
-              : axisBadge(qualityAxis(diagnosticState, diag))}</p>
+              ? <><span className={blockingFindings > 0 ? "cam-dossier-axis-text is-error" : undefined}>{t("blockingCount", { count: blockingFindings })}</span> · {t("warningCount", { count: warningFindings })}{detectedByRule.length > 0 && <> · {t("railDetected", { count: detectedByRule.length })}</>}</>
+              : axisText(qualityAxis(diagnosticState, diag))}</p>
             <p className="cam-admin-meta">{t("railEligibility")}</p>
-            <p>{axisBadge(eligibilityAxis(diagnosticState, diag))}</p>
+            <p>{axisText(eligibilityAxis(diagnosticState, diag))}</p>
+            {/* Re-runs the checks with the current rules, on the server: what it
+                adds or closes is recorded, unlike « détecté à la relecture ». */}
+            {dossier.status === "PENDING_REVIEW" && !readOnly && hasRole(role, SURVEY_ROLES) && (
+              <RecheckCoherenceAction
+                dossierId={dossier.id}
+                onSettled={() => {
+                  void invalidateDossier();
+                  void queryClient.invalidateQueries({ queryKey: explainedFindingsKey(dossier.id) });
+                }}
+              />
+            )}
           </section>
           <nav aria-label={t("sectionIndexLabel")}>
             <h2>{t("sectionsTitle")}</h2>
@@ -943,15 +1023,26 @@ function SubmissionDetailContent() {
                   {t(group.severity === "blocking" ? "findingsBlocking" : "findingsWarning")}
                   {group.family ? ` · ${ruleFamilyLabel(group.family, locale)}` : ""}
                 </h3>
-                {mergeSameRule(group.findings).map(({ ruleCode, finding, rows }) => {
+                {mergeSameRule(group.findings).map(({ ruleCode, finding, rows, anomalies }) => {
                   // A rule the catalogue words is read in the reader's language
                   // with its figures in a breakdown; any other keeps its stored text.
                   const worded = t.has(`findingRule.${ruleCode}`);
                   const targets = findingTargets(ruleCode, entity, locale);
                   const figureRows = rows.filter((row) => hasFigures(row.observed, row.expected));
                   return (
-                    <div className={group.severity === "blocking" ? "is-blocking" : "is-warning"} key={ruleCode} title={ruleCode}>
-                      <p>{findingSentence(ruleCode, finding.description)}</p>
+                    <div
+                      className={`${group.severity === "blocking" ? "is-blocking" : "is-warning"}${ruleMarkers.has(ruleCode) ? " is-numbered" : ""}`}
+                      key={ruleCode}
+                      title={ruleCode}
+                      style={ruleMarkers.has(ruleCode) ? { borderInlineStartColor: ruleMarkers.get(ruleCode)!.color } : undefined}
+                    >
+                      <p className="cam-dossier-finding-title">
+                        {ruleMarkers.has(ruleCode) && <AnomalyNumber marker={ruleMarkers.get(ruleCode)!} />}
+                        <span>{findingSentence(ruleCode, finding.description)}</span>
+                      </p>
+                      {ruleMarkers.has(ruleCode) && (vtFiguresByRule.has(ruleCode)
+                        ? <VtFindingCompare figures={vtFiguresByRule.get(ruleCode)!} />
+                        : <FindingCompare ruleCode={ruleCode} data={(dossier.rawData ?? {}) as FormData} />)}
                       {worded && figureRows.length > 0 && (
                         <table className="cam-dash-table cam-dossier-finding-figures">
                           <thead>
@@ -971,20 +1062,84 @@ function SubmissionDetailContent() {
                       {!worded && figureRows.length > 0 && figureRows.map((row, index) => (
                         <p key={index} className="cam-admin-meta">{t("observedExpected", { observed: String(row.observed ?? "—"), expected: String(row.expected ?? "—") })}</p>
                       ))}
+                      {/* One link, named by where it leads; the question it reaches
+                          is in the tooltip. The tables the rule compares it with
+                          are marked in place and listed on demand. */}
+                      {/* Recomputed from the figures as filed: the gap is shown on
+                          its cells, or the finding says it is not in them. */}
+                      {cellChecks.notFound.has(ruleCode) && (
+                        <p className="cam-admin-meta cam-dossier-finding-stale">{t("findingNotInFigures")}</p>
+                      )}
                       {targets.length > 0 && (
-                        <p className="cam-dossier-finding-links">
-                          {t("findingSee")}{" "}
-                          {targets.map((target, index) => (
-                            <span key={target.anchor}>{index > 0 && ", "}<a href={`#${target.anchor}`}>{target.label}</a></span>
-                          ))}
-                        </p>
+                        <div className="cam-dossier-finding-targets">
+                          <a href={`#${targets[0].anchor}`} title={targets[0].label}>
+                            {t(targets[0].anchor === "dossier-structure"
+                              ? "findingSeeIdentification"
+                              : targets[0].anchor.startsWith("dossier-section-") ? "findingSeeSection" : "findingSeeTable")}
+                          </a>
+                          {targets.length > 1 && (
+                            <details>
+                              <summary>{t("findingComparedWith", { count: targets.length - 1 })}</summary>
+                              <ul>
+                                {targets.slice(1).map((target) => (
+                                  <li key={target.anchor}><a href={`#${target.anchor}`} title={target.label}>{target.label}</a></li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                        </div>
+                      )}
+                      {/* Warnings only: a blocking finding is never explained away
+                          from here (§7; plan dossier-field-observations, Part A). */}
+                      {group.severity === "warning" && canReviewDossier && !readOnly && dossier && Number.isSafeInteger(dossier.revision)
+                        && anomalies.every((item) => typeof item.id === "string") && (
+                        <div className="cam-dossier-finding-links">
+                          <ExplainFindingAction
+                            anomalyIds={anomalies.map((item) => item.id as string)}
+                            revision={dossier.revision}
+                            sentence={findingSentence(ruleCode, finding.description)}
+                            onSettled={() => {
+                              void invalidateDossier();
+                              void queryClient.invalidateQueries({ queryKey: explainedFindingsKey(dossier.id) });
+                            }}
+                          />
+                        </div>
                       )}
                     </div>
                   );
                 })}
               </div>
             ))}
-            {diag && diag.blockingAnomalies.length === 0 && diag.warningAnomalies.length === 0 && <p>{t("noAnomalyDetected")}</p>}
+            {/* A gap in the figures with no stored finding: the file was filed
+                before the rule existed or was fixed. Recomputed here, not
+                recorded until « Recalculer les contrôles » stores it; until
+                then there is nothing to explain and endorsement does not ask. */}
+            {detectedByRule.length > 0 && (
+              <div className="cam-dossier-findings-group is-warning">
+                <h3 className="cam-admin-label">{t("detectedHeading", { count: detectedByRule.length })}</h3>
+                <p className="cam-admin-meta">{t("detectedNote")}</p>
+                {detectedByRule.map(([code, flags]) => (
+                  <div
+                    key={code}
+                    className="is-warning is-numbered"
+                    title={code}
+                    style={ruleMarkers.has(code) ? { borderInlineStartColor: ruleMarkers.get(code)!.color } : undefined}
+                  >
+                    <p className="cam-dossier-finding-title">
+                      {ruleMarkers.has(code) && <AnomalyNumber marker={ruleMarkers.get(code)!} />}
+                      <span>{flags[0].title[locale].replace(/\s*\((hommes|femmes|men|women)\)$/, "")}</span>
+                    </p>
+                    {flags.map((flag) => <p key={flag.key}>{flag.message[locale]}</p>)}
+                    <FindingCompare ruleCode={code} data={(dossier.rawData ?? {}) as FormData} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* « Conforme » only when nothing was ever raised: an explained warning is not « no anomaly ». */}
+            {diag && diag.blockingAnomalies.length === 0 && diag.warningAnomalies.length === 0 && detectedByRule.length === 0 && (
+              explained.items.length > 0 ? <p>{t("noOpenAnomaly")}</p> : <p>{t("noAnomalyDetected")}</p>
+            )}
+            <ExplainedFindings explained={explained} sentence={findingSentence} />
           </section>
         {/* Questionnaire sections, as native disclosures.
             These were <button>-driven divs; <details>/<summary> is what
@@ -1051,6 +1206,7 @@ function SubmissionDetailContent() {
                 data={(dossier.rawData ?? {}) as Record<string, unknown>}
                 canSeeStaffNames={canSeeStaffNames}
                 flags={placedFlags}
+                tableMarkers={vtTableMarkers}
               />
             ) : (
               <DataState
@@ -1091,6 +1247,7 @@ function SubmissionDetailContent() {
         </div>
         </div>
       </div>
+      </CoherenceProvider>
 
       {/* Instruction history. Built only from timestamps stored on the
           dossier:

@@ -19,6 +19,7 @@ import type {
 import {
   TABLE_LABEL_COL_PX,
   TABLE_MAX_WIDTH_PX,
+  TABLE_MIN_DATA_COL_PX,
   TABLE_REPEAT_HEADINGS_ABOVE_ROWS,
   TABLE_REPEAT_HEADINGS_EVERY,
   spanningHeadingsOf,
@@ -556,8 +557,7 @@ export function StatisticalGridRenderer({
       // header. The frame no longer clips (`overflow-hidden` would clip the
       // ring away); the scroller below rounds its own corners instead.
       className={`relative border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)] shadow-xs after:pointer-events-none after:absolute after:-inset-px after:z-[21] after:rounded-[4px] after:border after:border-[var(--cam-table-frame)] after:content-[''] ${className}`}
-      // Read-only (review workspace): the table spans its column, with no
-      // entry-sized minimum, so it fits without a sideways scroll.
+      // Read-only (review workspace): the frame spans its column.
       style={readOnly ? { width: "100%" } : { width: "100%", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
     >
       {/* The frame hugs the table's own columns, never exceeding
@@ -568,7 +568,14 @@ export function StatisticalGridRenderer({
         <DataTable
           ref={tableRef}
           className="border-collapse table-fixed"
-          style={readOnly ? { width: "100%" } : { width: "100%", minWidth: preferredTableWidth }}
+          // Read-only: no input to size for, so each figure column gets the
+          // wizard's minimum (56px) rather than its entry width (up to 95px),
+          // and the table fills its column. Wider than that, it scrolls
+          // sideways inside its frame, row labels pinned (§13). Squeezed to
+          // fit, the 16-column departures table drew 35px columns.
+          style={readOnly
+            ? { width: "100%", minWidth: TABLE_LABEL_COL_PX + definition.columns.length * TABLE_MIN_DATA_COL_PX }
+            : { width: "100%", minWidth: preferredTableWidth }}
         >
           {definition.caption && (
             <caption className="sr-only">
@@ -581,9 +588,7 @@ export function StatisticalGridRenderer({
           <colgroup>
             {/* No width: the label column absorbs whatever the pod leaves over,
                 so the data columns keep theirs. */}
-            {/* Read-only: the label column takes a share and the figures
-                share the rest equally; no column is sized for an input. */}
-            <col style={readOnly ? { width: "26%" } : { minWidth: TABLE_LABEL_COL_PX }} />
+            <col style={readOnly ? { width: TABLE_LABEL_COL_PX } : { minWidth: TABLE_LABEL_COL_PX }} />
             {definition.columns.map((col, i) => (
               <col key={col.key} style={readOnly ? undefined : { width: dataColWidths[i] }} />
             ))}

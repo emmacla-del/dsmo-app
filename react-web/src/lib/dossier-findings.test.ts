@@ -40,6 +40,8 @@ test("one rule fired for men, women and total is one finding with three lines", 
   ]);
   assert.equal(merged.length, 2);
   assert.deepEqual(merged[0].rows.map((row) => [row.sex, row.expected]), [["male", 4], ["female", 1], ["total", 5]]);
+  // Every stored row is kept, so « Expliquer » can close all three.
+  assert.deepEqual(merged[0].anomalies.map((item) => item.expectedValue), [4, 1, 5]);
   assert.equal(findingSex("Nombre (4.1: 12, hommes) diffère"), "male");
   assert.equal(findingSex("no figures here"), null);
 });

@@ -43,8 +43,18 @@ interface FocusRequest {
   nonce: number;
 }
 
+/** A finding's identity in the staff review: its number and colour token. */
+export interface AnomalyMarker {
+  n: number;
+  color: string;
+}
+
 interface CoherenceContextValue {
   locale: Locale;
+  /** Flag key → its finding's number and colour (staff review only). */
+  markers: Record<string, AnomalyMarker> | null;
+  /** The staff review: the figures cannot be changed, so nothing offers « C'est correct ». */
+  readOnly: boolean;
   /** Active (not dismissed) anomalies. */
   flags: CoherenceFlag[];
   dismiss: (flagKey: string) => void;
@@ -65,7 +75,12 @@ export function useCoherence(): CoherenceContextValue | null {
 
 const sameTable = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
-export function CoherenceProvider({ flags, children }: { flags: CoherenceFlag[]; children: React.ReactNode }) {
+export function CoherenceProvider({ flags, readOnly = false, markers = null, children }: {
+  flags: CoherenceFlag[];
+  readOnly?: boolean;
+  markers?: Record<string, AnomalyMarker> | null;
+  children: React.ReactNode;
+}) {
   const locale: Locale = useLocale().startsWith("en") ? "en" : "fr";
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
@@ -128,8 +143,8 @@ export function CoherenceProvider({ flags, children }: { flags: CoherenceFlag[];
   }, [focusRequest]);
 
   const value = useMemo<CoherenceContextValue>(
-    () => ({ locale, flags: active, dismiss, flagsForCell, flagsForTable, focusCell, focusRequest, registerNavigator }),
-    [locale, active, dismiss, flagsForCell, flagsForTable, focusCell, focusRequest, registerNavigator],
+    () => ({ locale, readOnly, markers, flags: active, dismiss, flagsForCell, flagsForTable, focusCell, focusRequest, registerNavigator }),
+    [locale, readOnly, markers, active, dismiss, flagsForCell, flagsForTable, focusCell, focusRequest, registerNavigator],
   );
 
   return <CoherenceContext.Provider value={value}>{children}</CoherenceContext.Provider>;
@@ -145,6 +160,17 @@ export const ANOMALY_CELL_STYLE: React.CSSProperties = {
   boxShadow: "inset 0 0 0 2px var(--cam-warning)",
   cursor: "help",
 };
+
+/** A figure marked by a numbered finding: outlined and tinted in its colour. */
+function markedCellStyle(marker: AnomalyMarker): React.CSSProperties {
+  return {
+    position: "relative",
+    background: `color-mix(in srgb, ${marker.color} 10%, var(--cam-surface))`,
+    color: "var(--cam-text)",
+    boxShadow: `inset 0 0 0 2px ${marker.color}`,
+    cursor: "help",
+  };
+}
 
 function CornerMark() {
   return (
@@ -162,6 +188,44 @@ function CornerMark() {
       }}
     />
   );
+}
+
+/** The finding's number on its colour: on each figure it marks, in its note and in the list. */
+export function AnomalyNumber({ marker, style }: { marker: AnomalyMarker; style?: React.CSSProperties }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minWidth: 18,
+        height: 18,
+        padding: "0 4px",
+        borderRadius: "var(--cam-radius-full)",
+        background: marker.color,
+        color: "var(--cam-surface)",
+        fontSize: "var(--cam-font-size-3xs)",
+        fontWeight: "var(--cam-font-weight-bold)",
+        lineHeight: 1,
+        fontVariantNumeric: "tabular-nums",
+        ...style,
+      }}
+    >
+      {marker.n}
+    </span>
+  );
+}
+
+/** The distinct findings (by number) that mark this cell, in order. */
+function cellMarkers(ctx: CoherenceContextValue | null, flags: CoherenceFlag[]): AnomalyMarker[] {
+  if (!ctx?.markers) return [];
+  const seen = new Map<number, AnomalyMarker>();
+  for (const flag of flags) {
+    const marker = ctx.markers[flag.key];
+    if (marker && !seen.has(marker.n)) seen.set(marker.n, marker);
+  }
+  return [...seen.values()].sort((a, b) => a.n - b.n);
 }
 
 const tipButtonStyle: React.CSSProperties = {
@@ -204,6 +268,9 @@ function AnomalyBody({
   const t = useTranslations("modernJobs.coherence");
   if (!ctx) return null;
   const { locale } = ctx;
+  // The staff review reads one step larger (14 / 13px) than the wizard's hint.
+  const textSize = ctx.readOnly ? "var(--cam-font-size-sm)" : "var(--cam-font-size-xs)";
+  const smallSize = ctx.readOnly ? "var(--cam-font-size-xs)" : "var(--cam-font-size-3xs)";
   // One "see" button per other table involved (the current table's own cell
   // is already right there).
   const others = flag.cells.filter(
@@ -213,14 +280,15 @@ function AnomalyBody({
   );
   return (
     <div>
-      <div style={{ fontWeight: "var(--cam-font-weight-bold)", fontSize: "var(--cam-font-size-xs)", color: "var(--cam-warning)", marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: "var(--cam-font-weight-bold)", fontSize: textSize, color: ctx.markers?.[flag.key]?.color ?? "var(--cam-warning)", marginBottom: 4 }}>
+        {ctx.markers?.[flag.key] && <AnomalyNumber marker={ctx.markers[flag.key]} />}
         {flag.title[locale]}
       </div>
-      <p style={{ margin: "0 0 6px", fontSize: "var(--cam-font-size-xs)", lineHeight: 1.45, color: "var(--cam-text)" }}>
+      <p style={{ margin: "0 0 6px", fontSize: textSize, lineHeight: 1.45, color: "var(--cam-text)" }}>
         {flag.message[locale]}
       </p>
       {!compact && (
-        <p style={{ margin: "0 0 8px", fontSize: "var(--cam-font-size-3xs)", lineHeight: 1.45, color: "var(--cam-text-muted)" }}>
+        <p style={{ margin: "0 0 8px", fontSize: smallSize, lineHeight: 1.45, color: "var(--cam-text-muted)" }}>
           {flag.why[locale]}
         </p>
       )}
@@ -232,7 +300,7 @@ function AnomalyBody({
             <button
               key={cell.tableFieldId}
               type="button"
-              style={tipButtonStyle}
+              style={{ ...tipButtonStyle, fontSize: smallSize }}
               onClick={() => {
                 onAction?.();
                 ctx.focusCell(cell, false);
@@ -243,16 +311,21 @@ function AnomalyBody({
             </button>
           );
         })}
-        <button
-          type="button"
-          style={tipLinkStyle}
-          onClick={() => {
-            onAction?.();
-            ctx.dismiss(flag.key);
-          }}
-        >
-          {t("thisIsCorrect")}
-        </button>
+        {/* A respondent may confirm their own figures; a reviewer's
+            assessment is recorded elsewhere (« Expliquer »), never by hiding
+            the mark in the browser. */}
+        {!ctx.readOnly && (
+          <button
+            type="button"
+            style={tipLinkStyle}
+            onClick={() => {
+              onAction?.();
+              ctx.dismiss(flag.key);
+            }}
+          >
+            {t("thisIsCorrect")}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -423,6 +496,7 @@ export function CoherenceTd({
   }
 
   const label = t("figureToCheck");
+  const markers = cellMarkers(ctx, flags);
   return (
     <td
       {...rest}
@@ -433,7 +507,7 @@ export function CoherenceTd({
       tabIndex={rest.tabIndex ?? (hasInput ? undefined : 0)}
       aria-describedby={tip.open ? tipId : undefined}
       title={undefined}
-      style={{ ...style, ...ANOMALY_CELL_STYLE }}
+      style={{ ...style, ...(markers.length > 0 ? markedCellStyle(markers[0]) : ANOMALY_CELL_STYLE) }}
       onPointerEnter={(e) => {
         rest.onPointerEnter?.(e);
         tip.show();
@@ -469,8 +543,12 @@ export function CoherenceTd({
         }
       }}
     >
-      <CornerMark />
-      <span className="sr-only">{label}</span>
+      {markers.length > 0 ? (
+        <span style={{ position: "absolute", top: "var(--cam-space-1)", left: "var(--cam-space-1)", display: "flex", gap: "var(--cam-space-1)", pointerEvents: "none" }}>
+          {markers.map((marker) => <AnomalyNumber key={marker.n} marker={marker} style={{ minWidth: 16, height: 16, padding: "0 var(--cam-space-1)" }} />)}
+        </span>
+      ) : <CornerMark />}
+      <span className="sr-only">{markers.length > 0 ? `${label} ${markers.map((marker) => marker.n).join(", ")}` : label}</span>
       {children}
       {tip.open && tdEl && (
         <AnomalyTooltip

@@ -3,6 +3,8 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { PlacedFlag } from "@/lib/finding-targets";
 import { PlacedFlagNotice } from "./DossierAnswerSections";
+import { AnomalyNumber, type AnomalyMarker } from "@/components/onefop/coherence/Coherence";
+import { vtTableAnchor } from "@/lib/vt-finding-figures";
 import { DataState } from "@/components/admin/DataState";
 import { asUiLocale } from "@/lib/register-i18n";
 import type { FormData, OnefopSchema } from "@/lib/onefop-schema";
@@ -18,12 +20,15 @@ export function DossierVtSections({
   data,
   canSeeStaffNames,
   flags = {},
+  tableMarkers = {},
 }: {
   schema: OnefopSchema;
   data: FormData;
   canSeeStaffNames: boolean;
   /** Findings placed on this file (placeFindings), keyed by anchor. */
   flags?: Record<string, PlacedFlag[]>;
+  /** Table paper number → the numbered findings that compare it. */
+  tableMarkers?: Record<string, AnomalyMarker[]>;
 }) {
   const t = useTranslations("adminDossierPage.vt");
   const locale = asUiLocale(useLocale());
@@ -38,13 +43,13 @@ export function DossierVtSections({
   return (
     <>
       {sections.map((section) => (
-        <VtSection key={section.id} section={section} flags={flags[`dossier-section-${section.id}`]} />
+        <VtSection key={section.id} section={section} flags={flags[`dossier-section-${section.id}`]} tableMarkers={tableMarkers} />
       ))}
     </>
   );
 }
 
-function VtSection({ section, flags }: { section: VtSectionView; flags?: PlacedFlag[] }) {
+function VtSection({ section, flags, tableMarkers }: { section: VtSectionView; flags?: PlacedFlag[]; tableMarkers: Record<string, AnomalyMarker[]> }) {
   const t = useTranslations("adminDossierPage.vt");
   const tPage = useTranslations("adminDossierPage");
   // The prop never changes, so React never resets it: the reader opens and
@@ -64,7 +69,7 @@ function VtSection({ section, flags }: { section: VtSectionView; flags?: PlacedF
           // section, which clips it. Each wide table scrolls in its wrapper.
           <dl className="cam-dossier-fields" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
             {section.items.map((item, i) => (
-              <VtItemRow key={item.kind === "heading" ? `h${i}` : item.id} item={item} />
+              <VtItemRow key={item.kind === "heading" ? `h${i}` : item.id} item={item} markers={item.kind === "table" && item.code ? tableMarkers[item.code] ?? [] : []} />
             ))}
           </dl>
         )}
@@ -77,7 +82,7 @@ function coded(code: string | null, label: string): string {
   return code && !label.startsWith(code) ? `${code} ${label}` : label;
 }
 
-function VtItemRow({ item }: { item: VtItem }) {
+function VtItemRow({ item, markers }: { item: VtItem; markers: AnomalyMarker[] }) {
   const t = useTranslations("adminDossierPage.vt");
   if (item.kind === "heading") {
     return (
@@ -87,10 +92,14 @@ function VtItemRow({ item }: { item: VtItem }) {
     );
   }
   if (item.kind === "table") {
+    // A table a numbered finding compares carries its number(s) and colour.
     return (
-      <div>
-        <dt>{coded(item.code, item.title)}</dt>
-        <dd>
+      <div id={item.code ? vtTableAnchor(item.code) : undefined} className="cam-dossier-vt-table">
+        <dt className={markers.length > 0 ? "cam-dossier-finding-title" : undefined}>
+          {markers.map((marker) => <AnomalyNumber key={marker.n} marker={marker} />)}
+          <span>{coded(item.code, item.title)}</span>
+        </dt>
+        <dd style={markers.length > 0 ? { boxShadow: `inset 3px 0 0 ${markers[0].color}`, paddingInlineStart: "var(--cam-space-3)" } : undefined}>
           <VtTable table={item} />
         </dd>
       </div>

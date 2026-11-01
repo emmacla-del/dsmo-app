@@ -30,7 +30,12 @@ export type AnomalySeverity = "CRITICAL" | "WARNING" | "INFO";
 export type AnomalyResolutionType =
   | "DECLARANT_CORRECTION"
   | "FIELD_INSPECTION"
-  | "LEGAL_DEROGATION";
+  | "LEGAL_DEROGATION"
+  // Written by the dossier workspace's « Expliquer » only; the Quality
+  // Centre's resolve dialog does not offer it.
+  | "REVIEWER_EXPLANATION"
+  // Written by the server's coherence re-check only, never by a person.
+  | "RULE_RECHECK";
 
 export interface AnomalySubmissionRef {
   id: string;
@@ -193,6 +198,8 @@ export const ANOMALY_RESOLUTION_LABELS: Record<AnomalyResolutionType, string> = 
   DECLARANT_CORRECTION: "Correction du déclarant",
   FIELD_INSPECTION: "Inspection de terrain",
   LEGAL_DEROGATION: "Dérogation légale",
+  REVIEWER_EXPLANATION: "Explication du vérificateur",
+  RULE_RECHECK: "Revérification",
 };
 
 export interface QualitySummary {

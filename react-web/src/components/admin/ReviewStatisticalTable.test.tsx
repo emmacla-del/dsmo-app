@@ -24,12 +24,15 @@ test("an employer table reads with the wizard's labels and never shows a cell co
   assert.ok(container.querySelectorAll(".cam-dt-empty").length > 0);
 });
 
-test("the review grid spans its column: no entry-sized minimum width", () => {
+test("the review grid spans its column but keeps each figure column readable", () => {
   const { container } = renderWithProviders(
     <ReviewStatisticalTable field={field("enterprise", "S21Q01")} data={{ s21q01_cadres_male_15_24: 6 }} />,
   );
   const table = container.querySelector("table") as HTMLTableElement;
-  assert.equal(table.style.minWidth, "");
+  const columns = table.querySelectorAll("colgroup col").length - 1;
+  // The wizard's own widths: the label column plus at least 56px per figure
+  // column; wider than its column, the table scrolls sideways instead of squeezing.
+  assert.ok(Number.parseFloat(table.style.minWidth) >= 220 + columns * 56, table.style.minWidth);
   assert.equal(table.style.width, "100%");
   assert.ok(container.querySelector(".cam-grid-readonly"));
 });
@@ -75,4 +78,17 @@ test("a section lists no variable code, no « response status » question and no
   assert.ok(!/Statut de réponse|Response status/.test(text));
   assert.equal(text.split("Fin de contrat").length - 1, 1, "the typed reason appears once, as its row's label");
   assert.ok(container.querySelector("#dossier-field-S3Q02"), "each answer carries the anchor findings link to");
+});
+
+test("a paper question number is shown before its label; a variable name never is", () => {
+  const entity = structuredClone(schema.entities.enterprise);
+  const section = entity.sections.find((item) => item.fields.some((f) => f.id === "S3Q02"))!;
+  const renamed = section.fields.find((f) => f.id === "S3Q02")!;
+  renamed.paperCode = "3.2";
+  const { container } = renderWithProviders(
+    <DossierAnswerSections entity={entity} sectionId={section.id} title="3" data={{ S3Q02_RESPONSE_STATUS: "REPORTED" }} />,
+  );
+  const text = container.textContent ?? "";
+  assert.ok(text.includes("3.2 · "), "the paper number leads the question");
+  assert.ok(!/\bS3Q0\d\b/.test(text), "the other questions' variable names stay hidden");
 });
