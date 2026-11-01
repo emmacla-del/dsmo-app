@@ -278,3 +278,20 @@ test("duplicate claim submission is prevented while the request is pending", asy
   }
 });
 
+
+test("in the workspace the panel keeps the notes only: the claim lives in the decision bar", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => responseFor(String(input), init?.method ?? "GET")) as typeof fetch;
+  try {
+    renderPanel(
+      <DossierClaimPanel dossierId={dossierId} userId={userId} role="ADMIN_ONEFOP_SUBMISSIONS" revision={7} notesOnly />,
+      { locale: "en", queryData: seedQueries([[dossierClaimStateKey(dossierId), claimResponse()]]) },
+    );
+    assert.ok(await screen.findByRole("button", { name: "Save progress" }));
+    assert.equal(screen.queryByRole("heading", { level: 2 }), null);
+    assert.equal(screen.queryByRole("button", { name: "Release claim" }), null);
+    assert.equal(screen.queryByRole("button", { name: "Claim for me" }), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -17,6 +17,7 @@ import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { adminResultRange, displayedResultOffset, isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildDossierReturnTo } from "@/lib/admin-return";
+import { dossierQueueScrollKey, readDossierQueueScroll, saveDossierQueueScroll } from "@/lib/dossier-scroll-restore";
 import { dossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
@@ -892,6 +893,27 @@ function DossiersContent({
   }, [searchInput, search, setUrlFilter]);
 
   const page = questionnairesQuery.data;
+
+  // Keep the reviewer's place: the position is saved as they scroll, under the
+  // queue's canonical return URL, and restored once that list has rendered.
+  const queueScrollKey = (vue === "submissions" || vue === "completed") ? dossierQueueScrollKey(dossierReturnTo) : null;
+  useEffect(() => {
+    if (!queueScrollKey) return;
+    let frame = 0;
+    const onScroll = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => saveDossierQueueScroll(() => window.sessionStorage, queueScrollKey, window.scrollY));
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.cancelAnimationFrame(frame); window.removeEventListener("scroll", onScroll); };
+  }, [queueScrollKey]);
+  const restoredScrollKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!queueScrollKey || !page || questionnairesQuery.isPlaceholderData || restoredScrollKeyRef.current === queueScrollKey) return;
+    restoredScrollKeyRef.current = queueScrollKey;
+    const position = readDossierQueueScroll(() => window.sessionStorage, queueScrollKey);
+    if (position) window.requestAnimationFrame(() => window.scrollTo({ top: position }));
+  }, [page, questionnairesQuery.isPlaceholderData, queueScrollKey]);
 
   const rawItems = territoryFiltersValid && !statusRedirectPending ? page?.items ?? [] : [];
   // Real rows only. An empty result renders an empty state; there is no

@@ -19,27 +19,29 @@ import {
   isActiveDossierClaimOwner,
   isDossierRevisionConflict,
 } from "@/lib/dossier-review-state";
+import { dossierClaimStateKey, dossierReviewProgressKey } from "@/lib/use-dossier-claim";
 
 interface DossierClaimPanelProps {
   dossierId: string;
   userId: string | null | undefined;
   role: string | null | undefined;
   revision: number | null;
+  /**
+   * The review workspace shows the claim in its decision bar, so there the
+   * panel keeps only the progress notes. The preview drawer keeps the full
+   * panel (claim, release and notes) until it is removed (plan, Phase 1.5b).
+   */
+  notesOnly?: boolean;
 }
 
-export function dossierClaimStateKey(id: string) {
-  return ["admin", "dossier-claim-state", id] as const;
-}
-
-export function dossierReviewProgressKey(id: string) {
-  return ["admin", "dossier-review-progress", id] as const;
-}
+export { dossierClaimStateKey, dossierReviewProgressKey };
 
 export function DossierClaimPanel({
   dossierId,
   userId,
   role,
   revision,
+  notesOnly = false,
 }: DossierClaimPanelProps) {
   const t = useTranslations("adminDossierPage");
   const locale = asUiLocale(useLocale());
@@ -122,10 +124,11 @@ export function DossierClaimPanel({
   const canSaveProgress = canSaveDossierReviewProgress(claimState, userId, role, revision);
   const progressItems = progressQuery.data?.items ?? [];
 
+  const Container = notesOnly ? "div" : "section";
   return (
-    <section className="cam-dash-card" aria-labelledby="dossier-claim-title">
-      <h2 id="dossier-claim-title" className="cam-dossier-card-title">{t("claimPanelTitle")}</h2>
-      {claimDataState !== "ready" ? (
+    <Container {...(notesOnly ? {} : { className: "cam-dash-card", "aria-labelledby": "dossier-claim-title" })}>
+      {!notesOnly && <h2 id="dossier-claim-title" className="cam-dossier-card-title">{t("claimPanelTitle")}</h2>}
+      {notesOnly ? null : claimDataState !== "ready" ? (
         <DataState
           state={claimDataState}
           resource={t("claimPanelTitle")}
@@ -223,6 +226,6 @@ export function DossierClaimPanel({
           </ul>
         )}
       </div>
-    </section>
+    </Container>
   );
 }

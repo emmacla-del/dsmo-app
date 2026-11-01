@@ -5443,6 +5443,38 @@ a.cam-dash-review-row:hover {
   align-items: start;
 }
 
+.cam-dossier-grid--single { grid-template-columns: minmax(0, 1fr); }
+.cam-dossier-answer-column { min-width: 0; }
+.cam-dossier-header-facts,
+.cam-dossier-respondent-line { display: flex; flex-wrap: wrap; gap: var(--cam-space-2) var(--cam-space-4); }
+.cam-dossier-respondent-line { margin-top: var(--cam-space-1); }
+/* The admin top bar is not sticky (it is hidden on desktop and absolute in the
+   dossier workflow on narrow screens), so the bar sticks to the viewport top,
+   under the navigation layer. */
+.cam-dossier-decision-bar {
+  position: sticky;
+  top: 0;
+  z-index: calc(var(--cam-z-nav) - 1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-3) var(--cam-space-5);
+  padding-block: var(--cam-space-3);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+}
+.cam-dossier-decision-state,
+.cam-dossier-decision-navigation,
+.cam-dossier-decision-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-3); min-width: 0; }
+.cam-dossier-decision-actions { margin-inline-start: auto; }
+
+@media (max-width: 767px) {
+  .cam-dossier-decision-bar { align-items: flex-start; }
+  .cam-dossier-decision-state,
+  .cam-dossier-decision-navigation { flex-basis: 100%; }
+  .cam-dossier-decision-actions { margin-inline-start: 0; }
+}
+
 .cam-dossier-card-title {
   margin: 0;
   padding-bottom: var(--cam-space-3);

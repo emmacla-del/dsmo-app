@@ -18,17 +18,19 @@ import {
   type AdminDossier,
 } from "@/lib/api-client";
 import { DataState } from "@/components/admin/DataState";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
 import { resolveDossierReturnTo } from "@/lib/admin-return";
 import { dossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { Textarea } from "@/components/ui/textarea";
-import { DossierClaimPanel, dossierClaimStateKey, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
+import { DossierClaimPanel, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
+import { dossierClaimStateKey, useDossierClaim } from "@/lib/use-dossier-claim";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
 import { DossierAnswerSections } from "@/components/admin/DossierAnswerSections";
 import { useAuthStore } from "@/lib/auth-store";
 import { AUDIT_ROLES, SURVEY_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { isActiveDossierClaimOwner } from "@/lib/dossier-review-state";
+import { DossierBarClaim } from "@/components/admin/DossierBarClaim";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import {
   detailAnswerValue,
@@ -345,6 +347,11 @@ function SubmissionDetailContent() {
   const submittedOn = stamp(dossier?.submissionDate, true, locale);
   const region = dossier?.region ?? null;
   const statusBadge = dossier?.status ? STATUS_BADGES[dossier.status] ?? null : null;
+  const statusLabel = statusBadge
+    ? t(statusBadge.labelKey)
+    : dossier?.status === "SUPERSEDED"
+      ? t("statusSuperseded")
+      : t("statusNotRecorded");
   const decisions = allowedDecisions(dossier?.status);
   const hasActiveClaim = isActiveDossierClaimOwner(claimState, userId);
   const canReviewDossier = hasRole(role, SURVEY_ROLES) && hasActiveClaim;
@@ -352,6 +359,7 @@ function SubmissionDetailContent() {
   // the decisions rather than hiding them, so the bar never jumps under the
   // cursor; the server's revision check stays the real guard.
   const decisionsRefreshing = dossierQuery.isFetching || claimStateQuery.isFetching;
+  const { claimStateQuery: barClaimQuery, claimMutation, actionNotice: claimActionNotice } = useDossierClaim(id);
   // The decision in words where the buttons were, dated when the server
   // recorded the review date; without a date the status badge already says it.
   const decidedOn = dossier?.reviewedAt ? stamp(dossier.reviewedAt, true, locale) : null;
@@ -785,65 +793,52 @@ function SubmissionDetailContent() {
       <AdminPageHeader
         breadcrumb={breadcrumb}
         backHref={returnTo}
-        title={<span title={ref}>{t("fileTitle", { ref: shortRecordId(ref) })}</span>}
-        subtitle={`${t("submittedOn", { date: submittedOn })}${region ? t("regionSuffix", { region }) : ""}${dossier.department ? ` / ${dossier.department}` : ""}`}
-        statusBadge={{
-          // A record with no stored status says so, in its own neutral tone,
-          // rather than defaulting into "en attente".
-          label: statusBadge
-            ? t(statusBadge.labelKey)
-            : dossier.status === "SUPERSEDED"
-              ? t("statusSuperseded")
-              : t("statusNotRecorded"),
-          variant: statusBadge ? statusBadge.variant : "neutral",
-        }}
-        actions={(
-          <>
-            {supersededNotice(dossier, t)}
-            <nav className="flex items-center gap-2" aria-label={t("queueNavigationLabel")}>
-              {previousHref
-                ? <Link className="cam-button cam-button-secondary cam-button-sm" href={previousHref}>{t("previousFile")}</Link>
-                : <span className="cam-button cam-button-secondary cam-button-sm" aria-disabled="true">{t("previousFile")}</span>}
-              {nextHref
-                ? <Link className="cam-button cam-button-secondary cam-button-sm" href={nextHref}>{t("nextFile")}</Link>
-                : <span className="cam-button cam-button-secondary cam-button-sm" aria-disabled="true">{t("nextFile")}</span>}
-            </nav>
-            {/* A final decision is final: APPROVED and REJECTED offer no
-                decision, and a dossier awaiting the respondent's correction
-                can only be rejected. allowedDecisions mirrors the server's
-                guards (QuestionnairesService.approve / reject /
-                requestCorrection), which enforce the same rule. */}
-            {!readOnly && decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
-            {!readOnly && <>
-            {decisions.reject && canReviewDossier && (
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openRejectModal}>
-                {t("rejectFormButton")}
-              </button>
-            )}
-            {decisions.requestCorrection && canReviewDossier && (
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openCorrectionModal}>
-                {t("requestCorrectionButton")}
-              </button>
-            )}
-            {canReopenForCorrection(dossier.status, role) && (
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openReopenModal}>
-                {t("reopenButton")}
-              </button>
-            )}
-            {decisions.approve && canReviewDossier && approvalChecksReady && (
-              <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled={decisionsRefreshing} onClick={openApproveModal}>
-                {t("validateArchiveButton")}
-              </button>
-            )}
-            {decisions.approve && canReviewDossier && !approvalChecksReady && (
-              <span className="cam-admin-notice cam-admin-notice--warn" role="status">
-                {diagnosticState !== "ready" ? t("approvalChecksUnavailableOrBlocked") : t("blockingIssuesMustBeResolved")}
-              </span>
-            )}
-            </>}
-          </>
-        )}
+        title={<span title={name ?? ref}>{name ?? t("fileTitle", { ref: shortRecordId(ref) })}</span>}
+        subtitle={<>
+          <span className="cam-dossier-header-facts">
+            <span>{t("submissionReference", { ref })}</span><span>{formType || NOT_PROVIDED}</span>
+            <span>{[region, dossier.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span>
+            <span>{t("receivedOn", { date: submittedOn })}</span>
+          </span>
+          <span className="cam-dossier-respondent-line">
+            {[dossier.respondent?.respondentName, respondentFunctionLabel(dossier.respondent?.respondentFunction, locale), dossier.respondent?.phone1, dossier.respondent?.email].filter(Boolean).join(" · ") || t("respondentUnavailable")}
+          </span>
+        </>}
+        actions={supersededNotice(dossier, t) ?? undefined}
       />
+
+      <div className="cam-dossier-decision-bar" aria-label={t("decisionBarLabel")}>
+        <div className="cam-dossier-decision-state">
+          <AdminStatusBadge label={statusLabel} variant={statusBadge?.variant ?? "neutral"} />
+          {barClaimQuery.data && <DossierBarClaim
+            claim={barClaimQuery.data}
+            userId={userId}
+            role={role}
+            readOnly={readOnly}
+            busy={barClaimQuery.isFetching || claimMutation.isPending}
+            saving={claimMutation.isPending}
+            onChange={(assigneeId) => claimMutation.mutate(assigneeId)}
+          />}
+          {barClaimQuery.isError && !barClaimQuery.data && <span className="cam-admin-meta" role="alert">{t("claimStateFailed")}</span>}
+          {claimActionNotice && <span className="cam-admin-meta" role="status">{claimActionNotice}</span>}
+        </div>
+        <nav className="cam-dossier-decision-navigation" aria-label={t("queueNavigationLabel")}>
+          {previousHref ? <Link className="cam-text-button" href={previousHref}>{t("previousFile")}</Link> : <span className="cam-admin-meta" aria-disabled="true">{t("previousFile")}</span>}
+          {nextHref ? <Link className="cam-text-button" href={nextHref}>{t("nextFile")}</Link> : <span className="cam-admin-meta" aria-disabled="true">{t("nextFile")}</span>}
+        </nav>
+        {!readOnly && <div className="cam-dossier-decision-actions">
+          {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
+          {decisions.reject && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openRejectModal}>{t("rejectFormButton")}</button>}
+          {decisions.requestCorrection && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openCorrectionModal}>{t("requestCorrectionButton")}</button>}
+          {canReopenForCorrection(dossier.status, role) && <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openReopenModal}>{t("reopenButton")}</button>}
+          {decisions.approve && canReviewDossier && !approvalChecksReady && (
+            <span className="cam-admin-notice cam-admin-notice--warn" role="status">
+              {diagnosticState !== "ready" ? t("approvalChecksUnavailableOrBlocked") : t("blockingIssuesMustBeResolved")}
+            </span>
+          )}
+          {decisions.approve && canReviewDossier && <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled={decisionsRefreshing || !approvalChecksReady} onClick={openApproveModal}>{t("validateArchiveButton")}</button>}
+        </div>}
+      </div>
 
       {decisionNotice && <p className="cam-admin-notice cam-admin-notice--success" role="status">
         {searchParams.get("endOfQueue") === "1"
@@ -851,12 +846,10 @@ function SubmissionDetailContent() {
           : t("decisionMovedNotice", { id: decisionNotice })}
       </p>}
 
-      <DossierClaimPanel
-        dossierId={id}
-        userId={userId}
-        role={role}
-        revision={dossier.revision}
-      />
+      <section className="cam-admin-section cam-dossier-progress-section" aria-labelledby="dossier-progress-title">
+        <h2 id="dossier-progress-title" className="cam-admin-h2">{t("progressNotesTitle")}</h2>
+        <DossierClaimPanel dossierId={id} userId={userId} role={role} revision={dossier.revision} notesOnly />
+      </section>
 
       {/* A Tableau de bord / Dossiers / Tracabilite pill row sat here. It
           mixed an Administration page (Tracabilite, AUDIT_ROLES only) into
@@ -886,60 +879,20 @@ function SubmissionDetailContent() {
         </div>
       </div>
 
-      <div className="cam-dossier-grid">
-        {/* Left: respondent and structure, as stored */}
-        <div className="cam-dash-column">
-          <section className="cam-dash-card">
-            <h2 className="cam-dossier-card-title">{t("respondentCardTitle")}</h2>
-            {/* Submission date and territory as stored. The record holds no
-                supervisor relation (OnefopSubmission.reviewedBy is a bare
-                account id, set only once a decision is taken), so none is
-                named here. */}
-            <dl className="cam-dossier-fields">
-              <div>
-                <dt>{t("fullNameLabel")}</dt>
-                <dd>{recorded(dossier.respondent?.respondentName)}</dd>
-              </div>
-              <div>
-                <dt>{t("functionLabel")}</dt>
-                <dd>{recorded(respondentFunctionLabel(dossier.respondent?.respondentFunction, locale))}</dd>
-              </div>
-              <div>
-                <dt>{t("phoneLabel")}</dt>
-                <dd>{recorded(dossier.respondent?.phone1)}</dd>
-              </div>
-              <div>
-                <dt>{t("emailLabel")}</dt>
-                <dd>{recorded(dossier.respondent?.email)}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="cam-dash-card">
-            <h2 className="cam-dossier-card-title">{t("organisationCardTitle")}</h2>
-            {structure.length > 0 ? (
-              <dl className="cam-dossier-fields">
-                {structure.map(([field, value]) => (
-                  <div key={field}>
-                    {/* yearOfEstablishment (VT) shares the founding-year label. */}
-                    <dt>{t(`structureField.${field === "yearOfEstablishment" ? "yearCreated" : field}`)}</dt>
-                    <dd>{answerValue(field, value)}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="cam-admin-meta">{t("structureEmpty")}</p>
-            )}
-          </section>
-        </div>
-
-        {/* Right: the four questionnaire sections, as native disclosures.
+      <div className="cam-dossier-grid cam-dossier-grid--single">
+        {/* Questionnaire sections, as native disclosures.
             These were <button>-driven divs; <details>/<summary> is what
             .cam-dossier-section styles, and it carries the open state,
             keyboard behaviour and the expanded/collapsed announcement that
             the hand-built version did not. One open at a time is preserved
             through `expandedSection`. */}
-        <div className="cam-dash-column" style={{ gap: "var(--cam-space-3)" }}>
+        <div className="cam-dash-column cam-dossier-answer-column" style={{ gap: "var(--cam-space-3)" }}>
+          <section className="cam-dash-card">
+            <h2 className="cam-dossier-card-title">{t("organisationCardTitle")}</h2>
+            {structure.length > 0 ? <dl className="cam-dossier-fields">{structure.map(([field, value]) => (
+              <div key={field}><dt>{t(`structureField.${field === "yearOfEstablishment" ? "yearCreated" : field}`)}</dt><dd>{answerValue(field, value)}</dd></div>
+            ))}</dl> : <p className="cam-admin-meta">{t("structureEmpty")}</p>}
+          </section>
           {isVt ? (
             schemaQuery.data ? (
               <DossierVtSections

@@ -156,7 +156,7 @@ export interface AdminPageHeaderProps {
   /** Main page title */
   title: ReactNode;
   /** Optional subtitle / description under the title */
-  subtitle?: string;
+  subtitle?: ReactNode;
   /** Inline status badge shown next to the title (detail pages) */
   statusBadge?: { label: string; variant: StatusVariant };
   /** Back-navigation href (detail pages — renders ← arrow left of title) */
@@ -217,7 +217,9 @@ export function AdminPageHeader({
         </div>
 
         {subtitle && (
-          <p className="cam-admin-page-subtitle">{subtitle}</p>
+          typeof subtitle === "string"
+            ? <p className="cam-admin-page-subtitle">{subtitle}</p>
+            : <div className="cam-admin-page-subtitle">{subtitle}</div>
         )}
       </div>
 

@@ -29,6 +29,15 @@ test("a dossier return preserves the active review queue view", () => {
   );
 });
 
+test("a dossier return round trip keeps view, filters, and page", () => {
+  const queue = "vue=submissions&queueView=mine&campaignId=c1&submissionsRegion=Centre&submissionsQuality=warnings&submissionsPage=5";
+  const returnTo = buildDossierReturnTo(queue);
+  assert.equal(
+    resolveDossierReturnTo(returnTo),
+    "/admin/dossiers?vue=submissions&queueView=mine&campaignId=c1&submissionsRegion=Centre&submissionsQuality=warnings&submissionsPage=5",
+  );
+});
+
 test("an establishment return restores Organisations context and excludes queue-only or unknown filters", () => {
   assert.equal(
     buildRegistrationReturnTo("vue=organisations&organisation=atelier&status=ACTIVE&region=Centre&page=2&assignedToMe=1&duplicates=with&createdBy=u1&unknown=drop"),

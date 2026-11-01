@@ -1,4 +1,4 @@
-﻿import { createTestQueryClient, renderWithProviders, screen, navigationMock } from "@/test/render";
+﻿import { createTestQueryClient, renderWithProviders, screen, navigationMock, waitFor } from "@/test/render";
 import { loadOnefopSchema } from "@/test/schema";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -138,6 +138,50 @@ test("a dossier refetch keeps an open correction dialog and its text", async () 
 
     await act(async () => releaseRefetch(new Response(JSON.stringify(CORRECTION_DOSSIER), { status: 200, headers: { "Content-Type": "application/json" } })));
     await refetch;
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a background refetch disables the bar's decisions instead of hiding them", async () => {
+  const originalFetch = globalThis.fetch;
+  let releaseRefetch!: (response: Response) => void;
+  let dossierCalls = 0;
+  let holdDossier = false;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes(`/admin/questionnaires/${DOSSIER.id}`) && !url.includes("diagnostic")) {
+      dossierCalls += 1;
+      if (holdDossier) return await new Promise<Response>((resolve) => { releaseRefetch = resolve; });
+      return new Response(JSON.stringify(CORRECTION_DOSSIER), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify(DIAGNOSTIC), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const { queryClient } = renderDetail(undefined, CORRECTION_DOSSIER);
+    const decisionNames = ["Reject", "Request a correction"];
+    await waitFor(() => {
+      for (const name of decisionNames) assert.equal((screen.getByRole("button", { name }) as HTMLButtonElement).disabled, false);
+    });
+    holdDossier = true;
+
+    let refetch!: Promise<void>;
+    await act(async () => {
+      refetch = queryClient.invalidateQueries({ queryKey: ["admin", "dossier", DOSSIER.id, false] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.ok(dossierCalls >= 1, "the dossier query should be refetching");
+    for (const name of decisionNames) {
+      // Still there, so the bar does not jump; disabled until the refetch lands.
+      assert.equal((screen.getByRole("button", { name }) as HTMLButtonElement).disabled, true, `${name} stays visible but disabled`);
+    }
+
+    await act(async () => releaseRefetch(new Response(JSON.stringify(CORRECTION_DOSSIER), { status: 200, headers: { "Content-Type": "application/json" } })));
+    await refetch;
+    await waitFor(() => {
+      for (const name of decisionNames) assert.equal((screen.getByRole("button", { name }) as HTMLButtonElement).disabled, false);
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
