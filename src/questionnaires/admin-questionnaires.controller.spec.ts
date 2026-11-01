@@ -295,7 +295,7 @@ describe('QuestionnairesService.listForAdmin', () => {
     expect(result.total).toBe(250);
     const [{ where, take, skip, orderBy }] = prisma.onefopSubmission.findMany.mock.calls[0];
     expect({ take, skip }).toEqual({ take: 10, skip: 0 });
-    expect(orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
+    expect(orderBy).toEqual([{ submissionDate: 'desc' }, { id: 'desc' }]);
     // total counts the SAME where clause as the page, not the table.
     expect(prisma.onefopSubmission.count).toHaveBeenCalledWith({ where });
   });
@@ -303,8 +303,8 @@ describe('QuestionnairesService.listForAdmin', () => {
   it('sorts oldest first on request, with the same id tie-break', async () => {
     await service.listForAdmin({ status: 'PENDING_REVIEW', limit: 10, offset: 0, sort: 'oldest' });
     await service.listForAdmin({ limit: 10, offset: 0, sort: 'newest' });
-    expect(prisma.onefopSubmission.findMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'asc' }, { id: 'asc' }]);
-    expect(prisma.onefopSubmission.findMany.mock.calls[1][0].orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
+    expect(prisma.onefopSubmission.findMany.mock.calls[0][0].orderBy).toEqual([{ submissionDate: 'asc' }, { id: 'asc' }]);
+    expect(prisma.onefopSubmission.findMany.mock.calls[1][0].orderBy).toEqual([{ submissionDate: 'desc' }, { id: 'desc' }]);
   });
 
   it('applies limit/offset without a status too', async () => {

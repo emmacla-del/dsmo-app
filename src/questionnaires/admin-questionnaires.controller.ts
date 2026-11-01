@@ -417,6 +417,47 @@ export class AdminQuestionnairesController {
   /**
    * 3-Axis Real-Time Dossier Diagnostic ("Pourquoi ce dossier n'est-il pas prêt ?")
    */
+  /** Adjacent dossiers in the same filtered, territory-scoped admin list. */
+  @Get(':id/neighbours')
+  @Roles(...DOSSIER_READ_ROLES)
+  async getNeighbours(
+    @Param('id') id: string,
+    @Query('status') status: string | undefined,
+    @Query('statuses') statuses: string | undefined,
+    @Query('formType') formType: string | undefined,
+    @Query('period') period: string | undefined,
+    @Query('region') region: string | undefined,
+    @Query('department') department: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('companyId') companyId: string | undefined,
+    @Query('campaignId') campaignId: string | undefined,
+    @Query('quarterCode') quarterCode: string | undefined,
+    @Query('late') late: string | undefined,
+    @Query('overdue') overdue: string | undefined,
+    @Query('quality') quality: string | undefined,
+    @Query('assignment') assignment: string | undefined,
+    @Query('assignedToMe') assignedToMe: string | undefined,
+    @Query('sort') sort: string | undefined,
+    @Query('includeArchived') includeArchived: string | undefined,
+    @Request() req: any,
+  ) {
+    const sortOrder = optionalText(sort);
+    if (sortOrder && !(ADMIN_LIST_SORTS as readonly string[]).includes(sortOrder)) {
+      throw new BadRequestException('Ordre de tri inconnu.');
+    }
+    const filters = parseAdminListFilters({
+      status, statuses, formType, period, region, department, search, companyId,
+      campaignId, quarterCode, late, overdue, quality, assignment, assignedToMe,
+      actorId: req?.user?.id,
+    });
+    return this.service.getAdminQuestionnaireNeighbours(
+      id,
+      { ...filters, sort: sortOrder as AdminListSort | undefined },
+      territoryFromUser(req?.user),
+      includeArchivedFlag(includeArchived, false),
+    );
+  }
+
   @Get(':id/diagnostic')
   @Roles(...DOSSIER_READ_ROLES)
   async getDiagnostic(@Param('id') id: string, @Request() req: any, @Query('includeArchived') includeArchived?: string) {

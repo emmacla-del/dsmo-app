@@ -11,6 +11,8 @@ import {
 } from "@/lib/api-client";
 import { NOT_PROVIDED, stamp } from "@/lib/admin-data-state";
 import { asUiLocale } from "@/lib/register-i18n";
+import { resolveDataState } from "@/lib/admin-data-state";
+import { DataState } from "@/components/admin/DataState";
 import {
   canChangeDossierClaim,
   canSaveDossierReviewProgress,
@@ -53,6 +55,11 @@ export function DossierClaimPanel({
     staleTime: Infinity,
   });
   const claimState = claimStateQuery.data;
+  const claimDataState = resolveDataState({
+    isLoading: claimStateQuery.isLoading,
+    isError: claimStateQuery.isError && !claimStateQuery.data,
+    error: claimStateQuery.error,
+  });
 
   const progressQuery = useQuery({
     queryKey: dossierReviewProgressKey(dossierId),
@@ -118,10 +125,15 @@ export function DossierClaimPanel({
   return (
     <section className="cam-dash-card" aria-labelledby="dossier-claim-title">
       <h2 id="dossier-claim-title" className="cam-dossier-card-title">{t("claimPanelTitle")}</h2>
-      {claimStateQuery.isLoading ? (
-        <p className="cam-admin-meta" role="status">{t("claimLoading")}</p>
-      ) : claimStateQuery.isError ? (
-        <p className="cam-admin-notice cam-admin-notice--error" role="alert">{t("claimStateFailed")}</p>
+      {claimDataState !== "ready" ? (
+        <DataState
+          state={claimDataState}
+          resource={t("claimPanelTitle")}
+          title={claimDataState === "loading" ? t("claimLoading") : t("claimStateFailed")}
+          error={claimStateQuery.error}
+          onRetry={() => void claimStateQuery.refetch()}
+          dense
+        />
       ) : claimState ? (
         <>
           <p className="cam-admin-meta">

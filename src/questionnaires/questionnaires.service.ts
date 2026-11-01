@@ -40,7 +40,7 @@ import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
 import { withoutStaffNames } from './staff-names';
 import { computeDoualaEndOfDay } from './douala-deadline';
-import { ARCHIVED_ONLY, NOT_ARCHIVED } from '../common/archive-predicate';
+import { ARCHIVED_ONLY, NOT_ARCHIVED, archiveState } from '../common/archive-predicate';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 
@@ -3597,8 +3597,8 @@ export class QuestionnairesService {
     const [items, total] = await Promise.all([
       filters.limit === 0 ? Promise.resolve([] as any[]) : (this.prisma as any).onefopSubmission.findMany({
         where,
-        // id breaks createdAt ties so offset paging never repeats or skips rows.
-        orderBy: [{ createdAt: direction }, { id: direction }],
+        // Match the receipt date shown in the queue; id breaks submissionDate ties.
+        orderBy: [{ submissionDate: direction }, { id: direction }],
         take: filters.limit,
         skip: filters.offset,
         include: {
@@ -3648,6 +3648,45 @@ export class QuestionnairesService {
       };
     });
     return { items: projectedItems, total };
+  }
+
+  /** Find the adjacent rows in the current admin list without paging offsets. */
+  async getAdminQuestionnaireNeighbours(
+    id: string,
+    filters: AdminListFilters & { sort?: AdminListSort },
+    territory?: Territory,
+    includeArchived = false,
+  ): Promise<{ previous: { id: string; submissionId: string } | null; next: { id: string; submissionId: string } | null }> {
+    const cursor = await (this.prisma as any).onefopSubmission.findFirst({
+      where: { AND: [{ id }, territoryWhere(territory), archiveState(includeArchived)] },
+      select: { id: true, submissionId: true, submissionDate: true },
+    });
+    if (!cursor) throw new NotFoundException(`Questionnaire with id ${id} not found`);
+
+    const where = buildAdminListWhere(filters, territory, new Date(), includeArchived);
+    const direction = filters.sort === 'oldest' ? 'asc' : 'desc';
+    const opposite = direction === 'asc' ? 'desc' : 'asc';
+    const seek = async (side: 'previous' | 'next') => {
+      const forward = side === 'next';
+      const comparison = (forward ? direction : opposite) === 'asc' ? 'gt' : 'lt';
+      const seekWhere = {
+        AND: [
+          ...where.AND,
+          { OR: [
+            { submissionDate: { [comparison]: cursor.submissionDate } },
+            { submissionDate: cursor.submissionDate, id: { [comparison]: cursor.id } },
+          ] },
+        ],
+      };
+      const order = forward ? direction : opposite;
+      return (this.prisma as any).onefopSubmission.findFirst({
+        where: seekWhere,
+        orderBy: [{ submissionDate: order }, { id: order }],
+        select: { id: true, submissionId: true },
+      });
+    };
+    const [previous, next] = await Promise.all([seek('previous'), seek('next')]);
+    return { previous: previous ?? null, next: next ?? null };
   }
 
   async listByStatus(status: string, limit: number, offset: number, territory?: Territory) {

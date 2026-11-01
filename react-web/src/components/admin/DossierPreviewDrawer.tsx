@@ -5,10 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { X } from "lucide-react";
-import { approveDossier, getAdminDossier, getDossierClaimState, getDossierDiagnostic, type AdminDossier } from "@/lib/api-client";
+import { approveDossier, getAdminDossier, getDossierClaimState, getDossierDiagnostic, getDossierNeighbours, type AdminDossier } from "@/lib/api-client";
+import type { DossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
 import { DossierClaimPanel, dossierClaimStateKey } from "@/components/admin/DossierClaimPanel";
+import { DataState } from "@/components/admin/DataState";
 import { asUiLocale } from "@/lib/register-i18n";
-import { NOT_PROVIDED, stamp } from "@/lib/admin-data-state";
+import { NOT_PROVIDED, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { coherenceWarningText } from "@/lib/coherence-warning-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,10 +43,12 @@ interface DossierPreviewDrawerProps {
   role: string | null | undefined;
   focusChecks?: boolean;
   nextDossierId?: string | null;
+  neighboursLoaded?: boolean;
+  neighbourFilters: DossierNeighbourQuery["filters"];
   previewPosition?: number | null;
   previewTotal?: number;
   notice?: string | null;
-  onAdvance?: (id: string, validatedRef: string) => void;
+  onAdvance?: (id: string | null, validatedRef: string) => void;
   onClose: () => void;
 }
 
@@ -74,6 +78,8 @@ export function DossierPreviewDrawer({
   role,
   focusChecks = false,
   nextDossierId = null,
+  neighboursLoaded = false,
+  neighbourFilters,
   previewPosition = null,
   previewTotal = 0,
   notice = null,
@@ -89,7 +95,6 @@ export function DossierPreviewDrawer({
   const [approveSuccess, setApproveSuccess] = useState(false);
   const [approveAndNext, setApproveAndNext] = useState(false);
   const [decisionError, setDecisionError] = useState("");
-  const nextAfterDecisionRef = useRef<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const checksSectionRef = useRef<HTMLElement>(null);
   const dossierQuery = useQuery({
@@ -97,39 +102,47 @@ export function DossierPreviewDrawer({
     queryFn: () => getAdminDossier(dossierId),
     enabled: Boolean(dossierId),
     retry: false,
+    staleTime: 0,
   });
   const diagnosticQuery = useQuery({
     queryKey: ["admin", "diagnostic", dossierId, false],
     queryFn: () => getDossierDiagnostic(dossierId),
     enabled: Boolean(dossierId),
     retry: false,
+    staleTime: 0,
   });
   const claimStateQuery = useQuery({
     queryKey: dossierClaimStateKey(dossierId),
     queryFn: () => getDossierClaimState(dossierId),
     enabled: Boolean(dossierId),
     retry: false,
-    staleTime: Infinity,
+    staleTime: 0,
   });
 
   const dossier: AdminDossier | undefined = dossierQuery.data;
-  const status = dossier?.status ?? summary?.adminStatus;
-  const entityName = summary?.companyName || dossier?.respondent?.respondentName || dossier?.submissionId || summary?.submissionId || NOT_PROVIDED;
-  const region = dossier?.region ?? summary?.region;
-  const department = dossier?.department ?? summary?.department;
-  const formType = summary?.formTypeLabel ?? dossier?.formType ?? summary?.formType;
-  const submittedAt = dossier?.submissionDate ?? summary?.submittedAt;
+  const visibleSummary = summary;
+  const status = dossier?.status ?? visibleSummary?.adminStatus;
+  const entityName = visibleSummary?.companyName || dossier?.respondent?.respondentName || dossier?.submissionId || visibleSummary?.submissionId || NOT_PROVIDED;
+  const region = dossier?.region ?? visibleSummary?.region;
+  const department = dossier?.department ?? visibleSummary?.department;
+  const formType = visibleSummary?.formTypeLabel ?? dossier?.formType ?? visibleSummary?.formType;
+  const submittedAt = dossier?.submissionDate ?? visibleSummary?.submittedAt;
   const diagnostic = diagnosticQuery.data;
-  const blockingCount = diagnostic?.blockingAnomalies?.length ?? summary?.blockingCount ?? 0;
-  const warningCount = diagnostic?.warningAnomalies?.length ?? summary?.warningCount ?? 0;
-  const diagnosticsReady = Boolean(diagnostic && !diagnosticQuery.isLoading && !diagnosticQuery.isError);
+  const blockingCount = diagnostic?.blockingAnomalies?.length ?? visibleSummary?.blockingCount ?? 0;
+  const warningCount = diagnostic?.warningAnomalies?.length ?? visibleSummary?.warningCount ?? 0;
+  const diagnosticsReady = Boolean(diagnostic && !diagnosticQuery.isLoading && !diagnosticQuery.isFetching && !diagnosticQuery.isError);
+  const dossierDataState = resolveDataState({
+    isLoading: dossierQuery.isLoading,
+    isError: dossierQuery.isError && !dossierQuery.data,
+    error: dossierQuery.error,
+  });
   const hasBlockingIssues = (diagnostic?.blockingAnomalies.length ?? 0) > 0;
   const hasOpenWarnings = (diagnostic?.warningAnomalies.length ?? 0) > 0;
   const canApproveHere = hasRole(role, SURVEY_ROLES) && status === "PENDING_REVIEW" &&
     isActiveDossierClaimOwner(claimStateQuery.data, userId) && diagnosticsReady && !hasBlockingIssues &&
     Number.isSafeInteger(dossier?.revision);
   const decisions = allowedDecisions(status);
-  const canDecideHere = hasRole(role, SURVEY_ROLES) && isActiveDossierClaimOwner(claimStateQuery.data, userId);
+  const canDecideHere = !claimStateQuery.isFetching && hasRole(role, SURVEY_ROLES) && isActiveDossierClaimOwner(claimStateQuery.data, userId);
   const decisionHref = (param: "openCorrection" | "openReject") =>
     `${fullDossierHref}${fullDossierHref.includes("?") ? "&" : "?"}${param}=1`;
 
@@ -137,9 +150,9 @@ export function DossierPreviewDrawer({
     closeButtonRef.current?.focus();
   }, [dossierId]);
   useEffect(() => {
-    if (!focusChecks || diagnosticQuery.isLoading) return;
+    if (!focusChecks || diagnosticQuery.isLoading || diagnosticQuery.isFetching) return;
     checksSectionRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [diagnosticQuery.isLoading, focusChecks, dossierId, dossier, summary]);
+  }, [diagnosticQuery.isLoading, diagnosticQuery.isFetching, focusChecks, dossierId, dossier, visibleSummary]);
 
   const approvalMutation = useMutation({
     retry: false,
@@ -151,7 +164,7 @@ export function DossierPreviewDrawer({
       if (latestDiagnostic.warningAnomalies.length > 0 && !approveComment.trim()) throw new Error(tDetail("warningJustificationRequired"));
       return approveDossier(dossierId, dossier.revision, approveComment);
     },
-    onSuccess: (approvedData: any) => {
+    onSuccess: async (approvedData: any) => {
       const reviewedAt = approvedData?.reviewedAt ?? new Date().toISOString();
       queryClient.setQueryData(["admin", "dossier", dossierId, false], (old: any) => old ? {
         ...old,
@@ -171,18 +184,15 @@ export function DossierPreviewDrawer({
       setApproveOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires", "list"] });
       void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
-      const nextId = nextAfterDecisionRef.current;
-      const validatedRef = dossier?.submissionId ?? summary?.submissionId ?? dossierId;
-      nextAfterDecisionRef.current = null;
-      if (nextId && onAdvance) onAdvance(nextId, validatedRef);
+      const validatedRef = dossier?.submissionId ?? visibleSummary?.submissionId ?? dossierId;
+      const neighbours = await getDossierNeighbours(dossierId, neighbourFilters);
+      onAdvance?.(neighbours.next?.id ?? null, validatedRef);
     },
     onError: (error: unknown) => setDecisionError(error instanceof Error ? error.message : tDetail("unknownError")),
   });
 
   const openApprovalConfirmation = () => {
-    const nextId = nextDossierId ?? null;
-    nextAfterDecisionRef.current = nextId;
-    setApproveAndNext(Boolean(nextId));
+    setApproveAndNext(Boolean(nextDossierId));
     setApproveComment("");
     setDecisionError("");
     approvalMutation.reset();
@@ -206,7 +216,7 @@ export function DossierPreviewDrawer({
         <div className="cam-dossier-preview-heading">
           <span className="cam-dossier-preview-eyebrow">{t("previewEyebrow")}</span>
           <h2 id="cam-dossier-preview-title" className="cam-dossier-filter-sidebar-title">{entityName}</h2>
-          <p className="cam-dossier-filter-sidebar-description">{t("previewReference", { id: dossier?.submissionId ?? summary?.submissionId ?? dossierId })}</p>
+          <p className="cam-dossier-filter-sidebar-description">{t("previewReference", { id: dossier?.submissionId ?? visibleSummary?.submissionId ?? dossierId })}</p>
           {previewPosition !== null && previewTotal > 0 && (
             <p className="cam-admin-meta">{t("previewPosition", { position: previewPosition, total: previewTotal })}</p>
           )}
@@ -215,16 +225,22 @@ export function DossierPreviewDrawer({
       </div>
 
       <div className="cam-dossier-preview-content">
-        {dossierQuery.isError && <p className="cam-admin-notice cam-admin-notice--error" role="alert">{t("previewLoadError")}</p>}
-        {dossierQuery.isLoading && !summary && <p className="cam-admin-meta" role="status">{t("previewLoading")}</p>}
+        {dossierDataState !== "ready" && <DataState
+          state={dossierDataState}
+          resource={t("previewEyebrow")}
+          title={dossierDataState === "loading" ? t("previewLoading") : t("previewLoadError")}
+          error={dossierQuery.error}
+          onRetry={() => void dossierQuery.refetch()}
+          dense
+        />}
         {notice && <p className="cam-admin-notice cam-admin-notice--success" role="status">{notice}</p>}
 
-        {(dossier || summary) && <>
+        {(dossier || visibleSummary) && <>
           <section className="cam-dossier-preview-section" aria-labelledby="cam-dossier-preview-status-heading">
             <h3 id="cam-dossier-preview-status-heading" className="cam-dossier-preview-section-title">{t("previewStatusHeading")}</h3>
             <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusClass(status)}`} variant="neutral">{t(statusLabelKey(status))}</Badge>
             <dl className="cam-dossier-preview-facts">
-              <div><dt>{t("respondentColumn")}</dt><dd>{dossier?.respondent?.respondentName ?? summary?.respondentName ?? NOT_PROVIDED}</dd></div>
+              <div><dt>{t("respondentColumn")}</dt><dd>{dossier?.respondent?.respondentName ?? visibleSummary?.respondentName ?? NOT_PROVIDED}</dd></div>
               <div><dt>{t("entityTypeColumn")}</dt><dd>{formType ?? NOT_PROVIDED}</dd></div>
               <div><dt>{t("territoryColumn")}</dt><dd>{[region, department].filter(Boolean).join(" / ") || NOT_PROVIDED}</dd></div>
               <div><dt>{t("submittedAtColumn")}</dt><dd>{submittedAt ? stamp(submittedAt, true, locale) : NOT_PROVIDED}</dd></div>
@@ -234,7 +250,7 @@ export function DossierPreviewDrawer({
           <section ref={checksSectionRef} tabIndex={-1} className="cam-dossier-preview-section" aria-labelledby="cam-dossier-preview-checks-heading">
             <h3 id="cam-dossier-preview-checks-heading" className="cam-dossier-preview-section-title">{t("reviewStatusChecksColumn")}</h3>
             {diagnosticQuery.isLoading && <p className="cam-admin-meta" role="status">{t("previewChecksLoading")}</p>}
-            {(diagnosticQuery.isError || (!diagnosticQuery.isLoading && !diagnostic && summary && !summary.validationDataAvailable)) && (
+            {(diagnosticQuery.isError || (!diagnosticQuery.isLoading && !diagnostic && visibleSummary && !visibleSummary.validationDataAvailable)) && (
               <div className="cam-admin-notice cam-admin-notice--warn" role="status">
                 <span>{t("checksUnavailableRecovery")}</span>
                 <Button type="button" size="sm" variant="outline" disabled={diagnosticQuery.isFetching} onClick={() => void diagnosticQuery.refetch()}>
@@ -263,7 +279,7 @@ export function DossierPreviewDrawer({
           {canDecideHere && (decisions.reject || decisions.requestCorrection || decisions.approve) && (
             <section className="cam-dossier-preview-decision" aria-labelledby="cam-dossier-preview-decision-heading">
               <h3 id="cam-dossier-preview-decision-heading" className="cam-dossier-preview-section-title">{t("previewDecisionHeading")}</h3>
-              {nextDossierId === null && previewPosition !== null && (
+              {nextDossierId === null && previewPosition !== null && neighboursLoaded && (
                 <p className="cam-admin-meta">{t("noNextPendingFile")}</p>
               )}
               {decisions.reject && (
@@ -290,7 +306,7 @@ export function DossierPreviewDrawer({
             </section>
           )}
 
-          <DossierClaimPanel dossierId={dossierId} userId={userId} role={role} revision={dossierQuery.isFetching ? null : dossier?.revision ?? null} />
+          <DossierClaimPanel dossierId={dossierId} userId={userId} role={role} revision={dossier?.revision ?? null} />
         </>}
       </div>
 
@@ -304,7 +320,7 @@ export function DossierPreviewDrawer({
       open={approveOpen}
       onClose={() => setApproveOpen(false)}
       title={tDetail("validateArchiveButton")}
-      eyebrow={t("previewReference", { id: dossier?.submissionId ?? summary?.submissionId ?? dossierId })}
+      eyebrow={t("previewReference", { id: dossier?.submissionId ?? visibleSummary?.submissionId ?? dossierId })}
       footer={
         <>
           <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setApproveOpen(false)}>

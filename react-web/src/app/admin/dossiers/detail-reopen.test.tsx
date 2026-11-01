@@ -2,6 +2,7 @@
 import { loadOnefopSchema } from "@/test/schema";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { act } from "@testing-library/react";
 import type { AdminDossier, DossierDiagnostic } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import SubmissionDetailPage from "./[id]/page";
@@ -33,6 +34,8 @@ const DOSSIER: AdminDossier = {
   vocationalTrainingDetail: null,
   rawData: {},
 };
+const CORRECTION_DOSSIER: AdminDossier = { ...DOSSIER, status: "PENDING_REVIEW", reviewedAt: null };
+const CLAIM = { id: "claim-1", questionnaireId: DOSSIER.id, assigneeId: "user-1", status: "PENDING_REVIEW", eligible: true };
 
 const DIAGNOSTIC: DossierDiagnostic = {
   submissionId: DOSSIER.submissionId,
@@ -50,7 +53,7 @@ function Harness({ returnTo }: { returnTo?: string }) {
   return <SubmissionDetailPage />;
 }
 
-function renderDetail(returnTo?: string) {
+function renderDetail(returnTo?: string, dossier = DOSSIER) {
   useAuthStore.setState({
     status: "authenticated",
     user: { id: "user-1", role: "ADMIN_ONEFOP" } as never,
@@ -69,8 +72,9 @@ function renderDetail(returnTo?: string) {
     locale: "en",
     queryClient,
     queryData: [
-      [["admin", "dossier", DOSSIER.id, false], DOSSIER],
+      [["admin", "dossier", DOSSIER.id, false], dossier],
       [["admin", "diagnostic", DOSSIER.id, false], DIAGNOSTIC],
+      [["admin", "dossier-claim-state", DOSSIER.id], CLAIM],
       [["onefop-schema"], loadOnefopSchema()],
     ],
   });
@@ -101,6 +105,42 @@ test("clicking Reopen for correction opens the reason and attestation dialog", a
   assert.ok(screen.getByText("Reason for reopening"));
   assert.ok(screen.getByPlaceholderText(/What the respondent must correct/));
   assert.ok(screen.getByText(/this endorsed file must be corrected/));
+});
+
+test("a dossier refetch keeps an open correction dialog and its text", async () => {
+  const originalFetch = globalThis.fetch;
+  let releaseRefetch!: (response: Response) => void;
+  let dossierCalls = 0;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes(`/admin/questionnaires/${DOSSIER.id}`) && !url.includes("diagnostic")) {
+      dossierCalls += 1;
+      if (dossierCalls > 1) return await new Promise<Response>((resolve) => { releaseRefetch = resolve; });
+      return new Response(JSON.stringify(CORRECTION_DOSSIER), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify(DIAGNOSTIC), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const { user, queryClient } = renderDetail(undefined, CORRECTION_DOSSIER);
+    await user.click(screen.getByRole("button", { name: "Request a correction" }));
+    const problemField = screen.getByLabelText("2. Problem found") as HTMLTextAreaElement;
+    await user.type(problemField, "The reporting period needs clarification.");
+
+    let refetch!: Promise<void>;
+    await act(async () => {
+      refetch = queryClient.invalidateQueries({ queryKey: ["admin", "dossier", DOSSIER.id, false] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.ok(dossierCalls >= 1, "the dossier query should have refetched");
+    assert.equal((screen.getByRole("dialog").querySelector("textarea") as HTMLTextAreaElement).value, "The reporting period needs clarification.");
+    assert.ok(screen.getByRole("dialog").textContent?.includes("Request a correction"));
+
+    await act(async () => releaseRefetch(new Response(JSON.stringify(CORRECTION_DOSSIER), { status: 200, headers: { "Content-Type": "application/json" } })));
+    await refetch;
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("confirming the dialog reopens this dossier for correction through the API", async () => {

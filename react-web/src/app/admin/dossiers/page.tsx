@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Download, MoreHorizontal, TriangleAlert } from "lucide-react";
-import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getDossierDiagnostic, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
+import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getDossierDiagnostic, getDossierNeighbours, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -17,6 +17,7 @@ import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { adminResultRange, displayedResultOffset, isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildDossierReturnTo } from "@/lib/admin-return";
+import { dossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
@@ -668,6 +669,16 @@ function DossiersContent({
     refetchInterval: vue === "submissions" ? 60_000 : false,
   });
 
+  const previewNeighbourParams = dossierNeighbourQuery(previewReturnTo, readOnly);
+  const previewNeighboursQuery = useQuery({
+    queryKey: ["admin", "dossier-neighbours", previewId, previewNeighbourParams.filters],
+    queryFn: () => getDossierNeighbours(previewId!, previewNeighbourParams.filters),
+    enabled: Boolean(previewId),
+    retry: false,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
   const archiveMutation = useMutation({
     mutationFn: (target: { item: DossierItem; reason: string }) => archiveDossier(target.item.id, target.reason),
     onSuccess: () => { setArchiveNotice(""); void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }); void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }); },
@@ -933,14 +944,7 @@ function DossiersContent({
   const dossiers: DossierItem[] = allDossiers;
   const previewSummary = previewId ? dossiers.find((dossier) => dossier.id === previewId) : undefined;
   const previewIndex = previewId ? dossiers.findIndex((dossier) => dossier.id === previewId) : -1;
-  const nextDossierId = previewIndex >= 0
-    ? dossiers.slice(previewIndex + 1).find((dossier) =>
-        dossier.adminStatus === "PENDING_REVIEW" &&
-        dossier.assigneeId === user?.id &&
-        !dossier.archivedAt &&
-        !dossier.claimExpired
-      )?.id ?? null
-    : null;
+  const nextDossierId = previewNeighboursQuery.isFetching ? null : previewNeighboursQuery.data?.next?.id ?? null;
   const previewPosition = previewIndex >= 0 ? previewIndex + 1 : null;
 
   const typeColumnLabel = vue === "completed" ? t("typeColumn") : t("entityTypeColumn");
@@ -1004,7 +1008,7 @@ function DossiersContent({
   const openDossierPreview = useCallback((id: string, focusChecks = false) => {
     setFiltersOpen(false);
     setPreviewNotice(null);
-    router.push(hrefWith(pathname, searchParams.toString(), { preview: id, previewSection: focusChecks ? "checks" : null }), { scroll: false });
+    router.push(hrefWith(pathname, searchParams.toString(), { preview: id, previewSection: focusChecks ? "checks" : null, decisionNotice: null, endOfQueue: null }), { scroll: false });
   }, [pathname, router, searchParams]);
 
   const closeDossierPreview = useCallback(() => {
@@ -1012,10 +1016,20 @@ function DossiersContent({
     router.replace(hrefWith(pathname, searchParams.toString(), { preview: null, previewSection: null }), { scroll: false });
   }, [pathname, router, searchParams]);
 
-  const advanceToNextDossier = useCallback((id: string, validatedRef: string) => {
-    setPreviewNotice(t("dossierValidatedNotice", { id: validatedRef }));
-    router.replace(hrefWith(pathname, searchParams.toString(), { preview: id, previewSection: null }), { scroll: false });
-  }, [pathname, router, searchParams, t]);
+  const advanceToNextDossier = useCallback((id: string | null, validatedRef: string) => {
+    setPreviewNotice(t("dossierDecisionNotice", { id: validatedRef }));
+    if (id) {
+      void queryClient.removeQueries({ queryKey: ["admin", "dossier", id] });
+      void queryClient.removeQueries({ queryKey: ["admin", "dossier-claim-state", id] });
+      void queryClient.removeQueries({ queryKey: ["admin", "diagnostic", id] });
+    }
+    router.replace(hrefWith(pathname, searchParams.toString(), {
+      preview: id,
+      previewSection: null,
+      decisionNotice: id ? null : validatedRef,
+      endOfQueue: id ? null : "1",
+    }), { scroll: false });
+  }, [pathname, queryClient, router, searchParams, t]);
 
   const openQuickValidation = async (dossier: DossierItem) => {
     if (!user?.id || dossier.assigneeId !== user.id || dossier.adminStatus !== "PENDING_REVIEW" || dossier.archivedAt || dossier.claimExpired) return;
@@ -1535,6 +1549,11 @@ function DossiersContent({
       {reopenNotice && <Alert variant="success" className="my-4"><AlertDescription>{reopenNotice}</AlertDescription></Alert>}
       {assignNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{assignNotice}</AlertDescription></Alert>}
       {archiveNotice && <Alert variant="destructive" className="my-4"><AlertDescription>{archiveNotice}</AlertDescription></Alert>}
+      {searchParams.get("endOfQueue") === "1" && searchParams.get("decisionNotice") && (
+        <p className="cam-admin-notice cam-admin-notice--success" role="status">
+          {t("endOfQueueNotice", { id: searchParams.get("decisionNotice")! })}
+        </p>
+      )}
 
       {vue !== "submissions" && vue !== "completed" && queues && queues.reviewDelay.pendingOverThresholdCount > 0 && (
         <Alert variant="warning" className="cam-dossier-overdue-alert my-4">
@@ -1916,6 +1935,8 @@ function DossiersContent({
           role={user?.role}
           focusChecks={previewFocusChecks}
           nextDossierId={nextDossierId}
+          neighboursLoaded={previewNeighboursQuery.isSuccess && !previewNeighboursQuery.isFetching}
+          neighbourFilters={previewNeighbourParams.filters}
           previewPosition={previewPosition}
           previewTotal={dossiers.length}
           notice={previewNotice}

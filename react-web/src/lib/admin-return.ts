@@ -1,4 +1,4 @@
-import { parseAdminListPage } from "./admin-url";
+import { parseAdminListPage, parseDossierQueueView } from "./admin-url";
 import { normalizeRegistrationStatus } from "./inscriptions";
 
 const DOSSIER_RETURN_FILTERS = [
@@ -47,6 +47,8 @@ export function buildDossierReturnTo(currentQuery: string): string {
 
   const result = new URLSearchParams();
   result.set("vue", view);
+  const queueView = parseDossierQueueView(source.get("queueView"));
+  if (view === "submissions" && queueView) result.set("queueView", queueView);
   setNonEmpty(result, "campaignId", source.get("campaignId"));
 
   for (const [suffix, legacyKey] of DOSSIER_RETURN_FILTERS) {

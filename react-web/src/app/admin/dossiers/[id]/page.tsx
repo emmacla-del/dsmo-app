@@ -10,6 +10,7 @@ import {
   getAdminDossier,
   getDossierDiagnostic,
   getDossierClaimState,
+  getDossierNeighbours,
   approveDossier,
   rejectDossier,
   requestCorrectionDossier,
@@ -19,6 +20,7 @@ import {
 import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { resolveDossierReturnTo } from "@/lib/admin-return";
+import { dossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierClaimPanel, dossierClaimStateKey, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
@@ -222,6 +224,7 @@ function SubmissionDetailContent() {
   const searchParams = useSearchParams();
   const includeArchived = searchParams.get("includeArchived") === "true";
   const returnTo = resolveDossierReturnTo(searchParams.get("returnTo"));
+  const isQueueMove = searchParams.get("reviewMove") === "1";
   // No default id: without one there is no dossier to show, and substituting a
   // known identifier would load someone else's record.
   const id = typeof params.id === "string" ? params.id : "";
@@ -255,12 +258,14 @@ function SubmissionDetailContent() {
   const role = useAuthStore((s) => s.user?.role);
   const userId = useAuthStore((s) => s.user?.id);
   const readOnly = isReadOnlyRole(role) || searchParams.get("readOnly") === "true";
+  const neighbourQuery = dossierNeighbourQuery(returnTo, readOnly);
   const canSeeStaffNames = typeof role === "string" && STAFF_NAME_ROLES.includes(role);
 
   const dossierQuery = useQuery({
     queryKey: ["admin", "dossier", id, includeArchived],
     queryFn: () => getAdminDossier(id, includeArchived),
     retry: false,
+    ...(isQueueMove ? { staleTime: 0, refetchOnMount: "always" as const } : {}),
   });
 
   const claimStateQuery = useQuery({
@@ -270,12 +275,23 @@ function SubmissionDetailContent() {
     retry: false,
     staleTime: 30_000,
     refetchInterval: 60_000,
+    ...(isQueueMove ? { refetchOnMount: "always" as const } : {}),
   });
 
   const diagnosticQuery = useQuery({
     queryKey: ["admin", "diagnostic", id, includeArchived],
     queryFn: () => getDossierDiagnostic(id, includeArchived),
     retry: false,
+    ...(isQueueMove ? { staleTime: 0, refetchOnMount: "always" as const } : {}),
+  });
+
+  const neighboursQuery = useQuery({
+    queryKey: ["admin", "dossier-neighbours", id, neighbourQuery.filters],
+    queryFn: () => getDossierNeighbours(id, neighbourQuery.filters),
+    enabled: Boolean(id) && neighbourQuery.view !== null,
+    retry: false,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // Opened from the reference on the respondent's receipt (its submissionId,
@@ -331,7 +347,11 @@ function SubmissionDetailContent() {
   const statusBadge = dossier?.status ? STATUS_BADGES[dossier.status] ?? null : null;
   const decisions = allowedDecisions(dossier?.status);
   const hasActiveClaim = isActiveDossierClaimOwner(claimState, userId);
-  const canReviewDossier = !dossierQuery.isFetching && !claimStateQuery.isFetching && hasRole(role, SURVEY_ROLES) && hasActiveClaim;
+  const canReviewDossier = hasRole(role, SURVEY_ROLES) && hasActiveClaim;
+  // A background refetch (window focus, the claim's 60 s refresh) disables
+  // the decisions rather than hiding them, so the bar never jumps under the
+  // cursor; the server's revision check stays the real guard.
+  const decisionsRefreshing = dossierQuery.isFetching || claimStateQuery.isFetching;
   // The decision in words where the buttons were, dated when the server
   // recorded the review date; without a date the status badge already says it.
   const decidedOn = dossier?.reviewedAt ? stamp(dossier.reviewedAt, true, locale) : null;
@@ -404,6 +424,26 @@ function SubmissionDetailContent() {
     if (isStaleRevision(error)) return invalidateDossier();
   };
 
+  const advanceAfterDecision = async (reference: string) => {
+    const neighbours = await getDossierNeighbours(id, neighbourQuery.filters);
+    const decision = encodeURIComponent(reference);
+    if (neighbours.next) {
+      const archived = neighbourQuery.filters.includeArchived ? "&includeArchived=true" : "";
+      router.replace(`/admin/dossiers/${encodeURIComponent(neighbours.next.id)}?returnTo=${encodeURIComponent(returnTo)}${archived}&reviewMove=1&decisionNotice=${decision}`, { scroll: false });
+      return;
+    }
+    const separator = returnTo.includes("?") ? "&" : "?";
+    router.replace(`${returnTo}${separator}decisionNotice=${decision}&endOfQueue=1`, { scroll: false });
+  };
+
+  const decisionNotice = searchParams.get("decisionNotice");
+  const previousHref = !neighboursQuery.isFetching && neighboursQuery.data?.previous
+    ? `/admin/dossiers/${encodeURIComponent(neighboursQuery.data.previous.id)}?returnTo=${encodeURIComponent(returnTo)}${neighbourQuery.filters.includeArchived ? "&includeArchived=true" : ""}&reviewMove=1`
+    : null;
+  const nextHref = !neighboursQuery.isFetching && neighboursQuery.data?.next
+    ? `/admin/dossiers/${encodeURIComponent(neighboursQuery.data.next.id)}?returnTo=${encodeURIComponent(returnTo)}${neighbourQuery.filters.includeArchived ? "&includeArchived=true" : ""}&reviewMove=1`
+    : null;
+
   // ── Modals State ────────────────────────────────────────────────────────
   const [isCorrectionOpen, setIsCorrectionOpen] = useState(false);
   // The correction request is written to the dossier and sent to the
@@ -444,7 +484,8 @@ function SubmissionDetailContent() {
     onSuccess: (result) => {
       preserveDossierRevision(result);
       setCorrectionSuccess(true);
-      return invalidateDossier();
+      const reference = dossier?.submissionId ?? id;
+      return invalidateDossier().then(() => advanceAfterDecision(reference));
     },
     onError: refreshAfterRevisionConflict,
   });
@@ -473,7 +514,8 @@ function SubmissionDetailContent() {
     onSuccess: (result) => {
       preserveDossierRevision(result);
       setRejectSuccess(true);
-      return invalidateDossier();
+      const reference = dossier?.submissionId ?? id;
+      return invalidateDossier().then(() => advanceAfterDecision(reference));
     },
     onError: refreshAfterRevisionConflict,
   });
@@ -495,8 +537,8 @@ function SubmissionDetailContent() {
     onSuccess: (result) => {
       preserveDossierRevision(result);
       setReopenSuccess(true);
-      // The header and its actions follow at once, as after an endorsement
-      // (defect 9); the refetch then has the last word.
+      // Keep the reviewer on this file after reopening; the refreshed status
+      // and this existing success notice confirm the change.
       void queryClient.cancelQueries({ queryKey: ["admin", "dossier", id] });
       queryClient.setQueryData(["admin", "dossier", id], (old: unknown) =>
         old && typeof old === "object" ? { ...old, status: "CORRECTION_REQUESTED", rejectionReason: reopenReason.trim() } : old,
@@ -617,7 +659,8 @@ function SubmissionDetailContent() {
         });
       }
 
-      return invalidateDossier();
+      const reference = dossier?.submissionId ?? id;
+      return invalidateDossier().then(() => advanceAfterDecision(reference));
     },
     onError: refreshAfterRevisionConflict,
   });
@@ -754,22 +797,31 @@ function SubmissionDetailContent() {
               : t("statusNotRecorded"),
           variant: statusBadge ? statusBadge.variant : "neutral",
         }}
-        actions={readOnly ? supersededNotice(dossier, t) ?? undefined : (
+        actions={(
           <>
             {supersededNotice(dossier, t)}
+            <nav className="flex items-center gap-2" aria-label={t("queueNavigationLabel")}>
+              {previousHref
+                ? <Link className="cam-button cam-button-secondary cam-button-sm" href={previousHref}>{t("previousFile")}</Link>
+                : <span className="cam-button cam-button-secondary cam-button-sm" aria-disabled="true">{t("previousFile")}</span>}
+              {nextHref
+                ? <Link className="cam-button cam-button-secondary cam-button-sm" href={nextHref}>{t("nextFile")}</Link>
+                : <span className="cam-button cam-button-secondary cam-button-sm" aria-disabled="true">{t("nextFile")}</span>}
+            </nav>
             {/* A final decision is final: APPROVED and REJECTED offer no
                 decision, and a dossier awaiting the respondent's correction
                 can only be rejected. allowedDecisions mirrors the server's
                 guards (QuestionnairesService.approve / reject /
                 requestCorrection), which enforce the same rule. */}
-            {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
+            {!readOnly && decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
+            {!readOnly && <>
             {decisions.reject && canReviewDossier && (
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>
+              <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openRejectModal}>
                 {t("rejectFormButton")}
               </button>
             )}
             {decisions.requestCorrection && canReviewDossier && (
-              <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>
+              <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openCorrectionModal}>
                 {t("requestCorrectionButton")}
               </button>
             )}
@@ -779,7 +831,7 @@ function SubmissionDetailContent() {
               </button>
             )}
             {decisions.approve && canReviewDossier && approvalChecksReady && (
-              <button type="button" className="cam-button cam-button-primary cam-button-sm" onClick={openApproveModal}>
+              <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled={decisionsRefreshing} onClick={openApproveModal}>
                 {t("validateArchiveButton")}
               </button>
             )}
@@ -788,15 +840,22 @@ function SubmissionDetailContent() {
                 {diagnosticState !== "ready" ? t("approvalChecksUnavailableOrBlocked") : t("blockingIssuesMustBeResolved")}
               </span>
             )}
+            </>}
           </>
         )}
       />
+
+      {decisionNotice && <p className="cam-admin-notice cam-admin-notice--success" role="status">
+        {searchParams.get("endOfQueue") === "1"
+          ? t("endOfQueueNotice", { id: decisionNotice })
+          : t("decisionMovedNotice", { id: decisionNotice })}
+      </p>}
 
       <DossierClaimPanel
         dossierId={id}
         userId={userId}
         role={role}
-        revision={dossierQuery.isFetching ? null : dossier.revision}
+        revision={dossier.revision}
       />
 
       {/* A Tableau de bord / Dossiers / Tracabilite pill row sat here. It

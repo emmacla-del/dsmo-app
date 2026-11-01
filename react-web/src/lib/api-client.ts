@@ -939,6 +939,30 @@ export function listAdminQuestionnaires(
   return apiFetch<AdminQuestionnairesPage>(`/admin/questionnaires${qs ? `?${qs}` : ""}`);
 }
 
+export interface DossierNeighbours {
+  previous: { id: string; submissionId: string } | null;
+  next: { id: string; submissionId: string } | null;
+}
+
+export function getDossierNeighbours(id: string, filters: {
+  status?: string; statuses?: string; assignment?: "me" | "unassigned" | "other";
+  formType?: string; region?: string; department?: string; period?: string;
+  campaignId?: string; quarterCode?: string; late?: boolean; overdue?: boolean;
+  quality?: "clean" | "warnings" | "blocking"; search?: string; companyId?: string;
+  sort?: "oldest"; includeArchived?: boolean;
+}) {
+  const query = new URLSearchParams();
+  for (const key of ["status", "statuses", "assignment", "formType", "region", "department", "period", "campaignId", "quarterCode", "quality", "search", "companyId", "sort"] as const) {
+    const value = filters[key];
+    if (value) query.set(key, value);
+  }
+  if (filters.late) query.set("late", "1");
+  if (filters.overdue) query.set("overdue", "1");
+  if (filters.includeArchived !== undefined) query.set("includeArchived", String(filters.includeArchived));
+  const qs = query.toString();
+  return apiFetch<DossierNeighbours>(`/admin/questionnaires/${encodeURIComponent(id)}/neighbours${qs ? `?${qs}` : ""}`);
+}
+
 /** Subset of GET /admin/questionnaires/:id read by the dossier detail page. */
 export interface AdminDossier {
   id: string;

@@ -22,6 +22,13 @@ test("legacy dossier list filters are converted to scoped return state", () => {
   );
 });
 
+test("a dossier return preserves the active review queue view", () => {
+  assert.equal(
+    buildDossierReturnTo("vue=submissions&queueView=unassigned&campaignId=c1"),
+    "/admin/dossiers?vue=submissions&queueView=unassigned&campaignId=c1",
+  );
+});
+
 test("an establishment return restores Organisations context and excludes queue-only or unknown filters", () => {
   assert.equal(
     buildRegistrationReturnTo("vue=organisations&organisation=atelier&status=ACTIVE&region=Centre&page=2&assignedToMe=1&duplicates=with&createdBy=u1&unknown=drop"),
