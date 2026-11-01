@@ -747,3 +747,133 @@
     --cam-card-shell-pad-x: var(--cam-space-2);
   }
 }
+
+/* ── Staff console ramp ──────────────────────────────────────────────────
+   Every colour the staff console (admin-console.css) used to spell as a raw
+   hex literal, lifted here unchanged so G1 holds and so the console's
+   palette lives in one file. Values are byte-identical to what shipped;
+   only the spelling moved.
+
+   Each family runs light → dark. The step counts are the honest measure of
+   the drift this lift records: 65 steps of navy-slate where a handful
+   would do, several of them under one percent apart in lightness.
+   COLLAPSING STEPS CHANGES PIXELS, so it is a deliberate decision and not
+   part of this lift. Until that decision is taken, add no new step here —
+   reach for the nearest one, or for a semantic --cam-* token above. */
+:root {
+  /* Promoted from hex fallbacks of tokens that were never defined.
+     --cam-brand is a FOURTH green, distinct from --cam-primary (#00766c);
+     it is recorded here, not reconciled, because reconciling moves pixels. */
+  --cam-brand: #0b827a;
+  --cam-brand-strong: #086f68;
+
+  /* amber — 13 steps, 20 uses */
+  --cam-console-amber-01: #fffdf7; /* L98 ×1 */
+  --cam-console-amber-02: #fff0d9; /* L93 ×2 */
+  --cam-console-amber-03: #fff4d6; /* L92 ×2 */
+  --cam-console-amber-04: #ecd59a; /* L76 ×1 */
+  --cam-console-amber-05: #edc27a; /* L70 ×2 */
+  --cam-console-amber-06: #d8bd7e; /* L67 ×1 */
+  --cam-console-amber-07: #e8c96d; /* L67 ×2 */
+  --cam-console-amber-08: #a87308; /* L35 ×2 */
+  --cam-console-amber-09: #a65d00; /* L33 ×1 */
+  --cam-console-amber-10: #854d0e; /* L29 ×2 */
+  --cam-console-amber-11: #8a4b08; /* L29 ×2 */
+  --cam-console-amber-12: #694e12; /* L24 ×1 */
+  --cam-console-amber-13: #61480f; /* L22 ×1 */
+
+  /* green — 6 steps, 13 uses */
+  --cam-console-green-01: #f2f8f4; /* L96 ×1 */
+  --cam-console-green-02: #ddf5e8; /* L91 ×3 */
+  --cam-console-green-03: #cddfd3; /* L84 ×1 */
+  --cam-console-green-04: #b7ddc4; /* L79 ×3 */
+  --cam-console-green-05: #49745b; /* L37 ×2 */
+  --cam-console-green-06: #17663a; /* L25 ×3 */
+
+  /* navy — 65 steps, 243 uses */
+  --cam-console-navy-01: #fbfdff; /* L99 ×6 */
+  --cam-console-navy-02: #f7f9fb; /* L98 ×5 */
+  --cam-console-navy-03: #f9fbfc; /* L98 ×1 */
+  --cam-console-navy-04: #f3f6fa; /* L97 ×1 */
+  --cam-console-navy-05: #f3f7fa; /* L97 ×1 */
+  --cam-console-navy-06: #f5f8fb; /* L97 ×7 */
+  --cam-console-navy-07: #f6f8fa; /* L97 ×2 */
+  --cam-console-navy-08: #f6f8fb; /* L97 ×1 */
+  --cam-console-navy-09: #eaf2ff; /* L96 ×1 */
+  --cam-console-navy-10: #edf4ff; /* L96 ×2 */
+  --cam-console-navy-11: #f2f5f8; /* L96 ×1 */
+  --cam-console-navy-12: #f3f6f9; /* L96 ×3 */
+  --cam-console-navy-13: #edf2f6; /* L95 ×1 */
+  --cam-console-navy-14: #edf3f7; /* L95 ×1 */
+  --cam-console-navy-15: #edf3f8; /* L95 ×1 */
+  --cam-console-navy-16: #eef3f8; /* L95 ×1 */
+  --cam-console-navy-17: #e8eff8; /* L94 ×3 */
+  --cam-console-navy-18: #e8eef4; /* L93 ×7 */
+  --cam-console-navy-19: #e9edf2; /* L93 ×1 */
+  --cam-console-navy-20: #e2eaf2; /* L92 ×1 */
+  --cam-console-navy-21: #e5eaf0; /* L92 ×3 */
+  --cam-console-navy-22: #dce5ee; /* L90 ×29 */
+  --cam-console-navy-23: #d8e0e8; /* L88 ×11 */
+  --cam-console-navy-24: #d8e2eb; /* L88 ×4 */
+  --cam-console-navy-25: #d4dee8; /* L87 ×3 */
+  --cam-console-navy-26: #d5dee8; /* L87 ×2 */
+  --cam-console-navy-27: #c9d9ed; /* L86 ×1 */
+  --cam-console-navy-28: #d0d9e2; /* L85 ×1 */
+  --cam-console-navy-29: #c9d5e2; /* L84 ×2 */
+  --cam-console-navy-30: #cbd5df; /* L84 ×4 */
+  --cam-console-navy-31: #cdd7e1; /* L84 ×1 */
+  --cam-console-navy-32: #bfd0e4; /* L82 ×3 */
+  --cam-console-navy-33: #c6d0db; /* L82 ×1 */
+  --cam-console-navy-34: #c7d1dc; /* L82 ×1 */
+  --cam-console-navy-35: #b8c6d5; /* L78 ×3 */
+  --cam-console-navy-36: #b9c7d6; /* L78 ×2 */
+  --cam-console-navy-37: #8fb4e8; /* L74 ×1 */
+  --cam-console-navy-38: #aebdcb; /* L74 ×1 */
+  --cam-console-navy-39: #aab8c6; /* L72 ×2 */
+  --cam-console-navy-40: #98a9ba; /* L66 ×1 */
+  --cam-console-navy-41: #91a5b9; /* L65 ×1 */
+  --cam-console-navy-42: #8fa3b8; /* L64 ×1 */
+  --cam-console-navy-43: #687b90; /* L49 ×1 */
+  --cam-console-navy-44: #1769e0; /* L48 ×9 */
+  --cam-console-navy-45: #64758b; /* L47 ×7 */
+  --cam-console-navy-46: #667085; /* L46 ×6 */
+  --cam-console-navy-47: #6b7280; /* L46 ×2 */
+  --cam-console-navy-48: #586d82; /* L43 ×1 */
+  --cam-console-navy-49: #52677f; /* L41 ×4 */
+  --cam-console-navy-50: #164f9f; /* L35 ×1 */
+  --cam-console-navy-51: #405873; /* L35 ×8 */
+  --cam-console-navy-52: #415773; /* L35 ×8 */
+  --cam-console-navy-53: #475467; /* L34 ×5 */
+  --cam-console-navy-54: #244a75; /* L30 ×3 */
+  --cam-console-navy-55: #334d66; /* L30 ×3 */
+  --cam-console-navy-56: #344d67; /* L30 ×3 */
+  --cam-console-navy-57: #33465d; /* L28 ×2 */
+  --cam-console-navy-58: #344054; /* L27 ×8 */
+  --cam-console-navy-59: #243b53; /* L23 ×4 */
+  --cam-console-navy-60: #173b5b; /* L22 ×9 */
+  --cam-console-navy-61: #16324f; /* L20 ×14 */
+  --cam-console-navy-62: #172b43; /* L18 ×10 */
+  --cam-console-navy-63: #102b46; /* L17 ×4 */
+  --cam-console-navy-64: #1d2939; /* L17 ×5 */
+  --cam-console-navy-65: #0c2239; /* L14 ×1 */
+
+  /* red — 8 steps, 17 uses */
+  --cam-console-red-01: #fce8e8; /* L95 ×3 */
+  --cam-console-red-02: #fde8e8; /* L95 ×2 */
+  --cam-console-red-03: #e7b6b6; /* L81 ×3 */
+  --cam-console-red-04: #e5a4a8; /* L77 ×2 */
+  --cam-console-red-05: #bd2636; /* L45 ×1 */
+  --cam-console-red-06: #a33b45; /* L44 ×1 */
+  --cam-console-red-07: #9f2632; /* L39 ×2 */
+  --cam-console-red-08: #a61b1b; /* L38 ×3 */
+
+  /* teal — 8 steps, 15 uses */
+  --cam-console-teal-01: #e4f1ed; /* L92 ×2 */
+  --cam-console-teal-02: #e5f2ed; /* L92 ×1 */
+  --cam-console-teal-03: #b8d8cd; /* L78 ×1 */
+  --cam-console-teal-04: #14745b; /* L27 ×2 */
+  --cam-console-teal-05: #087f5b; /* L26 ×3 */
+  --cam-console-teal-06: #216647; /* L26 ×1 */
+  --cam-console-teal-07: #12604c; /* L22 ×2 */
+  --cam-console-teal-08: #075b45; /* L19 ×3 */
+}

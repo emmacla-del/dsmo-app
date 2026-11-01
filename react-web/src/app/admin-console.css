@@ -1247,7 +1247,7 @@
 
 .cam-entity-type-option[data-selected="true"] {
   border-color: var(--cam-primary);
-  background: var(--cam-primary-subtle, var(--cam-surface));
+  background: var(--cam-surface);
   box-shadow: 0 0 0 1px var(--cam-primary);
 }
 
@@ -1407,7 +1407,7 @@
 .cam-admin.is-dossier-workflow .cam-dossier-queue-search-field label {
   display: block;
   margin: 0 0 6px;
-  color: #33465d;
+  color: var(--cam-console-navy-57);
   font-size: 13px;
   font-weight: 600;
 }
@@ -1415,7 +1415,7 @@
 .cam-admin.is-dossier-workflow .cam-dossier-queue-search-field input {
   width: 100%;
   height: 44px;
-  border-color: #cbd5df;
+  border-color: var(--cam-console-navy-30);
   font-size: 15px;
 }
 
@@ -1423,8 +1423,8 @@
   min-height: 44px;
   order: 3;
   gap: 9px;
-  border-color: #b8c6d5;
-  color: #173b5b;
+  border-color: var(--cam-console-navy-35);
+  color: var(--cam-console-navy-60);
   font-weight: 650;
 }
 
@@ -1448,8 +1448,8 @@
   min-height: 40px;
   order: 4;
   gap: 7px;
-  border-color: #b8c6d5;
-  color: #173b5b;
+  border-color: var(--cam-console-navy-35);
+  color: var(--cam-console-navy-60);
   font-weight: 600;
 }
 
@@ -1460,8 +1460,8 @@
   place-items: center;
   padding-inline: 5px;
   border-radius: 11px;
-  background: #e4f1ed;
-  color: #12604c;
+  background: var(--cam-console-teal-01);
+  color: var(--cam-console-teal-07);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -1483,10 +1483,10 @@
   align-items: center;
   gap: 7px;
   padding: 5px 11px;
-  border: 1px solid #cbd5df;
+  border: 1px solid var(--cam-console-navy-30);
   border-radius: 999px;
-  background: #fff;
-  color: #405873;
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-51);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -1494,22 +1494,22 @@
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-quick-filter:hover {
-  border-color: #8fa3b8;
-  background: #f7f9fb;
+  border-color: var(--cam-console-navy-42);
+  background: var(--cam-console-navy-02);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-quick-filter[aria-pressed="true"] {
-  border-color: #1769e0;
-  background: #edf4ff;
-  color: #164f9f;
+  border-color: var(--cam-console-navy-44);
+  background: var(--cam-console-navy-10);
+  color: var(--cam-console-navy-50);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-quick-filter span {
   min-width: 19px;
   padding-inline: 4px;
   border-radius: 10px;
-  background: #e8eef4;
-  color: #334d66;
+  background: var(--cam-console-navy-18);
+  color: var(--cam-console-navy-55);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -1517,14 +1517,14 @@
 
 .cam-admin.is-dossier-workflow .cam-dossier-quick-filter:focus-visible,
 .cam-dossier-filter-trigger:focus-visible {
-  outline: 3px solid #1769e0;
+  outline: 3px solid var(--cam-console-navy-44);
   outline-offset: 2px;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-quick-filter-separator {
   height: 20px;
   margin-inline: 3px;
-  border-inline-start: 1px solid #d8e0e8;
+  border-inline-start: 1px solid var(--cam-console-navy-23);
 }
 
 /* The full filter set is an administrative sidebar that runs alongside the
@@ -1739,10 +1739,10 @@
   justify-content: center;
   gap: 9px;
   padding: 0 12px;
-  border: 1px solid var(--cam-border-strong, #cbd5e1);
+  border: 1px solid var(--cam-border-strong);
   border-radius: 6px;
-  background: var(--cam-surface, #fff);
-  color: var(--cam-text, #26384d);
+  background: var(--cam-surface);
+  color: var(--cam-text);
   cursor: pointer;
   font-size: 14px;
   font-weight: 650;
@@ -1756,19 +1756,19 @@
 }
 
 .cam-admin .cam-admin-filter-disclosure > summary:hover {
-  border-color: var(--cam-brand, #0b827a);
-  background: var(--cam-surface-subtle, #f3f8f8);
+  border-color: var(--cam-brand);
+  background: var(--cam-surface-subtle);
 }
 
 .cam-admin .cam-admin-filter-disclosure > summary:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--cam-brand, #0b827a) 28%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--cam-brand) 28%, transparent);
   outline-offset: 2px;
 }
 
 .cam-admin .cam-admin-filter-disclosure[open] > summary {
-  border-color: var(--cam-brand, #0b827a);
-  background: var(--cam-surface-subtle, #f3f8f8);
-  color: var(--cam-brand-strong, #086f68);
+  border-color: var(--cam-brand);
+  background: var(--cam-surface-subtle);
+  color: var(--cam-brand-strong);
 }
 
 .cam-admin .cam-admin-filter-disclosure-chevron {
@@ -1789,9 +1789,9 @@
   min-width: 0;
   margin-top: 10px;
   padding: 14px;
-  border: 1px solid var(--cam-border, #dce3eb);
+  border: 1px solid var(--cam-border);
   border-radius: 6px;
-  background: var(--cam-surface-subtle, #f8fafc);
+  background: var(--cam-surface-subtle);
 }
 
 .cam-admin .cam-admin-filter-disclosure-panel > * {
@@ -1802,7 +1802,7 @@
 .cam-admin .cam-admin-filter-disclosure-panel [data-slot="label"] {
   display: block;
   margin-bottom: 6px;
-  color: var(--cam-text, #26384d);
+  color: var(--cam-text);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.3;
@@ -1816,10 +1816,10 @@
   width: 100%;
   min-height: var(--cam-form-field-height, 40px);
   padding: 8px 12px;
-  border: 1px solid var(--cam-border-strong, #cbd5e1);
+  border: 1px solid var(--cam-border-strong);
   border-radius: 6px;
-  background-color: var(--cam-surface, #fff);
-  color: var(--cam-text, #26384d);
+  background-color: var(--cam-surface);
+  color: var(--cam-text);
   font-size: 14px;
 }
 
@@ -3443,7 +3443,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 .cam-dash-donut-number {
   font-size: var(--cam-font-size-2xl);
   font-weight: var(--cam-font-weight-bold);
-  font-family: var(--cam-font-display, inherit);
+  font-family: inherit;
 }
 
 .cam-dash-donut-sub {
@@ -5668,8 +5668,8 @@ a.cam-dash-review-row:hover {
     --cam-side-rail-width: 205px;
     grid-template-columns: 205px minmax(0, 1fr);
     grid-template-rows: 58px minmax(0, 1fr);
-    background: #f3f6fa;
-    color: #172b43;
+    background: var(--cam-console-navy-04);
+    color: var(--cam-console-navy-62);
     font-family: "Segoe UI", Arial, sans-serif;
     font-size: 13px;
     line-height: 1.45;
@@ -5684,7 +5684,7 @@ a.cam-dash-review-row:hover {
     height: calc(100vh - 58px);
     padding: 18px 9px;
     gap: 16px;
-    background: linear-gradient(#102b46, #0c2239);
+    background: linear-gradient(var(--cam-console-navy-63), var(--cam-console-navy-65));
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-rail-brand {
@@ -5709,8 +5709,8 @@ a.cam-dash-review-row:hover {
     max-width: none;
     height: 58px;
     padding: 0 24px;
-    background: #fff;
-    border-bottom: 1px solid #dce5ee;
+    background: var(--cam-surface);
+    border-bottom: 1px solid var(--cam-console-navy-22);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand {
@@ -5721,7 +5721,7 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand-name {
-    color: #102b46;
+    color: var(--cam-console-navy-63);
     font-size: 22px;
     font-weight: 800;
     letter-spacing: -0.03em;
@@ -5729,13 +5729,13 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand-name > span {
-    color: #00766c;
+    color: var(--cam-primary);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand-subtitle {
     padding-left: 12px;
-    border-left: 1px solid #dce5ee;
-    color: #64758b;
+    border-left: 1px solid var(--cam-console-navy-22);
+    color: var(--cam-console-navy-45);
     font-size: 10px;
     line-height: 1.35;
   }
@@ -5744,12 +5744,12 @@ a.cam-dash-review-row:hover {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #64758b;
+    color: var(--cam-console-navy-45);
     white-space: nowrap;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-initials {
-    color: #102b46;
+    color: var(--cam-console-navy-63);
     font-weight: 700;
   }
 
@@ -5760,7 +5760,7 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-copy strong {
-    color: #405873;
+    color: var(--cam-console-navy-51);
     font-weight: 650;
   }
 
@@ -5771,8 +5771,8 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-rail-hub[aria-current="page"] {
-    background: #1769e0;
-    color: #fff;
+    background: var(--cam-console-navy-44);
+    color: var(--cam-white);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-rail-hub:hover:not([aria-current="page"]) {
@@ -5811,7 +5811,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-page-header .cam-admin-page-title,
 .cam-admin.is-dossier-workflow .cam-admin-page-title {
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 21px;
   font-weight: 700;
   letter-spacing: 0;
@@ -5820,7 +5820,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-admin-page-subtitle {
   margin-top: 4px;
-  color: #64758b;
+  color: var(--cam-console-navy-45);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -5830,7 +5830,7 @@ a.cam-dash-review-row:hover {
   gap: 0;
   margin: 10px 0 -1px;
   padding: 0;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab {
@@ -5839,18 +5839,18 @@ a.cam-dash-review-row:hover {
   border-bottom: 3px solid transparent;
   border-radius: 0;
   background: transparent;
-  color: #405873;
+  color: var(--cam-console-navy-51);
   font-size: 13px;
   font-weight: 650;
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab:hover {
-  color: #1769e0;
+  color: var(--cam-console-navy-44);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab[aria-current="page"] {
-  border-bottom-color: #1769e0;
-  color: #1769e0;
+  border-bottom-color: var(--cam-console-navy-44);
+  color: var(--cam-console-navy-44);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab-count {
@@ -5867,14 +5867,14 @@ a.cam-dash-review-row:hover {
   display: block;
   min-width: 300px;
   padding: 8px 9px;
-  border: 1px solid #c9d9ed;
+  border: 1px solid var(--cam-console-navy-27);
   border-radius: 6px;
-  background: #fff;
+  background: var(--cam-surface);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-campaign > span {
   display: block;
-  color: #64758b;
+  color: var(--cam-console-navy-45);
   font-size: 12px;
   line-height: 1.35;
 }
@@ -5884,8 +5884,8 @@ a.cam-dash-review-row:hover {
   min-height: 22px;
   padding: 0;
   border: 0;
-  background: #fff;
-  color: #102b46;
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-63);
   font-size: 13px;
   font-weight: 650;
 }
@@ -5896,14 +5896,14 @@ a.cam-dash-review-row:hover {
   justify-content: space-between;
   min-height: 46px;
   padding: 10px 12px;
-  border: 1px solid #dce5ee;
+  border: 1px solid var(--cam-console-navy-22);
   border-radius: 7px 7px 0 0;
-  background: #fff;
+  background: var(--cam-surface);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-section-heading h2 {
   margin: 0;
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 14px;
   font-weight: 700;
 }
@@ -5913,10 +5913,10 @@ a.cam-dash-review-row:hover {
   margin-top: -11px;
   padding: 0;
   overflow: hidden;
-  border: 1px solid #dce5ee;
+  border: 1px solid var(--cam-console-navy-22);
   border-top: 0;
   border-radius: 0 0 7px 7px;
-  background: #fff;
+  background: var(--cam-surface);
   box-shadow: none;
 }
 
@@ -5927,16 +5927,16 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-coverage-table .cam-dash-table {
   width: 100%;
   border-collapse: collapse;
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 11px;
   white-space: nowrap;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-coverage-table .cam-dash-table th {
   padding: 9px;
-  border-bottom: 1px solid #dce5ee;
-  background: #f5f8fb;
-  color: #415773;
+  border-bottom: 1px solid var(--cam-console-navy-22);
+  background: var(--cam-console-navy-06);
+  color: var(--cam-console-navy-52);
   font-size: 10px;
   font-weight: 650;
   text-align: left;
@@ -5944,11 +5944,11 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-coverage-table .cam-dash-table td {
   padding: 9px;
-  border-bottom: 1px solid #e8eef4;
+  border-bottom: 1px solid var(--cam-console-navy-18);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-coverage-table .cam-dash-table tr:hover {
-  background: #fbfdff;
+  background: var(--cam-console-navy-01);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table table,
@@ -6065,8 +6065,8 @@ a.cam-dash-review-row:hover {
   min-width: 0;
   min-height: 70px;
   padding: 12px;
-  background: #fff;
-  border: 1px solid #dce5ee;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-console-navy-22);
   border-radius: 7px;
 }
 
@@ -6077,8 +6077,8 @@ a.cam-dash-review-row:hover {
   height: 34px;
   place-items: center;
   border-radius: 50%;
-  background: #eaf2ff;
-  color: #1769e0;
+  background: var(--cam-console-navy-09);
+  color: var(--cam-console-navy-44);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-kpi > div {
@@ -6087,30 +6087,30 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-kpi > div > span {
-  color: #64758b;
+  color: var(--cam-console-navy-45);
   font-size: 10px;
   line-height: 1.3;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-kpi strong {
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 21px;
   font-weight: 700;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-kpi--green strong { color: #087f5b; }
-.cam-admin.is-dossier-workflow .cam-dossier-kpi--red strong { color: #bd2636; }
-.cam-admin.is-dossier-workflow .cam-dossier-kpi--amber strong { color: #a65d00; }
+.cam-admin.is-dossier-workflow .cam-dossier-kpi--green strong { color: var(--cam-console-teal-05); }
+.cam-admin.is-dossier-workflow .cam-dossier-kpi--red strong { color: var(--cam-console-red-05); }
+.cam-admin.is-dossier-workflow .cam-dossier-kpi--amber strong { color: var(--cam-console-amber-09); }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-card {
   display: block;
   gap: 0;
   padding: 0;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid #dce5ee;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-console-navy-22);
   border-radius: 7px;
   box-shadow: none;
 }
@@ -6122,19 +6122,19 @@ a.cam-dash-review-row:hover {
   gap: 10px;
   min-height: 52px;
   padding: 8px 12px;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-card-heading h2 {
   margin: 0;
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 14px;
   font-weight: 700;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters {
   padding: 10px 12px !important;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters > .grid {
@@ -6152,10 +6152,10 @@ a.cam-dash-review-row:hover {
   height: 36px;
   min-width: 0;
   padding: 7px 9px;
-  border-color: #dce5ee;
+  border-color: var(--cam-console-navy-22);
   border-radius: 5px;
-  background: #fff;
-  color: #405873;
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-51);
   font-size: 11px;
 }
 
@@ -6167,9 +6167,9 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-clear button {
   height: 36px;
   padding-inline: 10px;
-  border-color: #dce5ee;
+  border-color: var(--cam-console-navy-22);
   border-radius: 5px;
-  color: #405873;
+  color: var(--cam-console-navy-51);
   font-size: 11px;
 }
 
@@ -6188,20 +6188,20 @@ a.cam-dash-review-row:hover {
   min-width: 1101px;
   table-layout: fixed;
   border-collapse: collapse;
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 11px;
   line-height: 1.35;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead {
-  background: #f5f8fb;
-  color: #415773;
+  background: var(--cam-console-navy-06);
+  color: var(--cam-console-navy-52);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th {
   height: auto;
   padding: 8px 9px;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
   font-size: 10px;
   font-weight: 650;
   line-height: 1.3;
@@ -6231,14 +6231,14 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td {
   padding: 9px;
-  border-bottom: 1px solid #e8eef4;
+  border-bottom: 1px solid var(--cam-console-navy-18);
   vertical-align: top;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody tr:hover {
-  background: #fbfdff;
+  background: var(--cam-console-navy-01);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:nth-child(6) [data-slot="badge"] {
@@ -6275,8 +6275,8 @@ a.cam-dash-review-row:hover {
   gap: 0;
   padding: 0;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid #dce5ee;
+  background: var(--cam-surface);
+  border: 1px solid var(--cam-console-navy-22);
   border-radius: 7px;
   box-shadow: none;
 }
@@ -6288,29 +6288,29 @@ a.cam-dash-review-row:hover {
   gap: 10px;
   min-height: 52px;
   padding: 8px 12px;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-heading h2 {
   margin: 0;
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 14px;
   font-weight: 700;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-archive-filter {
   padding: 8px 12px !important;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-archive-filter label {
-  color: #52677f;
+  color: var(--cam-console-navy-49);
   font-size: 11px;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-filters {
   padding: 10px 12px !important;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-filters > .grid {
@@ -6334,7 +6334,7 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-filters label {
-  color: #52677f;
+  color: var(--cam-console-navy-49);
   font-size: 11px;
 }
 
@@ -6343,10 +6343,10 @@ a.cam-dash-review-row:hover {
   height: 36px;
   min-width: 0;
   padding: 7px 9px;
-  border-color: #dce5ee;
+  border-color: var(--cam-console-navy-22);
   border-radius: 5px;
-  background: #fff;
-  color: #405873;
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-51);
   font-size: 11px;
 }
 
@@ -6365,20 +6365,20 @@ a.cam-dash-review-row:hover {
   min-width: 1100px;
   table-layout: fixed;
   border-collapse: collapse;
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 11px;
   line-height: 1.35;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table thead {
-  background: #f5f8fb;
-  color: #415773;
+  background: var(--cam-console-navy-06);
+  color: var(--cam-console-navy-52);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table thead th {
   height: auto;
   padding: 8px 9px;
-  border-bottom: 1px solid #dce5ee;
+  border-bottom: 1px solid var(--cam-console-navy-22);
   font-size: 10px;
   font-weight: 650;
   line-height: 1.3;
@@ -6395,14 +6395,14 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table tbody td {
   padding: 9px;
-  border-bottom: 1px solid #e8eef4;
+  border-bottom: 1px solid var(--cam-console-navy-18);
   vertical-align: top;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table tbody tr:hover {
-  background: #fbfdff;
+  background: var(--cam-console-navy-01);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table tbody td:nth-child(1) {
@@ -6432,8 +6432,8 @@ a.cam-dash-review-row:hover {
     align-items: center;
     gap: 10px;
     padding: 0 12px;
-    background: #fff;
-    border-bottom: 1px solid #dce5ee;
+    background: var(--cam-surface);
+    border-bottom: 1px solid var(--cam-console-navy-22);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand {
@@ -6598,7 +6598,7 @@ a.cam-dash-review-row:hover {
   max-height: none;
   margin: 0;
   overflow: hidden;
-  border: 1px solid #dce5ee;
+  border: 1px solid var(--cam-console-navy-22);
   border-radius: 7px;
   box-shadow: none;
   animation: none;
@@ -6771,7 +6771,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-coverage-filters label {
   display: grid;
   gap: 5px;
-  color: #405873;
+  color: var(--cam-console-navy-51);
   font-size: 13px;
   font-weight: 600;
 }
@@ -6812,9 +6812,9 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin-panel-surface[data-slot="card"] {
-  border: 1px solid var(--cam-border, #dce3eb);
+  border: 1px solid var(--cam-border);
   border-radius: 7px;
-  background: var(--cam-surface, #fff);
+  background: var(--cam-surface);
   box-shadow: none;
 }
 
@@ -6824,9 +6824,9 @@ a.cam-dash-review-row:hover {
   gap: 0;
   overflow: hidden;
   padding: 0;
-  border-color: var(--cam-border, #dce3eb);
+  border-color: var(--cam-border);
   border-radius: 7px;
-  background: var(--cam-surface, #fff);
+  background: var(--cam-surface);
   box-shadow: none;
 }
 
@@ -6838,7 +6838,7 @@ a.cam-dash-review-row:hover {
   justify-content: space-between;
   gap: 8px 16px;
   padding: 12px;
-  border-bottom: 1px solid var(--cam-border, #dce3eb);
+  border-bottom: 1px solid var(--cam-border);
 }
 
 .cam-admin-table-panel-heading {
@@ -6849,7 +6849,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin-table-panel-title {
   margin: 0;
-  color: var(--cam-text, #1c3552);
+  color: var(--cam-text);
   font-size: 16px;
   font-weight: 700;
   line-height: 1.35;
@@ -6858,7 +6858,7 @@ a.cam-dash-review-row:hover {
 .cam-admin-table-panel-description,
 .cam-admin-table-panel-meta {
   margin: 0;
-  color: var(--cam-text-muted, #687b90);
+  color: var(--cam-text-muted);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -6872,8 +6872,8 @@ a.cam-dash-review-row:hover {
 
 .cam-admin-table-panel-toolbar {
   padding: 12px;
-  border-bottom: 1px solid var(--cam-border, #dce3eb);
-  background: var(--cam-surface-subtle, #f8fafc);
+  border-bottom: 1px solid var(--cam-border);
+  background: var(--cam-surface-subtle);
 }
 
 .cam-admin-table-panel-toolbar .cam-admin-filters {
@@ -6923,7 +6923,7 @@ a.cam-dash-review-row:hover {
   width: 100%;
   min-width: var(--cam-admin-table-min-width, 640px);
   border-collapse: collapse;
-  color: var(--cam-admin-table-text, #243b53);
+  color: var(--cam-admin-table-text, var(--cam-console-navy-59));
   font-family: var(--cam-admin-table-font-family, "Segoe UI", Arial, sans-serif);
   font-size: var(--cam-admin-table-font-size, 15px);
   line-height: 1.45;
@@ -6942,8 +6942,8 @@ a.cam-dash-review-row:hover {
 .cam-admin-table-panel .cam-admin-data-table thead,
 .cam-admin-table-panel .cam-table thead,
 .cam-admin-table-panel [data-slot="table"] thead {
-  background: var(--cam-admin-table-header-bg, #f5f8fb);
-  color: var(--cam-admin-table-header-text, #415773);
+  background: var(--cam-admin-table-header-bg, var(--cam-console-navy-06));
+  color: var(--cam-admin-table-header-text, var(--cam-console-navy-52));
 }
 
 .cam-admin-table-panel .cam-admin-data-table th,
@@ -6951,9 +6951,9 @@ a.cam-dash-review-row:hover {
 .cam-admin-table-panel [data-slot="table"] th {
   height: auto;
   padding: var(--cam-admin-table-cell-y, 10px) var(--cam-admin-table-cell-x, 10px);
-  border-bottom: 1px solid var(--cam-border, #dce3eb);
-  background: var(--cam-admin-table-header-bg, #f5f8fb);
-  color: var(--cam-admin-table-header-text, #415773);
+  border-bottom: 1px solid var(--cam-border);
+  background: var(--cam-admin-table-header-bg, var(--cam-console-navy-06));
+  color: var(--cam-admin-table-header-text, var(--cam-console-navy-52));
   font-family: var(--cam-admin-table-font-family, "Segoe UI", Arial, sans-serif);
   font-size: var(--cam-admin-table-heading-size, 14px);
   font-weight: 700;
@@ -6966,8 +6966,8 @@ a.cam-dash-review-row:hover {
 .cam-admin-table-panel .cam-table td,
 .cam-admin-table-panel [data-slot="table"] td {
   padding: var(--cam-admin-table-cell-y, 10px) var(--cam-admin-table-cell-x, 10px);
-  border-bottom: 1px solid var(--cam-admin-table-border, #e8eef4);
-  color: var(--cam-admin-table-text, #243b53);
+  border-bottom: 1px solid var(--cam-admin-table-border, var(--cam-console-navy-18));
+  color: var(--cam-admin-table-text, var(--cam-console-navy-59));
   font-family: var(--cam-admin-table-font-family, "Segoe UI", Arial, sans-serif);
   font-size: var(--cam-admin-table-font-size, 15px);
   line-height: 1.45;
@@ -6977,7 +6977,7 @@ a.cam-dash-review-row:hover {
 .cam-admin-table-panel .cam-admin-data-table tbody tr:hover,
 .cam-admin-table-panel .cam-table tbody tr:hover,
 .cam-admin-table-panel [data-slot="table"] tbody tr:hover {
-  background: var(--cam-admin-table-hover, #fbfdff);
+  background: var(--cam-admin-table-hover, var(--cam-console-navy-01));
 }
 
 .cam-admin-table-panel .cam-admin-data-table tbody tr:last-child > *,
@@ -6993,8 +6993,8 @@ a.cam-dash-review-row:hover {
   justify-content: space-between;
   gap: 8px 12px;
   padding: 10px 12px;
-  border-top: 1px solid var(--cam-border, #dce3eb);
-  color: var(--cam-text-muted, #687b90);
+  border-top: 1px solid var(--cam-border);
+  color: var(--cam-text-muted);
   font-size: 13px;
 }
 
@@ -7019,11 +7019,11 @@ a.cam-dash-review-row:hover {
   --cam-admin-table-font-family: var(--cam-font-sans, "Segoe UI", Arial, sans-serif);
   --cam-admin-table-font-size: 15px;
   --cam-admin-table-heading-size: 14px;
-  --cam-admin-table-header-bg: #f5f8fb;
-  --cam-admin-table-header-text: #415773;
-  --cam-admin-table-text: #243b53;
-  --cam-admin-table-border: #e8eef4;
-  --cam-admin-table-hover: #fbfdff;
+  --cam-admin-table-header-bg: var(--cam-console-navy-06);
+  --cam-admin-table-header-text: var(--cam-console-navy-52);
+  --cam-admin-table-text: var(--cam-console-navy-59);
+  --cam-admin-table-border: var(--cam-console-navy-18);
+  --cam-admin-table-hover: var(--cam-console-navy-01);
   --cam-admin-table-cell-x: 11px;
   --cam-admin-table-cell-y: 10px;
 }
@@ -7043,7 +7043,7 @@ a.cam-dash-review-row:hover {
 .cam-admin .cam-dash-table thead th,
 .cam-admin [data-slot="table-header"] [data-slot="table-head"] {
   padding: var(--cam-admin-table-cell-y) var(--cam-admin-table-cell-x);
-  border-bottom: 1px solid var(--cam-border, #dce3eb);
+  border-bottom: 1px solid var(--cam-border);
   background: var(--cam-admin-table-header-bg);
   color: var(--cam-admin-table-header-text);
   font-family: var(--cam-admin-table-font-family);
@@ -7128,9 +7128,9 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin .coverage-summary-card {
-  border: 1px solid var(--cam-border, #dce3eb);
+  border: 1px solid var(--cam-border);
   border-radius: 7px;
-  background: var(--cam-surface, #fff);
+  background: var(--cam-surface);
   box-shadow: none;
 }
 
@@ -7220,7 +7220,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-main-coverage-filters label {
   display: block;
   margin: 0 0 6px;
-  color: #33465d;
+  color: var(--cam-console-navy-57);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
@@ -7300,8 +7300,8 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin .cam-admin-filter-disclosure-panel {
-  border-color: #b9c7d6;
-  background: #f6f8fb;
+  border-color: var(--cam-console-navy-36);
+  background: var(--cam-console-navy-08);
   box-shadow: inset 0 1px 2px rgb(25 42 62 / 3%);
 }
 
@@ -7320,7 +7320,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-clear button {
   height: 40px;
-  border-color: #b9c7d6;
+  border-color: var(--cam-console-navy-36);
   font-size: 14px;
 }
 
@@ -7455,16 +7455,16 @@ a.cam-dash-review-row:hover {
   width: 100%;
   min-width: 1540px;
   table-layout: auto;
-  color: #172b43;
+  color: var(--cam-console-navy-62);
   font-size: 15px;
   line-height: 1.45;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-dash-table thead th {
   padding: 10px;
-  border-bottom: 1px solid #dce5ee;
-  background: #f5f8fb;
-  color: #415773;
+  border-bottom: 1px solid var(--cam-console-navy-22);
+  background: var(--cam-console-navy-06);
+  color: var(--cam-console-navy-52);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
@@ -7474,12 +7474,12 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-dash-table tbody th,
 .cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-dash-table tbody td {
   padding: 9px 10px;
-  border-bottom: 1px solid #e8eef4;
+  border-bottom: 1px solid var(--cam-console-navy-18);
   vertical-align: middle;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-dash-table tbody tr:hover {
-  background: #fbfdff;
+  background: var(--cam-console-navy-01);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-dash-table tbody th:first-child {
@@ -7548,7 +7548,7 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-followup-contact > span {
-  color: #415773;
+  color: var(--cam-console-navy-52);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -7564,10 +7564,10 @@ a.cam-dash-review-row:hover {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 6px 7px 0;
-  border: 1px solid #c9d5e2;
-  border-bottom-color: #b8c6d5;
+  border: 1px solid var(--cam-console-navy-29);
+  border-bottom-color: var(--cam-console-navy-35);
   border-radius: 8px 8px 0 0;
-  background: #eef3f8;
+  background: var(--cam-console-navy-16);
   scrollbar-width: thin;
 }
 
@@ -7587,7 +7587,7 @@ a.cam-dash-review-row:hover {
   border-bottom: 3px solid transparent;
   border-radius: 6px 6px 0 0;
   background: transparent;
-  color: #334d66;
+  color: var(--cam-console-navy-55);
   font-size: 14px;
   font-weight: 650;
   letter-spacing: 0.005em;
@@ -7597,18 +7597,18 @@ a.cam-dash-review-row:hover {
 
 .cam-registration-hub-page > .cam-admin-tabs .cam-admin-tab:hover,
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab:hover {
-  border-bottom-color: #91a5b9;
-  background: #f8fafc;
-  color: #173b5b;
+  border-bottom-color: var(--cam-console-navy-41);
+  background: var(--cam-bg);
+  color: var(--cam-console-navy-60);
 }
 
 .cam-registration-hub-page > .cam-admin-tabs .cam-admin-tab[aria-current="page"],
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab[aria-current="page"] {
-  border-color: #c9d5e2;
-  border-bottom-color: #fff;
-  background: #fff;
-  box-shadow: inset 0 3px 0 #14745b;
-  color: #173b5b;
+  border-color: var(--cam-console-navy-29);
+  border-bottom-color: var(--cam-white);
+  background: var(--cam-surface);
+  box-shadow: inset 0 3px 0 var(--cam-console-teal-04);
+  color: var(--cam-console-navy-60);
   font-weight: 700;
 }
 
@@ -7616,7 +7616,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab:focus-visible {
   position: relative;
   z-index: 1;
-  outline: 3px solid #173b5b;
+  outline: 3px solid var(--cam-console-navy-60);
   outline-offset: 2px;
 }
 
@@ -7626,16 +7626,16 @@ a.cam-dash-review-row:hover {
   height: 21px;
   padding-inline: 6px;
   border-radius: 11px;
-  background: #e2eaf2;
-  color: #334d66;
+  background: var(--cam-console-navy-20);
+  color: var(--cam-console-navy-55);
   font-size: 11px;
   line-height: 21px;
 }
 
 .cam-registration-hub-page > .cam-admin-tabs .cam-admin-tab[aria-current="page"] .cam-admin-tab-count,
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab[aria-current="page"] .cam-admin-tab-count {
-  background: #e4f1ed;
-  color: #12604c;
+  background: var(--cam-console-teal-01);
+  color: var(--cam-console-teal-07);
 }
 
 .cam-registration-status-summary {
@@ -7643,10 +7643,10 @@ a.cam-dash-review-row:hover {
   gap: 8px;
   margin: 0 0 14px;
   padding: 11px 14px 9px;
-  border: 1px solid #d5dee8;
-  border-inline-start: 3px solid #14745b;
+  border: 1px solid var(--cam-console-navy-26);
+  border-inline-start: 3px solid var(--cam-console-teal-04);
   border-radius: 6px;
-  background: #f7f9fb;
+  background: var(--cam-console-navy-02);
 }
 
 .cam-registration-status-summary .cam-registration-status-head {
@@ -7655,13 +7655,13 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-registration-status-summary .cam-registration-status-head h2 {
-  color: #173b5b;
+  color: var(--cam-console-navy-60);
   font-size: 13px;
 }
 
 .cam-registration-status-summary .cam-registration-status-head span,
 .cam-registration-status-summary .cam-admin-help-text {
-  color: #586d82;
+  color: var(--cam-console-navy-48);
   font-size: 11px;
 }
 
@@ -7684,7 +7684,7 @@ a.cam-dash-review-row:hover {
 
 .cam-registration-status-summary .cam-registration-status-list strong {
   margin-inline-start: 2px;
-  color: #173b5b;
+  color: var(--cam-console-navy-60);
   font-size: 14px;
 }
 
@@ -7695,15 +7695,15 @@ a.cam-dash-review-row:hover {
 .cam-registration-status-summary .cam-registration-overdue-summary {
   margin: 0;
   padding-top: 7px;
-  border-top: 1px solid #d5dee8;
+  border-top: 1px solid var(--cam-console-navy-26);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary {
   display: grid;
   gap: 6px;
   padding: 9px 14px 8px;
-  border-bottom: 1px solid #dce5ee;
-  background: #f7f9fb;
+  border-bottom: 1px solid var(--cam-console-navy-22);
+  background: var(--cam-console-navy-02);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary ul {
@@ -7719,17 +7719,17 @@ a.cam-dash-review-row:hover {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #405873;
+  color: var(--cam-console-navy-51);
   font-size: 12px;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary li strong {
   min-width: 24px;
   padding: 2px 6px;
-  border: 1px solid #d4dee8;
+  border: 1px solid var(--cam-console-navy-25);
   border-radius: 4px;
-  background: #fff;
-  color: #173b5b;
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-60);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -7737,7 +7737,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary p {
   margin: 0;
-  color: #64758b;
+  color: var(--cam-console-navy-45);
   font-size: 11px;
   line-height: 1.4;
 }
@@ -7770,7 +7770,7 @@ a.cam-dash-review-row:hover {
 
 /* CAMLEAP declarations: formal, readable review workspace. */
 .cam-admin.is-dossier-workflow .cam-admin-page-title {
-  color: #16324f;
+  color: var(--cam-console-navy-61);
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.015em;
@@ -7779,7 +7779,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-admin-page-subtitle {
   margin-top: 6px;
-  color: #667085;
+  color: var(--cam-console-navy-46);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -7798,16 +7798,16 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-campaign > span {
   margin-bottom: 6px;
-  color: #475467;
+  color: var(--cam-console-navy-53);
   font-size: 12px;
   font-weight: 650;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-campaign .cam-admin-input {
   min-height: 40px;
-  border-color: #d8e0e8;
-  background: #fff;
-  color: #1d2939;
+  border-color: var(--cam-console-navy-23);
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-64);
 }
 
 /* One prominent, keyboard-operable navigation row for the three workflows. */
@@ -7816,10 +7816,10 @@ a.cam-dash-review-row:hover {
   gap: 6px;
   margin: 16px 0 0;
   padding: 5px 7px 0;
-  border: 1px solid #d8e0e8;
-  border-bottom-color: #c7d1dc;
+  border: 1px solid var(--cam-console-navy-23);
+  border-bottom-color: var(--cam-console-navy-34);
   border-radius: 8px 8px 0 0;
-  background: #f3f6f9;
+  background: var(--cam-console-navy-12);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab {
@@ -7834,7 +7834,7 @@ a.cam-dash-review-row:hover {
   border-bottom: 4px solid transparent;
   border-radius: 6px 6px 0 0;
   background: transparent;
-  color: #344054;
+  color: var(--cam-console-navy-58);
   font-size: 15px;
   font-weight: 650;
   line-height: 1.25;
@@ -7842,22 +7842,22 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab:hover {
-  border-bottom-color: #98a9ba;
-  background: #f9fbfc;
-  color: #16324f;
+  border-bottom-color: var(--cam-console-navy-40);
+  background: var(--cam-console-navy-03);
+  color: var(--cam-console-navy-61);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab[aria-current="page"] {
-  border-color: #d8e0e8;
-  border-bottom-color: #16324f;
-  background: #fff;
+  border-color: var(--cam-console-navy-23);
+  border-bottom-color: var(--cam-console-navy-61);
+  background: var(--cam-surface);
   box-shadow: none;
-  color: #16324f;
+  color: var(--cam-console-navy-61);
   font-weight: 700;
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab:focus-visible {
-  outline: 3px solid #16324f;
+  outline: 3px solid var(--cam-console-navy-61);
   outline-offset: 2px;
 }
 
@@ -7865,10 +7865,10 @@ a.cam-dash-review-row:hover {
   min-width: 24px;
   height: 24px;
   padding-inline: 7px;
-  border: 1px solid #cdd7e1;
+  border: 1px solid var(--cam-console-navy-31);
   border-radius: 4px;
-  background: #eef2f6;
-  color: #344054;
+  background: var(--cam-border-soft);
+  color: var(--cam-console-navy-58);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -7876,9 +7876,9 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab[aria-current="page"] .cam-admin-tab-count {
-  border-color: #b8d8cd;
-  background: #e5f2ed;
-  color: #075b45;
+  border-color: var(--cam-console-teal-03);
+  background: var(--cam-console-teal-02);
+  color: var(--cam-console-teal-08);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
@@ -7887,21 +7887,21 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-card {
   overflow: hidden;
-  border: 1px solid #d8e0e8;
+  border: 1px solid var(--cam-console-navy-23);
   border-radius: 0 0 8px 8px;
-  background: #fff;
+  background: var(--cam-surface);
   box-shadow: 0 2px 6px rgb(16 24 40 / 4%);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-card-heading {
   min-height: 64px;
   padding: 12px 20px;
-  border-bottom: 1px solid #d8e0e8;
-  background: #fff;
+  border-bottom: 1px solid var(--cam-console-navy-23);
+  background: var(--cam-surface);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-card-heading h2 {
-  color: #16324f;
+  color: var(--cam-console-navy-61);
   font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
@@ -7909,8 +7909,8 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-card-heading [data-slot="button"] {
   min-height: 38px;
-  border-color: #aab8c6;
-  color: #16324f;
+  border-color: var(--cam-console-navy-39);
+  color: var(--cam-console-navy-61);
   font-size: 13px;
   font-weight: 650;
 }
@@ -7918,8 +7918,8 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary {
   gap: 8px;
   padding: 12px 20px 11px;
-  border-bottom: 1px solid #d8e0e8;
-  background: #f3f6f9;
+  border-bottom: 1px solid var(--cam-console-navy-23);
+  background: var(--cam-console-navy-12);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary ul {
@@ -7930,8 +7930,8 @@ a.cam-dash-review-row:hover {
   min-height: 32px;
   gap: 12px;
   padding: 2px 22px;
-  border-inline-end: 1px solid #d8e0e8;
-  color: #344054;
+  border-inline-end: 1px solid var(--cam-console-navy-23);
+  color: var(--cam-console-navy-58);
   font-size: 14px;
 }
 
@@ -7948,7 +7948,7 @@ a.cam-dash-review-row:hover {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #16324f;
+  color: var(--cam-console-navy-61);
   font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -7956,7 +7956,7 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary p {
-  color: #667085;
+  color: var(--cam-console-navy-46);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -7974,9 +7974,9 @@ a.cam-dash-review-row:hover {
   max-height: min(42vh, 300px);
   overflow-y: auto;
   padding: 12px 16px;
-  border: 1px solid #cbd5df;
+  border: 1px solid var(--cam-console-navy-30);
   border-radius: 8px;
-  background: #fff;
+  background: var(--cam-surface);
   box-shadow: 0 10px 30px rgb(16 43 70 / 18%);
 }
 
@@ -7993,12 +7993,12 @@ a.cam-dash-review-row:hover {
   height: 34px;
   min-width: 34px;
   padding: 0;
-  color: #1769e0;
+  color: var(--cam-console-navy-44);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-open-action:hover {
-  border-color: #8fb4e8;
-  background: #edf4ff;
+  border-color: var(--cam-console-navy-37);
+  background: var(--cam-console-navy-10);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-open-action svg {
@@ -8008,8 +8008,8 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters {
   padding: 18px 20px 16px !important;
-  border-bottom: 1px solid #d8e0e8;
-  background: #fff;
+  border-bottom: 1px solid var(--cam-console-navy-23);
+  background: var(--cam-surface);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters > .grid {
@@ -8019,7 +8019,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters [data-slot="label"] {
   display: block;
   margin-bottom: 6px;
-  color: #475467;
+  color: var(--cam-console-navy-53);
   font-size: 12px;
   font-weight: 650;
   line-height: 1.35;
@@ -8028,16 +8028,16 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters .cam-admin-input,
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters input {
   min-height: 40px;
-  border-color: #d0d9e2;
+  border-color: var(--cam-console-navy-28);
   border-radius: 5px;
-  background-color: #fff;
-  color: #1d2939;
+  background-color: var(--cam-surface);
+  color: var(--cam-console-navy-64);
   font-size: 14px;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters .cam-admin-input:focus-visible,
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters input:focus-visible {
-  border-color: #16324f;
+  border-color: var(--cam-console-navy-61);
   outline: 3px solid rgb(22 50 79 / 18%);
   outline-offset: 1px;
 }
@@ -8053,7 +8053,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table {
   padding: 0 !important;
   overflow: visible !important;
-  background: #fff;
+  background: var(--cam-surface);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table [data-slot="table-container"] {
@@ -8061,7 +8061,7 @@ a.cam-dash-review-row:hover {
   max-width: 100%;
   overflow-x: auto !important;
   overscroll-behavior-inline: contain;
-  scrollbar-color: #aab8c6 #eef2f6;
+  scrollbar-color: var(--cam-console-navy-39) var(--cam-border-soft);
   scrollbar-width: thin;
 }
 
@@ -8071,7 +8071,7 @@ a.cam-dash-review-row:hover {
   table-layout: fixed !important;
   border-collapse: separate;
   border-spacing: 0;
-  color: #1d2939;
+  color: var(--cam-console-navy-64);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -8079,9 +8079,9 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th {
   height: 48px;
   padding: 10px 14px;
-  border-bottom: 1px solid #cbd5df;
-  background: #eef2f6;
-  color: #344054;
+  border-bottom: 1px solid var(--cam-console-navy-30);
+  background: var(--cam-border-soft);
+  color: var(--cam-console-navy-58);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.35;
@@ -8115,9 +8115,9 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td {
   padding: 14px;
-  border-bottom: 1px solid #e5eaf0;
-  background: #fff;
-  color: #1d2939;
+  border-bottom: 1px solid var(--cam-console-navy-21);
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-64);
   font-size: 14px;
   line-height: 1.45;
   vertical-align: top;
@@ -8126,15 +8126,15 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody tr:hover > td {
-  background: #f8fafc;
+  background: var(--cam-bg);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody tr:has(td:first-child [data-state="checked"]) > td {
-  background: #f3f7fa;
+  background: var(--cam-console-navy-05);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody tr:has(td:first-child [data-state="checked"]):hover > td {
-  background: #edf3f7;
+  background: var(--cam-console-navy-14);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody tr:last-child > td {
@@ -8170,7 +8170,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-primary {
   display: block;
   max-width: 100%;
-  color: #1d2939;
+  color: var(--cam-console-navy-64);
   font-size: 14px;
   font-weight: 650;
   line-height: 1.4;
@@ -8182,7 +8182,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-owner {
   display: block;
   max-width: 100%;
-  color: #667085;
+  color: var(--cam-console-navy-46);
   font-size: 12px;
   font-weight: 450;
   line-height: 1.4;
@@ -8192,7 +8192,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-meta,
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-secondary,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-cell-secondary {
-  color: #6b7280;
+  color: var(--cam-console-navy-47);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-meta {
@@ -8221,7 +8221,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-field-label {
   flex: 0 0 auto;
   margin-inline-end: 0;
-  color: #667085;
+  color: var(--cam-console-navy-46);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.045em;
@@ -8230,7 +8230,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-field-label,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-field-label {
-  color: #6b7280;
+  color: var(--cam-console-navy-47);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-secondary > span:last-child {
@@ -8241,7 +8241,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-type-value {
   display: block;
   max-width: 100%;
-  color: #344054;
+  color: var(--cam-console-navy-58);
   font-size: 13px;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -8249,7 +8249,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-admin-code {
   max-width: 100%;
-  color: #344054;
+  color: var(--cam-console-navy-58);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -8274,64 +8274,64 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-review-stack [data-variant="warning"],
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-stack [data-variant="warning"] {
-  border-color: #e8c96d;
-  background: #fff4d6;
-  color: #854d0e;
+  border-color: var(--cam-console-amber-07);
+  background: var(--cam-console-amber-03);
+  color: var(--cam-console-amber-10);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-review-stack [data-variant="danger"] {
-  border-color: #e7b6b6;
-  background: #fce8e8;
-  color: #a61b1b;
+  border-color: var(--cam-console-red-03);
+  background: var(--cam-console-red-01);
+  color: var(--cam-console-red-08);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-review-stack [data-variant="success"] {
-  border-color: #b7ddc4;
-  background: #ddf5e8;
-  color: #17663a;
+  border-color: var(--cam-console-green-04);
+  background: var(--cam-console-green-02);
+  color: var(--cam-console-green-06);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-review-stack [data-variant="info"] {
-  border-color: #bfd0e4;
-  background: #e8eff8;
-  color: #244a75;
+  border-color: var(--cam-console-navy-32);
+  background: var(--cam-console-navy-17);
+  color: var(--cam-console-navy-54);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--pending,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--pending {
-  border-color: #bfd0e4;
-  background: #e8eff8;
-  color: #244a75;
+  border-color: var(--cam-console-navy-32);
+  background: var(--cam-console-navy-17);
+  color: var(--cam-console-navy-54);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--correction,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--correction {
-  border-color: #edc27a;
-  background: #fff0d9;
-  color: #8a4b08;
+  border-color: var(--cam-console-amber-05);
+  background: var(--cam-console-amber-02);
+  color: var(--cam-console-amber-11);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--approved,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--approved {
-  border-color: #b7ddc4;
-  background: #ddf5e8;
-  color: #17663a;
+  border-color: var(--cam-console-green-04);
+  background: var(--cam-console-green-02);
+  color: var(--cam-console-green-06);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--rejected,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--rejected {
-  border-color: #e7b6b6;
-  background: #fce8e8;
-  color: #a61b1b;
+  border-color: var(--cam-console-red-03);
+  background: var(--cam-console-red-01);
+  color: var(--cam-console-red-08);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--superseded,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--superseded,
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--neutral,
 .cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--neutral {
-  border-color: #d4dee8;
-  background: #eef2f6;
-  color: #475467;
+  border-color: var(--cam-console-navy-25);
+  background: var(--cam-border-soft);
+  color: var(--cam-console-navy-53);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-validation-summary {
@@ -8352,7 +8352,7 @@ a.cam-dash-review-row:hover {
   align-items: baseline;
   gap: 2px 8px;
   padding-top: 4px;
-  border-top: 1px solid #e9edf2;
+  border-top: 1px solid var(--cam-console-navy-19);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-owner .cam-dossier-field-label {
@@ -8365,7 +8365,7 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-primary {
-  color: #667085;
+  color: var(--cam-console-navy-46);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -8383,38 +8383,38 @@ a.cam-dash-review-row:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  color: #667085;
+  color: var(--cam-console-navy-46);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-waiting.is-overdue {
-  color: #a33b45;
+  color: var(--cam-console-red-06);
   font-weight: 700;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-overdue-badge {
-  border-color: #e5a4a8;
-  background: #fde8e8;
-  color: #9f2632;
+  border-color: var(--cam-console-red-04);
+  background: var(--cam-console-red-02);
+  color: var(--cam-console-red-07);
   font-weight: 750;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-stack > [data-slot="badge"]:not(.cam-dossier-overdue-badge) {
-  border-color: #e8c96d;
-  background: #fff4d6;
-  color: #854d0e;
+  border-color: var(--cam-console-amber-07);
+  background: var(--cam-console-amber-03);
+  color: var(--cam-console-amber-10);
   font-weight: 700;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-validation-summary > .cam-dossier-cell-secondary {
-  color: #49745b;
+  color: var(--cam-console-green-05);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-assignee-cell [data-slot="badge"] {
-  border-color: #e5a4a8;
-  background: #fde8e8;
-  color: #9f2632;
+  border-color: var(--cam-console-red-04);
+  background: var(--cam-console-red-02);
+  color: var(--cam-console-red-07);
   font-weight: 700;
 }
 
@@ -8432,9 +8432,9 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-action-cell > button {
   min-height: 34px;
   padding-inline: 8px;
-  border-color: #cddfd3;
-  background: #f2f8f4;
-  color: #216647;
+  border-color: var(--cam-console-green-03);
+  background: var(--cam-console-green-01);
+  color: var(--cam-console-teal-06);
   font-size: 12px;
   font-weight: 650;
   white-space: nowrap;
@@ -8457,24 +8457,24 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-view-file-cell a[data-slot="button"] {
-  border-color: #087f5b;
-  background: #087f5b;
-  color: #fff;
+  border-color: var(--cam-console-teal-05);
+  background: var(--cam-console-teal-05);
+  color: var(--cam-white);
   font-size: 13px;
   font-weight: 650;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-view-file-cell a[data-slot="button"]:hover {
-  border-color: #075b45;
-  background: #075b45;
+  border-color: var(--cam-console-teal-08);
+  background: var(--cam-console-teal-08);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-footer {
   min-height: 60px;
   padding: 10px 20px;
-  border-top: 1px solid #d8e0e8;
-  background: #f7f9fb;
-  color: #475467;
+  border-top: 1px solid var(--cam-console-navy-23);
+  background: var(--cam-console-navy-02);
+  color: var(--cam-console-navy-53);
   font-size: 13px;
 }
 
@@ -8497,7 +8497,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-page-indicator {
   min-width: 84px;
-  color: #344054;
+  color: var(--cam-console-navy-58);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
@@ -8506,9 +8506,9 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-pagination-controls [data-slot="button"] {
   min-height: 36px;
-  border-color: #c6d0db;
-  background: #fff;
-  color: #16324f;
+  border-color: var(--cam-console-navy-33);
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-61);
   font-size: 13px;
   font-weight: 600;
 }
@@ -8646,7 +8646,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-assignee-name {
   display: block;
-  color: #344054;
+  color: var(--cam-console-navy-58);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
@@ -8759,7 +8759,7 @@ a.cam-dash-review-row:hover {
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account {
     gap: 9px;
-    color: #52677f;
+    color: var(--cam-console-navy-49);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account > .cam-admin-bell {
@@ -8768,12 +8768,12 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account > .cam-admin-bell .cam-admin-icon-button {
-    color: #52677f;
+    color: var(--cam-console-navy-49);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account > .cam-admin-bell .cam-admin-icon-button:hover {
-    background: #f2f5f8;
-    color: #16324f;
+    background: var(--cam-console-navy-11);
+    color: var(--cam-console-navy-61);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-mobile-actions {
@@ -8786,8 +8786,8 @@ a.cam-dash-review-row:hover {
     height: 34px;
     place-items: center;
     border-radius: 50%;
-    background: #edf3f8;
-    color: #16324f;
+    background: var(--cam-console-navy-15);
+    color: var(--cam-console-navy-61);
     font-size: 12px;
   }
 
@@ -8809,30 +8809,30 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-copy strong {
-    color: #16324f;
+    color: var(--cam-console-navy-61);
     font-size: 12px;
     font-weight: 650;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-copy > span {
-    color: #687b90;
+    color: var(--cam-console-navy-43);
     font-size: 11px;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-scope {
-    border-color: #d8e2eb;
-    background: #f6f8fa;
-    color: #344d67;
+    border-color: var(--cam-console-navy-24);
+    background: var(--cam-console-navy-07);
+    color: var(--cam-console-navy-56);
     font-size: 11px;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account .cam-language-link {
     min-height: 36px;
     padding: 0 9px;
-    border: 1px solid #d8e2eb;
+    border: 1px solid var(--cam-console-navy-24);
     border-radius: 6px;
-    background: #fff;
-    color: #16324f;
+    background: var(--cam-surface);
+    color: var(--cam-console-navy-61);
     font-size: 12px;
     font-weight: 650;
   }
@@ -8844,10 +8844,10 @@ a.cam-dash-review-row:hover {
     gap: 7px;
     min-height: 36px;
     padding: 0 10px;
-    border: 1px solid #d8e2eb;
+    border: 1px solid var(--cam-console-navy-24);
     border-radius: 6px;
-    background: #fff;
-    color: #344d67;
+    background: var(--cam-surface);
+    color: var(--cam-console-navy-56);
     font: inherit;
     font-size: 12px;
     font-weight: 600;
@@ -8856,8 +8856,8 @@ a.cam-dash-review-row:hover {
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-logout:hover,
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account .cam-language-link:hover {
-    border-color: #aebdcb;
-    background: #f7f9fb;
+    border-color: var(--cam-console-navy-38);
+    background: var(--cam-console-navy-02);
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-main {
@@ -8878,16 +8878,16 @@ a.cam-dash-review-row:hover {
   gap: 12px;
   min-height: 58px;
   padding: 11px 16px;
-  border-color: #ecd59a;
-  background: #fff8e6;
-  color: #694e12;
+  border-color: var(--cam-console-amber-04);
+  background: var(--cam-amber-bg);
+  color: var(--cam-console-amber-12);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-overdue-alert > svg {
   width: 19px;
   height: 19px;
   flex: 0 0 auto;
-  color: #a87308;
+  color: var(--cam-console-amber-08);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-overdue-alert [data-slot="alert-description"] {
@@ -8903,23 +8903,23 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-overdue-action {
   flex: 0 0 auto;
   min-height: 34px;
-  border-color: #d8bd7e;
-  background: #fffdf7;
-  color: #61480f;
+  border-color: var(--cam-console-amber-06);
+  background: var(--cam-console-amber-01);
+  color: var(--cam-console-amber-13);
   font-size: 12px;
   font-weight: 650;
   text-decoration: none;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-overdue-action:hover {
-  border-color: #a87308;
-  background: #fff;
+  border-color: var(--cam-console-amber-08);
+  background: var(--cam-surface);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header > .cam-admin-tabs {
   min-height: 66px;
   padding-inline: 9px;
-  background: #edf2f6;
+  background: var(--cam-console-navy-13);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab {
@@ -8984,9 +8984,9 @@ a.cam-dash-review-row:hover {
     max-width: min(34vw, 150px);
     overflow: hidden;
     text-overflow: ellipsis;
-    border-color: #d8e2eb;
-    background: #f6f8fa;
-    color: #344d67;
+    border-color: var(--cam-console-navy-24);
+    background: var(--cam-console-navy-07);
+    color: var(--cam-console-navy-56);
     font-size: 10px;
   }
 
@@ -9257,7 +9257,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(6) { width: 130px !important; }
 
 .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-link {
-  color: #1769e0;
+  color: var(--cam-console-navy-44);
   text-decoration: none;
 }
 
@@ -9285,7 +9285,7 @@ a.cam-dash-review-row:hover {
   height: 100vh;
   min-height: 0;
   max-height: none;
-  border: 1px solid #dce5ee;
+  border: 1px solid var(--cam-console-navy-22);
   border-radius: 7px;
   box-shadow: none;
   animation: none;
@@ -9306,7 +9306,7 @@ a.cam-dash-review-row:hover {
   display: flex;
   gap: 8px;
   padding: 12px 14px;
-  border-top: 1px solid #dce5ee;
+  border-top: 1px solid var(--cam-console-navy-22);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-footer > button {
@@ -9456,8 +9456,8 @@ a.cam-dash-review-row:hover {
 
   .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-dossier-filter-sidebar.is-open {
     width: 100%;
-    border: 1px solid #dce5ee;
-    background: #fff;
+    border: 1px solid var(--cam-console-navy-22);
+    background: var(--cam-surface);
     opacity: 1;
     transform: none;
     visibility: visible;
@@ -9488,7 +9488,7 @@ a.cam-dash-review-row:hover {
     max-height: none;
     margin: 0;
     overflow: visible;
-    border: 1px solid #dce5ee;
+    border: 1px solid var(--cam-console-navy-22);
     opacity: 1;
     transform: none;
     visibility: visible;
@@ -9506,9 +9506,9 @@ a.cam-dash-review-row:hover {
   align-items: center;
   gap: 12px;
   padding: 4px 10px;
-  border: 1px solid #d8e0e8;
+  border: 1px solid var(--cam-console-navy-23);
   border-radius: 8px;
-  background: #f3f6f9;
+  background: var(--cam-console-navy-12);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-tabs {
@@ -10045,12 +10045,12 @@ a.cam-dash-review-row:hover {
   min-width: 0;
   gap: 10px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #e5eaf0;
+  border-bottom: 1px solid var(--cam-console-navy-21);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-section-title {
   margin: 0;
-  color: #173b5b;
+  color: var(--cam-console-navy-60);
   font-size: 13px;
   font-weight: 700;
 }
@@ -10060,7 +10060,7 @@ a.cam-dash-review-row:hover {
   min-width: 0;
   gap: 10px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #e5eaf0;
+  border-bottom: 1px solid var(--cam-console-navy-21);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-approve {
@@ -10068,34 +10068,34 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--pending {
-  border-color: #bfd0e4;
-  background: #e8eff8;
-  color: #244a75;
+  border-color: var(--cam-console-navy-32);
+  background: var(--cam-console-navy-17);
+  color: var(--cam-console-navy-54);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--correction {
-  border-color: #edc27a;
-  background: #fff0d9;
-  color: #8a4b08;
+  border-color: var(--cam-console-amber-05);
+  background: var(--cam-console-amber-02);
+  color: var(--cam-console-amber-11);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--approved {
-  border-color: #b7ddc4;
-  background: #ddf5e8;
-  color: #17663a;
+  border-color: var(--cam-console-green-04);
+  background: var(--cam-console-green-02);
+  color: var(--cam-console-green-06);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--rejected {
-  border-color: #e7b6b6;
-  background: #fce8e8;
-  color: #a61b1b;
+  border-color: var(--cam-console-red-03);
+  background: var(--cam-console-red-01);
+  color: var(--cam-console-red-08);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--superseded,
 .cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--neutral {
-  border-color: #d4dee8;
-  background: #eef2f6;
-  color: #475467;
+  border-color: var(--cam-console-navy-25);
+  background: var(--cam-border-soft);
+  color: var(--cam-console-navy-53);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-facts {
@@ -10111,14 +10111,14 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-facts dt {
-  color: #64758b;
+  color: var(--cam-console-navy-45);
   font-size: 11px;
   font-weight: 650;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-facts dd {
   margin: 0;
-  color: #243b53;
+  color: var(--cam-console-navy-59);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
@@ -10132,7 +10132,7 @@ a.cam-dash-review-row:hover {
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-clean {
   margin: 0;
-  color: #49745b;
+  color: var(--cam-console-green-05);
   font-size: 12px;
 }
 
@@ -10157,8 +10157,8 @@ a.cam-dash-review-row:hover {
   bottom: 0;
   z-index: 2;
   flex: 0 0 auto;
-  border-top: 1px solid #dce5ee;
-  background: #fff;
+  border-top: 1px solid var(--cam-console-navy-22);
+  background: var(--cam-surface);
   box-shadow: 0 -5px 12px rgb(16 46 41 / 6%);
 }
 
@@ -10201,9 +10201,9 @@ a.cam-dash-review-row:hover {
     min-height: 360px;
     max-height: none;
     margin: 0 0 12px;
-    border: 1px solid #dce5ee;
+    border: 1px solid var(--cam-console-navy-22);
     border-radius: 7px;
-    background: #fff;
+    background: var(--cam-surface);
     box-shadow: none;
   }
 }
