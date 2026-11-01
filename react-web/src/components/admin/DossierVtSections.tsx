@@ -1,6 +1,8 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import type { PlacedFlag } from "@/lib/finding-targets";
+import { PlacedFlagNotice } from "./DossierAnswerSections";
 import { DataState } from "@/components/admin/DataState";
 import { asUiLocale } from "@/lib/register-i18n";
 import type { FormData, OnefopSchema } from "@/lib/onefop-schema";
@@ -15,10 +17,13 @@ export function DossierVtSections({
   schema,
   data,
   canSeeStaffNames,
+  flags = {},
 }: {
   schema: OnefopSchema;
   data: FormData;
   canSeeStaffNames: boolean;
+  /** Findings placed on this file (placeFindings), keyed by anchor. */
+  flags?: Record<string, PlacedFlag[]>;
 }) {
   const t = useTranslations("adminDossierPage.vt");
   const locale = asUiLocale(useLocale());
@@ -33,19 +38,21 @@ export function DossierVtSections({
   return (
     <>
       {sections.map((section) => (
-        <VtSection key={section.id} section={section} />
+        <VtSection key={section.id} section={section} flags={flags[`dossier-section-${section.id}`]} />
       ))}
     </>
   );
 }
 
-function VtSection({ section }: { section: VtSectionView }) {
+function VtSection({ section, flags }: { section: VtSectionView; flags?: PlacedFlag[] }) {
   const t = useTranslations("adminDossierPage.vt");
+  const tPage = useTranslations("adminDossierPage");
   // The prop never changes, so React never resets it: the reader opens and
   // closes sections freely.
   return (
     <section className="cam-dossier-section" id={`dossier-section-${section.id}`}>
       <h2>{section.title}</h2>
+      {flags && flags.length > 0 && <PlacedFlagNotice flags={flags} label={tPage("flaggedHere")} back={tPage("flaggedBack")} />}
       <div className="cam-dossier-section-body">
         {section.waived ? (
           <p className="cam-admin-meta">{t("sectionWaived")}</p>

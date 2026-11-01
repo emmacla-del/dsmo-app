@@ -2218,7 +2218,12 @@
     "viewSubmissions": "Review queue",
     "statusQueueAll": "All needing review",
     "queueViewsLabel": "Review queue views",
-    "queueView": { "mine": "My queue", "unassigned": "Unassigned", "pending": "All pending", "corrections": "Corrections requested" },
+    "queueView": {
+      "mine": "My queue",
+      "unassigned": "Unassigned",
+      "pending": "All pending",
+      "corrections": "Corrections requested"
+    },
     "correctionReceived": "Correction received",
     "correctionHistoryButton": "View history",
     "viewFollowUp": "Follow-up",
@@ -2314,7 +2319,6 @@
     "submittedAtColumn": "Submitted at",
     "filterColumn": "Filter by {column}",
     "endorsementColumn": "Administrative endorsement",
-    "dataQualityColumn": "Data quality",
     "eligibilityColumn": "Eligibility",
     "filesResource": "the files",
     "noFilesTitle": "No files found",
@@ -2486,6 +2490,10 @@
     "respondentUnavailable": "Respondent not recorded",
     "progressNotesTitle": "Review notes",
     "notesAndHistoryTitle": "Notes and history",
+    "tableNoneDeclared": "None declared: no cases during the period.",
+    "tableNotApplicable": "Not applicable, according to the respondent.",
+    "tableNoFigures": "No figures entered.",
+    "tableLineColumn": "Line",
     "findingsBlocking": "Blocking",
     "findingsWarning": "Warning",
     "historyNoteEntry": "Review note",
@@ -2546,7 +2554,11 @@
     "verifyHeading": "To verify · {count}",
     "blockingCount": "{count} blocking",
     "warningCount": "{count} warnings",
-    "sectionState": { "answered": "answered", "empty": "empty", "notApplicable": "not applicable" },
+    "sectionState": {
+      "answered": "answered",
+      "empty": "empty",
+      "notApplicable": "not applicable"
+    },
     "axis1Title": "Axis 1 · administrative endorsement",
     "axis2Title": "Axis 2 · data quality",
     "axis3Title": "Axis 3 · statistical eligibility",
@@ -2685,7 +2697,37 @@
       "EXCL_REJECTED": "Rejected",
       "EXCL_DRAFT_ONLY": "Draft",
       "EXCL_SUPERSEDED": "Replaced by a newer file"
-    }
+    },
+    "findingSee": "See:",
+    "findingObserved": "Found",
+    "findingExpected": "Reference",
+    "findingSex": {
+      "male": "Men",
+      "female": "Women",
+      "total": "Total"
+    },
+    "findingRule": {
+      "S22Q03_DIPLOMA_MISMATCH": "Recruitment broken down by diploma does not match total permanent and temporary recruitment.",
+      "S3_DISMISSAL_MISMATCH": "The number of dismissals differs between the departures table, the reasons table and the dismissal-to-unemployment table.",
+      "S22Q04_PERMANENT_EXCEEDS_TOTAL": "Permanent recruitment of people with a disability exceeds total permanent recruitment.",
+      "S22Q04_TEMPORARY_EXCEEDS_TOTAL": "Temporary recruitment of people with a disability exceeds total temporary recruitment.",
+      "S22Q05_PERMANENT_EXCEEDS_TOTAL": "Permanent recruitment of vulnerable people exceeds total permanent recruitment.",
+      "S22Q05_TEMPORARY_EXCEEDS_TOTAL": "Temporary recruitment of vulnerable people exceeds total temporary recruitment.",
+      "S23Q02_PERMANENT_EXCEEDS_TOTAL": "First-time job seekers recruited on permanent contracts exceed total permanent recruitment.",
+      "S23Q02_TEMPORARY_EXCEEDS_TOTAL": "First-time job seekers recruited on temporary contracts exceed total temporary recruitment.",
+      "PP_S4Q05_PERMANENT_EXCEEDS_TOTAL": "Permanent recruitment of people with a disability (4.5) exceeds total permanent recruitment (4.3).",
+      "PP_S4Q05_TEMPORARY_EXCEEDS_TOTAL": "Temporary recruitment of people with a disability (4.5) exceeds total temporary recruitment (4.4).",
+      "PP_S4Q06_PERMANENT_EXCEEDS_TOTAL": "Permanent recruitment of vulnerable people (4.6) exceeds total permanent recruitment (4.3).",
+      "PP_S4Q06_TEMPORARY_EXCEEDS_TOTAL": "Temporary recruitment of vulnerable people (4.6) exceeds total temporary recruitment (4.4).",
+      "PP_S4Q01_HEADCOUNT_MISMATCH": "The permanent staff counted in table 4.1 differ from the declared permanent headcount.",
+      "PERMANENT_WORKERS_IMPLAUSIBLE": "The declared permanent headcount is very high: please check it.",
+      "VACANCIES_IMPLAUSIBLE": "The declared number of vacancies is very high: please check it."
+    },
+    "railEligibility": "Statistical eligibility",
+    "identificationTitle": "Identification",
+    "flaggedHere": "Check here",
+    "flaggedBack": "Back to the « To verify » list",
+    "railFlagged": "{count, plural, one {# to check} other {# to check}}"
   },
   "adminEquipePage": {
     "accessDenied": "Access reserved for central and regional administrators.",

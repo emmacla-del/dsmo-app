@@ -70,6 +70,11 @@ export interface StatisticalGridRendererProps {
    * so the figure would not be the table's population.
    */
   columnSliced?: boolean;
+  /**
+   * Show the stored figures as text, with no input, entry bar or check total:
+   * the review workspace reads the same table the respondent filled.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -129,6 +134,7 @@ export function StatisticalGridRenderer({
   onBatchChange,
   className = "",
   disabled = false,
+  readOnly = false,
   onAdvanceTable,
   onPreviousTable,
   autoFocusFirstCell = false,
@@ -550,7 +556,9 @@ export function StatisticalGridRenderer({
       // header. The frame no longer clips (`overflow-hidden` would clip the
       // ring away); the scroller below rounds its own corners instead.
       className={`relative border border-[var(--cam-table-frame)] rounded-[4px] bg-[var(--cam-surface)] shadow-xs after:pointer-events-none after:absolute after:-inset-px after:z-[21] after:rounded-[4px] after:border after:border-[var(--cam-table-frame)] after:content-[''] ${className}`}
-      style={{ width: "100%", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
+      // Read-only (review workspace): the table spans its column, with no
+      // entry-sized minimum, so it fits without a sideways scroll.
+      style={readOnly ? { width: "100%" } : { width: "100%", maxWidth: `min(100%, ${TABLE_MAX_WIDTH_PX}px)` }}
     >
       {/* The frame hugs the table's own columns, never exceeding
           TABLE_MAX_WIDTH_PX (see tableLayout.ts). The table only scrolls
@@ -560,7 +568,7 @@ export function StatisticalGridRenderer({
         <DataTable
           ref={tableRef}
           className="border-collapse table-fixed"
-          style={{ width: "100%", minWidth: preferredTableWidth }}
+          style={readOnly ? { width: "100%" } : { width: "100%", minWidth: preferredTableWidth }}
         >
           {definition.caption && (
             <caption className="sr-only">
@@ -573,9 +581,11 @@ export function StatisticalGridRenderer({
           <colgroup>
             {/* No width: the label column absorbs whatever the pod leaves over,
                 so the data columns keep theirs. */}
-            <col style={{ minWidth: TABLE_LABEL_COL_PX }} />
+            {/* Read-only: the label column takes a share and the figures
+                share the rest equally; no column is sized for an input. */}
+            <col style={readOnly ? { width: "26%" } : { minWidth: TABLE_LABEL_COL_PX }} />
             {definition.columns.map((col, i) => (
-              <col key={col.key} style={{ width: dataColWidths[i] }} />
+              <col key={col.key} style={readOnly ? undefined : { width: dataColWidths[i] }} />
             ))}
           </colgroup>
 
@@ -845,6 +855,20 @@ export function StatisticalGridRenderer({
 
                     const isMissing = missing.has(cellDef.fieldKey);
 
+                    if (readOnly) {
+                      return (
+                        <CoherenceTd
+                          key={col.key}
+                          fieldKey={cellDef.fieldKey}
+                          tableFieldId={tableFieldId}
+                          aria-label={cellLabel}
+                          className={`px-2.5 py-1.5 bg-[var(--cam-surface)] ${cellBorderCls}`}
+                        >
+                          <CellValue value={val} />
+                        </CoherenceTd>
+                      );
+                    }
+
                     return (
                       <CoherenceTd
                         key={col.key}
@@ -938,7 +962,7 @@ export function StatisticalGridRenderer({
         </DataTable>
       </div>
     </div>
-    {entryBar}
+    {!readOnly && entryBar}
     </>
   );
 }

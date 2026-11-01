@@ -92,3 +92,12 @@ test("while a claim request or refresh is in flight the action waits, disabled",
   const button = screen.getByRole("button", { name: "Enregistrement…" }) as HTMLButtonElement;
   assert.equal(button.disabled, true);
 });
+
+test("the expiry reads like a clock, without seconds, with the day when it is not today", async () => {
+  const { claimExpiryTime } = await import("./DossierBarClaim");
+  const now = new Date("2026-11-01T10:00:00");
+  assert.equal(claimExpiryTime("2026-11-01T15:50:34", "fr", now), "15:50");
+  const tomorrow = claimExpiryTime("2026-11-02T03:50:34", "fr", now);
+  assert.ok(!/\d\d:\d\d:\d\d/.test(tomorrow), "no seconds");
+  assert.ok(tomorrow.includes("2"), "the day is named");
+});

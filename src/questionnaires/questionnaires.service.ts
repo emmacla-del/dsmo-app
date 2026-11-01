@@ -1710,10 +1710,24 @@ export class QuestionnairesService {
         female: n('s22q01_total_female_total') + n('s22q02_total_female_total'),
         total: n('s22q01_total_total_total') + n('s22q02_total_total_total'),
       };
+      // The wizard stores S22Q03 one staff category at a time
+      // (`s22q03_<csp>_total_<g>_total`) and writes no overall
+      // `s22q03_total_…` key, so reading that key alone gave 0 and flagged
+      // every employer file that recruited anyone. Add the category totals
+      // up, as react-web's onefop-coherence.ts does; the overall key is read
+      // only when no category total exists (legacy Flutter drafts).
+      const diplomaCsps = ['cadres', 'foremen', 'workers'];
+      const diplomaTotal = (gender: string) => {
+        const keys = diplomaCsps.map((csp) => `s22q03_${csp}_total_${gender}_total`);
+        const hasPerCsp = keys.some((key) => flat[key] !== undefined && flat[key] !== null && flat[key] !== '');
+        return hasPerCsp
+          ? keys.reduce((sum, key) => sum + n(key), 0)
+          : n(`s22q03_total_${gender}_total`);
+      };
       const byDiploma = {
-        male: n('s22q03_total_male_total'),
-        female: n('s22q03_total_female_total'),
-        total: n('s22q03_total_total_total'),
+        male: diplomaTotal('male'),
+        female: diplomaTotal('female'),
+        total: diplomaTotal('total'),
       };
       (['male', 'female', 'total'] as const).forEach((gender) => {
         if (byAge[gender] !== byDiploma[gender] && (byAge[gender] > 0 || byDiploma[gender] > 0)) {

@@ -19,6 +19,7 @@ import {
   type AdminDossier,
 } from "@/lib/api-client";
 import { DataState } from "@/components/admin/DataState";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
 import { resolveDossierReturnTo } from "@/lib/admin-return";
 import { dossierNeighbourQuery } from "@/lib/dossier-neighbour-query";
@@ -26,7 +27,9 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierClaimPanel, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
 import { mergeDossierHistory, type DossierHistoryEntry } from "@/lib/dossier-history";
-import { groupDossierFindings } from "@/lib/dossier-findings";
+import { groupDossierFindings, mergeSameRule } from "@/lib/dossier-findings";
+import { findingTargets, placeFindings, sectionFlagCount } from "@/lib/finding-targets";
+import { PlacedFlagNotice } from "@/components/admin/DossierAnswerSections";
 import { ruleFamilyLabel } from "@/lib/anomaly-registry";
 import { dossierClaimStateKey, useDossierClaim } from "@/lib/use-dossier-claim";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
@@ -62,7 +65,6 @@ import {
   allowedDecisions,
   canReopenForCorrection,
   eligibilityAxis,
-  endorsementAxis,
   qualityAxis,
   type AxisBadge,
   type AxisTone,
@@ -370,7 +372,10 @@ function SubmissionDetailContent() {
   // A background refetch (window focus, the claim's 60 s refresh) disables
   // the decisions rather than hiding them, so the bar never jumps under the
   // cursor; the server's revision check stays the real guard.
-  const decisionsRefreshing = dossierQuery.isFetching || claimStateQuery.isFetching;
+  // A background refresh (window focus, the claim's periodic check) leaves the
+  // decisions usable: greying them out made the bar flicker every time the
+  // reviewer came back to the window. The server's revision check refuses a
+  // decision taken on a stale file, and the page then reloads it.
   const { claimStateQuery: barClaimQuery, claimMutation, actionNotice: claimActionNotice } = useDossierClaim(id);
   // The decision in words where the buttons were, dated when the server
   // recorded the review date; without a date the status badge already says it.
@@ -616,6 +621,21 @@ function SubmissionDetailContent() {
   const [approveComment, setApproveComment] = useState("");
   const hasOpenWarnings = (diag?.warningAnomalies.length ?? 0) > 0;
   const approvalChecksReady = diagnosticState === "ready" && (diag?.blockingAnomalies.length ?? 0) === 0;
+  // A rule that fired for men, women and total is one thing to check.
+  const blockingFindings = mergeSameRule(diag?.blockingAnomalies ?? []).length;
+  const warningFindings = mergeSameRule(diag?.warningAnomalies ?? []).length;
+  const openFindings = diagnosticState === "ready" ? blockingFindings + warningFindings : 0;
+  // One wording for a finding, in the list and where it is placed.
+  const findingSentence = (ruleCode: string, description: string | null | undefined) =>
+    t.has(`findingRule.${ruleCode}`) ? t(`findingRule.${ruleCode}`) : warningText(ruleCode, description);
+  // Each finding marked on the tables or sections its rule compares.
+  const placedFlags = placeFindings([
+    ...mergeSameRule(diag?.blockingAnomalies ?? []).map((item) => ({ severity: "blocking" as const, ruleCode: item.ruleCode, text: findingSentence(item.ruleCode, item.finding.description) })),
+    ...mergeSameRule(diag?.warningAnomalies ?? []).map((item) => ({ severity: "warning" as const, ruleCode: item.ruleCode, text: findingSentence(item.ruleCode, item.finding.description) })),
+  ], entity, locale);
+  const railFlag = (flag: { count: number; blocking: boolean }) => flag.count > 0
+    ? <span className={`cam-dossier-rail-flag${flag.blocking ? " is-blocking" : ""}`} aria-label={t("railFlagged", { count: flag.count })}> · {t("railFlagged", { count: flag.count })}</span>
+    : null;
 
   const approveMutation = useMutation({
     retry: false,
@@ -820,7 +840,9 @@ function SubmissionDetailContent() {
         title={<span title={name ?? ref}>{name ?? t("fileTitle", { ref: shortRecordId(ref) })}</span>}
         subtitle={<>
           <span className="cam-dossier-header-facts">
-            <span>{t("submissionReference", { ref })}</span><span>{formType || NOT_PROVIDED}</span>
+            {/* The short reference the queue shows; the full one stays in the tooltip. */}
+            <span title={ref}>{t("submissionReference", { ref: shortRecordId(ref) })}</span>
+            <span>{formType ? (ENTITY_TYPE_OPTION_KEYS[formType] ? tRoot(ENTITY_TYPE_OPTION_KEYS[formType]) : entityTypeLabel(formType)) : NOT_PROVIDED}</span>
             <span>{[region, dossier.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span>
             <span>{t("receivedOn", { date: submittedOn })}</span>
           </span>
@@ -839,7 +861,7 @@ function SubmissionDetailContent() {
             userId={userId}
             role={role}
             readOnly={readOnly}
-            busy={barClaimQuery.isFetching || claimMutation.isPending}
+            busy={claimMutation.isPending}
             saving={claimMutation.isPending}
             onChange={(assigneeId) => claimMutation.mutate(assigneeId)}
           />}
@@ -847,20 +869,24 @@ function SubmissionDetailContent() {
           {claimActionNotice && <span className="cam-admin-meta" role="status">{claimActionNotice}</span>}
         </div>
         <nav className="cam-dossier-decision-navigation" aria-label={t("queueNavigationLabel")}>
-          {previousHref ? <Link className="cam-text-button" href={previousHref}>{t("previousFile")}</Link> : <span className="cam-admin-meta" aria-disabled="true">{t("previousFile")}</span>}
-          {nextHref ? <Link className="cam-text-button" href={nextHref}>{t("nextFile")}</Link> : <span className="cam-admin-meta" aria-disabled="true">{t("nextFile")}</span>}
+          {previousHref
+            ? <Link className="cam-button cam-button-secondary cam-button-sm" href={previousHref}>‹ {t("previousFile")}</Link>
+            : <span className="cam-button cam-button-secondary cam-button-sm is-disabled" aria-disabled="true">‹ {t("previousFile")}</span>}
+          {nextHref
+            ? <Link className="cam-button cam-button-secondary cam-button-sm" href={nextHref}>{t("nextFile")} ›</Link>
+            : <span className="cam-button cam-button-secondary cam-button-sm is-disabled" aria-disabled="true">{t("nextFile")} ›</span>}
         </nav>
         {!readOnly && <div className="cam-dossier-decision-actions">
           {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
-          {decisions.reject && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openRejectModal}>{t("rejectFormButton")}</button>}
-          {decisions.requestCorrection && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={decisionsRefreshing} onClick={openCorrectionModal}>{t("requestCorrectionButton")}</button>}
+          {decisions.reject && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>{t("rejectFormButton")}</button>}
+          {decisions.requestCorrection && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>{t("requestCorrectionButton")}</button>}
           {canReopenForCorrection(dossier.status, role) && <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openReopenModal}>{t("reopenButton")}</button>}
           {decisions.approve && canReviewDossier && !approvalChecksReady && (
             <span className="cam-admin-notice cam-admin-notice--warn" role="status">
               {diagnosticState !== "ready" ? t("approvalChecksUnavailableOrBlocked") : t("blockingIssuesMustBeResolved")}
             </span>
           )}
-          {decisions.approve && canReviewDossier && <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled={decisionsRefreshing || !approvalChecksReady} onClick={openApproveModal}>{t("validateArchiveButton")}</button>}
+          {decisions.approve && canReviewDossier && <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled={!approvalChecksReady} onClick={openApproveModal}>{t("validateArchiveButton")}</button>}
         </div>}
       </div>
 
@@ -883,41 +909,79 @@ function SubmissionDetailContent() {
         <aside className="cam-dossier-rail">
           <section aria-labelledby="dossier-controls-title">
             <h2 id="dossier-controls-title">{t("controlsTitle")}</h2>
-            <p>{axisBadge(endorsementAxis(dossier.status))} {axisBadge(qualityAxis(diagnosticState, diag))} {axisBadge(eligibilityAxis(diagnosticState, diag))}</p>
-            <p>{t("blockingCount", { count: diag?.blockingAnomalies?.length ?? 0 })} · {t("warningCount", { count: diag?.warningAnomalies?.length ?? 0 })}</p>
+            {/* The status is the decision bar's; the rail says what is left to check
+                and whether the file can enter the statistics. */}
+            <p>{diagnosticState === "ready"
+              ? <>{t("blockingCount", { count: blockingFindings })} · {t("warningCount", { count: warningFindings })}</>
+              : axisBadge(qualityAxis(diagnosticState, diag))}</p>
+            <p className="cam-admin-meta">{t("railEligibility")}</p>
+            <p>{axisBadge(eligibilityAxis(diagnosticState, diag))}</p>
           </section>
           <nav aria-label={t("sectionIndexLabel")}>
             <h2>{t("sectionsTitle")}</h2>
-            <a href="#dossier-verify">{t("verifyHeading", { count: diagnosticState === "ready" ? (diag?.blockingAnomalies?.length ?? 0) + (diag?.warningAnomalies?.length ?? 0) : 0 })}</a>
-            <a href="#dossier-structure">{t("organisationCardTitle")}</a>
+            <a href="#dossier-verify">{t("verifyHeading", { count: openFindings })}</a>
+            <a href="#dossier-structure">{t("identificationTitle")}{railFlag({ count: placedFlags["dossier-structure"]?.length ?? 0, blocking: (placedFlags["dossier-structure"] ?? []).some((flag) => flag.severity === "blocking") })}</a>
             {isVt && schemaQuery.data?.entities.vocationalTraining?.sections.filter((s) => s.order !== 0).map((s) => {
               const vtEntity = schemaQuery.data?.entities.vocationalTraining;
               const state = vtEntity ? dossierSectionState(vtEntity, s.id, dossier.rawData as Record<string, unknown> | null) : null;
-              return <a key={s.id} href={`#dossier-section-${s.id}`}>{s.title?.[locale] ?? s.id}{state ? <span className="cam-admin-meta"> · {t(`sectionState.${state}`)}</span> : null}</a>;
+              return <a key={s.id} href={`#dossier-section-${s.id}`}>{s.title?.[locale] ?? s.id}{state ? <span className="cam-admin-meta"> · {t(`sectionState.${state}`)}</span> : null}{railFlag(sectionFlagCount(placedFlags, s))}</a>;
             })}
-            {!isVt && section1 && <a href={`#dossier-section-${section1.id}`}>{section1.title}</a>}
             {!isVt && laterSections.map((s) => {
               const state = entity ? dossierSectionState(entity, s.id, dossier.rawData as Record<string, unknown> | null) : null;
-              return <a key={s.id} href={`#dossier-section-${s.id}`}>{s.title}{state ? <span className="cam-admin-meta"> · {t(`sectionState.${state}`)}</span> : null}</a>;
+              const schemaSection = entity?.sections.find((item) => item.id === s.id);
+              return <a key={s.id} href={`#dossier-section-${s.id}`}>{s.title}{state ? <span className="cam-admin-meta"> · {t(`sectionState.${state}`)}</span> : null}{schemaSection ? railFlag(sectionFlagCount(placedFlags, schemaSection)) : null}</a>;
             })}
             <a href="#dossier-history">{t("notesAndHistoryTitle")}</a>
           </nav>
         </aside>
         <div className="cam-dash-column cam-dossier-answer-column" style={{ gap: "var(--cam-space-3)" }}>
           <section id="dossier-verify" className="cam-dossier-findings">
-            <h2>{t("verifyHeading", { count: (diag?.blockingAnomalies?.length ?? 0) + (diag?.warningAnomalies?.length ?? 0) })}</h2>
+            <h2>{t("verifyHeading", { count: openFindings })}</h2>
             {diag && groupDossierFindings(diag.blockingAnomalies ?? [], diag.warningAnomalies ?? []).map((group) => (
               <div key={`${group.severity}-${group.family ?? "none"}`} className={`cam-dossier-findings-group is-${group.severity}`}>
                 <h3 className="cam-admin-label">
                   {t(group.severity === "blocking" ? "findingsBlocking" : "findingsWarning")}
                   {group.family ? ` · ${ruleFamilyLabel(group.family, locale)}` : ""}
                 </h3>
-                {group.findings.map((ano, idx) => (
-                  <div className={group.severity === "blocking" ? "is-blocking" : "is-warning"} key={`${ano.ruleCode}-${idx}`} title={ano.ruleCode}>
-                    {warningText(ano.ruleCode, ano.description)}
-                    {hasFigures(ano.observedValue, ano.expectedValue) && <p>{t("observedExpected", { observed: String(ano.observedValue ?? "—"), expected: String(ano.expectedValue ?? "—") })}</p>}
-                  </div>
-                ))}
+                {mergeSameRule(group.findings).map(({ ruleCode, finding, rows }) => {
+                  // A rule the catalogue words is read in the reader's language
+                  // with its figures in a breakdown; any other keeps its stored text.
+                  const worded = t.has(`findingRule.${ruleCode}`);
+                  const targets = findingTargets(ruleCode, entity, locale);
+                  const figureRows = rows.filter((row) => hasFigures(row.observed, row.expected));
+                  return (
+                    <div className={group.severity === "blocking" ? "is-blocking" : "is-warning"} key={ruleCode} title={ruleCode}>
+                      <p>{findingSentence(ruleCode, finding.description)}</p>
+                      {worded && figureRows.length > 0 && (
+                        <table className="cam-dash-table cam-dossier-finding-figures">
+                          <thead>
+                            <tr><th scope="col" /><th scope="col">{t("findingObserved")}</th><th scope="col">{t("findingExpected")}</th></tr>
+                          </thead>
+                          <tbody>
+                            {figureRows.map((row, index) => (
+                              <tr key={`${row.sex ?? "all"}-${index}`}>
+                                <th scope="row">{row.sex ? t(`findingSex.${row.sex}`) : "—"}</th>
+                                <td>{String(row.observed ?? "—")}</td>
+                                <td>{String(row.expected ?? "—")}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                      {!worded && figureRows.length > 0 && figureRows.map((row, index) => (
+                        <p key={index} className="cam-admin-meta">{t("observedExpected", { observed: String(row.observed ?? "—"), expected: String(row.expected ?? "—") })}</p>
+                      ))}
+                      {targets.length > 0 && (
+                        <p className="cam-dossier-finding-links">
+                          {t("findingSee")}{" "}
+                          {targets.map((target, index) => (
+                            <span key={target.anchor}>{index > 0 && ", "}<a href={`#${target.anchor}`}>{target.label}</a></span>
+                          ))}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ))}
             {diag && diag.blockingAnomalies.length === 0 && diag.warningAnomalies.length === 0 && <p>{t("noAnomalyDetected")}</p>}
@@ -929,45 +993,17 @@ function SubmissionDetailContent() {
             the hand-built version did not. One open at a time is preserved
             through `expandedSection`. */}
         <div className="cam-dash-column cam-dossier-answer-column" style={{ gap: "var(--cam-space-3)" }}>
+          {/* Identification: the organisation as registered and Section 1's
+              location, in one block (Section 1 is not repeated below). */}
           <section className="cam-dossier-section" id="dossier-structure">
-            <h2>{t("organisationCardTitle")}</h2>
-            {structure.length > 0 ? <dl className="cam-dossier-fields">{structure.map(([field, value]) => (
-              <div key={field}><dt>{t(`structureField.${field === "yearOfEstablishment" ? "yearCreated" : field}`)}</dt><dd>{answerValue(field, value)}</dd></div>
-            ))}</dl> : <p className="cam-admin-meta">{t("structureEmpty")}</p>}
-          </section>
-
-          {isVt ? (
-            schemaQuery.data ? (
-              <DossierVtSections
-                schema={schemaQuery.data}
-                data={(dossier.rawData ?? {}) as Record<string, unknown>}
-                canSeeStaffNames={canSeeStaffNames}
-              />
-            ) : (
-              <DataState
-                dense
-                state={schemaQuery.isError ? "error" : "loading"}
-                resource={t("vt.resource")}
-                error={schemaQuery.error}
-                onRetry={() => schemaQuery.refetch()}
-              />
-            )
-          ) : !entity ? (
-            <DataState
-              dense
-              state={schemaQuery.isError ? "error" : schemaQuery.isLoading ? "loading" : "unavailable"}
-              resource={t("vt.resource")}
-              title={schemaQuery.data ? t("vt.schemaUnavailable") : undefined}
-              error={schemaQuery.error}
-              onRetry={() => schemaQuery.refetch()}
-            />
-          ) : (
-          <>
-          {section1 && (
-          <section className="cam-dossier-section" id={`dossier-section-${section1.id}`}>
-            <h2>{section1.title}</h2>
-            <div className="cam-dossier-section-body">
+            <h2>{t("identificationTitle")}</h2>
+            {placedFlags["dossier-structure"] && <PlacedFlagNotice flags={placedFlags["dossier-structure"]} label={t("flaggedHere")} back={t("flaggedBack")} />}
+            {structure.length > 0 || (!isVt && section1) ? (
               <dl className="cam-dossier-fields cam-dossier-fields--two">
+                {structure.map(([field, value]) => (
+                  <div key={field}><dt>{t(`structureField.${field === "yearOfEstablishment" ? "yearCreated" : field}`)}</dt><dd>{answerValue(field, value)}</dd></div>
+                ))}
+                {!isVt && section1 && <>
                 <div>
                   <dt>{t("regionOfLocationLabel")}</dt>
                   <dd>{recorded(detail.region ?? dossier.region)}</dd>
@@ -1003,10 +1039,39 @@ function SubmissionDetailContent() {
                     <dd>{legalStatus(detail.legalStatus)}</dd>
                   </div>
                 )}
+              </>}
               </dl>
-            </div>
+            ) : <p className="cam-admin-meta">{t("structureEmpty")}</p>}
           </section>
-          )}
+
+          {isVt ? (
+            schemaQuery.data ? (
+              <DossierVtSections
+                schema={schemaQuery.data}
+                data={(dossier.rawData ?? {}) as Record<string, unknown>}
+                canSeeStaffNames={canSeeStaffNames}
+                flags={placedFlags}
+              />
+            ) : (
+              <DataState
+                dense
+                state={schemaQuery.isError ? "error" : "loading"}
+                resource={t("vt.resource")}
+                error={schemaQuery.error}
+                onRetry={() => schemaQuery.refetch()}
+              />
+            )
+          ) : !entity ? (
+            <DataState
+              dense
+              state={schemaQuery.isError ? "error" : schemaQuery.isLoading ? "loading" : "unavailable"}
+              resource={t("vt.resource")}
+              title={schemaQuery.data ? t("vt.schemaUnavailable") : undefined}
+              error={schemaQuery.error}
+              onRetry={() => schemaQuery.refetch()}
+            />
+          ) : (
+          <>
 
           {laterSections.map((section) => (
             <DossierAnswerSections
@@ -1015,6 +1080,8 @@ function SubmissionDetailContent() {
               sectionId={section.id}
               title={section.title}
               data={(dossier.rawData ?? null) as Record<string, unknown> | null}
+              quarterCode={dossier.quarterCode ?? null}
+              flags={placedFlags}
             />
           ))}
           </>

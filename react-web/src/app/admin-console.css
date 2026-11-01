@@ -5376,11 +5376,30 @@ a.cam-dash-review-row:hover {
 .cam-dossier-rail h2 { margin: 0 0 var(--cam-space-2); font-size: var(--cam-font-size-sm); }
 .cam-dossier-rail nav { display: grid; gap: var(--cam-space-2); }
 .cam-dossier-rail nav a { color: var(--cam-primary); }
-.cam-dossier-findings > div { margin-block: var(--cam-space-2); padding-inline-start: var(--cam-space-3); border-inline-start: 3px solid var(--cam-border); }
+.cam-dossier-findings-group { margin-block: var(--cam-space-3); }
+.cam-dossier-findings-group > h3 { margin: 0 0 var(--cam-space-2); }
+.cam-dossier-findings .is-blocking,
+.cam-dossier-findings .is-warning { margin-block: var(--cam-space-2); padding-inline-start: var(--cam-space-3); border-inline-start: 3px solid var(--cam-border); }
 .cam-dossier-findings .is-blocking { border-color: var(--cam-error); }
 .cam-dossier-findings .is-warning { border-color: var(--cam-warning); }
+.cam-dossier-findings .is-blocking > p,
+.cam-dossier-findings .is-warning > p { margin: 0 0 var(--cam-space-1); }
+.cam-dossier-finding-figures { border-collapse: collapse; margin: var(--cam-space-1) 0 var(--cam-space-2); font-size: var(--cam-font-size-sm); }
+.cam-dossier-finding-figures th,
+.cam-dossier-finding-figures td { padding: 2px var(--cam-space-3) 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
+.cam-dossier-finding-figures thead th { color: var(--cam-text-muted); font-weight: 600; }
+.cam-dossier-finding-links a { color: var(--cam-primary); text-decoration: underline; }
+/* A flagged answer, marked where it sits: a coloured edge and the finding
+   said above it, so a reviewer who scrolls finds it without the list. */
+.cam-dossier-field.is-flagged { padding-inline-start: var(--cam-space-3); border-inline-start: 3px solid var(--cam-warning); }
+.cam-dossier-field.is-flagged--blocking { border-inline-start-color: var(--cam-error); }
+.cam-dossier-field-flag { margin: 0 0 var(--cam-space-3); padding: var(--cam-space-2) var(--cam-space-3); border-inline-start: 3px solid var(--cam-warning); background: var(--cam-warning-bg, transparent); font-size: var(--cam-font-size-sm); }
+.cam-dossier-field-flag.is-blocking { border-inline-start-color: var(--cam-error); background: var(--cam-error-bg, transparent); }
+.cam-dossier-field-flag ul { margin: var(--cam-space-1) 0; padding-inline-start: var(--cam-space-4); }
+.cam-dossier-field-flag a { color: var(--cam-primary); text-decoration: underline; }
+.cam-dossier-rail-flag { color: var(--cam-warning); font-weight: 600; }
+.cam-dossier-rail-flag.is-blocking { color: var(--cam-error); }
 .cam-dossier-findings h2, .cam-dossier-section > h2 { margin: 0; padding-block: var(--cam-space-3); border-bottom: var(--cam-border-width) solid var(--cam-border); font-size: var(--cam-font-size-lg); }
-.cam-dossier-section { padding-block: var(--cam-space-2); border: 0; border-radius: 0; background: transparent; overflow: visible; }
 .cam-dossier-section-body { padding: var(--cam-space-2) 0 var(--cam-space-4); }
 .cam-dossier-section > h2::after { content: none; }
 .cam-dossier-history-section { scroll-margin-top: 80px; }
@@ -5482,6 +5501,7 @@ a.cam-dash-review-row:hover {
 .cam-dossier-decision-navigation,
 .cam-dossier-decision-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-3); min-width: 0; }
 .cam-dossier-decision-actions { margin-inline-start: auto; }
+.cam-dossier-decision-navigation .cam-button.is-disabled { opacity: 0.45; pointer-events: none; }
 
 @media (max-width: 767px) {
   .cam-dossier-decision-bar { align-items: flex-start; }
@@ -5510,6 +5530,23 @@ a.cam-dash-review-row:hover {
   gap: var(--cam-space-4) var(--cam-space-5);
 }
 
+/* A statistical table takes the section's full width. */
+/* Read-only grids in the review workspace fit the column: the entry
+   grid's per-column minimums (sized for inputs) are lifted, headings wrap,
+   and figures stay on one line. A narrow screen still scrolls sideways. */
+.cam-grid-readonly th,
+.cam-grid-readonly td { min-width: 0; }
+.cam-grid-readonly thead th { white-space: normal; overflow-wrap: anywhere; hyphens: auto; }
+.cam-grid-readonly tbody td,
+.cam-grid-readonly tfoot td { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.cam-dossier-field--wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.cam-dossier-table-slice + .cam-dossier-table-slice {
+  margin-top: var(--cam-space-4);
+}
+
 .cam-dossier-fields dt {
   font-size: var(--cam-font-size-3xs);
   font-weight: 600;
@@ -5523,11 +5560,24 @@ a.cam-dash-review-row:hover {
   overflow-wrap: anywhere;
 }
 
+/* Sections read as one document: a heading and a rule, no card (§8). */
 .cam-dossier-section {
-  background: var(--cam-surface);
-  border: var(--cam-border-width) solid var(--cam-border);
-  border-radius: var(--cam-radius-lg);
-  overflow: hidden;
+  padding-block: var(--cam-space-2);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+/* A finding's link lands under the sticky decision bar, and the place it
+   points to is outlined so the reviewer sees where they arrived. */
+.cam-dossier-section,
+.cam-dossier-field { scroll-margin-top: 96px; }
+.cam-dossier-section:target,
+.cam-dossier-field:target {
+  outline: 2px solid var(--cam-warning);
+  outline-offset: 6px;
+  border-radius: var(--cam-radius-sm, 4px);
 }
 
 .cam-dossier-section > summary {

@@ -29,3 +29,17 @@ test("a finding with no family still shows, in a group of its own", () => {
 test("no findings, no groups", () => {
   assert.deepEqual(groupDossierFindings([], []), []);
 });
+
+test("one rule fired for men, women and total is one finding with three lines", async () => {
+  const { mergeSameRule, findingSex } = await import("./dossier-findings");
+  const merged = mergeSameRule([
+    { ruleCode: "S22Q03_DIPLOMA_MISMATCH", description: "Répartition (S22Q03: 0, total) ne correspond pas (S22Q01+S22Q02: 5, total).", observedValue: 0, expectedValue: 5 },
+    { ruleCode: "S22Q03_DIPLOMA_MISMATCH", description: "Répartition (S22Q03: 0, male) ne correspond pas (S22Q01+S22Q02: 4, male).", observedValue: 0, expectedValue: 4 },
+    { ruleCode: "S22Q03_DIPLOMA_MISMATCH", description: "Répartition (S22Q03: 0, female) ne correspond pas (S22Q01+S22Q02: 1, female).", observedValue: 0, expectedValue: 1 },
+    { ruleCode: "S22Q04_PERMANENT_EXCEEDS_TOTAL", description: "(S22Q04: 3, male) supérieurs (S22Q01: 2, male)", observedValue: 3, expectedValue: 2 },
+  ]);
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged[0].rows.map((row) => [row.sex, row.expected]), [["male", 4], ["female", 1], ["total", 5]]);
+  assert.equal(findingSex("Nombre (4.1: 12, hommes) diffère"), "male");
+  assert.equal(findingSex("no figures here"), null);
+});

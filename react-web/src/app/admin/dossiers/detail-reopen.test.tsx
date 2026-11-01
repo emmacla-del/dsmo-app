@@ -147,7 +147,7 @@ test("a dossier refetch keeps an open correction dialog and its text", async () 
   }
 });
 
-test("a background refetch disables the bar's decisions instead of hiding them", async () => {
+test("a background refetch leaves the bar's decisions on screen and usable", async () => {
   const originalFetch = globalThis.fetch;
   let releaseRefetch!: (response: Response) => void;
   let dossierCalls = 0;
@@ -177,8 +177,9 @@ test("a background refetch disables the bar's decisions instead of hiding them",
     });
     assert.ok(dossierCalls >= 1, "the dossier query should be refetching");
     for (const name of decisionNames) {
-      // Still there, so the bar does not jump; disabled until the refetch lands.
-      assert.equal((screen.getByRole("button", { name }) as HTMLButtonElement).disabled, true, `${name} stays visible but disabled`);
+      // No flicker when the reviewer returns to the window: the server's
+      // revision check, not a greyed button, refuses a decision on a stale file.
+      assert.equal((screen.getByRole("button", { name }) as HTMLButtonElement).disabled, false, `${name} stays usable`);
     }
 
     await act(async () => releaseRefetch(new Response(JSON.stringify(CORRECTION_DOSSIER), { status: 200, headers: { "Content-Type": "application/json" } })));
@@ -346,4 +347,58 @@ test("every questionnaire section of an enterprise file is open: nothing to expa
   for (const details of container.querySelectorAll(".cam-dossier-answer-column details")) {
     assert.equal((details as HTMLDetailsElement).open, true, "no section is collapsed");
   }
+});
+
+test("a rule fired for men, women and total is one finding, worded, with links to the tables it compares", () => {
+  const diagnostic: DossierDiagnostic = {
+    ...DIAGNOSTIC,
+    axis2WarningCount: 3,
+    warningAnomalies: (["male", "female", "total"] as const).map((sex, index) => ({
+      ruleCode: "S22Q03_DIPLOMA_MISMATCH",
+      ruleFamily: "COHERENCE",
+      description: `Répartition des recrutements par diplôme (S22Q03: 0, ${sex}) ne correspond pas au total (S22Q01+S22Q02: ${index + 1}, ${sex}).`,
+      observedValue: 0,
+      expectedValue: index + 1,
+    })),
+  };
+  const { container } = renderWorkspace({ diagnostic });
+  const findings = document.getElementById("dossier-verify")!;
+  assert.ok(findings.textContent?.includes("To verify · 1"), "three anomalies, one rule, one thing to check");
+  assert.ok(findings.textContent?.includes("Recruitment broken down by diploma"), "worded in the reader's language");
+  assert.ok(!/S22Q0d/.test(findings.textContent ?? ""), "no variable code in the finding");
+  const links = [...findings.querySelectorAll(".cam-dossier-finding-links a")].map((link) => link.getAttribute("href") ?? "");
+  assert.deepEqual(links, ["#dossier-field-S22Q03", "#dossier-field-S22Q01", "#dossier-field-S22Q02"]);
+  for (const href of links) assert.ok(container.querySelector(href), `${href} exists on the page`);
+});
+
+test("the header names the form type in words and shows the short reference", () => {
+  const { container } = renderWorkspace();
+  const header = container.querySelector("header")!;
+  assert.ok(header.textContent?.includes("Company"), "the registration wording for the form type");
+  assert.ok(!header.textContent?.includes("ENTREPRISE"), "no stored code");
+  assert.ok(document.getElementById("dossier-structure")?.textContent?.includes("Littoral"), "Section 1's location sits in Identification");
+});
+
+test("a flagged table is marked where it sits, and the rail shows which section holds it", () => {
+  const diagnostic: DossierDiagnostic = {
+    ...DIAGNOSTIC,
+    axis2WarningCount: 1,
+    warningAnomalies: [{
+      ruleCode: "S22Q04_PERMANENT_EXCEEDS_TOTAL",
+      ruleFamily: "COHERENCE",
+      description: "Recrutements permanents de personnes en situation de handicap (S22Q04: 3, male) supérieurs au total des recrutements permanents (S22Q01: 2, male).",
+      observedValue: 3,
+      expectedValue: 2,
+    }],
+  };
+  const { container } = renderWorkspace({ diagnostic });
+  const disability = container.querySelector("#dossier-field-S22Q04")!;
+  assert.ok(disability.classList.contains("is-flagged"), "the table carries the mark");
+  const notice = disability.querySelector(".cam-dossier-field-flag")!;
+  assert.ok(notice.textContent?.includes("Permanent recruitment of people with a disability"), "the finding is said above the table");
+  assert.equal(notice.querySelector("a")?.getAttribute("href"), "#dossier-verify", "and leads back to the list");
+  assert.ok(container.querySelector("#dossier-field-S22Q01")?.classList.contains("is-flagged"), "the total it is compared with is marked too");
+  assert.equal(container.querySelector("#dossier-field-S21Q01")?.classList.contains("is-flagged"), false, "an unconcerned table is not");
+  const rail = screen.getByRole("navigation", { name: "Dossier section index" });
+  assert.ok(rail.querySelector(".cam-dossier-rail-flag"), "the rail marks the section holding the flagged tables");
 });

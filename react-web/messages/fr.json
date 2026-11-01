@@ -2218,7 +2218,12 @@
     "viewSubmissions": "File d'instruction",
     "statusQueueAll": "Toutes à instruire",
     "queueViewsLabel": "Vues de la file d’instruction",
-    "queueView": { "mine": "Ma file", "unassigned": "Non attribués", "pending": "Tous en attente", "corrections": "Corrections demandées" },
+    "queueView": {
+      "mine": "Ma file",
+      "unassigned": "Non attribués",
+      "pending": "Tous en attente",
+      "corrections": "Corrections demandées"
+    },
     "correctionReceived": "Correction reçue",
     "correctionHistoryButton": "Voir l’historique",
     "viewFollowUp": "Relances",
@@ -2266,7 +2271,7 @@
     "rowActionsAria": "Actions pour {name}",
     "decidedByColumn": "Décidé par",
     "decisionColumn": "Décision",
-    "dataQualityColumn": "Qualité des données",
+    "dataQualityColumn": "Qualité données",
     "campaignPeriodColumn": "Campagne / période",
     "actionsColumn": "Actions",
     "submissionPeriodColumn": "Déclaration / période",
@@ -2314,7 +2319,6 @@
     "submittedAtColumn": "Soumis le",
     "filterColumn": "Filtrer par {column}",
     "endorsementColumn": "Visa administratif",
-    "dataQualityColumn": "Qualité données",
     "eligibilityColumn": "Éligibilité",
     "filesResource": "les dossiers",
     "noFilesTitle": "Aucun dossier trouvé",
@@ -2486,6 +2490,10 @@
     "respondentUnavailable": "Répondant non renseigné",
     "progressNotesTitle": "Notes d'instruction",
     "notesAndHistoryTitle": "Notes et historique",
+    "tableNoneDeclared": "Néant déclaré : aucun cas pendant la période.",
+    "tableNotApplicable": "Non concerné, selon le répondant.",
+    "tableNoFigures": "Aucun chiffre saisi.",
+    "tableLineColumn": "Ligne",
     "findingsBlocking": "Bloquant",
     "findingsWarning": "Avertissement",
     "historyNoteEntry": "Note d'instruction",
@@ -2546,7 +2554,11 @@
     "verifyHeading": "À vérifier · {count}",
     "blockingCount": "{count} bloquante(s)",
     "warningCount": "{count} avertissement(s)",
-    "sectionState": { "answered": "répondu", "empty": "vide", "notApplicable": "non applicable" },
+    "sectionState": {
+      "answered": "répondu",
+      "empty": "vide",
+      "notApplicable": "non applicable"
+    },
     "axis1Title": "Axe 1 · visa administratif",
     "axis2Title": "Axe 2 · qualité des données",
     "axis3Title": "Axe 3 · éligibilité statistique",
@@ -2685,7 +2697,37 @@
       "EXCL_REJECTED": "Rejeté",
       "EXCL_DRAFT_ONLY": "Brouillon",
       "EXCL_SUPERSEDED": "Remplacé par un dossier plus récent"
-    }
+    },
+    "findingSee": "Voir :",
+    "findingObserved": "Constaté",
+    "findingExpected": "Référence",
+    "findingSex": {
+      "male": "Hommes",
+      "female": "Femmes",
+      "total": "Total"
+    },
+    "findingRule": {
+      "S22Q03_DIPLOMA_MISMATCH": "Les recrutements répartis par diplôme ne correspondent pas au total des recrutements permanents et temporaires.",
+      "S3_DISMISSAL_MISMATCH": "Le nombre de licenciements diffère entre le tableau des départs, celui des motifs et celui des licenciements suivis de chômage.",
+      "S22Q04_PERMANENT_EXCEEDS_TOTAL": "Les recrutements permanents de personnes en situation de handicap dépassent le total des recrutements permanents.",
+      "S22Q04_TEMPORARY_EXCEEDS_TOTAL": "Les recrutements temporaires de personnes en situation de handicap dépassent le total des recrutements temporaires.",
+      "S22Q05_PERMANENT_EXCEEDS_TOTAL": "Les recrutements permanents de personnes vulnérables dépassent le total des recrutements permanents.",
+      "S22Q05_TEMPORARY_EXCEEDS_TOTAL": "Les recrutements temporaires de personnes vulnérables dépassent le total des recrutements temporaires.",
+      "S23Q02_PERMANENT_EXCEEDS_TOTAL": "Les primo-demandeurs recrutés en permanent dépassent le total des recrutements permanents.",
+      "S23Q02_TEMPORARY_EXCEEDS_TOTAL": "Les primo-demandeurs recrutés en temporaire dépassent le total des recrutements temporaires.",
+      "PP_S4Q05_PERMANENT_EXCEEDS_TOTAL": "Les recrutements permanents de personnes en situation de handicap (4.5) dépassent le total des recrutements permanents (4.3).",
+      "PP_S4Q05_TEMPORARY_EXCEEDS_TOTAL": "Les recrutements temporaires de personnes en situation de handicap (4.5) dépassent le total des recrutements temporaires (4.4).",
+      "PP_S4Q06_PERMANENT_EXCEEDS_TOTAL": "Les recrutements permanents de personnes vulnérables (4.6) dépassent le total des recrutements permanents (4.3).",
+      "PP_S4Q06_TEMPORARY_EXCEEDS_TOTAL": "Les recrutements temporaires de personnes vulnérables (4.6) dépassent le total des recrutements temporaires (4.4).",
+      "PP_S4Q01_HEADCOUNT_MISMATCH": "Les permanents recensés au tableau 4.1 diffèrent de l'effectif permanent déclaré.",
+      "PERMANENT_WORKERS_IMPLAUSIBLE": "L'effectif permanent déclaré est très élevé : à vérifier.",
+      "VACANCIES_IMPLAUSIBLE": "Le nombre de postes vacants déclaré est très élevé : à vérifier."
+    },
+    "railEligibility": "Éligibilité statistique",
+    "identificationTitle": "Identification",
+    "flaggedHere": "À vérifier ici",
+    "flaggedBack": "Retour à la liste « À vérifier »",
+    "railFlagged": "{count, plural, one {# à vérifier} other {# à vérifier}}"
   },
   "adminEquipePage": {
     "accessDenied": "Accès réservé aux administrateurs centraux et régionaux.",

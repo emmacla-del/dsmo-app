@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { getDossierClaimState, saveDossierReviewProgress } from "@/lib/api-client";
 import { canSaveDossierReviewProgress, isDossierRevisionConflict } from "@/lib/dossier-review-state";
+import { resolveDataState } from "@/lib/admin-data-state";
+import { DataState } from "@/components/admin/DataState";
 import { dossierClaimStateKey, dossierReviewProgressKey } from "@/lib/use-dossier-claim";
 
 interface DossierClaimPanelProps {
@@ -73,8 +75,26 @@ export function DossierClaimPanel({ dossierId, userId, role, revision }: Dossier
 
   const canSaveProgress = canSaveDossierReviewProgress(claimState, userId, role, revision);
 
+  // Who may write depends on the claim: if it cannot be read, say so rather
+  // than silently offering no form.
+  const claimDataState = resolveDataState({
+    isLoading: claimStateQuery.isLoading,
+    isError: claimStateQuery.isError && !claimStateQuery.data,
+    error: claimStateQuery.error,
+  });
+
   return (
     <div>
+      {claimDataState === "error" || claimDataState === "forbidden" ? (
+        <DataState
+          dense
+          state={claimDataState}
+          resource={t("claimPanelTitle")}
+          title={t("claimStateFailed")}
+          error={claimStateQuery.error}
+          onRetry={() => void claimStateQuery.refetch()}
+        />
+      ) : null}
       {actionNotice && <p className="cam-admin-notice" role="status">{actionNotice}</p>}
 
       {canSaveProgress && (

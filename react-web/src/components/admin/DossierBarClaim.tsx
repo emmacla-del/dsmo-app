@@ -2,9 +2,22 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import type { DossierClaimState } from "@/lib/api-client";
-import { NOT_PROVIDED, clockTime } from "@/lib/admin-data-state";
+import { NOT_PROVIDED } from "@/lib/admin-data-state";
 import { asUiLocale } from "@/lib/register-i18n";
 import { canChangeDossierClaim, isActiveDossierClaimOwner } from "@/lib/dossier-review-state";
+
+/**
+ * When the claim lapses, as a reviewer reads a clock: « 03:50 » today, with
+ * the day when it is not today. No seconds: it is not a countdown.
+ */
+export function claimExpiryTime(iso: string, locale: "fr" | "en", now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return NOT_PROVIDED;
+  const sameDay = date.toDateString() === now.toDateString();
+  return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "fr-FR", sameDay
+    ? { hour: "2-digit", minute: "2-digit" }
+    : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date);
+}
 
 interface DossierBarClaimProps {
   claim: DossierClaimState;
@@ -34,7 +47,7 @@ export function DossierBarClaim({ claim, userId, role, readOnly, busy, saving, o
     ? t("claimExpired")
     : ownsClaim
       ? claim.expiresAt
-        ? t("claimInlineYou", { time: clockTime(claim.expiresAt, locale) })
+        ? t("claimInlineYou", { time: claimExpiryTime(claim.expiresAt, locale) })
         : t("claimInlineYouUntracked")
       : claim.assigneeId
         ? t("claimInlineOther", { name: claim.assigneeName ?? NOT_PROVIDED })
