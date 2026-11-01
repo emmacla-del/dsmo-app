@@ -231,6 +231,56 @@ describe('EligibilityEngineService', () => {
   });
 
   describe('resolveAnomaly authorization', () => {
+    it('refuses RULE_RECHECK from any person, a national admin included', async () => {
+      prisma.onefopAnomaly.findUnique.mockResolvedValue({
+        id: 'ano-1', status: AnomalyStatus.OPEN, isBlocking: false,
+        submission: { id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'usr-1', archivedAt: null, revision: 1, region: 'Centre' },
+      });
+      await expect(service.resolveAnomaly('ano-1', { id: 'usr-1', role: UserRole.SUPER_ADMIN }, {
+        resolutionType: AnomalyResolutionType.RULE_RECHECK,
+        resolutionNote: 'Tentative de clôture système',
+        expectedRevision: 1,
+      })).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses a reviewer explanation on a blocking anomaly and writes nothing', async () => {
+      prisma.onefopAnomaly.findUnique.mockResolvedValue({
+        id: 'ano-1', status: AnomalyStatus.OPEN, isBlocking: true,
+        submission: {
+          id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'usr-1',
+          archivedAt: null, revision: 1, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
+      });
+      await expect(service.resolveAnomaly('ano-1', { id: 'usr-1', role: UserRole.ADMIN_ONEFOP }, {
+        resolutionType: AnomalyResolutionType.REVIEWER_EXPLANATION,
+        resolutionNote: 'Chiffres confirmés par téléphone',
+        expectedRevision: 1,
+      })).rejects.toThrow(BadRequestException);
+      expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('closes an advisory warning explained by its claim holder as RESOLVED', async () => {
+      prisma.onefopAnomaly.findUnique.mockResolvedValueOnce({
+        id: 'ano-1', ruleCode: 'S22Q04_PERMANENT_EXCEEDS_TOTAL', submissionId: 'sub-1',
+        status: AnomalyStatus.OPEN, isBlocking: false,
+        submission: {
+          id: 'sub-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'usr-1', claimActivityAt: new Date(),
+          archivedAt: null, revision: 1, updatedAt: new Date('2026-10-29T10:00:00.000Z'), region: 'Centre',
+        },
+      }).mockResolvedValueOnce({ id: 'ano-1', status: AnomalyStatus.RESOLVED });
+      const res = await service.resolveAnomaly('ano-1', { id: 'usr-1', role: UserRole.ADMIN_ONEFOP }, {
+        resolutionType: AnomalyResolutionType.REVIEWER_EXPLANATION,
+        resolutionNote: 'Chiffres confirmés par téléphone',
+        expectedRevision: 1,
+      });
+      expect(prisma.onefopAnomaly.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: AnomalyStatus.RESOLVED, resolutionType: AnomalyResolutionType.REVIEWER_EXPLANATION }),
+      }));
+      expect(res.status).toBe(AnomalyStatus.RESOLVED);
+    });
+
     it('forbids regional user from granting LEGAL_DEROGATION', async () => {
       prisma.onefopAnomaly.findUnique.mockResolvedValue({
         id: 'ano-1',

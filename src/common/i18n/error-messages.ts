@@ -481,6 +481,20 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Période inconnue.', en: 'Unknown period.' },
   { fr: 'Ordre de tri inconnu.', en: 'Unknown sort order.' },
   { fr: 'Vous devez certifier la décision de rejet avant de confirmer.', en: 'You must certify the rejection decision before confirming.' },
+  { fr: 'Ce type de clôture est réservé à la revérification automatique.', en: 'This kind of closure is reserved for the automatic re-check.' },
+  {
+    fr: 'Seul un dossier en attente de revue peut être revérifié ; ce dossier est au statut {0}.',
+    en: 'Only a file awaiting review can be re-checked; this file has the status {0}.',
+  },
+  { fr: 'Le dossier a été modifié pendant la revérification. Réessayez.', en: 'The file was changed during the re-check. Try again.' },
+  {
+    fr: "Seuls les administrateurs centraux de l'ONEFOP peuvent revérifier tous les dossiers en attente.",
+    en: 'Only ONEFOP central administrators can re-check every pending file.',
+  },
+  {
+    fr: 'Une anomalie bloquante ne peut pas être close par une explication du vérificateur.',
+    en: "A blocking anomaly cannot be closed by a reviewer's explanation.",
+  },
   {
     fr: 'Seule la Direction Centrale ONEFOP ou le SuperAdmin National peut accorder une dispense légale (WAIVED).',
     en: 'Only the ONEFOP Central Directorate or the National SuperAdmin can grant a legal waiver (WAIVED).',

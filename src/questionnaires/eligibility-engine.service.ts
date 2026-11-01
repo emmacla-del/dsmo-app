@@ -684,6 +684,18 @@ export class EligibilityEngineService {
         throw new BadRequestException(`Cette anomalie a déjà été traitée (${anomaly.status}).`);
       }
 
+      // A re-check closes a warning on the system's behalf; no person may
+      // claim it (owner, CLAUDE.md §21, 2026-11-01).
+      if (dto.resolutionType === AnomalyResolutionType.RULE_RECHECK) {
+        throw new BadRequestException('Ce type de clôture est réservé à la revérification automatique.');
+      }
+
+      // A reviewer's explanation closes an advisory warning only: a blocking
+      // finding is never explained away (owner, CLAUDE.md §21, 2026-11-01).
+      if (dto.resolutionType === AnomalyResolutionType.REVIEWER_EXPLANATION && anomaly.isBlocking) {
+        throw new BadRequestException('Une anomalie bloquante ne peut pas être close par une explication du vérificateur.');
+      }
+
       const legalWaiver = dto.resolutionType === AnomalyResolutionType.LEGAL_DEROGATION;
       if (legalWaiver && ![UserRole.SUPER_ADMIN, UserRole.ADMIN_ONEFOP].includes(actor.role)) {
         throw new ForbiddenException('Seule la Direction Centrale ONEFOP ou le SuperAdmin National peut accorder une dispense légale (WAIVED).');

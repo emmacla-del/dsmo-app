@@ -2536,6 +2536,13 @@ enum AnomalyResolutionType {
   DECLARANT_CORRECTION
   FIELD_INSPECTION
   LEGAL_DEROGATION
+  // A reviewer's written explanation, at the desk, that the figures are right
+  // (dossier workspace « Expliquer », warnings only). Not an inspection.
+  REVIEWER_EXPLANATION
+  // Closed by the system when a re-check of a pending file's coherence finds
+  // the figures no longer disagree (QuestionnairesService.recheckCoherence).
+  // Never accepted from a client.
+  RULE_RECHECK
 }
 
 model OnefopAnomaly {

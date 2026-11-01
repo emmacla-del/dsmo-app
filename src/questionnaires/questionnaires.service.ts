@@ -1,5 +1,6 @@
 // src/questionnaires/questionnaires.service.ts
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Logger, Optional } from '@nestjs/common';
+import { AnomalyResolutionType, AnomalyStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EligibilityEngineService } from './eligibility-engine.service';
 import { OnefopSubmissionDto } from '../dto/onefop-submission.dto';
@@ -4452,6 +4453,117 @@ export class QuestionnairesService {
     // Campaign progress B4: best-effort, never fails the reopening.
     await syncCampaignSubmissionOnReview(this.prisma, this.logger, submission, 'IN_PROGRESS');
     return updated;
+  }
+
+  // ── Coherence re-check (CLAUDE.md §21, 2026-11-01) ─────────────────────────
+
+  /**
+   * Re-run the coherence checks on a pending file's figures as filed, with the
+   * rules as they are now. A file keeps the warnings computed at submission,
+   * so a rule added or corrected since (S22Q03 read a key the wizard never
+   * writes until 2026-11-01) left gaps unrecorded and false warnings open.
+   * The re-check adds a warning for each rule that now fires and has no row,
+   * and closes as RULE_RECHECK each open coherence warning whose rule no
+   * longer fires. It touches only coherence warnings (never a blocking or
+   * completeness anomaly), never a rule a reviewer has explained, and only
+   * PENDING_REVIEW files: a decided file keeps what it was decided on.
+   */
+  async recheckCoherence(id: string, actorId: string | undefined, territory?: Territory) {
+    const submission = await this.findForDecision(id, territory);
+    if (submission.status !== 'PENDING_REVIEW') {
+      throw new BadRequestException(`Seul un dossier en attente de revue peut être revérifié ; ce dossier est au statut ${submission.status}.`);
+    }
+    return this.applyCoherenceRecheck(submission.id, actorId);
+  }
+
+  /** The same re-check on every pending file in the actor's territory, one file at a time. */
+  async recheckPendingCoherence(actorId: string | undefined, territory?: Territory) {
+    if (!territory?.role || !REOPEN_ROLES.includes(territory.role)) {
+      throw new ForbiddenException("Seuls les administrateurs centraux de l'ONEFOP peuvent revérifier tous les dossiers en attente.");
+    }
+    const pending = await (this.prisma as any).onefopSubmission.findMany({
+      where: { AND: [{ status: 'PENDING_REVIEW', archivedAt: null }, territoryWhere(territory)] },
+      select: { id: true },
+    });
+    const totals = { files: pending.length, changed: 0, added: 0, closed: 0, failed: 0 };
+    // Sequential: the session-mode pool cannot take a wide fan-out.
+    for (const { id } of pending) {
+      try {
+        const result = await this.applyCoherenceRecheck(id, actorId);
+        if (result.added || result.closed) totals.changed += 1;
+        totals.added += result.added;
+        totals.closed += result.closed;
+      } catch (err: any) {
+        totals.failed += 1;
+        this.logger.warn(`Coherence re-check failed for ONEFOP submission ${id}: ${err?.message}`);
+      }
+    }
+    return totals;
+  }
+
+  private async applyCoherenceRecheck(submissionRowId: string, actorId: string | undefined): Promise<{ added: number; closed: number }> {
+    return this.prisma.$transaction(async (tx: any) => {
+      const submission = await tx.onefopSubmission.findUnique({
+        where: { id: submissionRowId },
+        select: {
+          id: true, status: true, formType: true, rawData: true, revision: true, archivedAt: true,
+          anomalies: { select: { id: true, ruleCode: true, ruleFamily: true, status: true, resolutionType: true } },
+        },
+      });
+      if (!submission || submission.archivedAt || submission.status !== 'PENDING_REVIEW') return { added: 0, closed: 0 };
+
+      const flags = this.previewCoherence(submission.formType, submission.rawData);
+      const coherence = submission.anomalies.filter((a: any) => a.ruleFamily === 'COHERENCE' || a.ruleFamily === 'VT_COHERENCE');
+      const firing = new Set(flags.map((f) => f.code));
+      // A rule with a row is known, unless the row was closed by an earlier
+      // re-check: a rule that fires again after that is a new gap.
+      const known = new Set(coherence
+        .filter((a: any) => a.resolutionType !== AnomalyResolutionType.RULE_RECHECK)
+        .map((a: any) => a.ruleCode));
+      const toAdd = flags.filter((f) => !known.has(f.code));
+      const toClose = coherence.filter((a: any) => a.status === AnomalyStatus.OPEN && !firing.has(a.ruleCode));
+      if (toAdd.length === 0 && toClose.length === 0) return { added: 0, closed: 0 };
+
+      const now = new Date();
+      // The file changes for a reviewer who has it open: the revision moves,
+      // so a decision taken on the old version is refused.
+      const bumped = await tx.onefopSubmission.updateMany({
+        where: { id: submission.id, revision: submission.revision, status: 'PENDING_REVIEW', archivedAt: null },
+        data: { revision: { increment: 1 }, flags, updatedAt: now },
+      });
+      if (bumped.count !== 1) throw new ConflictException('Le dossier a été modifié pendant la revérification. Réessayez.');
+      if (toAdd.length > 0) {
+        await tx.onefopAnomaly.createMany({ data: toAdd.map((flag) => coherenceFlagToAnomaly(submission.id, flag)) });
+      }
+      if (toClose.length > 0) {
+        await tx.onefopAnomaly.updateMany({
+          where: { id: { in: toClose.map((a: any) => a.id) }, status: AnomalyStatus.OPEN },
+          data: {
+            status: AnomalyStatus.RESOLVED,
+            resolutionType: AnomalyResolutionType.RULE_RECHECK,
+            resolutionNote: 'Revérification : les chiffres déposés ne présentent plus cet écart.',
+            resolvedById: null,
+            resolvedAt: now,
+          },
+        });
+      }
+      if (actorId) {
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            action: 'COHERENCE_RECHECKED',
+            resourceType: 'OnefopSubmission',
+            resourceId: submission.id,
+            timestamp: now,
+            details: {
+              added: toAdd.map((f) => f.code),
+              closed: toClose.map((a: any) => ({ anomalyId: a.id, ruleCode: a.ruleCode })),
+            },
+          },
+        });
+      }
+      return { added: toAdd.length, closed: toClose.length };
+    });
   }
 
   // ── Dossier list export helpers ─────────────────────────────────────────────

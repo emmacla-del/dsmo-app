@@ -505,6 +505,24 @@ export class AdminQuestionnairesController {
     return this.service.assignSubmission(id, body.assigneeId ?? null, req.user.id, territoryFromUser(req.user));
   }
 
+  /**
+   * Re-run the coherence checks on a pending file with the current rules:
+   * add the warnings now due, close as RULE_RECHECK those whose figures agree
+   * (CLAUDE.md §21, 2026-11-01). Territory and read-only roles enforced in
+   * the service; national admins may also re-check every pending file.
+   */
+  @Post('coherence/recheck-pending')
+  @Roles('SUPER_ADMIN', 'ADMIN_ONEFOP', 'ADMIN_ONEFOP_SUBMISSIONS')
+  async recheckPendingCoherence(@Request() req: any) {
+    return this.service.recheckPendingCoherence(req.user?.id, territoryFromUser(req.user));
+  }
+
+  @Post(':id/coherence/recheck')
+  @Roles(...SURVEY_ADMIN_ROLES)
+  async recheckCoherence(@Param('id') id: string, @Request() req: any) {
+    return this.service.recheckCoherence(id, req.user?.id, territoryFromUser(req.user));
+  }
+
   /** Persist meaningful reviewer-authored progress and extend the inactivity window. */
   @Post(':id/review-progress')
   @Roles(...SURVEY_ADMIN_ROLES)
