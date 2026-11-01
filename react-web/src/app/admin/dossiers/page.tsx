@@ -1180,16 +1180,25 @@ function DossiersContent({
       t("reviewStatusChecksColumn"), t("assignedReviewerColumn"), t("submittedAtColumn"), t("waitingColumn"),
     ];
     const csvCell = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-    const rows = selectedDossiers.map((dossier) => [
-      dossier.companyName ?? dossier.submissionId,
-      dossier.respondentName ?? "",
-      dossier.formType ? typeLabel(dossier.formType) : "",
-      [dossier.region, dossier.department].filter(Boolean).join(" / "),
-      dossier.adminStatus,
-      dossier.assigneeName ?? "",
-      stamp(dossier.submittedAt, true, locale),
-      dossier.adminStatus === "PENDING_REVIEW" && nowMs !== null ? t("waitingDays", { count: elapsedDays(dossier.submittedAt, nowMs) }) : "",
-    ]);
+    const rows = selectedDossiers.map((dossier) => {
+      // elapsedDays returns null for a missing or unparseable submittedAt. The
+      // queue table guards for that (see the waiting cell below), so the export
+      // guards too instead of handing null to next-intl as a plural count --
+      // which does not type-check, and would read as a count of nothing.
+      const waitingDays = dossier.adminStatus === "PENDING_REVIEW" && nowMs !== null
+        ? elapsedDays(dossier.submittedAt, nowMs)
+        : null;
+      return [
+        dossier.companyName ?? dossier.submissionId,
+        dossier.respondentName ?? "",
+        dossier.formType ? typeLabel(dossier.formType) : "",
+        [dossier.region, dossier.department].filter(Boolean).join(" / "),
+        dossier.adminStatus,
+        dossier.assigneeName ?? "",
+        stamp(dossier.submittedAt, true, locale),
+        waitingDays === null ? "" : t("waitingDays", { count: waitingDays }),
+      ];
+    });
     const csv = [columns, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
