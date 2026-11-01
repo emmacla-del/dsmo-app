@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Database,
+  ChevronDown,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -21,6 +22,7 @@ import { LanguageLink } from "@/components/LanguageLink";
 import { AdminRailActions } from "@/components/admin/AdminHeaderActions";
 import { useNavProfile } from "@/hooks/useNavProfile";
 import { navHubsFor } from "@/lib/nav-profiles";
+import { hasRole, SETTINGS_ROLES } from "@/lib/roles";
 
 export interface AdminSidebarProps {
   /**
@@ -39,6 +41,9 @@ export interface AdminSidebarProps {
   anomaliesCount?: number;
   /** Sign-out, kept at the foot of the rail (owner, 2026-10-10). */
   onLogout?: () => void;
+  /** Show the bell in the rail when the route has no institutional masthead. */
+  showRailNotifications?: boolean;
+  accountScope?: string;
 }
 
 // ── Hub Icons ─────────────────────────────────────────────────────────────────────────
@@ -76,11 +81,17 @@ export function AdminSidebar({
   accountRole,
   anomaliesCount = 0,
   onLogout,
+  showRailNotifications = true,
+  accountScope,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const t = useTranslations("adminSidebar");
   const tNav = useTranslations("adminNav");
+  const tHeader = useTranslations("adminHeaderActions");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
 
   // The signed-in account's profile, unless a role was passed explicitly.
   // Either way the hubs come from NAV_PROFILES, each href already pointing at
@@ -89,6 +100,31 @@ export function AdminSidebar({
   const visibleHubs = useMemo(() => (role ? navHubsFor(role) : ownHubs), [role, ownHubs]);
 
   const activeHub = getActiveHub(pathname, searchParams);
+  const canOpenSettings = hasRole(role, SETTINGS_ROLES);
+
+  useEffect(() => {
+    setAccountMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !accountMenuRef.current?.contains(event.target)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setAccountMenuOpen(false);
+      accountTriggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [accountMenuOpen]);
 
   function getBadgeCount(badgeKey?: AdminHub["badgeKey"]): number {
     if (badgeKey === "anomalies") return anomaliesCount;
@@ -102,8 +138,6 @@ export function AdminSidebar({
         <div className="cam-admin-rail-brand-name">ONEFOP</div>
         <div className="cam-admin-rail-brand-sub">{t("brandSubtitle")}</div>
       </div>
-
-      <AdminRailActions />
 
       {/* ── Primary Navigation Hubs ── */}
       <nav className="cam-admin-rail-nav">
@@ -131,20 +165,47 @@ export function AdminSidebar({
         })}
       </nav>
 
+      <AdminRailActions showNotifications={showRailNotifications} />
+
       {/* ── Footer: signed-in identity, language, and sign-out. ── */}
       {onLogout && (
-        <div className="cam-admin-rail-account">
-          <div className="cam-admin-rail-user">
-            <div className="cam-admin-rail-user-text">
-              {accountName && <div className="cam-admin-rail-user-name">{accountName}</div>}
-              {accountRole && <div className="cam-admin-rail-user-role">{accountRole}</div>}
-            </div>
-            <div className="cam-admin-rail-locale"><LanguageLink /></div>
-          </div>
-          <button type="button" onClick={onLogout} className="cam-admin-rail-logout">
-            <LogOut size={13} aria-hidden="true" />
-            <span>{t("logoutButton")}</span>
+        <div className="cam-admin-rail-account" ref={accountMenuRef}>
+          <button
+            ref={accountTriggerRef}
+            type="button"
+            className="cam-admin-account-trigger"
+            aria-expanded={accountMenuOpen}
+            aria-controls="cam-admin-account-menu"
+            onClick={() => setAccountMenuOpen((open) => !open)}
+          >
+            <span className="cam-admin-rail-avatar" aria-hidden="true">
+              {(accountName || "").split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() || "?"}
+            </span>
+            <span className="cam-admin-account-trigger-copy">
+              <span className="cam-admin-rail-user-name">{accountName}</span>
+              <span className="cam-admin-rail-user-role">{accountRole}</span>
+            </span>
+            <ChevronDown className={`cam-admin-account-trigger-chevron${accountMenuOpen ? " is-open" : ""}`} size={16} aria-hidden="true" />
           </button>
+
+          {accountMenuOpen && <div id="cam-admin-account-menu" className="cam-admin-account-menu" aria-label={t("accountMenuAriaLabel")}>
+            {canOpenSettings && <Link href="/admin/parametres" className="cam-admin-account-menu-link" onClick={() => setAccountMenuOpen(false)}>
+              <Settings size={15} aria-hidden="true" />
+              <span>{t("accountSettingsButton")}</span>
+            </Link>}
+            {accountScope && <div className="cam-admin-account-menu-territory">
+              <span>{tHeader("scopeTitle")}</span>
+              <span className="cam-admin-scope" title={tHeader("scopeTitle")}>{tHeader("scopeChip", { scope: accountScope })}</span>
+            </div>}
+            <div className="cam-admin-account-menu-language">
+              <span>{t("languageLabel")}</span>
+              <LanguageLink compact />
+            </div>
+            <button type="button" onClick={() => { setAccountMenuOpen(false); onLogout(); }} className="cam-admin-rail-logout">
+              <LogOut size={14} aria-hidden="true" />
+              <span>{t("logoutButton")}</span>
+            </button>
+          </div>}
         </div>
       )}
     </aside>

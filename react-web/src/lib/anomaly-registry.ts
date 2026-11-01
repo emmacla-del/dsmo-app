@@ -35,6 +35,9 @@ export type AnomalyResolutionType =
 export interface AnomalySubmissionRef {
   id: string;
   submissionId: string | null;
+  /** Monotonic OnefopSubmission.revision required by resolve/waive. */
+  revision: number;
+  updatedAt: string;
   formType: string | null;
   region: string | null;
   department: string | null;
@@ -60,6 +63,39 @@ export interface AnomalyRecord {
   evidenceUrl: string | null;
   submission: AnomalySubmissionRef | null;
   resolvedBy: { id: string; email: string; firstName: string | null; lastName: string | null } | null;
+}
+
+export interface ResolveAnomalyPayload {
+  resolutionType: AnomalyResolutionType;
+  resolutionNote: string;
+  evidenceUrl?: string;
+  expectedRevision: number;
+}
+
+/** Exact monotonic revision sourced from the related dossier projection. */
+export function anomalyRevision(anomaly: Pick<AnomalyRecord, "submission">): number | null {
+  const revision = anomaly.submission?.revision;
+  return typeof revision === "number" && Number.isSafeInteger(revision) && revision >= 0 && revision <= 2147483647
+    ? revision
+    : null;
+}
+
+/** Build the exact revision-bound payload used by both ordinary resolution and legal waiver. */
+export function buildResolveAnomalyPayload(
+  anomaly: Pick<AnomalyRecord, "submission">,
+  resolutionType: AnomalyResolutionType,
+  resolutionNote: string,
+  evidenceUrl?: string,
+): ResolveAnomalyPayload | null {
+  const expectedRevision = anomalyRevision(anomaly);
+  if (expectedRevision === null) return null;
+  const normalizedEvidenceUrl = evidenceUrl?.trim();
+  return {
+    resolutionType,
+    resolutionNote,
+    ...(normalizedEvidenceUrl ? { evidenceUrl: normalizedEvidenceUrl } : {}),
+    expectedRevision,
+  };
 }
 
 export interface AnomalyRegistryPage {
@@ -105,7 +141,7 @@ export function listAnomalyRegistry(params: AnomalyRegistryParams = {}) {
 
 export function resolveAnomalyRecord(
   id: string,
-  payload: { resolutionType: AnomalyResolutionType; resolutionNote: string; evidenceUrl?: string },
+  payload: ResolveAnomalyPayload,
 ) {
   return apiFetch<AnomalyRecord>(`/admin/questionnaires/anomalies/${encodeURIComponent(id)}/resolve`, {
     method: "PATCH",

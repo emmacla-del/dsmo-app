@@ -395,8 +395,8 @@ function EtablissementDetail() {
                         <TableCell>{typeDisplay(sub.formType)}</TableCell>
                         <TableCell>{stamp(sub.submissionDate || sub.createdAt, true, locale)}</TableCell>
                         <TableCell>
-                          <Badge variant={SUBMISSION_STATUS_BADGE[sub.status] ?? "neutral"}>
-                            {SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status}
+                          <Badge variant={sub.status ? SUBMISSION_STATUS_BADGE[sub.status] ?? "neutral" : "neutral"}>
+                            {sub.status ? SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status : ""}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">

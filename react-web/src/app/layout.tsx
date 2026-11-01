@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Newsreader } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
@@ -9,11 +8,12 @@ import { AuthInitializer } from "./auth-initializer";
 import { ServiceWorkerRegistration } from "./service-worker-registration";
 import { RegistrationOutboxSync } from "./registration-outbox-sync";
 
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const newsreader = localFont({
+  src: "./fonts/Newsreader-Latin.woff2",
+  weight: "200 800",
   variable: "--font-newsreader",
   display: "swap",
+  fallback: ["Georgia", "Times New Roman", "serif"],
 });
 
 // Inter, self-hosted, HINTED (owner, 2026-10-10). The four weights the type

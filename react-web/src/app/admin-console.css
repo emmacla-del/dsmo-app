@@ -197,9 +197,12 @@
 
 .cam-admin-rail-tools-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  grid-template-columns: 32px 32px;
   align-items: center;
   gap: var(--cam-space-1);
+  justify-content: end;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .cam-admin-rail .cam-admin-scope {
@@ -321,6 +324,63 @@
   display: flex;
   align-items: center;
   gap: var(--cam-space-2);
+}
+
+.cam-admin-account-settings {
+  min-width: 0;
+}
+
+.cam-admin-account-settings > summary {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: 0 var(--cam-space-2);
+  border: var(--cam-border-width) solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--cam-radius-control);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  font-size: var(--cam-font-size-2xs);
+  font-weight: 600;
+  list-style: none;
+}
+
+.cam-admin-account-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cam-admin-account-settings > summary:hover,
+.cam-admin-account-settings[open] > summary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cam-surface);
+}
+
+.cam-admin-account-settings > summary:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+.cam-admin-account-settings-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+
+.cam-admin-account-settings[open] .cam-admin-account-settings-chevron {
+  transform: rotate(180deg);
+}
+
+.cam-admin-account-settings-body {
+  display: grid;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-2) var(--cam-space-1) 0;
+}
+
+.cam-admin-account-settings-body .cam-admin-scope {
+  justify-content: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cam-admin-rail-avatar {
@@ -763,6 +823,10 @@
   width: 100%;
   max-width: 1360px;
   padding: var(--cam-space-3) var(--cam-space-6) 0;
+}
+
+.cam-admin-institutional-mobile-actions {
+  display: none;
 }
 
 .cam-admin-menu-button {
@@ -1317,6 +1381,348 @@
   .cam-admin .cam-registration-queue-primary-filters > .md\:col-span-2,
   .cam-admin .cam-registration-organisations-primary-filters > .md\:col-span-2 {
     grid-column: auto;
+  }
+}
+
+/* Keep the queue's integrated search and quick filters close to its heading. */
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-submissions-filters {
+  padding: 4px 12px 6px !important;
+}
+
+/* Dossier submissions: keep the queue search and common views above the
+   table; the full filter set opens in a sidebar beside it. */
+.cam-admin.is-dossier-workflow .cam-dossier-queue-search-row {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-search-field {
+  flex: 1 1 250px;
+  order: 1;
+  min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-search-field label {
+  display: block;
+  margin: 0 0 6px;
+  color: #33465d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-search-field input {
+  width: 100%;
+  height: 44px;
+  border-color: #cbd5df;
+  font-size: 15px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-trigger {
+  min-height: 44px;
+  order: 3;
+  gap: 9px;
+  border-color: #b8c6d5;
+  color: #173b5b;
+  font-weight: 650;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-trigger > svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 140ms ease;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-trigger[aria-expanded="true"] {
+  border-color: var(--cam-primary);
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary-dark);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-trigger[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-export {
+  min-height: 40px;
+  order: 4;
+  gap: 7px;
+  border-color: #b8c6d5;
+  color: #173b5b;
+  font-weight: 600;
+}
+
+.cam-dossier-filter-count {
+  display: inline-grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  padding-inline: 5px;
+  border-radius: 11px;
+  background: #e4f1ed;
+  color: #12604c;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-quick-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+  order: 2;
+  gap: 6px;
+  margin: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-quick-filter {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid #cbd5df;
+  border-radius: 999px;
+  background: #fff;
+  color: #405873;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-quick-filter:hover {
+  border-color: #8fa3b8;
+  background: #f7f9fb;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-quick-filter[aria-pressed="true"] {
+  border-color: #1769e0;
+  background: #edf4ff;
+  color: #164f9f;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-quick-filter span {
+  min-width: 19px;
+  padding-inline: 4px;
+  border-radius: 10px;
+  background: #e8eef4;
+  color: #334d66;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-quick-filter:focus-visible,
+.cam-dossier-filter-trigger:focus-visible {
+  outline: 3px solid #1769e0;
+  outline-offset: 2px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-quick-filter-separator {
+  height: 20px;
+  margin-inline: 3px;
+  border-inline-start: 1px solid #d8e0e8;
+}
+
+/* The full filter set is an administrative sidebar that runs alongside the
+   queue table, not an overlay. The panel content becomes a two-column grid:
+   the table keeps the free column, the sidebar a fixed width. Only its
+   fields scroll; its actions stay pinned at the bottom. */
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0px;
+  align-items: start;
+  column-gap: 0;
+  transition: grid-template-columns 180ms cubic-bezier(0.2, 0, 0, 1), column-gap 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-card.is-filter-open .cam-admin-table-panel-content {
+  grid-template-columns: minmax(0, 1fr) 340px;
+  column-gap: 16px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content > * {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content > .cam-dossier-submissions-table {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content > .cam-dossier-filter-sidebar {
+  grid-column: 2;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar {
+  display: flex;
+  flex-direction: column;
+  max-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--cam-border);
+  border-radius: 8px;
+  background: var(--cam-surface);
+  box-shadow: var(--cam-shadow-sm);
+  opacity: 0;
+  transform: translateX(12px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: max-height 180ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 180ms;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar.is-open {
+  max-height: calc(100vh - 220px);
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition: max-height 180ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0, 0, 1), visibility 0s;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-head {
+  flex: 0 0 auto;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--cam-border);
+  border-radius: 8px 8px 0 0;
+  background: var(--cam-surface-subtle);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-title {
+  margin: 0;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-description {
+  margin: 4px 0 0;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-2xs);
+  line-height: 1.45;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  scrollbar-width: thin;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields > * {
+  min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields label {
+  display: block;
+  margin: 0 0 6px;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields select,
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields .cam-admin-input {
+  width: 100%;
+  min-height: var(--cam-form-field-height);
+  border-color: var(--cam-border-strong);
+  border-radius: 5px;
+  background-color: var(--cam-surface);
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields select:hover,
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields .cam-admin-input:hover {
+  border-color: var(--cam-text-muted);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields select:focus-visible,
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields .cam-admin-input:focus-visible {
+  border-color: var(--cam-focus);
+  outline: 0;
+  box-shadow: var(--cam-focus-shadow);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--cam-border);
+  border-radius: 0 0 8px 8px;
+  background: var(--cam-bg);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-footer > button {
+  flex: 1 1 0;
+  min-height: var(--cam-form-field-height);
+}
+
+@media (max-width: 1199px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content,
+  .cam-admin.is-dossier-workflow .cam-dossier-submissions-card.is-filter-open .cam-admin-table-panel-content {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content > .cam-dossier-filter-sidebar {
+    grid-column: 1;
+    order: 1;
+    margin: 12px 0;
+    max-height: none;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content > .cam-dossier-submissions-table {
+    order: 2;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar:not(.is-open) {
+    display: none;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields {
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 639px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-search-row {
+    align-items: stretch;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-trigger {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-head,
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields,
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-footer {
+    padding-inline: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content,
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar,
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-trigger > svg {
+    transition: none;
   }
 }
 
@@ -5607,6 +6013,40 @@ a.cam-dash-review-row:hover {
   }
 }
 
+/* Queue search and filter controls share the hub-tab row. */
+.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header .cam-dossier-queue-tools {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-tools .cam-dossier-queue-search-field {
+  flex: 0 1 300px;
+  min-width: 190px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-tools .cam-dossier-queue-search-field input {
+  height: 40px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-tools .cam-dossier-filter-trigger {
+  min-height: 40px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 800px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header .cam-dossier-queue-tools {
+    width: 100%;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-tools .cam-dossier-queue-search-field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+}
+
 /* Soumissions view: compact KPI strip, filter bar and dense institutional table. */
 .cam-admin.is-dossier-workflow .cam-dossier-page--submissions {
   gap: 14px;
@@ -6123,6 +6563,86 @@ a.cam-dash-review-row:hover {
   .cam-admin.is-dossier-workflow .cam-dossier-submissions-table table {
     min-width: 1101px;
   }
+}
+
+/* The filter is an in-flow right rail beside the queue table, not a fixed
+   overlay. It gets its own viewport-height work area; only its fields scroll
+   and the footer stays visible at the bottom. */
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open {
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open > .cam-dossier-queue-main {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open > .cam-dossier-filter-sidebar {
+  position: sticky;
+  top: 0;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  width: 100%;
+  height: calc(100vh - 205px);
+  min-height: 320px;
+  max-height: none;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dce5ee;
+  border-radius: 7px;
+  box-shadow: none;
+  animation: none;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open .cam-dossier-filter-sidebar-fields {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 1399px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open > .cam-dossier-submissions-table {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open > .cam-dossier-queue-main {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open > .cam-dossier-filter-sidebar {
+    position: relative;
+    top: auto;
+    grid-column: 1;
+    grid-row: 1;
+    height: min(640px, calc(100vh - 190px));
+    max-height: none;
+    margin: 0 0 12px;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-main > .cam-dossier-submissions-filters {
+    order: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-main > .cam-dossier-submissions-table {
+    order: 1;
+  }
+
 }
 
 @media (max-width: 1023px) {
@@ -7442,13 +7962,22 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-selection-toolbar {
+  position: fixed;
+  z-index: calc(var(--cam-z-dialog) + 2);
+  inset-inline-start: max(20px, calc(var(--cam-side-rail-width, 244px) + 20px));
+  inset-inline-end: 20px;
+  bottom: 16px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 16px;
-  padding: 12px 20px;
-  border-bottom: 1px solid #d8e0e8;
-  background: #f7f9fb;
+  gap: 10px 14px;
+  max-height: min(42vh, 300px);
+  overflow-y: auto;
+  padding: 12px 16px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(16 43 70 / 18%);
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-selection-actions {
@@ -7457,6 +7986,24 @@ a.cam-dash-review-row:hover {
   align-items: center;
   gap: 8px;
   margin-inline-start: auto;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-open-action {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  color: #1769e0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-open-action:hover {
+  border-color: #8fb4e8;
+  background: #edf4ff;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-open-action svg {
+  width: 16px;
+  height: 16px;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-filters {
@@ -7642,14 +8189,26 @@ a.cam-dash-review-row:hover {
   overflow-wrap: anywhere;
 }
 
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-meta,
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-secondary,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-cell-secondary {
+  color: #6b7280;
+}
+
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-meta {
   display: flex;
-  align-items: baseline;
-  gap: 3px 8px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-meta > span:last-child {
   min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-record-meta .cam-dossier-field-label::after {
+  content: ":";
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-secondary {
@@ -7667,6 +8226,11 @@ a.cam-dash-review-row:hover {
   font-weight: 700;
   letter-spacing: 0.045em;
   text-transform: uppercase;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-field-label,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-field-label {
+  color: #6b7280;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-cell-secondary > span:last-child {
@@ -7733,6 +8297,43 @@ a.cam-dash-review-row:hover {
   color: #244a75;
 }
 
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--pending,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--pending {
+  border-color: #bfd0e4;
+  background: #e8eff8;
+  color: #244a75;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--correction,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--correction {
+  border-color: #edc27a;
+  background: #fff0d9;
+  color: #8a4b08;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--approved,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--approved {
+  border-color: #b7ddc4;
+  background: #ddf5e8;
+  color: #17663a;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--rejected,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--rejected {
+  border-color: #e7b6b6;
+  background: #fce8e8;
+  color: #a61b1b;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--superseded,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--superseded,
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-status-badge.cam-dossier-status-badge--neutral,
+.cam-admin.is-dossier-workflow .cam-dossier-completed-table .cam-dossier-status-badge.cam-dossier-status-badge--neutral {
+  border-color: #d4dee8;
+  background: #eef2f6;
+  color: #475467;
+}
+
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-validation-summary {
   display: flex;
   flex-wrap: wrap;
@@ -7764,10 +8365,10 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-primary {
-  color: #344054;
+  color: #667085;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.4;
 }
 
@@ -7788,29 +8389,74 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-waiting.is-overdue {
+  color: #a33b45;
+  font-weight: 700;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-overdue-badge {
+  border-color: #e5a4a8;
+  background: #fde8e8;
+  color: #9f2632;
+  font-weight: 750;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-stack > [data-slot="badge"]:not(.cam-dossier-overdue-badge) {
+  border-color: #e8c96d;
+  background: #fff4d6;
   color: #854d0e;
+  font-weight: 700;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-validation-summary > .cam-dossier-cell-secondary {
+  color: #49745b;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-assignee-cell [data-slot="badge"] {
+  border-color: #e5a4a8;
+  background: #fde8e8;
+  color: #9f2632;
   font-weight: 700;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:last-child {
   white-space: nowrap;
   overflow-wrap: normal;
-  text-align: right;
+  text-align: left;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:last-child > div {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-action-cell {
+  width: 92px !important;
+  min-width: 92px;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:last-child [data-slot="button"] {
-  min-height: 36px;
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-action-cell > button {
+  min-height: 34px;
+  padding-inline: 8px;
+  border-color: #cddfd3;
+  background: #f2f8f4;
+  color: #216647;
+  font-size: 12px;
+  font-weight: 650;
   white-space: nowrap;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:last-child a[data-slot="button"] {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-view-file-cell {
+  width: 112px !important;
+  min-width: 112px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-view-file-cell > a[data-slot="button"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding-inline: 9px;
+  white-space: nowrap;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-view-file-cell a[data-slot="button"] {
   border-color: #087f5b;
   background: #087f5b;
   color: #fff;
@@ -7818,7 +8464,7 @@ a.cam-dash-review-row:hover {
   font-weight: 650;
 }
 
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td:last-child a[data-slot="button"]:hover {
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-view-file-cell a[data-slot="button"]:hover {
   border-color: #075b45;
   background: #075b45;
 }
@@ -7930,28 +8576,100 @@ a.cam-dash-review-row:hover {
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only table {
-  min-width: 1354px !important;
-  width: 1354px !important;
+  min-width: 1189px !important;
+  width: 1189px !important;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(1),
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(1) { width: 268px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(1) { width: 210px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(2),
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(2) { width: 150px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(2) { width: 130px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(3),
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(3) { width: 156px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(3) { width: 160px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(4),
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(4) { width: 200px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(4) { width: 190px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(5),
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(5) { width: 230px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(5) { width: 150px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(6),
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(6) { width: 190px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(6) { width: 92px !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(7),
-.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(7) { width: 160px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(7) { width: 145px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only thead th:nth-child(8),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only tbody td:nth-child(8) { width: 112px !important; }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-record-column--first,
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th.cam-dossier-record-column--first {
   left: 0;
+}
+
+/* Submission queue: eight workflow columns, with selection kept separate. */
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) table {
+  width: max(100%, 1393px) !important;
+  min-width: 1393px !important;
+  table-layout: fixed !important;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(1),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(1) { width: 44px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(2),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(2) { width: 210px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(3),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(3) { width: 130px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(4),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(4) { width: 160px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(5),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(5) { width: 190px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(6),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(6) { width: 150px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(7),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(7) { width: 92px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(8),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(8) { width: 145px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th:nth-child(9),
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td:nth-child(9) { width: 112px !important; }
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table--read-only table {
+  width: max(100%, 1189px) !important;
+  min-width: 1189px !important;
+  table-layout: fixed !important;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th.cam-dossier-record-column,
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) tbody td.cam-dossier-record-column {
+  left: 44px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-assignee-cell {
+  display: table-cell;
+  overflow-wrap: anywhere;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-assignee-name {
+  display: block;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-assignee-cell [data-slot="badge"] {
+  display: inline-flex;
+  margin-top: 6px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-action-cell {
+  white-space: normal;
+  overflow-wrap: normal;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th.cam-dossier-select-column,
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-select-column {
+  padding-inline: 8px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table thead th.cam-dossier-record-column,
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-record-column {
+  box-shadow: 3px 0 6px -5px rgb(16 46 41 / 45%);
 }
 
 /* Final CAMLEAP Dossiers shell polish: keep the institutional header, rail,
@@ -7982,7 +8700,8 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-rail-tools-row {
-    grid-template-columns: minmax(0, 1fr) 32px 32px;
+    grid-template-columns: 32px;
+    justify-content: end;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-rail-tools-row .cam-admin-scope {
@@ -7999,10 +8718,6 @@ a.cam-dash-review-row:hover {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
-  }
-
-  .cam-admin.is-dossier-workflow .cam-admin-rail-account {
-    display: none;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-topbar {
@@ -8045,6 +8760,24 @@ a.cam-dash-review-row:hover {
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account {
     gap: 9px;
     color: #52677f;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-admin-institutional-account > .cam-admin-bell {
+    order: 1;
+    flex: 0 0 32px;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-admin-institutional-account > .cam-admin-bell .cam-admin-icon-button {
+    color: #52677f;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-admin-institutional-account > .cam-admin-bell .cam-admin-icon-button:hover {
+    background: #f2f5f8;
+    color: #16324f;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-admin-institutional-mobile-actions {
+    display: none;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-initials {
@@ -8228,7 +8961,7 @@ a.cam-dash-review-row:hover {
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand > img {
-    width: min(170px, 43vw);
+    width: min(132px, 38vw);
     height: auto;
   }
 
@@ -8236,6 +8969,25 @@ a.cam-dash-review-row:hover {
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand-subtitle,
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account {
     display: none;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-admin-institutional-mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-admin-institutional-mobile-actions .cam-admin-scope {
+    min-width: 0;
+    max-width: min(34vw, 150px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-color: #d8e2eb;
+    background: #f6f8fa;
+    color: #344d67;
+    font-size: 10px;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-main {
@@ -8270,6 +9022,22 @@ a.cam-dash-review-row:hover {
 }
 
 @media (max-width: 639px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-selection-toolbar {
+    inset-inline: 10px;
+    bottom: 10px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-selection-actions {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-selection-actions > button {
+    flex: 1 1 auto;
+  }
+
   .cam-admin.is-dossier-workflow .cam-admin-topbar {
     min-height: 58px;
     height: 58px;
@@ -8299,5 +9067,1194 @@ a.cam-dash-review-row:hover {
 
   .cam-admin.is-dossier-workflow .cam-dossier-overdue-alert {
     align-items: flex-start;
+  }
+}
+
+/* Keep the table panel content in normal flow; the parent submissions view
+   places the filter panel beside this card at desktop widths. */
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-card .cam-admin-table-panel-content,
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-card.is-filter-open .cam-admin-table-panel-content {
+  display: block;
+  transition: none;
+}
+
+.cam-dossier-filter-sidebar {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
+  box-shadow: none;
+}
+
+.cam-dossier-filter-sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 16px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--cam-border);
+  background: var(--cam-surface-subtle);
+}
+
+.cam-dossier-filter-sidebar-title {
+  margin: 0;
+  color: var(--cam-text);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.cam-dossier-filter-sidebar-description {
+  margin-top: 5px;
+  margin-bottom: 0;
+  color: var(--cam-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cam-dossier-filter-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--cam-border);
+  border-radius: 6px;
+  background: var(--cam-surface);
+  color: var(--cam-text-muted);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cam-dossier-filter-close:hover {
+  background: var(--cam-surface-subtle);
+  color: var(--cam-text);
+}
+
+.cam-dossier-filter-close:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+.cam-dossier-filter-sidebar-fields {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 22px;
+  scrollbar-width: thin;
+}
+
+.cam-dossier-filter-sidebar-fields > * {
+  min-width: 0;
+}
+
+.cam-dossier-filter-sidebar-fields label {
+  display: block;
+  margin: 0 0 6px;
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-xs);
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.cam-dossier-filter-sidebar-fields select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--cam-form-field-height, 40px);
+  padding: 8px 12px;
+  border: 1px solid var(--cam-border-strong);
+  border-radius: 5px;
+  background-color: var(--cam-surface);
+  color: var(--cam-text);
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+}
+
+.cam-dossier-filter-sidebar-fields select:focus-visible {
+  border-color: var(--cam-focus);
+  outline: 0;
+  box-shadow: var(--cam-focus-shadow);
+}
+
+.cam-dossier-filter-sidebar-footer {
+  padding: 14px 22px;
+  border-radius: 0;
+  background: var(--cam-surface);
+}
+
+@media (max-width: 639px) {
+  .cam-dossier-filter-sidebar-head,
+  .cam-dossier-filter-sidebar-fields,
+  .cam-dossier-filter-sidebar-footer {
+    padding-inline: 16px;
+  }
+}
+
+/* The review queue gives its filters a collapsible in-flow rail. On a wide
+   desktop the table keeps most of the row; narrower screens stack the panel
+   above the horizontally scrollable table. */
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout > .cam-dossier-submissions-table {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout .cam-dossier-review-queue-table [data-slot="table-container"] {
+  max-width: 100%;
+  overflow-x: auto !important;
+  overscroll-behavior-inline: contain;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table table {
+  width: max(100%, 1239px) !important;
+  min-width: 1239px !important;
+  table-layout: fixed !important;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only table {
+  width: max(100%, 1175px) !important;
+  min-width: 1175px !important;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th:nth-child(1) { width: 44px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th:nth-child(2) { width: 240px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th:nth-child(3) { width: 205px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th:nth-child(4) { width: 220px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th:nth-child(5) { width: 210px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th:nth-child(6) { width: 190px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th:nth-child(7) { width: 130px !important; }
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(1) { width: 240px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(2) { width: 205px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(3) { width: 220px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(4) { width: 190px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(5) { width: 190px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only thead th:nth-child(6) { width: 130px !important; }
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-link {
+  color: #1769e0;
+  text-decoration: none;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-owner-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-owner-action .cam-dossier-claim-action {
+  flex: 0 0 auto;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: auto;
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  max-height: none;
+  border: 1px solid #dce5ee;
+  border-radius: 7px;
+  box-shadow: none;
+  animation: none;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-head {
+  padding: 14px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields {
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid #dce5ee;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-footer > button {
+  flex: 1 1 0;
+}
+
+@media (max-width: 1399px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar {
+    position: relative;
+    top: auto;
+    grid-row: 1;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    margin: 0 12px 12px;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 639px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table table,
+  .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only table {
+    min-width: 1175px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar {
+    animation: none;
+  }
+}
+
+/* The dossier hub tabs take the page heading's former first-row position.
+   Keep the heading in the accessibility tree while the persistent tab labels
+   provide the visible page navigation; header actions remain at the right. */
+.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header {
+  position: relative;
+  min-height: 50px;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 8px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-page-header-main {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-tabs {
+  order: 0;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-page-header-actions {
+  order: 1;
+  margin-left: auto;
+}
+
+@media (max-width: 800px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header {
+    align-items: flex-start;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-tabs {
+    flex: 1 1 100%;
+    order: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-page-header-actions {
+    order: 1;
+    margin-left: 0;
+  }
+}
+
+/* Final layout override: the filter is a real grid sibling of the table. */
+@media (min-width: 1400px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 0;
+    column-gap: 0;
+    row-gap: 10px;
+    align-items: start;
+    transition: grid-template-columns 180ms cubic-bezier(0.2, 0, 0, 1), column-gap 180ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions.is-filter-open {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    column-gap: 16px;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header,
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > :not(.cam-admin-page-header):not(.cam-admin-table-panel):not(.cam-dossier-filter-sidebar) {
+    grid-column: 1 / -1;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-table-panel {
+    grid-column: 1;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-dossier-filter-sidebar {
+    position: sticky;
+    top: 10px;
+    grid-column: 2;
+    align-self: stretch;
+    width: 0;
+    height: calc(100vh - 170px);
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 7px;
+    box-shadow: none;
+    opacity: 0;
+    transform: translateX(12px);
+    visibility: hidden;
+    pointer-events: none;
+    animation: none;
+    transition: width 180ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 180ms;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-dossier-filter-sidebar.is-open {
+    width: 100%;
+    border: 1px solid #dce5ee;
+    background: #fff;
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+    pointer-events: auto;
+    transition: width 180ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0, 0, 1), visibility 0s;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-filter-sidebar-fields {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions,
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-dossier-filter-sidebar {
+    transition: none;
+  }
+}
+
+@media (max-width: 1399px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-dossier-filter-sidebar {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+    overflow: visible;
+    border: 1px solid #dce5ee;
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-dossier-filter-sidebar:not(.is-open) {
+    display: none;
+  }
+}
+
+/* The hub tabs and queue tools share one continuous control bar. */
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+  min-height: 70px;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px;
+  border: 1px solid #d8e0e8;
+  border-radius: 8px;
+  background: #f3f6f9;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-tabs {
+  align-self: stretch;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 60px;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
+  flex: 0 1 390px;
+  max-width: 42%;
+  min-width: 0;
+  align-self: center;
+  margin-left: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-header-actions {
+  width: 100%;
+  align-items: center;
+  gap: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-tools {
+  width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-search-field {
+  flex: 1 1 220px;
+  min-width: 140px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-search-field input {
+  width: 100%;
+}
+
+@media (max-width: 800px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+    align-items: stretch;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+
+/* The queue search is available from an icon in the shared tabs bar. Keep
+   the closed control compact so the tabs and filters stay on one row. */
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-tools {
+  width: auto;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-search-field {
+  flex: 0 1 240px;
+  width: min(240px, 30vw);
+  min-width: 150px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-search-trigger {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  padding: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-search-trigger svg {
+  width: 17px;
+  height: 17px;
+}
+
+@media (min-width: 801px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 800px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+    flex-wrap: wrap;
+  }
+}
+
+/* Top control bar reference: grouped tabs on the left; search and Filters on
+   the right. */
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+  min-height: 64px;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
+  border: 0;
+  border-bottom: 1px solid var(--cam-border);
+  border-radius: 0;
+  background: var(--cam-surface);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-tabs {
+  display: flex;
+  flex: 0 1 auto;
+  align-self: center;
+  width: max-content;
+  min-width: 0;
+  min-height: 0;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 8px;
+  background: var(--cam-surface-subtle);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header .cam-admin-tab {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cam-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header .cam-admin-tab:hover {
+  background: color-mix(in srgb, var(--cam-surface) 70%, transparent);
+  color: var(--cam-text);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header .cam-admin-tab[aria-current="page"] {
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  box-shadow: var(--cam-shadow-sm);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header .cam-admin-tab-count {
+  background: var(--cam-border);
+  color: var(--cam-text);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header .cam-admin-tab[aria-current="page"] .cam-admin-tab-count {
+  background: var(--cam-green-wash-soft);
+  color: var(--cam-green-dark);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-header-actions,
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-tools {
+  display: flex;
+  width: auto;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-search-field {
+  flex: 0 1 288px;
+  width: 288px;
+  min-width: 180px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-search-field input {
+  width: 100%;
+  height: 40px;
+  padding-inline: 12px;
+  border-color: var(--cam-border);
+  border-radius: 8px;
+  background: var(--cam-bg);
+  font-size: 14px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-filter-trigger[aria-expanded="true"] {
+  border-color: var(--cam-primary-tint);
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary-dark);
+  box-shadow: inset 0 0 0 1px var(--cam-primary-tint);
+}
+
+@media (max-width: 800px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+    flex-wrap: wrap;
+    padding-inline: 16px;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-tabs,
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
+    flex: 1 1 100%;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-header-actions,
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-tools {
+    width: 100%;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-search-field {
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+/* The queue's columns share the available viewport width. Long labels and
+   values wrap inside their columns instead of forcing a horizontal scroller. */
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table,
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table [data-slot="table-container"] {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden !important;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table table,
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(1) { width: 4% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(2) { width: 19% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(3) { width: 15% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(4) { width: 17% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(5) { width: 13% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(6) { width: 14% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(7) { width: 18% !important; }
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only :is(thead th, tbody td):nth-child(1) { width: 19% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only :is(thead th, tbody td):nth-child(2) { width: 15% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only :is(thead th, tbody td):nth-child(3) { width: 17% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only :is(thead th, tbody td):nth-child(4) { width: 14% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only :is(thead th, tbody td):nth-child(5) { width: 17% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only :is(thead th, tbody td):nth-child(6) { width: 18% !important; }
+
+/* The JSX colgroup also carries inline pixel widths. Override those hints as
+   well, otherwise the browser keeps the original wide table despite the
+   responsive header and cell rules above. */
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) colgroup col:nth-child(1) { width: 4% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) colgroup col:nth-child(2) { width: 19% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) colgroup col:nth-child(3) { width: 15% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) colgroup col:nth-child(4) { width: 17% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) colgroup col:nth-child(5) { width: 13% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) colgroup col:nth-child(6) { width: 14% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table:not(.cam-dossier-submissions-table--read-only) colgroup col:nth-child(7) { width: 18% !important; }
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only colgroup col:nth-child(1) { width: 19% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only colgroup col:nth-child(2) { width: 15% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only colgroup col:nth-child(3) { width: 17% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only colgroup col:nth-child(4) { width: 14% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only colgroup col:nth-child(5) { width: 17% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table--read-only colgroup col:nth-child(6) { width: 18% !important; }
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout,
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout > .cam-dossier-queue-main,
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout > .cam-dossier-filter-sidebar {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open > .cam-dossier-queue-main {
+  overflow-x: hidden;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table thead th,
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table tbody td {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* The sticky Entity column no longer needs a divider when every column fits
+   in the same table viewport. */
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-column {
+  border-right: 0 !important;
+  border-inline-end: 0 !important;
+  box-shadow: none !important;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-actions-heading {
+  text-align: left;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table tbody td.cam-dossier-action-cell {
+  min-width: 0;
+  padding-inline: 7px;
+  vertical-align: top;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions {
+  display: flex;
+  min-width: 0;
+  align-items: start;
+  gap: 6px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > a[data-slot="button"] {
+  flex: 0 0 34px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  white-space: normal !important;
+  text-align: center;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button[data-slot="button"] {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 34px;
+  min-width: 36px;
+  padding: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > a.cam-dossier-open-action[data-slot="button"] {
+  flex: 0 0 34px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-self: start;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-open-action[data-slot="button"] {
+  flex: 0 0 34px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-validate-action[data-slot="button"] {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 34px;
+  padding-inline: 9px;
+  white-space: nowrap;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-review-issues-action[data-slot="button"] {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 34px;
+  padding-inline: 9px;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-selection-toolbar {
+    inset-inline: 16px;
+  }
+}
+
+@media (max-width: 800px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-queue-search-field {
+    width: min(240px, 52vw);
+    min-width: 120px;
+  }
+}
+
+/* Dock the filter as a true sibling of the queue inside the panel. The
+   outer page remains a vertical stack; only the queue area divides into
+   table and filter viewpods. */
+@media (min-width: 1024px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-table-panel {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout,
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-filter-open {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 16px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout > .cam-dossier-queue-main {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    overflow: hidden;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout > .cam-dossier-filter-sidebar {
+    position: sticky;
+    top: 78px;
+    display: flex;
+    flex: 0 0 0;
+    width: 0;
+    height: calc(100vh - 170px);
+    min-height: 320px;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 8px;
+    background: var(--cam-surface);
+    box-shadow: none;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(10px);
+    transition: flex-basis 180ms cubic-bezier(0.2, 0, 0, 1), width 180ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0, 0, 1), visibility 0s linear 180ms;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout > .cam-dossier-filter-sidebar.is-open {
+    flex-basis: 320px;
+    width: 320px;
+    padding: 0;
+    border: 1px solid var(--cam-border);
+    box-shadow: 0 10px 28px rgb(16 46 41 / 14%);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+    transition: flex-basis 180ms cubic-bezier(0.2, 0, 0, 1), width 180ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms ease, transform 180ms cubic-bezier(0.2, 0, 0, 1), visibility 0s;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-sidebar-head {
+    flex: 0 0 auto;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout .cam-dossier-filter-sidebar-fields {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout .cam-dossier-filter-sidebar-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex: 0 0 auto;
+    background: var(--cam-surface);
+    box-shadow: 0 -5px 12px rgb(16 46 41 / 6%);
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-filter-trigger[aria-expanded="true"] {
+    border-color: var(--cam-primary-dark);
+    background: var(--cam-primary-tint);
+    color: var(--cam-primary-dark);
+    box-shadow: inset 0 0 0 1px var(--cam-primary-dark);
+  }
+}
+
+/* Let the docked pane finish at the right edge of the desktop workspace. */
+@media (min-width: 1024px) {
+  .cam-admin.is-dossier-workflow:has(.cam-dossier-view--submissions.is-filter-open) .cam-admin-main {
+    padding-right: 0;
+  }
+}
+
+/* The preview replaces the filter in the same docked right-side pane. It is
+   a sibling of the queue canvas and uses the detail/diagnostic query cache. */
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-heading {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-eyebrow {
+  color: var(--cam-primary-dark);
+  font-size: var(--cam-font-size-3xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-filter-sidebar-title {
+  overflow-wrap: anywhere;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-content {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-section {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5eaf0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-section-title {
+  margin: 0;
+  color: #173b5b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-decision {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e5eaf0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-approve {
+  width: 100%;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--pending {
+  border-color: #bfd0e4;
+  background: #e8eff8;
+  color: #244a75;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--correction {
+  border-color: #edc27a;
+  background: #fff0d9;
+  color: #8a4b08;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--approved {
+  border-color: #b7ddc4;
+  background: #ddf5e8;
+  color: #17663a;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--rejected {
+  border-color: #e7b6b6;
+  background: #fce8e8;
+  color: #a61b1b;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--superseded,
+.cam-admin.is-dossier-workflow .cam-dossier-preview-sidebar .cam-dossier-status-badge--neutral {
+  border-color: #d4dee8;
+  background: #eef2f6;
+  color: #475467;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-facts > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-facts dt {
+  color: #64758b;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-facts dd {
+  margin: 0;
+  color: #243b53;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-check-counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-clean {
+  margin: 0;
+  color: #49745b;
+  font-size: 12px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-content .cam-admin-issues {
+  gap: 6px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-content .cam-admin-issues li {
+  padding: 9px 10px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-content .cam-dash-card {
+  padding: 12px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  border-top: 1px solid #dce5ee;
+  background: #fff;
+  box-shadow: 0 -5px 12px rgb(16 46 41 / 6%);
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-preview-full-link {
+  width: 100%;
+  min-height: 42px;
+  justify-content: center;
+}
+
+@media (min-width: 1024px) {
+  .cam-admin.is-dossier-workflow:has(.cam-dossier-view--submissions.is-filter-open, .cam-dossier-view--submissions.is-preview-open) .cam-admin-main {
+    padding-right: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open > .cam-dossier-preview-sidebar.is-open {
+    flex: 0 0 360px;
+    width: 360px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open > .cam-dossier-queue-main {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-queue-layout.is-preview-open > .cam-dossier-preview-sidebar {
+    position: relative;
+    top: auto;
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    height: min(70vh, 680px);
+    min-height: 360px;
+    max-height: none;
+    margin: 0 0 12px;
+    border: 1px solid #dce5ee;
+    border-radius: 7px;
+    background: #fff;
+    box-shadow: none;
+  }
+}
+
+/* Distribute the toolbar across the full header: tabs stay at the start and
+   the search/filter group occupies the far right. */
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+  display: flex;
+  width: 100%;
+  position: sticky;
+  top: 68px;
+  z-index: var(--cam-z-nav);
+  justify-content: space-between;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-queue-layout > .cam-dossier-filter-sidebar {
+  top: 142px;
+}
+
+@media (max-width: 1023px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+    top: 0;
+  }
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-tabs {
+  flex: 0 0 auto;
+  margin-right: auto;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.cam-admin.is-dossier-workflow .cam-dossier-view--submissions .cam-dossier-header-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 800px) {
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+    justify-content: flex-start;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-tabs {
+    margin-right: 0;
+  }
+
+  .cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header > .cam-admin-page-header-actions {
+    margin-left: 0;
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -9,6 +9,7 @@ import {
   ApiError,
   getAdminDossier,
   getDossierDiagnostic,
+  getDossierClaimState,
   approveDossier,
   rejectDossier,
   requestCorrectionDossier,
@@ -19,10 +20,13 @@ import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { resolveDossierReturnTo } from "@/lib/admin-return";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { Textarea } from "@/components/ui/textarea";
+import { DossierClaimPanel, dossierClaimStateKey, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
 import { DossierAnswerSections } from "@/components/admin/DossierAnswerSections";
 import { useAuthStore } from "@/lib/auth-store";
-import { AUDIT_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
+import { AUDIT_ROLES, SURVEY_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
+import { isActiveDossierClaimOwner } from "@/lib/dossier-review-state";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import {
   detailAnswerValue,
@@ -249,13 +253,23 @@ function SubmissionDetailContent() {
   // Central agents consult a dossier; approve, reject and request
   // correction are not offered (and are refused server-side).
   const role = useAuthStore((s) => s.user?.role);
-  const readOnly = isReadOnlyRole(role);
+  const userId = useAuthStore((s) => s.user?.id);
+  const readOnly = isReadOnlyRole(role) || searchParams.get("readOnly") === "true";
   const canSeeStaffNames = typeof role === "string" && STAFF_NAME_ROLES.includes(role);
 
   const dossierQuery = useQuery({
     queryKey: ["admin", "dossier", id, includeArchived],
     queryFn: () => getAdminDossier(id, includeArchived),
     retry: false,
+  });
+
+  const claimStateQuery = useQuery({
+    queryKey: dossierClaimStateKey(id),
+    queryFn: () => getDossierClaimState(id),
+    enabled: Boolean(id),
+    retry: false,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const diagnosticQuery = useQuery({
@@ -284,6 +298,8 @@ function SubmissionDetailContent() {
    */
   const dossier = dossierQuery.data ?? null;
   const diag = diagnosticQuery.data ?? null;
+  const claimState = claimStateQuery.data;
+  const shouldOpenApprove = searchParams.get("openApprove") === "1";
   // The strip's badges are the records' own values; a diagnostic that failed
   // to load reads as "not available", never as a figure.
   const diagnosticState: DiagnosticState = diagnosticQuery.isLoading
@@ -312,6 +328,8 @@ function SubmissionDetailContent() {
   const region = dossier?.region ?? null;
   const statusBadge = dossier?.status ? STATUS_BADGES[dossier.status] ?? null : null;
   const decisions = allowedDecisions(dossier?.status);
+  const hasActiveClaim = isActiveDossierClaimOwner(claimState, userId);
+  const canReviewDossier = !dossierQuery.isFetching && !claimStateQuery.isFetching && hasRole(role, SURVEY_ROLES) && hasActiveClaim;
   // The decision in words where the buttons were, dated when the server
   // recorded the review date; without a date the status badge already says it.
   const decidedOn = dossier?.reviewedAt ? stamp(dossier.reviewedAt, true, locale) : null;
@@ -362,10 +380,26 @@ function SubmissionDetailContent() {
   const warningText = (ruleCode: string | null | undefined, description: string | null | undefined) =>
     coherenceWarningText(t, ruleCode, description);
 
-  const invalidateDossier = () => {
-    queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] });
-    queryClient.invalidateQueries({ queryKey: ["admin", "dossier", id] });
-    queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+  const invalidateDossier = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic", id] }),
+    queryClient.invalidateQueries({ queryKey: ["admin", "dossier", id] }),
+    queryClient.invalidateQueries({ queryKey: dossierClaimStateKey(id) }),
+    queryClient.invalidateQueries({ queryKey: dossierReviewProgressKey(id) }),
+    queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }),
+    queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }),
+  ]);
+
+  const preserveDossierRevision = (result: unknown) => {
+    if (!result || typeof result !== "object") return;
+    const revision = (result as { revision?: unknown }).revision;
+    if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 0) return;
+    queryClient.setQueriesData({ queryKey: ["admin", "dossier", id] }, (old: unknown) =>
+      old && typeof old === "object" ? { ...old, revision } : old,
+    );
+  };
+
+  const refreshAfterRevisionConflict = (error: unknown) => {
+    if (isStaleRevision(error)) return invalidateDossier();
   };
 
   // ── Modals State ────────────────────────────────────────────────────────
@@ -387,7 +421,11 @@ function SubmissionDetailContent() {
   const [correctionSuccess, setCorrectionSuccess] = useState(false);
 
   const correctionMutation = useMutation({
+    retry: false,
     mutationFn: () => {
+      if (!dossier || !Number.isSafeInteger(dossier.revision)) {
+        throw new Error("La version du dossier est indisponible. Rechargez le dossier avant de confirmer.");
+      }
       // Every part of the persisted comment comes from what the reviewer
       // actually entered on this screen.
       const fullComments = [
@@ -399,12 +437,14 @@ function SubmissionDetailContent() {
       ]
         .filter(Boolean)
         .join(" — ");
-      return requestCorrectionDossier(id, fullComments, certifiedCorrection, dossier?.updatedAt ?? "");
+      return requestCorrectionDossier(id, fullComments, certifiedCorrection, dossier.revision);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      preserveDossierRevision(result);
       setCorrectionSuccess(true);
-      invalidateDossier();
+      return invalidateDossier();
     },
+    onError: refreshAfterRevisionConflict,
   });
 
   const openCorrectionModal = () => {
@@ -421,11 +461,19 @@ function SubmissionDetailContent() {
   const [rejectSuccess, setRejectSuccess] = useState(false);
 
   const rejectMutation = useMutation({
-    mutationFn: () => rejectDossier(id, rejectReason.trim(), certifiedReject, dossier?.updatedAt ?? ""),
-    onSuccess: () => {
-      setRejectSuccess(true);
-      invalidateDossier();
+    retry: false,
+    mutationFn: () => {
+      if (!dossier || !Number.isSafeInteger(dossier.revision)) {
+        throw new Error("La version du dossier est indisponible. Rechargez le dossier avant de confirmer.");
+      }
+      return rejectDossier(id, rejectReason.trim(), certifiedReject, dossier.revision);
     },
+    onSuccess: (result) => {
+      preserveDossierRevision(result);
+      setRejectSuccess(true);
+      return invalidateDossier();
+    },
+    onError: refreshAfterRevisionConflict,
   });
 
   // ── Reopen an endorsed file for correction (defect 13) ──
@@ -435,8 +483,15 @@ function SubmissionDetailContent() {
   const [reopenSuccess, setReopenSuccess] = useState(false);
 
   const reopenMutation = useMutation({
-    mutationFn: () => reopenDossierForCorrection(id, reopenReason.trim(), certifiedReopen, dossier?.updatedAt ?? ""),
-    onSuccess: () => {
+    retry: false,
+    mutationFn: () => {
+      if (!dossier || !Number.isSafeInteger(dossier.revision)) {
+        throw new Error("La version du dossier est indisponible. Rechargez le dossier avant de confirmer.");
+      }
+      return reopenDossierForCorrection(id, reopenReason.trim(), certifiedReopen, dossier.revision);
+    },
+    onSuccess: (result) => {
+      preserveDossierRevision(result);
       setReopenSuccess(true);
       // The header and its actions follow at once, as after an endorsement
       // (defect 9); the refetch then has the last word.
@@ -444,8 +499,9 @@ function SubmissionDetailContent() {
       queryClient.setQueryData(["admin", "dossier", id], (old: unknown) =>
         old && typeof old === "object" ? { ...old, status: "CORRECTION_REQUESTED", rejectionReason: reopenReason.trim() } : old,
       );
-      invalidateDossier();
+      return invalidateDossier();
     },
+    onError: refreshAfterRevisionConflict,
   });
 
   const openReopenModal = () => {
@@ -466,10 +522,24 @@ function SubmissionDetailContent() {
 
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [approveSuccess, setApproveSuccess] = useState(false);
+  const [approveComment, setApproveComment] = useState("");
+  const hasOpenWarnings = (diag?.warningAnomalies.length ?? 0) > 0;
+  const approvalChecksReady = diagnosticState === "ready" && (diag?.blockingAnomalies.length ?? 0) === 0;
 
   const approveMutation = useMutation({
-    mutationFn: () => approveDossier(id, dossier?.updatedAt ?? ""),
+    retry: false,
+    mutationFn: async () => {
+      if (!dossier || !Number.isSafeInteger(dossier.revision)) {
+        throw new Error("La version du dossier est indisponible. Rechargez le dossier avant de confirmer.");
+      }
+      const latestDiagnostic = await getDossierDiagnostic(id, includeArchived);
+      queryClient.setQueryData(["admin", "diagnostic", id, includeArchived], latestDiagnostic);
+      if (latestDiagnostic.blockingAnomalies.length > 0) throw new Error(t("blockingIssuesMustBeResolved"));
+      if (latestDiagnostic.warningAnomalies.length > 0 && !approveComment.trim()) throw new Error(t("warningJustificationRequired"));
+      return approveDossier(id, dossier.revision, approveComment);
+    },
     onSuccess: (approvedData: any) => {
+      preserveDossierRevision(approvedData);
       setApproveSuccess(true);
       // Defect 9: cancel any in-flight refetches for the dossier and diagnostic queries,
       // and write the authoritative server update directly into query cache so the header,
@@ -486,6 +556,7 @@ function SubmissionDetailContent() {
         return {
           ...old,
           status: "APPROVED",
+          revision: approvedData?.revision ?? old.revision,
           reviewedAt: approvedData?.reviewedAt ?? new Date().toISOString(),
           reviewedBy: approvedData?.reviewedBy ?? old.reviewedBy,
         };
@@ -496,6 +567,7 @@ function SubmissionDetailContent() {
           return {
             ...old,
             status: "APPROVED",
+            revision: approvedData?.revision ?? old.revision,
             reviewedAt: approvedData?.reviewedAt ?? new Date().toISOString(),
             reviewedBy: approvedData?.reviewedBy ?? old.reviewedBy,
           };
@@ -521,15 +593,28 @@ function SubmissionDetailContent() {
         });
       }
 
-      invalidateDossier();
+      return invalidateDossier();
     },
+    onError: refreshAfterRevisionConflict,
   });
 
   const openApproveModal = () => {
     setApproveSuccess(false);
+    setApproveComment("");
     approveMutation.reset();
     setIsApproveOpen(true);
   };
+
+  const handledOpenApproveRef = useRef(false);
+  useEffect(() => {
+    if (!shouldOpenApprove || handledOpenApproveRef.current || dossierQuery.isLoading || diagnosticQuery.isLoading) return;
+    handledOpenApproveRef.current = true;
+    if (dossier && diag && diag.blockingAnomalies.length === 0) {
+      openApproveModal();
+      return;
+    }
+    router.replace(`${returnTo}${returnTo.includes("?") ? "&" : "?"}preview=${encodeURIComponent(id)}&previewSection=checks`, { scroll: false });
+  }, [diagnosticQuery.isLoading, diag, dossier, dossierQuery.isLoading, id, openApproveModal, returnTo, router, shouldOpenApprove]);
 
   // Section accordion toggle, by section id (the schema's own). `undefined`
   // is "the reader has not chosen yet", which opens the first section as the
@@ -654,12 +739,12 @@ function SubmissionDetailContent() {
                 guards (QuestionnairesService.approve / reject /
                 requestCorrection), which enforce the same rule. */}
             {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
-            {decisions.reject && (
+            {decisions.reject && canReviewDossier && (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>
                 {t("rejectFormButton")}
               </button>
             )}
-            {decisions.requestCorrection && (
+            {decisions.requestCorrection && canReviewDossier && (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>
                 {t("requestCorrectionButton")}
               </button>
@@ -669,13 +754,25 @@ function SubmissionDetailContent() {
                 {t("reopenButton")}
               </button>
             )}
-            {decisions.approve && (
+            {decisions.approve && canReviewDossier && approvalChecksReady && (
               <button type="button" className="cam-button cam-button-primary cam-button-sm" onClick={openApproveModal}>
                 {t("validateArchiveButton")}
               </button>
             )}
+            {decisions.approve && canReviewDossier && !approvalChecksReady && (
+              <span className="cam-admin-notice cam-admin-notice--warn" role="status">
+                {diagnosticState !== "ready" ? t("approvalChecksUnavailableOrBlocked") : t("blockingIssuesMustBeResolved")}
+              </span>
+            )}
           </>
         )}
+      />
+
+      <DossierClaimPanel
+        dossierId={id}
+        userId={userId}
+        role={role}
+        revision={dossierQuery.isFetching ? null : dossier.revision}
       />
 
       {/* A Tableau de bord / Dossiers / Tracabilite pill row sat here. It
@@ -1144,7 +1241,7 @@ function SubmissionDetailContent() {
                 type="button"
                 className="cam-button cam-button-primary cam-button-sm"
                 onClick={() => approveMutation.mutate()}
-                disabled={approveMutation.isPending}
+                disabled={approveMutation.isPending || !approvalChecksReady || (hasOpenWarnings && !approveComment.trim())}
               >
                 {approveMutation.isPending ? t("validating") : t("confirmValidation")}
               </button>
@@ -1157,6 +1254,21 @@ function SubmissionDetailContent() {
         ) : (
           <>
             <p style={{ margin: 0 }}>{t("approveBody")}</p>
+            {hasOpenWarnings && (
+              <label className="cam-admin-form-section">
+                <span className="cam-admin-label">{t("warningJustificationLabel")} <span aria-hidden="true">*</span></span>
+                <Textarea
+                  value={approveComment}
+                  onChange={(event) => setApproveComment(event.target.value)}
+                  maxLength={2000}
+                  required
+                  aria-required="true"
+                  aria-invalid={!approveComment.trim()}
+                  placeholder={t("warningJustificationPlaceholder")}
+                />
+                <span className="cam-admin-meta">{t("warningJustificationHelp", { count: diag?.warningAnomalies.length ?? 0 })}</span>
+              </label>
+            )}
             {approveMutation.isError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error" style={{ marginTop: "var(--cam-space-3)" }}>
                 {isStaleRevision(approveMutation.error)

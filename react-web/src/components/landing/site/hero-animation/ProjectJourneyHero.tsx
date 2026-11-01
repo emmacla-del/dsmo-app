@@ -18,14 +18,14 @@
 // label and value. JourneyPlayer adds the pause control the 33-second loop
 // needs (WCAG 2.2.2).
 import Image from "next/image";
-import { Caveat } from "next/font/google";
+import localFont from "next/font/local";
 import { getTranslations } from "next-intl/server";
 import { JourneyPlayer } from "./JourneyPlayer";
 import styles from "./project-journey-hero.module.css";
 
 // The handwriting on the paper form, as in the original animation.
-const handwriting = Caveat({
-  subsets: ["latin"],
+const handwriting = localFont({
+  src: "../../../../app/fonts/Caveat-Latin.woff2",
   weight: "700",
   display: "swap",
 });

@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { coherenceWarningText, parseCoherenceWarning } from "@/lib/coherence-warning-text";
 import { asUiLocale } from "@/lib/register-i18n";
 import { formatApiError } from "@/lib/pilotage-targets";
+import { ApiError } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   ANOMALY_DEROGATION_ROLES,
@@ -15,12 +16,15 @@ import {
   ANOMALY_RULE_FAMILIES,
   anomalyCompanyName,
   anomalyDossierRef,
+  anomalyRevision,
+  buildResolveAnomalyPayload,
   listAnomalyRegistry,
   resolveAnomalyRecord,
   getQualitySummary,
   getValidationRules,
   type AnomalyRecord,
   type AnomalyResolutionType,
+  type ResolveAnomalyPayload,
   type QualitySummary,
   type ValidationRuleItem,
   ruleFamilyLabel,
@@ -119,6 +123,8 @@ function CentreQualiteContent() {
   const [evidenceUrl, setEvidenceUrl] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [revisionRefreshRequired, setRevisionRefreshRequired] = useState(false);
+  const [resolutionUnavailable, setResolutionUnavailable] = useState(false);
 
   /**
    * Anomaly registry.
@@ -186,19 +192,39 @@ function CentreQualiteContent() {
    */
 
   const resolveMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { resolutionType: AnomalyResolutionType; resolutionNote: string; evidenceUrl?: string } }) =>
+    retry: false,
+    mutationFn: ({ id, payload }: { id: string; payload: ResolveAnomalyPayload }) =>
       resolveAnomalyRecord(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "anomalies"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "dossier-review-progress"] });
       setSelectedAnomaly(null);
       setResolutionNote("");
       setEvidenceUrl("");
       setActionError(null);
+      setRevisionRefreshRequired(false);
+      setResolutionUnavailable(false);
       setSuccessToast(t("resolvedToast"));
       setTimeout(() => setSuccessToast(null), 4000);
     },
     onError: (err: unknown) => {
+      if (err instanceof ApiError && err.status === 409) {
+        setRevisionRefreshRequired(true);
+        setResolutionUnavailable(false);
+        setActionError(t("revisionConflict"));
+        // Refresh server state immediately, but leave the selected anomaly's
+        // submitted revision untouched. The reviewer must still inspect the
+        // refreshed row and confirm a new action explicitly.
+        void anomaliesQuery.refetch();
+        void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
+        void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+        void queryClient.invalidateQueries({ queryKey: ["admin", "diagnostic"] });
+        void queryClient.invalidateQueries({ queryKey: ["admin", "dossier-review-progress"] });
+        return;
+      }
       setActionError(
         `${t("resolveError")} ${formatApiError(err, locale)}`,
       );
@@ -210,7 +236,10 @@ function CentreQualiteContent() {
     setResolutionType("DECLARANT_CORRECTION");
     setResolutionNote("");
     setEvidenceUrl("");
-    setActionError(null);
+    const hasRevision = anomalyRevision(a) !== null;
+    setRevisionRefreshRequired(!hasRevision);
+    setResolutionUnavailable(false);
+    setActionError(hasRevision ? null : t("revisionUnavailable"));
   };
 
   const handleConfirmResolution = () => {
@@ -219,14 +248,42 @@ function CentreQualiteContent() {
       setActionError(t("resolutionNoteRequired"));
       return;
     }
+    const payload = buildResolveAnomalyPayload(
+      selectedAnomaly,
+      resolutionType,
+      resolutionNote.trim(),
+      evidenceUrl,
+    );
+    if (!payload) {
+      setRevisionRefreshRequired(true);
+      setActionError(t("revisionUnavailable"));
+      return;
+    }
     resolveMutation.mutate({
       id: selectedAnomaly.id,
-      payload: {
-        resolutionType,
-        resolutionNote: resolutionNote.trim(),
-        evidenceUrl: evidenceUrl.trim() || undefined,
-      },
+      payload,
     });
+  };
+
+  const handleRefreshLatestAnomaly = async () => {
+    const anomalyId = selectedAnomaly?.id;
+    if (!anomalyId) return;
+    const result = await anomaliesQuery.refetch();
+    if (result.error) {
+      setActionError(`${t("refreshRevisionError")} ${formatApiError(result.error, locale)}`);
+      return;
+    }
+    const latest = result.data?.items.find((item) => item.id === anomalyId);
+    if (!latest || latest.status !== "OPEN" || anomalyRevision(latest) === null) {
+      setRevisionRefreshRequired(false);
+      setResolutionUnavailable(true);
+      setActionError(t("anomalyNoLongerOpen"));
+      return;
+    }
+    setSelectedAnomaly(latest);
+    setRevisionRefreshRequired(false);
+    setResolutionUnavailable(false);
+    setActionError(t("revisionUpdated"));
   };
 
   // The five rates. Each value is the server's own figure, formatted by
@@ -519,7 +576,10 @@ function CentreQualiteContent() {
                 type="button"
                 className="cam-button cam-button-primary"
                 onClick={handleConfirmResolution}
-                disabled={resolveMutation.isPending}
+                disabled={
+                  resolveMutation.isPending || revisionRefreshRequired || resolutionUnavailable ||
+                  anomalyRevision(selectedAnomaly) === null
+                }
               >
                 {resolveMutation.isPending ? t("saving") : t("confirmResolution")}
               </button>
@@ -530,6 +590,16 @@ function CentreQualiteContent() {
             {actionError && (
               <div role="alert" className="cam-admin-notice cam-admin-notice--error">
                 <span>{actionError}</span>
+                {revisionRefreshRequired && (
+                  <button
+                    type="button"
+                    className="cam-button cam-button-secondary"
+                    onClick={handleRefreshLatestAnomaly}
+                    disabled={anomaliesQuery.isFetching}
+                  >
+                    {anomaliesQuery.isFetching ? t("refreshingRevision") : t("refreshLatestRevision")}
+                  </button>
+                )}
               </div>
             )}
 

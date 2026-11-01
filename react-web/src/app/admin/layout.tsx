@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
 import { getPilotageQueues } from "@/lib/api-client";
@@ -14,8 +14,8 @@ import { directoryRoleLabel } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
 import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
-import { LanguageLink } from "@/components/LanguageLink";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { NotificationBell } from "@/components/admin/NotificationBell";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 
 // Every admin page renders its own AdminPageHeader. The layout used to carry
@@ -194,6 +194,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           accountRole={accountRole}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
           onLogout={handleLogout}
+          showRailNotifications={!isDossierWorkflow}
+          accountScope={scopeLabel}
         />
       </Suspense>
 
@@ -230,18 +232,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <span className="cam-admin-scope cam-admin-institutional-scope" title={t("adminHeaderActions.scopeTitle")}>
                   {t("adminHeaderActions.scopeChip", { scope: scopeLabel })}
                 </span>
-                <span className="cam-admin-institutional-account-initials" aria-hidden="true">
-                  {displayName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}
+                <NotificationBell />
+              </div>
+              <div className="cam-admin-institutional-mobile-actions">
+                <span className="cam-admin-scope cam-admin-institutional-scope" title={t("adminHeaderActions.scopeTitle")}>
+                  {t("adminHeaderActions.scopeChip", { scope: scopeLabel })}
                 </span>
-                <span className="cam-admin-institutional-account-copy">
-                  <strong>{displayName}</strong>
-                  <span>{accountRole}</span>
-                </span>
-                <LanguageLink compact />
-                <button type="button" className="cam-admin-institutional-logout" onClick={handleLogout}>
-                  <LogOut size={16} aria-hidden="true" />
-                  <span>{t("adminSidebar.logoutButton")}</span>
-                </button>
+                <NotificationBell />
               </div>
             </>
           )}

@@ -872,6 +872,12 @@ export function restoreDossier(id: string, reason?: string) {
 export interface AdminQuestionnaireListItem {
   id: string;
   submissionId?: string | null;
+  revision?: number;
+  status?: "PENDING_REVIEW" | "APPROVED" | "CORRECTION_REQUESTED" | "REJECTED" | "SUPERSEDED" | null;
+  assigneeId?: string | null;
+  assigneeName?: string | null;
+  claimExpired?: boolean;
+  archivedAt?: string | null;
   /** Public Company identifier; distinct from the submission's Establishment FK UUID. */
   companyEstablishmentId?: string | null;
   [key: string]: any;
@@ -937,6 +943,12 @@ export function listAdminQuestionnaires(
 export interface AdminDossier {
   id: string;
   submissionId: string;
+  revision: number;
+  /** Effective owner projected by the backend claim policy. */
+  assigneeId?: string | null;
+  assigneeName?: string | null;
+  /** True when the persisted claim has exceeded its inactivity window. */
+  claimExpired?: boolean;
   formType: string;
   status: string;
   updatedAt: string;
@@ -979,26 +991,79 @@ export function getAdminDossier(id: string, includeArchived = false) {
   return apiFetch<AdminDossier>(`/admin/questionnaires/${encodeURIComponent(id)}${suffix}`);
 }
 
+export interface DossierClaimState {
+  submissionId: string;
+  status: string;
+  eligible: boolean;
+  /** Effective owner; null for an unclaimed, expired, or non-claimable dossier. */
+  assigneeId: string | null;
+  assigneeName: string | null;
+  expired: boolean;
+  activityTracked: boolean;
+  lastActivityAt: string | null;
+  expiresAt: string | null;
+}
+
+export function getDossierClaimState(id: string) {
+  return apiFetch<DossierClaimState>(`/admin/questionnaires/${encodeURIComponent(id)}/claim-state`);
+}
+
+export interface DossierReviewProgressItem {
+  id: string;
+  actorId: string;
+  createdAt: string;
+  progressType: string;
+  note: string | null;
+  anomalyId: string | null;
+}
+
+export interface DossierReviewProgressPage {
+  submissionId: string;
+  items: DossierReviewProgressItem[];
+}
+
+export function listDossierReviewProgress(id: string) {
+  return apiFetch<DossierReviewProgressPage>(`/admin/questionnaires/${encodeURIComponent(id)}/review-progress`);
+}
+
+export interface SaveDossierReviewProgressResult {
+  submissionId: string;
+  assigneeId: string;
+  note: string;
+  actorId: string;
+  lastActivityAt: string;
+  expiresAt: string;
+  updatedAt: string;
+  revision: number;
+}
+
+export function saveDossierReviewProgress(id: string, note: string, expectedRevision: number) {
+  return apiFetch<SaveDossierReviewProgressResult>(`/admin/questionnaires/${encodeURIComponent(id)}/review-progress`, {
+    method: "POST",
+    body: JSON.stringify({ note, expectedRevision }),
+  });
+}
+
 export function getDossierDiagnostic(id: string, includeArchived = false) {
   const suffix = includeArchived ? "?includeArchived=true" : "";
   return apiFetch<DossierDiagnostic>(`/admin/questionnaires/${encodeURIComponent(id)}/diagnostic${suffix}`);
 }
 
-export function approveDossier(id: string, expectedRevision: string) {
+export function approveDossier(id: string, expectedRevision: number, comment?: string) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/approve`, {
     method: "PATCH",
-    body: JSON.stringify({ expectedRevision }),
+    body: JSON.stringify({ expectedRevision, ...(comment?.trim() ? { comment: comment.trim() } : {}) }),
   });
 }
 
-export function rejectDossier(id: string, reason: string, certified: boolean, expectedRevision: string) {
+export function rejectDossier(id: string, reason: string, certified: boolean, expectedRevision: number) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reject`, {
     method: "PATCH",
     body: JSON.stringify({ reason, certified, expectedRevision }),
   });
 }
 
-export function requestCorrectionDossier(id: string, comments: string, certified: boolean, expectedRevision: string) {
+export function requestCorrectionDossier(id: string, comments: string, certified: boolean, expectedRevision: number) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/request-correction`, {
     method: "PATCH",
     body: JSON.stringify({ comments, certified, expectedRevision }),
@@ -1011,7 +1076,7 @@ export function requestCorrectionDossier(id: string, comments: string, certified
  * enforced server-side; the reason and the attestation are required and
  * recorded (AUDIT_REOPEN).
  */
-export function reopenDossierForCorrection(id: string, reason: string, certified: boolean, expectedRevision: string) {
+export function reopenDossierForCorrection(id: string, reason: string, certified: boolean, expectedRevision: number) {
   return apiFetch<unknown>(`/admin/questionnaires/${encodeURIComponent(id)}/reopen-for-correction`, {
     method: "PATCH",
     body: JSON.stringify({ reason, certified, expectedRevision }),
@@ -1060,9 +1125,21 @@ export function bulkRequestCorrectionDeclarations(payload: { submissionIds: stri
   });
 }
 
-/** Claims (assigneeId) or releases (null) a dossier's review. */
+/**
+ * Claims (assigneeId) or releases (null) a dossier's review. The backend
+ * derives the current revision inside its transaction; this DTO deliberately
+ * has no client expectedRevision field.
+ */
 export function assignDossier(id: string, assigneeId: string | null) {
-  return apiFetch<{ id: string; assigneeId: string | null; assigneeName: string | null }>(
+  return apiFetch<{
+    id: string;
+    assigneeId: string | null;
+    assigneeName: string | null;
+    lastActivityAt?: string | null;
+    expiresAt?: string | null;
+    expired?: boolean;
+    activityTracked?: boolean;
+  }>(
     `/admin/questionnaires/${encodeURIComponent(id)}/assign`,
     {
       method: "PATCH",

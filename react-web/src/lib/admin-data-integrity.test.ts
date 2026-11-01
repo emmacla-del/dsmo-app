@@ -288,6 +288,8 @@ test("anomalyCompanyName: reads submission.company.name and never fabricates def
     submission: {
       id: "sub-1",
       submissionId: "DSMO-2026-0001",
+      revision: 0,
+      updatedAt: "2026-03-01T00:00:00.000Z",
       formType: "ENTREPRISE_MODERNE",
       region: "Centre",
       department: "Mfoundi",

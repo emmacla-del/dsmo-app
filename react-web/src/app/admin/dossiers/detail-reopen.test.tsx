@@ -9,6 +9,7 @@ import SubmissionDetailPage from "./[id]/page";
 const DOSSIER: AdminDossier = {
   id: "dossier-1",
   submissionId: "SUB-2026-0001",
+  revision: 7,
   formType: "ENTERPRISE",
   status: "APPROVED",
   updatedAt: "2026-10-01T10:00:00.000Z",
@@ -135,7 +136,7 @@ test("confirming the dialog reopens this dossier for correction through the API"
     assert.deepEqual(reopen.body, {
       reason: "Le fichier doit être corrigé.",
       certified: true,
-      expectedRevision: DOSSIER.updatedAt,
+      expectedRevision: DOSSIER.revision,
     });
   } finally {
     globalThis.fetch = originalFetch;
