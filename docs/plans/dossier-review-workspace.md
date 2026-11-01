@@ -162,6 +162,35 @@ The second half of the review desk (see « Workspace layout target » below).
   merged into a single « Notes et historique » section at the end.
 - Fewer containers (§8): drop the card/box chrome around sections, the
   diagnostic strip and the anomaly lists.
+- In the rail's section index, each section's state: answered, empty, or
+  not applicable when the gateway questions skipped it (§10). An empty
+  section and a skipped one must never read alike.
+- « À vérifier » carries its open count in its heading (« À vérifier · 4 »).
+
+Layout decision, 2026-11-01: a three-column variant (section rail, answers
+under tabs, findings and decisions in a right-hand panel) was compared with
+this review desk and set aside by the owner. Reasons: the third column takes
+about a third of the width the wide statistical tables need on every file;
+status and actions would sit in three places instead of the sticky bar; the
+answers would share a tab bar with features that do not exist; and its side
+columns scroll on their own (§13). Kept from it: the section state and the
+open count above, and, later, findings that point to their answer (below).
+
+Deferred, each with what it waits for:
+- Findings that link to their answer (« aller à la réponse », the answer
+  highlighted, stepping from finding to finding): the rule → field mapping,
+  reviewed by the ONEFOP domain agent. When it exists, the findings list
+  goes in the rail under « Contrôles », not in a third column.
+- Reviewer flags on individual answers, each with a note, feeding the
+  correction request: a new record type, so a schema change (§21).
+- Comparing a resubmission with the file it replaces, answer by answer:
+  backend work on the existing `supersedes` relation.
+- Supporting documents (evidence): storage, access and data-protection
+  rules, none of which exist.
+- Two open policy questions for the owner, not layout: whether an
+  administrative checklist should exist and be required before
+  endorsement; and whether open advisory warnings should ever block
+  endorsement (today they require a written justification, §7).
 - Grouping by questionnaire section and jumping to a field ONLY once a
   rule → section/field mapping exists and the ONEFOP domain agent has
   reviewed it. Until then, group by rule family. A wrong anchor misleads a
