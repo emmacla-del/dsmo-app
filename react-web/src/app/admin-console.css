@@ -302,6 +302,7 @@
   color: var(--cam-text);
   font-size: var(--cam-font-size-3xs);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
@@ -563,11 +564,17 @@
   gap: var(--cam-space-3);
 }
 
+/* The page title is the one piece of an administrative screen that is
+   allowed a display face: it names the register you are standing in. The
+   serif is the self-hosted Newsreader (--cam-font-serif), set in CSS only —
+   no component markup changes. 600 rather than 700: at 24px a serif at
+   bold reads as shouting, and the weight is carrying no extra meaning. */
 .cam-admin-page-title {
   margin: 0;
+  font-family: var(--cam-font-serif);
   font-size: var(--cam-font-size-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.15;
   color: var(--cam-text);
 }
@@ -958,9 +965,12 @@
   color: var(--cam-text-muted);
 }
 
+/* An establishment identifier is read digit by digit and compared down a
+   column, so its figures must not change width. */
 .cam-admin-code {
   font-family: var(--cam-font-mono);
   font-size: var(--cam-font-size-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .cam-admin-muted {
@@ -1425,7 +1435,7 @@
   gap: 9px;
   border-color: var(--cam-console-navy-35);
   color: var(--cam-console-navy-60);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-filter-trigger > svg {
@@ -1628,7 +1638,7 @@
   margin: 0 0 6px;
   color: var(--cam-text);
   font-size: var(--cam-font-size-xs);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -1745,7 +1755,7 @@
   color: var(--cam-text);
   cursor: pointer;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.3;
   list-style: none;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
@@ -2025,6 +2035,7 @@
   border: none;
   font-size: var(--cam-font-size-3xs);
   font-weight: var(--cam-font-weight-bold);
+  font-variant-numeric: tabular-nums;
   text-align: center;
   line-height: 18px;
   color: var(--cam-text-muted);
@@ -2911,12 +2922,12 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 }
 
 .cam-dash-serif {
-  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-family: var(--cam-font-serif);
   letter-spacing: -0.035em;
 }
 
 .cam-dash-number {
-  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-family: var(--cam-font-serif);
   font-size: 37px;
   letter-spacing: -0.04em;
   line-height: 1.15;
@@ -2925,7 +2936,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 }
 
 .cam-dash-hero-title {
-  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-family: var(--cam-font-serif);
   font-size: clamp(26px, 3.5vw, 38px);
   margin: 0;
   font-weight: 600;
@@ -3239,7 +3250,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 }
 
 .cam-dash-stat-figure {
-  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-family: var(--cam-font-serif);
   font-size: var(--cam-font-size-xl);
   display: block;
 }
@@ -3336,7 +3347,7 @@ a.cam-kpi-tile:hover .cam-kpi-tile-label {
 
 .cam-dash-stage-card strong {
   display: block;
-  font-family: Fraunces, Georgia, Cambria, "Times New Roman", serif;
+  font-family: var(--cam-font-serif);
   font-size: 26px;
   margin: 6px 0;
   line-height: 1.1;
@@ -5670,7 +5681,6 @@ a.cam-dash-review-row:hover {
     grid-template-rows: 58px minmax(0, 1fr);
     background: var(--cam-console-navy-04);
     color: var(--cam-console-navy-62);
-    font-family: "Segoe UI", Arial, sans-serif;
     font-size: 13px;
     line-height: 1.45;
   }
@@ -5723,7 +5733,7 @@ a.cam-dash-review-row:hover {
   .cam-admin.is-dossier-workflow .cam-admin-institutional-brand-name {
     color: var(--cam-console-navy-63);
     font-size: 22px;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: -0.03em;
     white-space: nowrap;
   }
@@ -5761,7 +5771,7 @@ a.cam-dash-review-row:hover {
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-copy strong {
     color: var(--cam-console-navy-51);
-    font-weight: 650;
+    font-weight: 600;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-main {
@@ -5841,7 +5851,7 @@ a.cam-dash-review-row:hover {
   background: transparent;
   color: var(--cam-console-navy-51);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab:hover {
@@ -5887,7 +5897,7 @@ a.cam-dash-review-row:hover {
   background: var(--cam-surface);
   color: var(--cam-console-navy-63);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-section-heading {
@@ -5938,7 +5948,7 @@ a.cam-dash-review-row:hover {
   background: var(--cam-console-navy-06);
   color: var(--cam-console-navy-52);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   text-align: left;
 }
 
@@ -6203,7 +6213,7 @@ a.cam-dash-review-row:hover {
   padding: 8px 9px;
   border-bottom: 1px solid var(--cam-console-navy-22);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.3;
   white-space: normal;
 }
@@ -6380,7 +6390,7 @@ a.cam-dash-review-row:hover {
   padding: 8px 9px;
   border-bottom: 1px solid var(--cam-console-navy-22);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.3;
   white-space: normal;
 }
@@ -6924,7 +6934,7 @@ a.cam-dash-review-row:hover {
   min-width: var(--cam-admin-table-min-width, 640px);
   border-collapse: collapse;
   color: var(--cam-admin-table-text, var(--cam-console-navy-59));
-  font-family: var(--cam-admin-table-font-family, "Segoe UI", Arial, sans-serif);
+  font-family: var(--cam-admin-table-font-family, var(--cam-font-sans));
   font-size: var(--cam-admin-table-font-size, 15px);
   line-height: 1.45;
 }
@@ -6954,7 +6964,7 @@ a.cam-dash-review-row:hover {
   border-bottom: 1px solid var(--cam-border);
   background: var(--cam-admin-table-header-bg, var(--cam-console-navy-06));
   color: var(--cam-admin-table-header-text, var(--cam-console-navy-52));
-  font-family: var(--cam-admin-table-font-family, "Segoe UI", Arial, sans-serif);
+  font-family: var(--cam-admin-table-font-family, var(--cam-font-sans));
   font-size: var(--cam-admin-table-heading-size, 14px);
   font-weight: 700;
   line-height: 1.4;
@@ -6968,7 +6978,7 @@ a.cam-dash-review-row:hover {
   padding: var(--cam-admin-table-cell-y, 10px) var(--cam-admin-table-cell-x, 10px);
   border-bottom: 1px solid var(--cam-admin-table-border, var(--cam-console-navy-18));
   color: var(--cam-admin-table-text, var(--cam-console-navy-59));
-  font-family: var(--cam-admin-table-font-family, "Segoe UI", Arial, sans-serif);
+  font-family: var(--cam-admin-table-font-family, var(--cam-font-sans));
   font-size: var(--cam-admin-table-font-size, 15px);
   line-height: 1.45;
   vertical-align: middle;
@@ -7016,7 +7026,7 @@ a.cam-dash-review-row:hover {
   --cam-admin-content-padding-right: 80px;
   --cam-admin-content-padding-mobile: var(--cam-space-4);
   --cam-admin-table-min-width: 640px;
-  --cam-admin-table-font-family: var(--cam-font-sans, "Segoe UI", Arial, sans-serif);
+  --cam-admin-table-font-family: var(--cam-font-sans);
   --cam-admin-table-font-size: 15px;
   --cam-admin-table-heading-size: 14px;
   --cam-admin-table-header-bg: var(--cam-console-navy-06);
@@ -7589,7 +7599,7 @@ a.cam-dash-review-row:hover {
   background: transparent;
   color: var(--cam-console-navy-55);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.005em;
   text-decoration: none;
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
@@ -7800,7 +7810,7 @@ a.cam-dash-review-row:hover {
   margin-bottom: 6px;
   color: var(--cam-console-navy-53);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-campaign .cam-admin-input {
@@ -7836,7 +7846,7 @@ a.cam-dash-review-row:hover {
   background: transparent;
   color: var(--cam-console-navy-58);
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   text-decoration: none;
 }
@@ -7912,7 +7922,7 @@ a.cam-dash-review-row:hover {
   border-color: var(--cam-console-navy-39);
   color: var(--cam-console-navy-61);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-status-summary {
@@ -8021,7 +8031,7 @@ a.cam-dash-review-row:hover {
   margin-bottom: 6px;
   color: var(--cam-console-navy-53);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -8172,7 +8182,7 @@ a.cam-dash-review-row:hover {
   max-width: 100%;
   color: var(--cam-console-navy-64);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -8184,7 +8194,7 @@ a.cam-dash-review-row:hover {
   max-width: 100%;
   color: var(--cam-console-navy-46);
   font-size: 12px;
-  font-weight: 450;
+  font-weight: 500;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -8262,7 +8272,7 @@ a.cam-dash-review-row:hover {
   border: 1px solid transparent;
   border-radius: 4px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   white-space: normal;
   text-align: left;
@@ -8397,7 +8407,7 @@ a.cam-dash-review-row:hover {
   border-color: var(--cam-console-red-04);
   background: var(--cam-console-red-02);
   color: var(--cam-console-red-07);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-date-stack > [data-slot="badge"]:not(.cam-dossier-overdue-badge) {
@@ -8436,7 +8446,7 @@ a.cam-dash-review-row:hover {
   background: var(--cam-console-green-01);
   color: var(--cam-console-teal-06);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -8461,7 +8471,7 @@ a.cam-dash-review-row:hover {
   background: var(--cam-console-teal-05);
   color: var(--cam-white);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-submissions-table tbody td.cam-dossier-view-file-cell a[data-slot="button"]:hover {
@@ -8500,7 +8510,7 @@ a.cam-dash-review-row:hover {
   color: var(--cam-console-navy-58);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  font-weight: 650;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -8676,7 +8686,7 @@ a.cam-dash-review-row:hover {
    filters and table on a shared grid across desktop and small screens. */
 .cam-admin.is-dossier-workflow {
   --cam-side-rail-width: 260px;
-  font-family: var(--cam-font-sans, Inter, "Segoe UI", Arial, sans-serif);
+  font-family: var(--cam-font-sans);
 }
 
 .cam-admin.is-dossier-workflow .cam-admin-rail-hub-label {
@@ -8811,7 +8821,7 @@ a.cam-dash-review-row:hover {
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-copy strong {
     color: var(--cam-console-navy-61);
     font-size: 12px;
-    font-weight: 650;
+    font-weight: 600;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-account-copy > span {
@@ -8834,7 +8844,7 @@ a.cam-dash-review-row:hover {
     background: var(--cam-surface);
     color: var(--cam-console-navy-61);
     font-size: 12px;
-    font-weight: 650;
+    font-weight: 600;
   }
 
   .cam-admin.is-dossier-workflow .cam-admin-institutional-logout {
@@ -8907,7 +8917,7 @@ a.cam-dash-review-row:hover {
   background: var(--cam-console-amber-01);
   color: var(--cam-console-amber-13);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -9165,7 +9175,7 @@ a.cam-dash-review-row:hover {
   margin: 0 0 6px;
   color: var(--cam-text);
   font-size: var(--cam-font-size-xs);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -10113,7 +10123,7 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-preview-facts dt {
   color: var(--cam-console-navy-45);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .cam-admin.is-dossier-workflow .cam-dossier-preview-facts dd {

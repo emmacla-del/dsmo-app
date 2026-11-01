@@ -1,4 +1,10 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap");
+/* No webfont is fetched at runtime. Every typeface the app uses is
+   self-hosted and declared in src/app/layout.tsx (Inter, Newsreader) — a
+   government portal should not depend on a third-party host to render its
+   own text, and the import that used to sit here blocked first paint on
+   fonts.googleapis.com. It carried DM Sans, which nothing referenced, and
+   Fraunces, which only the dashboard's display figures used; those now read
+   --cam-font-serif (Newsreader). */
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./admin-console.css";
