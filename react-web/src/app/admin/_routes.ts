@@ -171,7 +171,7 @@ export const ADMIN_HUBS: AdminHub[] = [
       // Submission quotas/returns and registration coverage stay under one
       // campaign-targets route. Their view-level role gates keep the two
       // specialist workflows separate while shared admins can see both.
-      { label: "Cibles et rapports de campagne", labelKey: "cibles", href: "/admin/cibles", allowedRoles: [...SURVEY_ROLES, ...REGISTRATION_ROLES] },
+      { label: "Quotas et rapports de campagne", labelKey: "cibles", href: "/admin/cibles", allowedRoles: [...SURVEY_ROLES, ...REGISTRATION_ROLES] },
       { label: "Formulaires d’enquête", labelKey: "questionnaires", href: "/admin/questionnaires", allowedRoles: SURVEY_ROLES },
     ],
   },

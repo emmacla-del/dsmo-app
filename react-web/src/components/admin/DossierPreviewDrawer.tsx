@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { hasRole, SURVEY_ROLES } from "@/lib/roles";
 import { isActiveDossierClaimOwner } from "@/lib/dossier-review-state";
+import { allowedDecisions } from "@/lib/dossier-axes";
 
 export interface DossierPreviewSummary {
   companyName: string | null;
@@ -39,6 +40,11 @@ interface DossierPreviewDrawerProps {
   userId: string | null | undefined;
   role: string | null | undefined;
   focusChecks?: boolean;
+  nextDossierId?: string | null;
+  previewPosition?: number | null;
+  previewTotal?: number;
+  notice?: string | null;
+  onAdvance?: (id: string, validatedRef: string) => void;
   onClose: () => void;
 }
 
@@ -67,6 +73,11 @@ export function DossierPreviewDrawer({
   userId,
   role,
   focusChecks = false,
+  nextDossierId = null,
+  previewPosition = null,
+  previewTotal = 0,
+  notice = null,
+  onAdvance,
   onClose,
 }: DossierPreviewDrawerProps) {
   const t = useTranslations("adminDossiersPage");
@@ -76,7 +87,9 @@ export function DossierPreviewDrawer({
   const [approveOpen, setApproveOpen] = useState(false);
   const [approveComment, setApproveComment] = useState("");
   const [approveSuccess, setApproveSuccess] = useState(false);
+  const [approveAndNext, setApproveAndNext] = useState(false);
   const [decisionError, setDecisionError] = useState("");
+  const nextAfterDecisionRef = useRef<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const checksSectionRef = useRef<HTMLElement>(null);
   const dossierQuery = useQuery({
@@ -115,6 +128,10 @@ export function DossierPreviewDrawer({
   const canApproveHere = hasRole(role, SURVEY_ROLES) && status === "PENDING_REVIEW" &&
     isActiveDossierClaimOwner(claimStateQuery.data, userId) && diagnosticsReady && !hasBlockingIssues &&
     Number.isSafeInteger(dossier?.revision);
+  const decisions = allowedDecisions(status);
+  const canDecideHere = hasRole(role, SURVEY_ROLES) && isActiveDossierClaimOwner(claimStateQuery.data, userId);
+  const decisionHref = (param: "openCorrection" | "openReject") =>
+    `${fullDossierHref}${fullDossierHref.includes("?") ? "&" : "?"}${param}=1`;
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -154,11 +171,18 @@ export function DossierPreviewDrawer({
       setApproveOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires", "list"] });
       void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+      const nextId = nextAfterDecisionRef.current;
+      const validatedRef = dossier?.submissionId ?? summary?.submissionId ?? dossierId;
+      nextAfterDecisionRef.current = null;
+      if (nextId && onAdvance) onAdvance(nextId, validatedRef);
     },
     onError: (error: unknown) => setDecisionError(error instanceof Error ? error.message : tDetail("unknownError")),
   });
 
   const openApprovalConfirmation = () => {
+    const nextId = nextDossierId ?? null;
+    nextAfterDecisionRef.current = nextId;
+    setApproveAndNext(Boolean(nextId));
     setApproveComment("");
     setDecisionError("");
     approvalMutation.reset();
@@ -183,6 +207,9 @@ export function DossierPreviewDrawer({
           <span className="cam-dossier-preview-eyebrow">{t("previewEyebrow")}</span>
           <h2 id="cam-dossier-preview-title" className="cam-dossier-filter-sidebar-title">{entityName}</h2>
           <p className="cam-dossier-filter-sidebar-description">{t("previewReference", { id: dossier?.submissionId ?? summary?.submissionId ?? dossierId })}</p>
+          {previewPosition !== null && previewTotal > 0 && (
+            <p className="cam-admin-meta">{t("previewPosition", { position: previewPosition, total: previewTotal })}</p>
+          )}
         </div>
         <button ref={closeButtonRef} type="button" className="cam-dossier-filter-close" aria-label={t("closePreview")} onClick={onClose}><X aria-hidden="true" /></button>
       </div>
@@ -190,6 +217,7 @@ export function DossierPreviewDrawer({
       <div className="cam-dossier-preview-content">
         {dossierQuery.isError && <p className="cam-admin-notice cam-admin-notice--error" role="alert">{t("previewLoadError")}</p>}
         {dossierQuery.isLoading && !summary && <p className="cam-admin-meta" role="status">{t("previewLoading")}</p>}
+        {notice && <p className="cam-admin-notice cam-admin-notice--success" role="status">{notice}</p>}
 
         {(dossier || summary) && <>
           <section className="cam-dossier-preview-section" aria-labelledby="cam-dossier-preview-status-heading">
@@ -232,14 +260,33 @@ export function DossierPreviewDrawer({
           {approveSuccess && <p className="cam-admin-notice cam-admin-notice--success" role="status">{tDetail("approveSuccess")}</p>}
           {decisionError && <p className="cam-admin-notice cam-admin-notice--error" role="alert">{decisionError}</p>}
 
-          {hasRole(role, SURVEY_ROLES) && status === "PENDING_REVIEW" && isActiveDossierClaimOwner(claimStateQuery.data, userId) && (
+          {canDecideHere && (decisions.reject || decisions.requestCorrection || decisions.approve) && (
             <section className="cam-dossier-preview-decision" aria-labelledby="cam-dossier-preview-decision-heading">
-              <h3 id="cam-dossier-preview-decision-heading" className="cam-dossier-preview-section-title">{tDetail("validateArchiveButton")}</h3>
-              {!diagnosticsReady && <p className="cam-admin-meta">{tDetail("approvalChecksUnavailableOrBlocked")}</p>}
-              {diagnosticsReady && hasBlockingIssues && <p className="cam-admin-notice cam-admin-notice--error" role="status">{tDetail("blockingIssuesMustBeResolved")}</p>}
-              {canApproveHere && <Button type="button" className="cam-dossier-preview-approve" onClick={openApprovalConfirmation}>
-                {tDetail("validateArchiveButton")}
-              </Button>}
+              <h3 id="cam-dossier-preview-decision-heading" className="cam-dossier-preview-section-title">{t("previewDecisionHeading")}</h3>
+              {nextDossierId === null && previewPosition !== null && (
+                <p className="cam-admin-meta">{t("noNextPendingFile")}</p>
+              )}
+              {decisions.reject && (
+                <Button asChild variant="outline" className="cam-dossier-preview-decision-action">
+                  <Link href={decisionHref("openReject")}>{tDetail("rejectFormButton")}</Link>
+                </Button>
+              )}
+              {decisions.requestCorrection && (
+                <Button asChild variant="outline" className="cam-dossier-preview-decision-action">
+                  <Link href={decisionHref("openCorrection")}>{tDetail("requestCorrectionButton")}</Link>
+                </Button>
+              )}
+              {decisions.approve && (
+                <>
+                  {!diagnosticsReady && <p className="cam-admin-meta">{tDetail("approvalChecksUnavailableOrBlocked")}</p>}
+                  {diagnosticsReady && hasBlockingIssues && <p className="cam-admin-notice cam-admin-notice--error" role="status">{tDetail("blockingIssuesMustBeResolved")}</p>}
+                  {canApproveHere && (
+                    <Button type="button" className="cam-dossier-preview-approve" onClick={openApprovalConfirmation}>
+                      {nextDossierId ? t("validateAndNext") : tDetail("validateArchiveButton")}
+                    </Button>
+                  )}
+                </>
+              )}
             </section>
           )}
 
@@ -269,7 +316,7 @@ export function DossierPreviewDrawer({
             onClick={() => approvalMutation.mutate()}
             disabled={approvalMutation.isPending || !canApproveHere || (hasOpenWarnings && !approveComment.trim())}
           >
-            {approvalMutation.isPending ? tDetail("validating") : tDetail("confirmValidation")}
+            {approvalMutation.isPending ? tDetail("validating") : approveAndNext ? t("validateAndNext") : tDetail("confirmValidation")}
           </button>
         </>
       }

@@ -366,6 +366,7 @@ function DossiersContent({
   const [searchInput, setSearchInput] = useState(requestedQuery);
   const [search, setSearch] = useState(requestedQuery.trim());
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [previewNotice, setPreviewNotice] = useState<string | null>(null);
   const filterPanelOpen = filtersOpen && !previewId;
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const previewTriggerRef = useRef<HTMLButtonElement>(null);
@@ -375,6 +376,11 @@ function DossiersContent({
     if (!previewId && lastPreviewIdRef.current) previewTriggerRef.current?.focus();
     lastPreviewIdRef.current = previewId;
   }, [previewId]);
+  useEffect(() => {
+    if (!previewNotice) return;
+    const timeout = window.setTimeout(() => setPreviewNotice(null), 8000);
+    return () => window.clearTimeout(timeout);
+  }, [previewNotice]);
   const typeFilter = FORM_TYPES.includes(requestedFormType) ? requestedFormType : "";
   const periodFilter = parseDossierPeriod(filterParam("period"));
   const requestedPage = parseAdminListPage(filterParam("page"));
@@ -878,6 +884,16 @@ function DossiersContent({
   // leave `total` and the export describing a different set.
   const dossiers: DossierItem[] = allDossiers;
   const previewSummary = previewId ? dossiers.find((dossier) => dossier.id === previewId) : undefined;
+  const previewIndex = previewId ? dossiers.findIndex((dossier) => dossier.id === previewId) : -1;
+  const nextDossierId = previewIndex >= 0
+    ? dossiers.slice(previewIndex + 1).find((dossier) =>
+        dossier.adminStatus === "PENDING_REVIEW" &&
+        dossier.assigneeId === user?.id &&
+        !dossier.archivedAt &&
+        !dossier.claimExpired
+      )?.id ?? null
+    : null;
+  const previewPosition = previewIndex >= 0 ? previewIndex + 1 : null;
 
   const typeColumnLabel = vue === "completed" ? t("typeColumn") : t("entityTypeColumn");
   const activeFilterChips: Array<{ key: string; label: string; remove: () => void }> = [];
@@ -939,12 +955,19 @@ function DossiersContent({
 
   const openDossierPreview = useCallback((id: string, focusChecks = false) => {
     setFiltersOpen(false);
+    setPreviewNotice(null);
     router.push(hrefWith(pathname, searchParams.toString(), { preview: id, previewSection: focusChecks ? "checks" : null }), { scroll: false });
   }, [pathname, router, searchParams]);
 
   const closeDossierPreview = useCallback(() => {
+    setPreviewNotice(null);
     router.replace(hrefWith(pathname, searchParams.toString(), { preview: null, previewSection: null }), { scroll: false });
   }, [pathname, router, searchParams]);
+
+  const advanceToNextDossier = useCallback((id: string, validatedRef: string) => {
+    setPreviewNotice(t("dossierValidatedNotice", { id: validatedRef }));
+    router.replace(hrefWith(pathname, searchParams.toString(), { preview: id, previewSection: null }), { scroll: false });
+  }, [pathname, router, searchParams, t]);
 
   const openQuickValidation = useCallback(async (dossier: DossierItem) => {
     if (!user?.id || dossier.assigneeId !== user.id || dossier.adminStatus !== "PENDING_REVIEW" || dossier.archivedAt || dossier.claimExpired) return;
@@ -1843,12 +1866,18 @@ function DossiersContent({
         </div>
         {filterPanelOpen && submissionFilterSidebar}
         {previewId && <DossierPreviewDrawer
+          key={previewId}
           dossierId={previewId}
           summary={previewSummary ? { ...previewSummary, formTypeLabel: previewSummary.formType ? queueTypeLabel(previewSummary.formType) : null } : undefined}
           fullDossierHref={`/admin/dossiers/${encodeURIComponent(previewId)}?returnTo=${encodeURIComponent(previewReturnTo)}`}
           userId={user?.id}
           role={user?.role}
           focusChecks={previewFocusChecks}
+          nextDossierId={nextDossierId}
+          previewPosition={previewPosition}
+          previewTotal={dossiers.length}
+          notice={previewNotice}
+          onAdvance={advanceToNextDossier}
           onClose={closeDossierPreview}
         />}
         </div>}

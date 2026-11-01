@@ -300,6 +300,8 @@ function SubmissionDetailContent() {
   const diag = diagnosticQuery.data ?? null;
   const claimState = claimStateQuery.data;
   const shouldOpenApprove = searchParams.get("openApprove") === "1";
+  const shouldOpenCorrection = searchParams.get("openCorrection") === "1";
+  const shouldOpenReject = searchParams.get("openReject") === "1";
   // The strip's badges are the records' own values; a diagnostic that failed
   // to load reads as "not available", never as a figure.
   const diagnosticState: DiagnosticState = diagnosticQuery.isLoading
@@ -519,6 +521,28 @@ function SubmissionDetailContent() {
     setRejectReason("");
     setIsRejectOpen(true);
   };
+
+  const handledOpenCorrectionRef = useRef(false);
+  useEffect(() => {
+    if (!shouldOpenCorrection || handledOpenCorrectionRef.current || dossierQuery.isFetching || claimStateQuery.isFetching) return;
+    handledOpenCorrectionRef.current = true;
+    if (dossier && decisions.requestCorrection && canReviewDossier) {
+      queueMicrotask(() => openCorrectionModal());
+      return;
+    }
+    router.replace(returnTo, { scroll: false });
+  }, [canReviewDossier, decisions.requestCorrection, dossier, dossierQuery.isFetching, claimStateQuery.isFetching, openCorrectionModal, returnTo, router, shouldOpenCorrection]);
+
+  const handledOpenRejectRef = useRef(false);
+  useEffect(() => {
+    if (!shouldOpenReject || handledOpenRejectRef.current || dossierQuery.isFetching || claimStateQuery.isFetching) return;
+    handledOpenRejectRef.current = true;
+    if (dossier && decisions.reject && canReviewDossier) {
+      queueMicrotask(() => openRejectModal());
+      return;
+    }
+    router.replace(returnTo, { scroll: false });
+  }, [canReviewDossier, decisions.reject, dossier, dossierQuery.isFetching, claimStateQuery.isFetching, openRejectModal, returnTo, router, shouldOpenReject]);
 
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [approveSuccess, setApproveSuccess] = useState(false);
