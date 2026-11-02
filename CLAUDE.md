@@ -1450,6 +1450,24 @@ Approved changes on record:
   files already filed lose their false S22Q03 warnings and gain the warnings
   now due.
 
+- 2026-11-02 — bulk endorsement asks for the justification single endorsement
+  asks for (`EligibilityEngineService.executeBulkVisa`; the bulk dialog in
+  `react-web/src/app/admin/dossiers/page.tsx`). Issue: endorsing one file with
+  open warnings requires a written justification (`QuestionnairesService.approve`),
+  but the bulk path checked only blocking anomalies and the claim, and its note
+  was optional — the dialog did not even show a field for it — so a warned file
+  could be endorsed in a batch with no justification at all. Decision (owner,
+  in chat, 2026-11-02, « close it »): the same rule, applied per file. The
+  batch's note is the justification; a selected file with open warnings is
+  endorsed only when the note is not blank, and is otherwise refused on its own
+  with « Une justification est requise pour viser ce dossier : N
+  avertissement(s) ouvert(s) », the rest of the batch going through. The
+  justification is recorded on each warned file's AUDIT_APPROVE row, as single
+  endorsement records it. The dialog shows the field, required when a selected
+  file has warnings, and names those files. Which check blocks (§7) is
+  unchanged: warnings still never block, they ask for a reason. No schema,
+  statistical variable, export, PDF or dataset version change.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
