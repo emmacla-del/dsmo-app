@@ -3733,20 +3733,24 @@ export class QuestionnairesService {
     // the page take ~25 s through the session-mode pooler.
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory), includeArchived ? { OR: [NOT_ARCHIVED, ARCHIVED_ONLY] } : NOT_ARCHIVED] },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true, establishment: { include: { company: { select: { yearOfCreation: true } } } }, assignee: { select: { id: true, firstName: true, lastName: true, email: true } } },
+      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true, establishment: { include: { company: { select: { yearOfCreation: true } } } }, assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
+        // The file this one corrects, if any: the queue named it until
+        // 2026-11-02; the file view now does (same select as the list).
+        supersedes: { select: { id: true, submissionId: true }, orderBy: { submissionDate: 'desc' }, take: 1 } },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
     // The establishment is loaded only for the registered founding year, which
     // the review panel falls back to when the questionnaire collects none.
     // It is flattened rather than returned, so the response gains one field
     // and not the establishment row.
-    const { establishment, assignee, claimActivityAt: _claimActivityAt, ...rest } = submission;
+    const { establishment, assignee, supersedes, claimActivityAt: _claimActivityAt, ...rest } = submission;
     const claimState = getEffectiveClaimState(submission);
 
     return {
       ...rest,
       rawData: withoutStaffNames(rest.rawData, territory?.role),
       yearOfCreation: establishment?.company?.yearOfCreation ?? null,
+      supersedes: supersedes?.[0] ? { id: supersedes[0].id, submissionId: supersedes[0].submissionId } : null,
       assigneeId: claimState.assigneeId,
       assigneeName: claimState.assigneeId ? assigneeName(assignee) : null,
       claimExpired: claimState.expired,

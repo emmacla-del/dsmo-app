@@ -830,13 +830,21 @@ export class EligibilityEngineService {
     // visa itself; outside it, the error is only logged.
     const campaignTargets: Array<{ id: string; campaignId: string | null; establishmentId: string | null; companyId: string | null }> = [];
 
+    // The single endorsement's rule (QuestionnairesService.approve): a file
+    // with open warnings needs a written justification. Bulk endorsement had
+    // no such check, so a warned file could be endorsed in a batch without one
+    // (owner, CLAUDE.md §21, 2026-11-02). The batch's note is that
+    // justification; without it, each warned file is refused on its own.
+    const justification = typeof dto.notes === 'string' ? dto.notes.trim() : '';
+
     const result = await this.prisma.$transaction(async (tx) => {
-      // 1. Fetch all requested dossiers with open blocking anomalies and territorial fields
+      // 1. Fetch all requested dossiers with their open anomalies and territorial fields
       const candidates = await tx.onefopSubmission.findMany({
         where: { id: { in: dto.submissionIds } },
         include: {
           anomalies: {
-            where: { status: AnomalyStatus.OPEN, isBlocking: true },
+            where: { status: AnomalyStatus.OPEN },
+            select: { id: true, isBlocking: true },
           },
         },
       });
@@ -878,10 +886,21 @@ export class EligibilityEngineService {
         }
 
         // Condition C: Zero open blocking anomalies (Axe 2 Quality condition)
-        if (candidate.anomalies.length > 0) {
+        const openBlocking = candidate.anomalies.filter((a: { isBlocking: boolean }) => a.isBlocking).length;
+        const openWarnings = candidate.anomalies.length - openBlocking;
+        if (openBlocking > 0) {
           rejectedItems.push({
             id: candidate.id,
-            reason: `${candidate.anomalies.length} anomalie(s) bloquante(s) non résolue(s).`,
+            reason: `${openBlocking} anomalie(s) bloquante(s) non résolue(s).`,
+          });
+          continue;
+        }
+
+        // Condition D: open warnings need the reviewer's written justification.
+        if (openWarnings > 0 && !justification) {
+          rejectedItems.push({
+            id: candidate.id,
+            reason: `Une justification est requise pour viser ce dossier : ${openWarnings} avertissement(s) ouvert(s).`,
           });
           continue;
         }
@@ -921,6 +940,8 @@ export class EligibilityEngineService {
               bulk: true,
               actorRole: actor.role,
               actorEmail: actor.email,
+              // As the single endorsement records it, on the file it covers.
+              ...(openWarnings > 0 ? { openWarnings, justification } : {}),
             },
           },
         });

@@ -648,6 +648,46 @@ describe('EligibilityEngineService', () => {
         })
       );
     });
+
+    const warned = (id: string) => ({
+      id,
+      status: OnefopStatus.PENDING_REVIEW,
+      assigneeId: 'admin-1',
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+      anomalies: [{ id: `w-${id}`, isBlocking: false }, { id: `w2-${id}`, isBlocking: false }],
+    });
+    const clean = { id: 'clean-1', status: OnefopStatus.PENDING_REVIEW, assigneeId: 'admin-1', updatedAt: new Date('2026-01-01T00:00:00Z'), anomalies: [] };
+
+    it('refuses a file with open warnings when the batch carries no justification, and endorses the rest', async () => {
+      prisma.onefopSubmission.findMany.mockResolvedValue([clean, warned('warned-2')]);
+      const result = await service.executeBulkVisa(
+        { id: 'admin-1', role: UserRole.SUPER_ADMIN },
+        { submissionIds: ['clean-1', 'warned-2'], certified: true, notes: '   ' },
+      );
+      expect(result.approvedIds).toEqual(['clean-1']);
+      expect(result.rejectedItems).toEqual([
+        { id: 'warned-2', reason: 'Une justification est requise pour viser ce dossier : 2 avertissement(s) ouvert(s).' },
+      ]);
+      expect(prisma.onefopSubmission.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ id: 'warned-2' }),
+      }));
+    });
+
+    it('endorses a warned file with the batch justification, recorded on its own decision', async () => {
+      prisma.onefopSubmission.findMany.mockResolvedValue([warned('warned-2')]);
+      const result = await service.executeBulkVisa(
+        { id: 'admin-1', role: UserRole.SUPER_ADMIN },
+        { submissionIds: ['warned-2'], certified: true, notes: 'Écarts vérifiés avec les établissements.' },
+      );
+      expect(result.approvedIds).toEqual(['warned-2']);
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'AUDIT_APPROVE',
+          resourceId: 'warned-2',
+          details: expect.objectContaining({ openWarnings: 2, justification: 'Écarts vérifiés avec les établissements.' }),
+        }),
+      }));
+    });
   });
 });
 

@@ -483,6 +483,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Vous devez certifier la décision de rejet avant de confirmer.', en: 'You must certify the rejection decision before confirming.' },
   { fr: 'Ce type de clôture est réservé à la revérification automatique.', en: 'This kind of closure is reserved for the automatic re-check.' },
   {
+    fr: 'Une justification est requise pour viser ce dossier : {0} avertissement(s) ouvert(s).',
+    en: 'A justification is required to endorse this file: {0} open warning(s).',
+  },
+  {
     fr: 'Seul un dossier en attente de revue peut être revérifié ; ce dossier est au statut {0}.',
     en: 'Only a file awaiting review can be re-checked; this file has the status {0}.',
   },
