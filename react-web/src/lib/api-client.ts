@@ -965,6 +965,10 @@ export function getDossierNeighbours(id: string, filters: {
 
 /** Subset of GET /admin/questionnaires/:id read by the dossier detail page. */
 export interface AdminDossier {
+  /** Filed after the round's deadline (moved from the queue, 2026-11-02). */
+  isLate?: boolean;
+  /** The earlier file this one corrects, when it is a resubmission. */
+  supersedes?: { id: string; submissionId: string } | null;
   id: string;
   submissionId: string;
   revision: number;

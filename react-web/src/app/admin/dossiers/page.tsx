@@ -13,7 +13,7 @@ import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
-import { assessBulkEligibility } from "@/lib/dossier-bulk-eligibility";
+import { assessBulkEligibility, claimFilesInTurn } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { adminResultRange, displayedResultOffset, isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildDossierReturnTo } from "@/lib/admin-return";
@@ -157,7 +157,7 @@ interface QuestionnaireListItem extends NamedSubmission {
   archivedBy?: string | null;
   archiveReason?: string | null;
   archivedByUser?: { id: string; firstName: string | null; lastName: string | null } | null;
-  anomalies?: Array<{ isBlocking?: boolean; status?: string }> | null;
+  anomalies?: Array<{ isBlocking?: boolean; status?: string; ruleCode?: string | null }> | null;
 }
 
 const PAGE_SIZE = 10;
@@ -425,6 +425,7 @@ function DossiersContent({
   const requestedOffsetSignature = `${filterSignature}|page:${requestedPage}`;
   const [offsetSignature, setOffsetSignature] = useState(requestedOffsetSignature);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkClaiming, setBulkClaiming] = useState(false);
   if (offsetSignature !== requestedOffsetSignature) {
     setOffsetSignature(requestedOffsetSignature);
     setOffset((requestedPage - 1) * PAGE_SIZE);
@@ -784,7 +785,9 @@ function DossiersContent({
 
   const assignMutation = useMutation({
     retry: false,
-    mutationFn: (target: { id: string; assigneeId: string | null }) => assignDossier(target.id, target.assigneeId),
+    // `open`: a single claim from a row goes straight to the file (owner,
+    // 2026-11-02): claiming is the start of the review, not a list chore.
+    mutationFn: (target: { id: string; assigneeId: string | null; open?: boolean }) => assignDossier(target.id, target.assigneeId),
     onMutate: () => setAssignNotice(""),
     onSuccess: (claim, target) => {
       // Reflect the confirmed server claim in cached list rows immediately;
@@ -802,6 +805,9 @@ function DossiersContent({
       }
       void queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires", "list"] });
       void queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] });
+      if (target.open && target.assigneeId) {
+        router.push(dossierWorkspaceHref(target.id, dossierReturnTo), { scroll: false });
+      }
     },
     onError: (error) => {
       if (isDossierRevisionConflict(error)) {
@@ -897,8 +903,13 @@ function DossiersContent({
   // Real rows only. An empty result renders an empty state; there is no
   // sample dataset to substitute, and an error never becomes "no dossiers".
   const allDossiers: DossierItem[] = rawItems.map((sub: QuestionnaireListItem) => {
-    const blockingCount = sub.anomalies?.filter((anomaly) => anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
-    const warningCount = sub.anomalies?.filter((anomaly) => !anomaly.isBlocking && anomaly.status === "OPEN").length ?? 0;
+    // Findings, not stored rows: a rule fired for men, women and total is one
+    // thing to check, the count the workspace shows for the same file.
+    const findings = (blocking: boolean) => new Set((sub.anomalies ?? [])
+      .filter((anomaly) => Boolean(anomaly.isBlocking) === blocking && anomaly.status === "OPEN")
+      .map((anomaly, index) => anomaly.ruleCode ?? `row-${index}`)).size;
+    const blockingCount = findings(true);
+    const warningCount = findings(false);
     const name = resolveEntityName(sub) ?? t("fileFallbackName");
 
     return {
@@ -1070,6 +1081,7 @@ function DossiersContent({
   const bulkPreflight = assessBulkEligibility(
     dossiers.map((d) => ({ ...d, status: d.adminStatus })),
     selectedIds,
+    user?.id ?? null,
   );
   const cleanPendingSelected = bulkPreflight.endorsementEligible;
   const bulkEligibleSelected = bulkPreflight.eligible;
@@ -1119,13 +1131,18 @@ function DossiersContent({
     setIsRejectModalOpen(true);
   };
 
+  // A file with open warnings is endorsed only with a written justification,
+  // the single endorsement's rule; the server refuses it without one.
+  const warnedForEndorsement = cleanPendingSelected.filter((d) => d.warningCount > 0);
+  const bulkJustificationMissing = warnedForEndorsement.length > 0 && !bulkNotes.trim();
+
   const handleConfirmBulkVisa = () => {
-    if (!certifiedBulk) return;
+    if (!certifiedBulk || bulkJustificationMissing) return;
     const idsToApprove = cleanPendingSelected.map((d) => d.id);
     bulkMutation.mutate({
       submissionIds: idsToApprove,
       certified: true,
-      notes: bulkNotes || undefined,
+      notes: bulkNotes.trim() || undefined,
     });
   };
 
@@ -1246,19 +1263,20 @@ function DossiersContent({
   }
 
   async function handleAssignSelection() {
-    if (!user?.id || claimableSelected.length === 0 || assignMutation.isPending) return;
+    if (!user?.id || claimableSelected.length === 0 || assignMutation.isPending || bulkClaiming) return;
     setAssignNotice("");
-    try {
-      await Promise.all(claimableSelected.map((dossier) => assignDossier(dossier.id, user.id)));
-      setAssignNotice(t("bulkClaimSuccess", { count: claimableSelected.length }));
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }),
-      ]);
-    } catch (error) {
-      setAssignNotice(error instanceof Error ? error.message : t("assignFailed"));
-      await queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] });
-    }
+    setBulkClaiming(true);
+    // One file at a time: a parallel burst exhausts the session pool, and a
+    // refusal must not hide the files that were claimed before it.
+    const outcome = await claimFilesInTurn(claimableSelected.map((dossier) => dossier.id), (id) => assignDossier(id, user.id));
+    setAssignNotice(outcome.failed.length === 0
+      ? t("bulkClaimSuccess", { count: outcome.claimed })
+      : t("bulkClaimPartial", { claimed: outcome.claimed, failed: outcome.failed.length, reason: outcome.failed[0].message }));
+    setBulkClaiming(false);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin", "questionnaires"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin", "pilotage", "queues"] }),
+    ]);
   }
 
   const legacyFilterClear = {
@@ -1415,7 +1433,9 @@ function DossiersContent({
           label: t("viewSubmissions"),
           href: viewHref("submissions"),
           isActive: activeView === "submissions",
-          badge: actionableQueueCount,
+          // What the reviewers can act on: files awaiting review. Files sent
+          // back for correction wait on the respondent and keep their own view.
+          badge: queueStatusCounts?.PENDING_REVIEW,
         },
         {
           label: t("viewCompleted"),
@@ -1599,9 +1619,9 @@ function DossiersContent({
         {vue === "submissions" && !readOnly && selectedIds.size > 0 && (
           <div className="cam-dossier-selection-toolbar" aria-live="polite">
             <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
-            {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
+            {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.assigneeId !== user?.id || d.claimExpired ? t("notClaimedByYouReason") : d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
             <div className="cam-dossier-selection-actions">
-              <Button type="button" size="sm" variant="outline" onClick={handleAssignSelection} disabled={!user?.id || claimableSelected.length === 0 || assignMutation.isPending}>{t("assignSelectionButton", { count: claimableSelected.length })}</Button>
+              <Button type="button" size="sm" variant="outline" onClick={handleAssignSelection} disabled={!user?.id || claimableSelected.length === 0 || assignMutation.isPending || bulkClaiming}>{t(bulkClaiming ? "assignSelectionRunning" : "assignSelectionButton", { count: claimableSelected.length })}</Button>
               <Button type="button" size="sm" variant="outline" onClick={handleExportSelection}>{t("exportSelectionButton")}</Button>
               <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
               <Button type="button" size="sm" variant="outline" onClick={handleOpenCorrectionModal} disabled={correctableSelected.length === 0}>{t("requestCorrectionSelectionButton")}</Button>
@@ -1716,9 +1736,9 @@ function DossiersContent({
                     <Checkbox checked={pageSelectionState} onCheckedChange={(checked) => toggleSelectPage(checked === true)} disabled={dossiers.length === 0} aria-label={t("selectAllAria")} />
                   </TableHead>}
                   <TableHead scope="col" className={`cam-dossier-record-column sticky ${readOnly ? "left-0 cam-dossier-record-column--first" : "left-[44px]"} z-20 bg-[var(--cam-surface)]`}>{t("entityColumn")}</TableHead>
-                  <TableHead scope="col">{typeColumnLabel} / {t("territoryColumn")}</TableHead>
-                  <TableHead scope="col" title={t("dataIssuesHelp")}>{t("reviewStatusChecksColumn")}</TableHead>
-                  <TableHead scope="col">{t("submissionWaitingColumn")}</TableHead>
+                  <TableHead scope="col">{t("territoryColumn")}</TableHead>
+                  <TableHead scope="col" title={t("dataIssuesHelp")}>{t("checksColumn")}</TableHead>
+                  <TableHead scope="col">{t("waitingColumn")}</TableHead>
                   <TableHead scope="col">{t("assignedReviewerColumn")}</TableHead>
                   <TableHead scope="col" className="cam-dossier-actions-heading">{t("actionsColumn")}</TableHead>
                 </>}
@@ -1751,7 +1771,7 @@ function DossiersContent({
                 });
                 const primaryAction = selectDossierQueuePrimaryAction({ status: d.adminStatus, assigneeId: d.assigneeId, userId: user?.id, readOnly, validationDataAvailable: d.validationDataAvailable, blockingCount: d.blockingCount, warningCount: d.warningCount, archived: Boolean(d.archivedAt), claimExpired: Boolean(d.claimExpired), canClaim: canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), null, user?.id, user?.role) });
                 const primaryActionButton = primaryAction === "claim"
-                  ? <Button type="button" size="sm" variant="default" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
+                  ? <Button type="button" size="sm" variant="default" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null, open: true })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
                   : primaryAction === "review-issues"
                     ? <Button asChild size="sm" variant="default"><Link href={dossierWorkspaceHref(d.id, dossierReturnTo, { focusVerify: true })}>{t("reviewIssuesButton")}</Link></Button>
                     : primaryAction === "validate"
@@ -1809,21 +1829,23 @@ function DossiersContent({
                     <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />
                   </TableCell>}
                   <TableCell className={`cam-dossier-record-column sticky ${readOnly ? "left-0 cam-dossier-record-column--first" : "left-[44px]"} z-10 align-top whitespace-normal bg-[var(--cam-surface)]`}>
+                    {/* The respondent, the exact date and the replaced file are
+                        read in the file itself; the queue says what to pick up. */}
                     <div className="cam-dossier-record-stack">
                       <Link className="cam-dossier-record-name cam-dossier-record-link" href={detailHref} title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</Link>
-                      {d.respondentName && <span className="cam-dossier-record-meta"><span className="cam-dossier-field-label">{t("respondentColumn")}</span><span title={d.respondentName}>{d.respondentName}</span></span>}
+                      <span className="cam-dossier-cell-secondary" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>
+                        {d.formType ? queueTypeLabel(d.formType) : NOT_PROVIDED}
+                        {d.supersedes && <> · {t("correctionMarker")}</>}
+                      </span>
+                      {/* Each view already names its status; only a row that differs says it. */}
+                      {d.adminStatus !== "PENDING_REVIEW" && <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>}
                     </div>
                   </TableCell>
-                  <TableCell className="align-top whitespace-normal" title={[d.formType ? typeLabel(d.formType) : NOT_PROVIDED, territoryTitle].join(" · ")}>
-                    <div className="cam-dossier-cell-stack">
-                      <span className="cam-dossier-type-value" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? queueTypeLabel(d.formType) : NOT_PROVIDED}</span>
-                      <span className="cam-dossier-cell-secondary">{territoryTitle}</span>
-                    </div>
+                  <TableCell className="align-top whitespace-normal" title={territoryTitle}>
+                    <span className="cam-dossier-cell-primary">{territoryTitle}</span>
                   </TableCell>
                   <TableCell className="align-top whitespace-normal">
                     <div className="cam-dossier-review-stack">
-                      <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
-                      {d.supersedes && <Link className="cam-dossier-cell-secondary" href={`/admin/dossiers/${encodeURIComponent(d.supersedes.id)}?returnTo=${encodeURIComponent(dossierReturnTo)}`}>{t("correctionReceived")}: {d.supersedes.submissionId}</Link>}
                       <div className="cam-dossier-validation-summary">
                         {d.blockingCount > 0 && <Badge variant="danger">{t("blockingAnomalies", { count: d.blockingCount })}</Badge>}
                         {d.warningCount > 0 && <Badge variant="warning">{t("warnings", { count: d.warningCount })}</Badge>}
@@ -1835,17 +1857,13 @@ function DossiersContent({
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="align-top whitespace-normal">
-                    <div className="cam-dossier-date-stack">
-                      <span className="cam-dossier-date-primary">{stamp(d.submittedAt, true, locale)}</span>
-                      {d.isLate && <Badge variant="warning">{t("lateBadge")}</Badge>}
-                      {waiting !== null && (
-                        <span className={`cam-dossier-waiting${isReviewOverdue ? " is-overdue" : ""}`}>
-                          {t("waitingDays", { count: waiting })}
-                          {isReviewOverdue && <Badge className="cam-dossier-overdue-badge" variant="warning">{t("overdueBadge")}</Badge>}
-                        </span>
-                      )}
-                    </div>
+                  {/* One signal: how long the file has waited, flagged once when overdue. */}
+                  <TableCell className="align-top whitespace-nowrap" title={stamp(d.submittedAt, true, locale)}>
+                    {waiting === null
+                      ? <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>
+                      : isReviewOverdue
+                        ? <Badge className="cam-dossier-overdue-badge" variant="warning">{t("waitingOverdue", { count: waiting })}</Badge>
+                        : <span className="cam-dossier-waiting">{t("waitingDays", { count: waiting })}</span>}
                   </TableCell>
                   <TableCell className="cam-dossier-assignee-cell align-top whitespace-normal">
                     <div className="cam-dossier-owner-action">
@@ -1858,7 +1876,7 @@ function DossiersContent({
                       {primaryActionButton}
                       {(canReadAudit || canManageArchive || canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role)) && rowMenu(<>
                         {canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role) && d.assigneeId === user?.id && <DropdownMenuItem disabled={assignMutation.isPending} onSelect={() => assignMutation.mutate({ id: d.id, assigneeId: null })}>{t("unclaimButton")}</DropdownMenuItem>}
-                        {canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role) && !d.assigneeId && <DropdownMenuItem disabled={assignMutation.isPending} onSelect={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null })}>{t("claimButton")}</DropdownMenuItem>}
+                        {canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role) && !d.assigneeId && <DropdownMenuItem disabled={assignMutation.isPending} onSelect={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null, open: true })}>{t("claimButton")}</DropdownMenuItem>}
                         {canReadAudit && <DropdownMenuItem asChild><Link href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link></DropdownMenuItem>}
                         {canManageArchive && !d.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(d)}>{t("archiveButton")}</DropdownMenuItem>}
                         {canManageArchive && d.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => restoreMutation.mutate(d.id)}>{t("restoreButton")}</DropdownMenuItem>}
@@ -1909,7 +1927,7 @@ function DossiersContent({
               type="button"
               size="sm"
               onClick={handleConfirmBulkVisa}
-              disabled={!certifiedBulk || bulkMutation.isPending}
+              disabled={!certifiedBulk || bulkJustificationMissing || bulkMutation.isPending}
             >
               {bulkMutation.isPending ? t("validating") : t("confirmEndorsement")}
             </Button>
@@ -1917,6 +1935,24 @@ function DossiersContent({
         }
       >
         <p>{t("confirmSelectedDecision", { decision: t("bulkEndorseAction"), count: cleanPendingSelected.length, records: cleanPendingSelected.map((d) => d.companyName ?? d.submissionId).join(", ") })}</p>
+        {/* The justification the server asks for when a file has open warnings,
+            recorded on each endorsed file; optional when none has any. */}
+        <label className="cam-admin-form-section" htmlFor="bulk-endorse-notes">
+          <span className="cam-admin-label">
+            {warnedForEndorsement.length > 0 ? <>{t("bulkJustificationLabel")} <span aria-hidden="true">*</span></> : t("bulkNoteLabel")}
+          </span>
+          <Textarea
+            id="bulk-endorse-notes"
+            value={bulkNotes}
+            onChange={(event) => setBulkNotes(event.target.value)}
+            maxLength={2000}
+            required={warnedForEndorsement.length > 0}
+            aria-required={warnedForEndorsement.length > 0}
+          />
+          {warnedForEndorsement.length > 0 && (
+            <span className="cam-admin-meta">{t("bulkJustificationHelp", { count: warnedForEndorsement.length, records: warnedForEndorsement.map((d) => d.companyName ?? d.submissionId).join(", ") })}</span>
+          )}
+        </label>
         <div className="flex items-start gap-3">
           <Checkbox
             id="bulk-endorse-certify"
@@ -1952,9 +1988,10 @@ function DossiersContent({
                 <div>{t("operationTimestamped", { date: stamp(bulkResult.timestamp, true, locale) })}</div>
                 {bulkResult.rejectedItems?.length > 0 && (
                   <ul className="mt-2 ps-4 list-disc">
-                    {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => (
-                      <li key={item.id}>{item.id} — {item.reason}</li>
-                    ))}
+                    {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => {
+                      const row = dossiers.find((d) => d.id === item.id);
+                      return <li key={item.id}>{row?.companyName ?? row?.submissionId ?? item.id} — {item.reason}</li>;
+                    })}
                   </ul>
                 )}
               </div>

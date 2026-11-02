@@ -1518,9 +1518,12 @@
   transform: rotate(180deg);
 }
 
+/* The export is an action on the list, not a view: it sits at the bar's far
+   end, apart from the view buttons (2026-11-02). */
 .cam-admin.is-dossier-workflow .cam-dossier-queue-export {
   min-height: 40px;
   order: 4;
+  margin-inline-start: auto;
   gap: 7px;
   border-color: var(--cam-console-navy-35);
   color: var(--cam-console-navy-60);
@@ -10031,6 +10034,18 @@ a.cam-dash-review-row:hover {
   text-align: center;
 }
 
+/* A labelled action (Réclamer, Examiner les problèmes, Viser, Ouvrir) takes
+   its text's width; only the « ⋯ » menu trigger stays a 34px square. The
+   square was clipping « Réclamer » to « Rècl » (2026-11-02). */
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > a[data-slot="button"]:not([aria-haspopup]),
+.cam-admin.is-dossier-workflow .cam-dossier-row-actions > button[data-slot="button"]:not([aria-haspopup]) {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  padding-inline: var(--cam-space-3);
+  white-space: nowrap;
+}
+
 .cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-validate-action[data-slot="button"],
 .cam-admin.is-dossier-workflow .cam-dossier-row-actions > button.cam-dossier-review-issues-action[data-slot="button"] {
   flex: 0 1 auto;
@@ -10269,3 +10284,60 @@ a.cam-dash-review-row:hover {
     opacity: 0.45;
   }
 }
+
+/* ── Review queue, lean columns (2026-11-02) ─────────────────────────────
+   Select · Organisation (type below) · Territory · Checks · Waiting ·
+   Reviewer · Action. The respondent, the exact date, the late filing and the
+   replaced file moved to the file view, so the table fits a 1366/1440 laptop
+   with its action in view. Stated last and with both table classes so it
+   outranks the earlier fixed-width passes (max(100%, 1393px)), which would
+   otherwise keep the action column off-screen; narrower than 960px it scrolls
+   sideways inside its frame (§13). */
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) table {
+  width: 100% !important;
+  min-width: 960px !important;
+  table-layout: fixed !important;
+}
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(1) { width: 44px !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(2) { width: 27% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(3) { width: 15% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(4) { width: 15% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(5) { width: 13% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(6) { width: 13% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(7) { width: 17% !important; }
+
+/* Review queue spacing and type (2026-11-02). One padding for every header
+   and cell, on the 4/8 scale (it was 14px, and 7px on the action cells, so
+   « Actions » sat off its buttons); only the organisation's name is
+   semibold, so the eye lands on it first, and territory and reviewer read as
+   values, not as a second name. */
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td) {
+  padding: var(--cam-space-3) !important;
+}
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(1) {
+  padding-inline: var(--cam-space-2) !important;
+}
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) thead th {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table .cam-dossier-record-stack { gap: var(--cam-space-1); }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table tbody .cam-dossier-cell-primary,
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table tbody .cam-dossier-assignee-name {
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text);
+}
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table tbody .cam-dossier-record-stack .cam-dossier-cell-secondary {
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text-muted);
+}
+/* Widths: the name keeps room for two-line names; territory no longer wraps
+   « Adamaoua / Djérem » at 1366/1440. */
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(2) { width: 25% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(3) { width: 18% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(4) { width: 14% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(5) { width: 13% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(6) { width: 13% !important; }
+.cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(7) { width: 17% !important; }

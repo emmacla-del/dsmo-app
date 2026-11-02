@@ -913,6 +913,15 @@ function SubmissionDetailContent() {
             <span>{formType ? (ENTITY_TYPE_OPTION_KEYS[formType] ? tRoot(ENTITY_TYPE_OPTION_KEYS[formType]) : entityTypeLabel(formType)) : NOT_PROVIDED}</span>
             <span>{[region, dossier.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span>
             <span>{t("receivedOn", { date: submittedOn })}</span>
+            {/* Moved from the queue (2026-11-02): read here, with the file. */}
+            {dossier.isLate && <span>{t("filedLate")}</span>}
+            {dossier.supersedes && (
+              <span>
+                <Link href={`/admin/dossiers/${encodeURIComponent(dossier.supersedes.id)}?returnTo=${encodeURIComponent(returnTo)}`}>
+                  {t("correctsFile", { ref: shortRecordId(dossier.supersedes.submissionId) })}
+                </Link>
+              </span>
+            )}
           </span>
           <span className="cam-dossier-respondent-line">
             {[dossier.respondent?.respondentName, respondentFunctionLabel(dossier.respondent?.respondentFunction, locale), dossier.respondent?.phone1, dossier.respondent?.email].filter(Boolean).join(" · ") || t("respondentUnavailable")}
