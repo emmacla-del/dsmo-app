@@ -322,11 +322,21 @@ export default function NouvelleInscriptionPage() {
   const entityOption = entityType ? ENTITY_OPTIONS.find((option) => option.type === entityType) : undefined;
   const selectPlaceholder = t("adminInscriptionsNouvellePage.selectPlaceholder");
   const registrationSteps = [
-    { id: "registration-step-entity", label: t("adminInscriptionsNouvellePage.stepEntity") },
-    { id: "registration-step-identification", label: t("adminInscriptionsNouvellePage.stepIdentification") },
-    { id: "registration-step-respondent", label: t("adminInscriptionsNouvellePage.stepRespondent") },
-    { id: "registration-step-location", label: t("adminInscriptionsNouvellePage.stepLocation") },
+    { id: "registration-step-entity", label: t("adminInscriptionsNouvellePage.stepEntity"), done: !!entityType && !!config },
+    {
+      id: "registration-step-identification",
+      label: t("adminInscriptionsNouvellePage.stepIdentification"),
+      done: !!config && visibleFields.every((field) => !field.required || !!entityData[field.key]?.trim()) && isValidSocialCapital(entityData.socialCapital),
+    },
+    {
+      id: "registration-step-respondent",
+      label: t("adminInscriptionsNouvellePage.stepRespondent"),
+      done: !!respondent.firstName.trim() && !!respondent.lastName.trim() && !!respondent.email.trim() && emailAvailable !== false,
+    },
+    { id: "registration-step-location", label: t("adminInscriptionsNouvellePage.stepLocation"), done: !!region && !!department && !!subdivision },
   ];
+  // The action bar says what is left, so a refused submit is never the first news.
+  const stepsDone = registrationSteps.filter((step) => step.done).length;
 
   return (
     <div className="cam-admin-page cam-assisted-registration-page">
@@ -342,13 +352,14 @@ export default function NouvelleInscriptionPage() {
 
       <p className="cam-admin-lede cam-assisted-registration-lede">{t("adminInscriptionsNouvellePage.lede")}</p>
 
+      <div className="cam-record-form-layout">
       <nav className="cam-registration-steps" aria-label={t("adminInscriptionsNouvellePage.stepsAriaLabel")}>
         <ol>
-          {registrationSteps.map(({ id, label }, index) => (
-            <li key={id}>
+          {registrationSteps.map(({ id, label, done }, index) => (
+            <li key={id} data-done={done || undefined}>
               <a href={`#${id}`}>
-                <span className="cam-registration-step-number" aria-hidden="true">{index + 1}</span>
-                <span>{label}</span>
+                <span className="cam-registration-step-number" aria-hidden="true">{done ? "✓" : index + 1}</span>
+                <span>{label}{done && <span className="cam-sr-only"> {t("adminInscriptionsNouvellePage.stepDoneLabel")}</span>}</span>
               </a>
             </li>
           ))}
@@ -499,6 +510,11 @@ export default function NouvelleInscriptionPage() {
         </Section>
 
         <div className="cam-registration-form-actions">
+          <p className="cam-record-form-status" aria-live="polite">
+            {stepsDone === registrationSteps.length
+              ? t("adminInscriptionsNouvellePage.readyToSubmit")
+              : t("adminInscriptionsNouvellePage.stepsProgress", { done: stepsDone, total: registrationSteps.length })}
+          </p>
           <Button type="submit" disabled={mutation.isPending || !requiredLookupsReady}>
             {mutation.isPending
               ? t("adminInscriptionsNouvellePage.submittingButton")
@@ -507,6 +523,7 @@ export default function NouvelleInscriptionPage() {
           <Button asChild variant="outline"><Link href="/admin/inscriptions">{t("common.cancel")}</Link></Button>
         </div>
       </form>
+      </div>
 
       <AdminDialog
         open={!!result}

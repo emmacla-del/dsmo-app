@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { getSectors } from "@/lib/api-client";
@@ -9,16 +11,49 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { NATIONAL_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { hrefWith } from "@/lib/admin-url";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function AdminSectorsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminSectorsContent />
+    </Suspense>
+  );
+}
+
+function AdminSectorsContent() {
   const t = useTranslations();
   const { isLoading, isAuthenticated, forbidden } = useAdminScreenGuard(NATIONAL_ROLES);
   const logout = useAuthStore((s) => s.logout);
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  // Filters live in the URL (G15): ?q= (name, English name or code) and ?categorie=.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const categoryFilter = searchParams.get("categorie") ?? "";
+  const search = searchParams.get("q")?.trim() ?? "";
+  const setFilters = (changes: Record<string, string | null>) =>
+    router.replace(hrefWith(pathname, currentQuery, changes), { scroll: false });
+  const [searchInput, setSearchInput] = useState(search);
+  const [syncedSearch, setSyncedSearch] = useState(search);
+  if (syncedSearch !== search) {
+    setSyncedSearch(search);
+    setSearchInput(search);
+  }
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
+    const timer = setTimeout(() => {
+      router.replace(hrefWith(pathname, currentQuery, { q: next || null }), { scroll: false });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchInput, search, router, pathname, currentQuery]);
   // The stored category is an English word (Primary, Tertiary…); shown in the
   // interface language. An unknown value is shown as stored.
   const tCategory = useTranslations("adminSectorsPage.category");
@@ -39,9 +74,11 @@ export default function AdminSectorsPage() {
   }, [sectorsQuery.data]);
 
   const filteredSectors = useMemo(() => {
-    const all = sectorsQuery.data ?? [];
-    return categoryFilter ? all.filter((s) => s.category === categoryFilter) : all;
-  }, [sectorsQuery.data, categoryFilter]);
+    const needle = search.toLocaleLowerCase();
+    return (sectorsQuery.data ?? []).filter((s) =>
+      (!categoryFilter || s.category === categoryFilter)
+      && (!needle || [s.name, s.nameEn, s.code].some((value) => (value ?? "").toLocaleLowerCase().includes(needle))));
+  }, [sectorsQuery.data, categoryFilter, search]);
 
   const header = (
     <AdminPageHeader
@@ -90,15 +127,35 @@ export default function AdminSectorsPage() {
         title={t("adminNav.routes.sectors")}
         headingId="sectors-table-title"
         meta={sectorsQuery.isSuccess ? t("adminSectorsPage.sectorCount", { count: filteredSectors.length }) : undefined}
+        toolbar={
+          <div className="cam-filter-bar" role="group" aria-label={t("adminDossiersPage.filtersButton")}>
+            <div className="cam-filter-bar-search">
+              <label className="cam-sr-only" htmlFor="sectors-search">{t("adminSectorsPage.searchLabel")}</label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+              <Input id="sectors-search" type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t("adminSectorsPage.searchPlaceholder")} />
+            </div>
+            <AdminFilterPill
+              label={t("adminSectorsPage.columnCategory")}
+              value={categoryFilter}
+              allLabel={t("adminSectorsPage.allCategoriesOption")}
+              clearLabel={t("adminDossiersPage.removeFilterChip", { label: t("adminSectorsPage.columnCategory") })}
+              onChange={(value) => setFilters({ categorie: value || null })}
+              options={categories.map((value) => ({ value, label: categoryLabel(value) }))}
+            />
+            {(search || categoryFilter) && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setSearchInput(""); setFilters({ q: null, categorie: null }); }}>
+                {t("adminDossiersPage.clearFilters")}
+              </Button>
+            )}
+          </div>
+        }
       >
         <Table className="cam-admin-data-table">
           <TableHeader>
             <TableRow>
               <TableHead scope="col">{t("adminSectorsPage.columnName")}</TableHead>
               <TableHead scope="col">{t("adminSectorsPage.columnNameEn")}</TableHead>
-              <FilterTableHead label={t("adminSectorsPage.columnCategory")} filterLabel={t("adminSectorsPage.categoryFilterLabel")} active={!!categoryFilter}>
-                {(close) => <FilterTableOptions label={t("adminSectorsPage.categoryFilterLabel")} searchPlaceholder={t("common.filterOptionSearch", { label: t("adminSectorsPage.categoryFilterLabel").toLocaleLowerCase() })} emptyLabel={t("common.filterOptionEmpty")} value={categoryFilter} options={[{ value: "", label: t("adminSectorsPage.allCategoriesOption") }, ...categories.map((value) => ({ value, label: categoryLabel(value) }))]} onChange={setCategoryFilter} onSelect={close} />}
-              </FilterTableHead>
+              <TableHead scope="col">{t("adminSectorsPage.columnCategory")}</TableHead>
               <TableHead scope="col">{t("adminSectorsPage.columnCode")}</TableHead>
             </TableRow>
           </TableHeader>

@@ -36,6 +36,7 @@ import { vtFindingFigures, type VtFigure } from "@/lib/vt-finding-figures";
 import { AnomalyNumber, CoherenceProvider, type AnomalyMarker } from "@/components/onefop/coherence/Coherence";
 import { reviewCellChecks, sameRule } from "@/lib/dossier-cell-checks";
 import type { FormData } from "@/lib/onefop-schema";
+import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { ruleFamilyLabel } from "@/lib/anomaly-registry";
 import { dossierClaimStateKey, useDossierClaim } from "@/lib/use-dossier-claim";
 import { DossierVtSections } from "@/components/admin/DossierVtSections";
@@ -52,6 +53,7 @@ import {
   dossierSections,
   dossierSectionState,
   questionnaireAsks,
+  sectionCountsAsRead,
 } from "@/lib/dossier-sections";
 import { coherenceWarningText } from "@/lib/coherence-warning-text";
 import {
@@ -489,6 +491,111 @@ function SubmissionDetailContent() {
   const [correctionAction, setCorrectionAction] = useState("");
   const [requireJustificatifs, setRequireJustificatifs] = useState(false);
   const [correctionDelay, setCorrectionDelay] = useState("7 jours ouvrables");
+  // ── Workspace v2 ──
+  // Phone: the review panel is a sheet opened from a summary bar.
+  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
+  // Sections the reviewer has scrolled past, for the rail's progress line.
+  const [sectionsSeen, setSectionsSeen] = useState<{ seen: number; total: number }>({ seen: 0, total: 0 });
+  const findingCursor = useRef(-1);
+  const [openedAt] = useState(() => Date.now());
+  const submittedAt = dossier?.submissionDate ? new Date(dossier.submissionDate).getTime() : Number.NaN;
+  const waitingDays = Number.isNaN(submittedAt) ? null : Math.max(0, Math.floor((openedAt - submittedAt) / 86_400_000));
+
+  // A link to a folded section (rail, « Aller à la réponse ») opens it first.
+  useEffect(() => {
+    const openTarget = (hash: string) => {
+      const id = decodeURIComponent(hash.replace(/^#/, ""));
+      if (!id) return;
+      const target = document.getElementById(id);
+      const folded = target?.closest("details");
+      if (folded && !folded.open) folded.open = true;
+    };
+    const onHashChange = () => openTarget(window.location.hash);
+    const onClick = (event: MouseEvent) => {
+      const link = (event.target as Element | null)?.closest?.("a[href^='#']");
+      if (link) openTarget(link.getAttribute("href") ?? "");
+    };
+    window.addEventListener("hashchange", onHashChange);
+    document.addEventListener("click", onClick, true);
+    openTarget(window.location.hash);
+    return () => {
+      window.removeEventListener("hashchange", onHashChange);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, []);
+
+  // J / K move between the open findings; never while typing or in a dialog.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "j" && event.key !== "k") return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (document.querySelector("dialog[open]")) return;
+      const cards = Array.from(document.querySelectorAll<HTMLElement>("[id^='finding-']"));
+      if (cards.length === 0) return;
+      event.preventDefault();
+      const current = cards.findIndex((card) => card === document.activeElement);
+      const from = current >= 0 ? current : findingCursor.current;
+      const next = event.key === "j" ? Math.min(from + 1, cards.length - 1) : Math.max(from - 1, 0);
+      findingCursor.current = next;
+      cards[next].focus();
+      cards[next].scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Re-counted once the schema has drawn the sections, and again once the checks
+  // are in: a section with a finding is redrawn open, as a new element.
+  const observedDossierId = dossier?.id;
+  useEffect(() => {
+    if (!observedDossierId || typeof IntersectionObserver === "undefined") return;
+    let observer: IntersectionObserver | null = null;
+    let reading: IntersectionObserver | null = null;
+    let onToggle: ((event: Event) => void) | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      const sections = Array.from(document.querySelectorAll<HTMLElement>("#dossier-structure, [id^='dossier-section-']"));
+      // By id: a section can be redrawn as a new element after this runs.
+      const sectionIds = new Set(sections.map((section) => section.id));
+      const seen = new Set<string>();
+      setSectionsSeen({ seen: 0, total: sections.length });
+      observer = new IntersectionObserver((entries) => {
+        let changed = false;
+        for (const entry of entries) {
+          if (entry.isIntersecting && sectionCountsAsRead(entry.target) && !seen.has(entry.target.id)) { seen.add(entry.target.id); changed = true; }
+        }
+        if (changed) setSectionsSeen({ seen: seen.size, total: sections.length });
+      }, { rootMargin: "0px 0px -40% 0px" });
+      sections.forEach((section) => observer!.observe(section));
+      // Unfolding a section already on screen fires no intersection, so it is counted here.
+      onToggle = (event: Event) => {
+        const section = event.target as HTMLElement;
+        if (!sectionIds.has(section.id) || !sectionCountsAsRead(section) || seen.has(section.id)) return;
+        seen.add(section.id);
+        setSectionsSeen({ seen: seen.size, total: sections.length });
+      };
+      document.addEventListener("toggle", onToggle, true);
+      // The section being read is marked in the index (aria-current="location").
+      const markActive = (id: string) => {
+        document.querySelectorAll<HTMLAnchorElement>(".cam-dossier-rail nav a[href^='#']").forEach((link) => {
+          if (link.getAttribute("href") === `#${id}`) link.setAttribute("aria-current", "location");
+          else link.removeAttribute("aria-current");
+        });
+      };
+      reading = new IntersectionObserver((entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) markActive(visible[0].target.id);
+      }, { rootMargin: "0px 0px -70% 0px" });
+      sections.forEach((section) => reading!.observe(section));
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      reading?.disconnect();
+      if (onToggle) document.removeEventListener("toggle", onToggle, true);
+    };
+  }, [observedDossierId, schemaQuery.isSuccess, diagnosticState]);
   // PATCH .../request-correction requires certified === true server-side: the
   // reviewer's attestation, not a formality the client can assume. It was
   // hardcoded here, so the attestation was being made on the reviewer's
@@ -701,8 +808,23 @@ function SubmissionDetailContent() {
     ...mergeSameRule(diag?.warningAnomalies ?? []).map((item) => ({ severity: "warning" as const, ruleCode: item.ruleCode, text: findingSentence(item.ruleCode, item.finding.description) })),
   // A finding the figures do not show is not placed on tables that agree.
   ].filter((item) => !cellChecks.notFound.has(item.ruleCode)), entity, locale);
+  // The review panel's checklist: one line per open finding, linked to its card.
+  const reviewChecklist = diagnosticState === "ready" ? [
+    ...mergeSameRule(diag?.blockingAnomalies ?? []).map((item) => ({ severity: "blocking" as const, ruleCode: item.ruleCode, text: findingSentence(item.ruleCode, item.finding.description) })),
+    ...mergeSameRule(diag?.warningAnomalies ?? []).map((item) => ({ severity: "warning" as const, ruleCode: item.ruleCode, text: findingSentence(item.ruleCode, item.finding.description) })),
+  ] : [];
+  // The establishment's last endorsed file for an earlier round, compared answer by answer.
+  const previousAnswers = dossier?.previousPeriod?.rawData
+    ? {
+      data: dossier.previousPeriod.rawData as FormData,
+      label: dossier.previousPeriod.quarterCode
+        ? referencePeriodLabel(dossier.previousPeriod.quarterCode, locale)
+        : shortRecordId(dossier.previousPeriod.submissionId),
+      quarterCode: dossier.previousPeriod.quarterCode,
+    }
+    : null;
   const railFlag = (flag: { count: number; blocking: boolean }) => flag.count > 0
-    ? <span className={`cam-dossier-rail-flag${flag.blocking ? " is-blocking" : ""}`} aria-label={t("railFlagged", { count: flag.count })}> · {t("railFlagged", { count: flag.count })}</span>
+    ? <span className={`cam-dossier-rail-flag${flag.blocking ? " is-blocking" : ""}`} aria-label={t("railFlagged", { count: flag.count })}>{flag.count}</span>
     : null;
 
   const approveMutation = useMutation({
@@ -896,7 +1018,7 @@ function SubmissionDetailContent() {
   }
 
   return (
-    <div className="cam-admin-page">
+    <div className="cam-admin-page cam-dossier-workspace-page">
       {/* Header, status badge and the three decision actions. The page used to
           hand-build an <h1>, a back arrow and a status pill here, which is why
           it was the one screen in the console with no shared chrome at all;
@@ -905,7 +1027,11 @@ function SubmissionDetailContent() {
       <AdminPageHeader
         breadcrumb={breadcrumb}
         backHref={returnTo}
-        title={<span title={name ?? ref}>{name ?? t("fileTitle", { ref: shortRecordId(ref) })}</span>}
+        title={<span className="cam-dossier-title-line">
+          <span title={name ?? ref}>{name ?? t("fileTitle", { ref: shortRecordId(ref) })}</span>
+          {statusBadge && <AdminStatusBadge label={statusLabel} variant={statusBadge.variant ?? "neutral"} />}
+          {dossier.status === "PENDING_REVIEW" && waitingDays !== null && <span className="cam-dossier-waiting-badge">{t("waitingSince", { count: waitingDays })}</span>}
+        </span>}
         subtitle={<>
           <span className="cam-dossier-header-facts">
             {/* The short reference the queue shows; the full one stays in the tooltip. */}
@@ -927,45 +1053,21 @@ function SubmissionDetailContent() {
             {[dossier.respondent?.respondentName, respondentFunctionLabel(dossier.respondent?.respondentFunction, locale), dossier.respondent?.phone1, dossier.respondent?.email].filter(Boolean).join(" · ") || t("respondentUnavailable")}
           </span>
         </>}
-        actions={supersededNotice(dossier, t) ?? undefined}
-      />
-
-      <div className="cam-dossier-decision-bar" aria-label={t("decisionBarLabel")}>
-        <div className="cam-dossier-decision-state">
-          <AdminStatusBadge label={statusLabel} variant={statusBadge?.variant ?? "neutral"} />
-          {barClaimQuery.data && <DossierBarClaim
-            claim={barClaimQuery.data}
-            userId={userId}
-            role={role}
-            readOnly={readOnly}
-            busy={claimMutation.isPending}
-            saving={claimMutation.isPending}
-            onChange={(assigneeId) => claimMutation.mutate(assigneeId)}
-          />}
-          {barClaimQuery.isError && !barClaimQuery.data && <span className="cam-admin-meta" role="alert">{t("claimStateFailed")}</span>}
-          {claimActionNotice && <span className="cam-admin-meta" role="status">{claimActionNotice}</span>}
-        </div>
+        actions={<div className="cam-dossier-header-actions-v2">
+          {supersededNotice(dossier, t)}
+          {neighboursQuery.data?.position && neighboursQuery.data.total
+            ? <span className="cam-dossier-queue-position">{t("queuePosition", { position: neighboursQuery.data.position, total: neighboursQuery.data.total })}</span>
+            : null}
         <nav className="cam-dossier-decision-navigation" aria-label={t("queueNavigationLabel")}>
-          {previousHref
-            ? <Link className="cam-button cam-button-secondary cam-button-sm" href={previousHref}>‹ {t("previousFile")}</Link>
-            : <span className="cam-button cam-button-secondary cam-button-sm is-disabled" aria-disabled="true">‹ {t("previousFile")}</span>}
-          {nextHref
-            ? <Link className="cam-button cam-button-secondary cam-button-sm" href={nextHref}>{t("nextFile")} ›</Link>
-            : <span className="cam-button cam-button-secondary cam-button-sm is-disabled" aria-disabled="true">{t("nextFile")} ›</span>}
-        </nav>
-        {!readOnly && <div className="cam-dossier-decision-actions">
-          {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
-          {decisions.reject && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openRejectModal}>{t("rejectFormButton")}</button>}
-          {decisions.requestCorrection && canReviewDossier && <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openCorrectionModal}>{t("requestCorrectionButton")}</button>}
-          {canReopenForCorrection(dossier.status, role) && <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={openReopenModal}>{t("reopenButton")}</button>}
-          {decisions.approve && canReviewDossier && !approvalChecksReady && (
-            <span className="cam-admin-notice cam-admin-notice--warn" role="status">
-              {diagnosticState !== "ready" ? t("approvalChecksUnavailableOrBlocked") : t("blockingIssuesMustBeResolved")}
-            </span>
-          )}
-          {decisions.approve && canReviewDossier && <button type="button" className="cam-button cam-button-primary cam-button-sm" disabled={!approvalChecksReady} onClick={openApproveModal}>{t("validateArchiveButton")}</button>}
+            {previousHref
+              ? <Link className="cam-button cam-button-secondary cam-button-sm" href={previousHref}>‹ {t("previousFile")}</Link>
+              : <span className="cam-button cam-button-secondary cam-button-sm is-disabled" aria-disabled="true">‹ {t("previousFile")}</span>}
+            {nextHref
+              ? <Link className="cam-button cam-button-secondary cam-button-sm" href={nextHref}>{t("nextFile")} ›</Link>
+              : <span className="cam-button cam-button-secondary cam-button-sm is-disabled" aria-disabled="true">{t("nextFile")} ›</span>}
+          </nav>
         </div>}
-      </div>
+      />
 
       {decisionNotice && <p className="cam-admin-notice cam-admin-notice--success" role="status">
         {searchParams.get("endOfQueue") === "1"
@@ -983,29 +1085,8 @@ function SubmissionDetailContent() {
           fixed amber; .cam-dossier-axes carries is-approved / is-rejected, so
           it now follows the dossier's own decision. */}
       <CoherenceProvider flags={cellChecks.flags} readOnly markers={flagMarkers}>
-      <div className="cam-dossier-workspace-layout">
+      <div className="cam-dossier-workspace-layout is-three-column">
         <aside className="cam-dossier-rail">
-          <section aria-labelledby="dossier-controls-title">
-            <h2 id="dossier-controls-title">{t("controlsTitle")}</h2>
-            {/* The status is the decision bar's; the rail says what is left to check
-                and whether the file can enter the statistics. */}
-            <p>{diagnosticState === "ready"
-              ? <><span className={blockingFindings > 0 ? "cam-dossier-axis-text is-error" : undefined}>{t("blockingCount", { count: blockingFindings })}</span> · {t("warningCount", { count: warningFindings })}{detectedByRule.length > 0 && <> · {t("railDetected", { count: detectedByRule.length })}</>}</>
-              : axisText(qualityAxis(diagnosticState, diag))}</p>
-            <p className="cam-admin-meta">{t("railEligibility")}</p>
-            <p>{axisText(eligibilityAxis(diagnosticState, diag))}</p>
-            {/* Re-runs the checks with the current rules, on the server: what it
-                adds or closes is recorded, unlike « détecté à la relecture ». */}
-            {dossier.status === "PENDING_REVIEW" && !readOnly && hasRole(role, SURVEY_ROLES) && (
-              <RecheckCoherenceAction
-                dossierId={dossier.id}
-                onSettled={() => {
-                  void invalidateDossier();
-                  void queryClient.invalidateQueries({ queryKey: explainedFindingsKey(dossier.id) });
-                }}
-              />
-            )}
-          </section>
           <nav aria-label={t("sectionIndexLabel")}>
             <h2>{t("sectionsTitle")}</h2>
             <a href="#dossier-verify">{t("verifyHeading", { count: openFindings })}</a>
@@ -1022,6 +1103,12 @@ function SubmissionDetailContent() {
             })}
             <a href="#dossier-history">{t("notesAndHistoryTitle")}</a>
           </nav>
+          {sectionsSeen.total > 0 && (
+            <div className="cam-dossier-rail-progress">
+              <span className="cam-admin-meta">{t("sectionsViewed", { seen: sectionsSeen.seen, total: sectionsSeen.total })}</span>
+              <progress value={sectionsSeen.seen} max={sectionsSeen.total} aria-hidden="true" />
+            </div>
+          )}
         </aside>
         <div className="cam-dash-column cam-dossier-answer-column" style={{ gap: "var(--cam-space-3)" }}>
           <section id="dossier-verify" className="cam-dossier-findings">
@@ -1042,6 +1129,8 @@ function SubmissionDetailContent() {
                     <div
                       className={`${group.severity === "blocking" ? "is-blocking" : "is-warning"}${ruleMarkers.has(ruleCode) ? " is-numbered" : ""}`}
                       key={ruleCode}
+                      id={`finding-${ruleCode}`}
+                      tabIndex={-1}
                       title={ruleCode}
                       style={ruleMarkers.has(ruleCode) ? { borderInlineStartColor: ruleMarkers.get(ruleCode)!.color } : undefined}
                     >
@@ -1247,76 +1336,179 @@ function SubmissionDetailContent() {
               data={(dossier.rawData ?? null) as Record<string, unknown> | null}
               quarterCode={dossier.quarterCode ?? null}
               flags={placedFlags}
+              previous={previousAnswers}
             />
           ))}
           </>
           )}
 
           {/* Findings are at the top of the continuous answer column. */}
+          {/* Instruction history. Built only from timestamps stored on the
+              dossier:
+                - submissionDate  -> reception by the central server
+                - reviewedAt      -> the administrative decision, labelled by the
+                                     stored status (visa / rejet / correction)
+                - rejectionReason -> the recorded motive, when there is one
+              No step is shown for a timestamp the record does not carry, and no
+              actor is named: `reviewedBy` holds a bare account id, and the named
+              history of who did what lives in the audit journal, which is linked
+              rather than reconstructed here. */}
+          <section className="cam-admin-section cam-dossier-history-section" id="dossier-history">
+            <div className="cam-admin-section-head">
+              <h2 className="cam-admin-h2">{t("notesAndHistoryTitle")}</h2>
+              {canReadAudit && (
+                <Link
+                  href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
+                  className="cam-text-button"
+                >
+                  {t("auditEventsLink")}
+                </Link>
+              )}
+            </div>
+            <div className="cam-admin-section-body">
+              <DossierClaimPanel dossierId={id} userId={userId} role={role} revision={dossier.revision} />
+              {progressQuery.isError && <p className="cam-admin-meta" role="alert">{t("progressHistoryFailed")}</p>}
+              {mergedHistory.length === 0 && dossier.status !== "PENDING_REVIEW" ? (
+                <DataState
+                  dense
+                  state="empty"
+                  resource={t("historyResource")}
+                  title={t("historyEmptyTitle")}
+                  hint={t("historyEmptyHint")}
+                />
+              ) : (
+                <ul className="cam-dossier-history">
+                  {/* Pending states are shown as pending, with no predicted approver. */}
+                  {dossier.status === "PENDING_REVIEW" && (
+                    <li>
+                      <span className="cam-dossier-history-dot is-current" aria-hidden="true" />
+                      <div>
+                        <strong>{t("awaitingDecision")}</strong>
+                        <p className="cam-dossier-note">{t("noDecisionRecorded")}</p>
+                      </div>
+                    </li>
+                  )}
+                  {mergedHistory.map((step) => (
+                    <li key={step.key}>
+                      <span className={`cam-dossier-history-dot ${step.dot}`.trimEnd()} aria-hidden="true" />
+                      <div>
+                        <strong>{step.title}</strong>
+                        {step.detail && <p className="cam-dossier-note">{step.detail}</p>}
+                        <p className="cam-dossier-note">{step.stamp}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
         </div>
         </div>
+        <div className="cam-dossier-review-summary">
+          <div>
+            <strong>{t("reviewSummary", { count: openFindings })}</strong>
+            {blockingFindings > 0 && <span className="cam-dossier-review-summary-blocking">{t("reviewSummaryBlocking", { count: blockingFindings })}</span>}
+          </div>
+          <button type="button" className="cam-button cam-button-primary" aria-expanded={reviewSheetOpen} aria-controls="dossier-review-panel" onClick={() => setReviewSheetOpen(true)}>{t("openReviewPanel")}</button>
+        </div>
+        {reviewSheetOpen && <div className="cam-dossier-review-scrim" aria-hidden="true" onClick={() => setReviewSheetOpen(false)} />}
+        <aside
+          id="dossier-review-panel"
+          className={`cam-dossier-review-panel${reviewSheetOpen ? " is-open" : ""}`}
+          aria-label={t("decisionBarLabel")}
+          onKeyDown={(event) => { if (event.key === "Escape" && reviewSheetOpen) setReviewSheetOpen(false); }}
+          onClick={(event) => { if ((event.target as Element).closest("a[href^='#']")) setReviewSheetOpen(false); }}
+        >
+        <button type="button" className="cam-dossier-review-close" aria-label={t("closeReviewPanel")} onClick={() => setReviewSheetOpen(false)}>×</button>
+        {/* The claim: who holds the file and until when; the status is in the header. */}
+        <section className="cam-dossier-review-card cam-dossier-decision-state" aria-label={t("claimPanelTitle")}>
+          {barClaimQuery.data && <DossierBarClaim
+            claim={barClaimQuery.data}
+            userId={userId}
+            role={role}
+            readOnly={readOnly}
+            busy={claimMutation.isPending}
+            saving={claimMutation.isPending}
+            onChange={(assigneeId) => claimMutation.mutate(assigneeId)}
+          />}
+          {barClaimQuery.isError && !barClaimQuery.data && <span className="cam-admin-meta" role="alert">{t("claimStateFailed")}</span>}
+          {claimActionNotice && <span className="cam-admin-meta" role="status">{claimActionNotice}</span>}
+        </section>
+        {/* « À vérifier »: the checks summary, what is handled, and one line per open finding. */}
+        <section className="cam-dossier-review-card cam-dossier-review-verify" aria-labelledby="dossier-controls-title">
+          <div className="cam-dossier-review-card-head">
+            <h2 id="dossier-controls-title">{t("checklistTitle")}</h2>
+            {diagnosticState === "ready" && <span className="cam-admin-meta">{t("checklistProgress", { done: explained.items.length, total: explained.items.length + openFindings })}</span>}
+          </div>
+          {diagnosticState === "ready" && explained.items.length + openFindings > 0 && (
+            <progress className="cam-dossier-review-progress" value={explained.items.length} max={explained.items.length + openFindings} aria-hidden="true" />
+          )}
+          {/* The status is the header's; this says what is left to check
+              and whether the file can enter the statistics. */}
+          <p className="cam-dossier-review-counts">{diagnosticState === "ready"
+            ? <><span className={blockingFindings > 0 ? "cam-dossier-axis-text is-error" : undefined}>{t("blockingCount", { count: blockingFindings })}</span> · {t("warningCount", { count: warningFindings })}{detectedByRule.length > 0 && <> · {t("railDetected", { count: detectedByRule.length })}</>}</>
+            : axisText(qualityAxis(diagnosticState, diag))}</p>
+          {reviewChecklist.length > 0 && (
+            <ol className="cam-dossier-review-checklist">
+              {reviewChecklist.map((item) => (
+                <li key={item.ruleCode} className={`is-${item.severity}`}>
+                  <a href={`#finding-${item.ruleCode}`}>
+                    <span className="cam-dossier-review-dot" aria-hidden="true" />
+                    <span className="cam-dossier-review-item-copy">
+                      <span className="cam-dossier-review-item-text">{item.text}</span>
+                      <span className="cam-admin-meta">{t(item.severity === "blocking" ? "findingsBlocking" : "findingsWarning")}</span>
+                    </span>
+                    <span className="cam-dossier-review-item-go" aria-hidden="true">{t("checklistOpen")}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          )}
+          <p className="cam-admin-meta">{t("railEligibility")} : {axisText(eligibilityAxis(diagnosticState, diag))}</p>
+          {/* Re-runs the checks with the current rules, on the server: what it
+              adds or closes is recorded, unlike « détecté à la relecture ». */}
+          {dossier.status === "PENDING_REVIEW" && !readOnly && hasRole(role, SURVEY_ROLES) && (
+            <RecheckCoherenceAction
+              dossierId={dossier.id}
+              onSettled={() => {
+                void invalidateDossier();
+                void queryClient.invalidateQueries({ queryKey: explainedFindingsKey(dossier.id) });
+              }}
+            />
+          )}
+          {reviewChecklist.length > 0 && <p className="cam-admin-meta cam-dossier-review-keys">{t("keyboardHint")}</p>}
+        </section>
+        {!readOnly && !canReviewDossier && hasRole(role, SURVEY_ROLES) && (decisions.approve || decisions.requestCorrection || decisions.reject) && (
+          <p className="cam-dossier-review-card cam-dossier-review-prompt">{t("claimToDecide")}</p>
+        )}
+        {!readOnly && (decidedLine || canReopenForCorrection(dossier.status, role) || (canReviewDossier && (decisions.approve || decisions.requestCorrection || decisions.reject))) && (
+          <section className="cam-dossier-review-card cam-dossier-review-decisions" aria-labelledby="dossier-decision-title">
+            <h2 id="dossier-decision-title">{t("decisionHeading")}</h2>
+            {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
+            {decisions.approve && canReviewDossier && !approvalChecksReady && (
+              <p className="cam-dossier-review-blocked" role="status">
+                {diagnosticState !== "ready" ? t("approvalChecksUnavailableOrBlocked") : t("blockingIssuesMustBeResolved")}
+              </p>
+            )}
+            {/* The main action comes first: « Viser » on a file that can be
+                endorsed, « Demander une correction » when blocking findings stop it. */}
+            {decisions.requestCorrection && canReviewDossier && decisions.approve && !approvalChecksReady && (
+              <button type="button" className="cam-button cam-button-primary" onClick={openCorrectionModal}>
+                {t("requestCorrectionButton")}
+                {blockingFindings > 0 && <span className="cam-dossier-review-button-count" aria-hidden="true">{t("correctionPointsSuffix", { count: blockingFindings })}</span>}
+              </button>
+            )}
+            {decisions.approve && canReviewDossier && <button type="button" className={`cam-button ${approvalChecksReady ? "cam-button-primary" : "cam-button-secondary"}`} disabled={!approvalChecksReady} onClick={openApproveModal}>{t("validateArchiveButton")}</button>}
+            {decisions.requestCorrection && canReviewDossier && !(decisions.approve && !approvalChecksReady) && <button type="button" className="cam-button cam-button-secondary" onClick={openCorrectionModal}>{t("requestCorrectionButton")}</button>}
+            {decisions.reject && canReviewDossier && <button type="button" className="cam-button cam-button-danger" onClick={openRejectModal}>{t("rejectFormButton")}</button>}
+            {canReopenForCorrection(dossier.status, role) && <button type="button" className="cam-button cam-button-secondary" onClick={openReopenModal}>{t("reopenButton")}</button>}
+          </section>
+        )}
+        <a className="cam-dossier-review-history-link" href="#dossier-history">{t("notesAndHistoryTitle")}<span aria-hidden="true" className="cam-dossier-review-arrow" /></a>
+        </aside>
       </div>
       </CoherenceProvider>
 
-      {/* Instruction history. Built only from timestamps stored on the
-          dossier:
-            - submissionDate  -> reception by the central server
-            - reviewedAt      -> the administrative decision, labelled by the
-                                 stored status (visa / rejet / correction)
-            - rejectionReason -> the recorded motive, when there is one
-          No step is shown for a timestamp the record does not carry, and no
-          actor is named: `reviewedBy` holds a bare account id, and the named
-          history of who did what lives in the audit journal, which is linked
-          rather than reconstructed here. */}
-      <section className="cam-admin-section cam-dossier-history-section" id="dossier-history">
-        <div className="cam-admin-section-head">
-          <h2 className="cam-admin-h2">{t("notesAndHistoryTitle")}</h2>
-          {canReadAudit && (
-            <Link
-              href={`/admin/journal-audit?resourceId=${encodeURIComponent(dossier.id)}`}
-              className="cam-text-button"
-            >
-              {t("auditEventsLink")}
-            </Link>
-          )}
-        </div>
-        <div className="cam-admin-section-body">
-          <DossierClaimPanel dossierId={id} userId={userId} role={role} revision={dossier.revision} />
-          {progressQuery.isError && <p className="cam-admin-meta" role="alert">{t("progressHistoryFailed")}</p>}
-          {mergedHistory.length === 0 && dossier.status !== "PENDING_REVIEW" ? (
-            <DataState
-              dense
-              state="empty"
-              resource={t("historyResource")}
-              title={t("historyEmptyTitle")}
-              hint={t("historyEmptyHint")}
-            />
-          ) : (
-            <ul className="cam-dossier-history">
-              {/* Pending states are shown as pending, with no predicted approver. */}
-              {dossier.status === "PENDING_REVIEW" && (
-                <li>
-                  <span className="cam-dossier-history-dot is-current" aria-hidden="true" />
-                  <div>
-                    <strong>{t("awaitingDecision")}</strong>
-                    <p className="cam-dossier-note">{t("noDecisionRecorded")}</p>
-                  </div>
-                </li>
-              )}
-              {mergedHistory.map((step) => (
-                <li key={step.key}>
-                  <span className={`cam-dossier-history-dot ${step.dot}`.trimEnd()} aria-hidden="true" />
-                  <div>
-                    <strong>{step.title}</strong>
-                    {step.detail && <p className="cam-dossier-note">{step.detail}</p>}
-                    <p className="cam-dossier-note">{step.stamp}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
 
       {/* Retour pour correction. The three overlays this page carried each
           declared aria-modal="true" with no focus trap, no Escape handler and

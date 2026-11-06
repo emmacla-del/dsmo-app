@@ -32,7 +32,8 @@ import {
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { AdminScopePill } from "@/components/admin/AdminFilterBarParts";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import {
@@ -115,7 +116,11 @@ function CentreQualiteContent() {
   const filterSeverity = parseSeverityFilter(searchParams.get("severity"));
   const filterFamily = parseAnomalyFamilyFilter(searchParams.get("family"));
   const setRegisterFilter = (key: "status" | "severity" | "family", value: string) =>
-    router.replace(hrefWith(pathname, searchParams.toString(), { [key]: value === "ALL" ? null : value }));
+    router.replace(hrefWith(pathname, searchParams.toString(), { [key]: value === "ALL" || value === "" ? null : value }));
+  const hasRegisterFilter = filterStatus !== "ALL" || filterSeverity !== "ALL" || filterFamily !== "ALL";
+  const clearRegisterFilters = () =>
+    router.replace(hrefWith(pathname, searchParams.toString(), { status: null, severity: null, family: null }));
+  const tq = (key: string, values?: Record<string, string>) => tRoot(`adminInscriptionsPage.${key}`, values);
 
   const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyRecord | null>(null);
   const [resolutionType, setResolutionType] = useState<AnomalyResolutionType>("DECLARANT_CORRECTION");
@@ -334,7 +339,7 @@ function CentreQualiteContent() {
           {/* Quality indicators. No frame around the row: the tiles are the
               cards, and a card does not sit inside another card. */}
           <section aria-labelledby="quality-kpis-title">
-            <h2 id="quality-kpis-title" className="cam-admin-h2" style={{ marginBottom: "var(--cam-space-3)" }}>
+            <h2 id="quality-kpis-title" className="cam-admin-h2 cam-quality-kpis-title">
               {t("qualityIndicatorsTitle")}
             </h2>
             <StatStrip
@@ -352,7 +357,7 @@ function CentreQualiteContent() {
             <div className="cam-admin-section-head">
               <h2 id="anomalies-aggregates-title" className="cam-admin-h2">{t("aggregatesTitle")}</h2>
             </div>
-            <div className="cam-admin-section-body" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "var(--cam-space-5)" }}>
+            <div className="cam-admin-section-body cam-quality-aggregates">
               <AggregateList
                 title={t("byFamily")}
                 loading={qualityQuery.isLoading}
@@ -395,10 +400,10 @@ function CentreQualiteContent() {
                 hint={rulesState === "empty" ? t("noRuleHint") : undefined}
               />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
+              <ul className="cam-quality-rules">
                 {rulesQuery.data?.map((rule) => (
-                  <div key={rule.code}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--cam-space-3)" }}>
+                  <li key={rule.code} className={rule.isBlocking ? "is-blocking" : undefined}>
+                    <div className="cam-quality-rule-head">
                       <div>
                         <div className="cam-admin-strong">{rule.name}</div>
                         <div className="cam-admin-meta">
@@ -409,10 +414,10 @@ function CentreQualiteContent() {
                         {rule.isBlocking ? t("blockingBadge") : t("warningBadge")}
                       </span>
                     </div>
-                    <p className="cam-admin-meta" style={{ margin: "var(--cam-space-1) 0 0" }}>{rule.description}</p>
-                  </div>
+                    <p className="cam-admin-meta">{rule.description}</p>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
         </section>
@@ -427,37 +432,59 @@ function CentreQualiteContent() {
           headingId="anomalies-registry-title"
           title={totalCount === null ? t("registerTitle") : `${t("registerTitle")} (${count(totalCount, locale)})`}
           description={t("registerSubtitle")}
-        >
-          <div className="cam-admin-section-body">
-            <div className="cam-admin-filters">
-              <div>
-                <button
-                  type="button"
-                  className="cam-button cam-button-secondary"
-                  onClick={() => anomaliesQuery.refetch()}
-                >
-                  {t("refresh")}
-                </button>
-              </div>
+          actions={
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => anomaliesQuery.refetch()}>
+              {t("refresh")}
+            </button>
+          }
+          toolbar={
+            <div className="cam-filter-bar" role="group" aria-label={tRoot("adminDossiersPage.filtersButton")}>
+              <AdminScopePill />
+              <AdminFilterPill
+                label={t("statusColumn")}
+                value={filterStatus === "ALL" ? "" : filterStatus}
+                allLabel={t("allStatuses")}
+                clearLabel={tq("removeFilterChip", { label: t("statusColumn") })}
+                onChange={(value) => setRegisterFilter("status", value)}
+                options={[
+                  { value: "OPEN", label: t("statusOpen") },
+                  { value: "RESOLVED", label: t("statusResolved") },
+                  { value: "WAIVED", label: t("statusWaived") },
+                ]}
+              />
+              <AdminFilterPill
+                label={t("severityColumn")}
+                value={filterSeverity === "ALL" ? "" : filterSeverity}
+                allLabel={t("allSeverities")}
+                clearLabel={tq("removeFilterChip", { label: t("severityColumn") })}
+                onChange={(value) => setRegisterFilter("severity", value)}
+                options={[
+                  { value: "BLOCKING", label: t("blockingOnly") },
+                  { value: "WARNING", label: t("warningsOnly") },
+                ]}
+              />
+              <AdminFilterPill
+                label={t("familyColumn")}
+                value={filterFamily === "ALL" ? "" : filterFamily}
+                allLabel={t("allFamilies")}
+                clearLabel={tq("removeFilterChip", { label: t("familyColumn") })}
+                onChange={(value) => setRegisterFilter("family", value)}
+                options={ANOMALY_RULE_FAMILIES.map((value) => ({ value, label: ruleFamilyLabel(value, locale) }))}
+              />
+              {hasRegisterFilter && <button type="button" className="cam-text-button" onClick={clearRegisterFilters}>{tq("clearFilters")}</button>}
             </div>
-          </div>
-
+          }
+        >
           <div className="cam-table-wrapper">
             <table className="cam-table">
               <thead>
                 <tr>
                   <th scope="col">{t("declarationColumn")}</th>
-                  <FilterTableHead label={t("ruleColumn")} filterLabel={t("familyColumn")} active={filterFamily !== "ALL"}>
-                    {(close) => <FilterTableOptions label={t("familyColumn")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("familyColumn").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={filterFamily} options={[{ value: "ALL", label: t("allFamilies") }, ...ANOMALY_RULE_FAMILIES.map((value) => ({ value, label: ruleFamilyLabel(value, locale) }))]} onChange={(value) => setRegisterFilter("family", value)} onSelect={close} />}
-                  </FilterTableHead>
+                  <th scope="col">{t("ruleColumn")}</th>
                   <th scope="col">{t("descriptionColumn")}</th>
-                  <FilterTableHead label={t("severityColumn")} filterLabel={t("severityColumn")} active={filterSeverity !== "ALL"}>
-                    {(close) => <FilterTableOptions label={t("severityColumn")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("severityColumn").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={filterSeverity} options={[{ value: "ALL", label: t("allSeverities") }, { value: "BLOCKING", label: t("blockingOnly") }, { value: "WARNING", label: t("warningsOnly") }]} onChange={(value) => setRegisterFilter("severity", value)} onSelect={close} />}
-                  </FilterTableHead>
+                  <th scope="col">{t("severityColumn")}</th>
                   <th scope="col">{t("detectedColumn")}</th>
-                  <FilterTableHead label={t("statusColumn")} filterLabel={t("statusColumn")} active={filterStatus !== "ALL"}>
-                    {(close) => <FilterTableOptions label={t("statusColumn")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("statusColumn").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={filterStatus} options={[{ value: "ALL", label: t("allStatuses") }, { value: "OPEN", label: t("statusOpen") }, { value: "RESOLVED", label: t("statusResolved") }, { value: "WAIVED", label: t("statusWaived") }]} onChange={(value) => setRegisterFilter("status", value)} onSelect={close} />}
-                  </FilterTableHead>
+                  <th scope="col">{t("statusColumn")}</th>
                   <th scope="col" className="text-right">{t("actionColumn")}</th>
                 </tr>
               </thead>

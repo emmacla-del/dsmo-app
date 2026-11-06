@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { RefreshCw, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -144,38 +146,34 @@ export function CompaniesDirectory() {
       <AdminTablePanel
         title={t("homeAnnuairePage.companiesTabLabel")}
         headingId="companies-directory-table-heading"
+        // Only once the list has answered (G10), never "0 résultats" while loading.
+        meta={query.data ? <span role="status">{t("companiesDirectory.resultsCount", { count: total })}</span> : undefined}
+        actions={
+          <button
+            type="button"
+            onClick={() => query.refetch()}
+            className="cam-button cam-button-secondary cam-button-sm cam-directory-refresh"
+          >
+            <RefreshCw size={14} aria-hidden="true" />
+            {t("companiesDirectory.refresh")}
+          </button>
+        }
+        toolbar={
+          <div className="cam-filter-bar" role="group" aria-label={t("adminDossiersPage.filtersButton")}>
+            <div className="cam-filter-bar-search">
+              <label className="cam-sr-only" htmlFor="companies-search">{t("companiesDirectory.searchPlaceholder")}</label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+              <Input
+                id="companies-search"
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t("companiesDirectory.searchPlaceholder")}
+              />
+            </div>
+          </div>
+        }
       >
-      {/* Search row */}
-      <div style={{ display: "flex", gap: "var(--cam-space-3)", marginBottom: "var(--cam-space-3)" }}>
-        <div className="cam-admin-search" style={{ flex: 1 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder={t("companiesDirectory.searchPlaceholder")}
-            className="cam-input"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => query.refetch()}
-          className="cam-button cam-button-secondary cam-button-sm"
-          style={{ flexShrink: 0 }}
-        >
-          {t("companiesDirectory.refresh")}
-        </button>
-      </div>
-
-      {/* Only once the list has answered (G10), never "0 résultats" while loading. */}
-      {query.data && (
-        <p className="cam-admin-meta" style={{ marginBottom: "var(--cam-space-3)" }}>
-          {t("companiesDirectory.resultsCount", { count: total })}
-        </p>
-      )}
-
       {listState !== "ready" && (
         <DataState
           state={listState}

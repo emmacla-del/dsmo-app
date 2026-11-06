@@ -86,7 +86,7 @@ export function TargetGrid({
 
   return (
     <>
-      {canWrite && <p className="cam-admin-meta">{t("quotaModeGuidance")}</p>}
+      {canWrite && <p className="cam-admin-meta cam-target-guidance">{t("quotaModeGuidance")}</p>}
       <div className="cam-dash-table-wrap">
         <table className="cam-dash-table cam-target-table">
           <thead>

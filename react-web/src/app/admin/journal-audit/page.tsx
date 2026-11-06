@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { Search } from "lucide-react";
@@ -20,27 +20,17 @@ import {
   listAuditLog,
 } from "@/lib/audit-log";
 import { listUsers } from "@/lib/user-directory";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { hrefWith, parseAdminListPage } from "@/lib/admin-url";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AUDIT_ROLES } from "@/lib/roles";
-import { ALL, fromAll, toAll } from "@/lib/select-sentinel";
-import { FilterBar } from "@/components/admin/FilterBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -87,6 +77,8 @@ interface DisplayAuditItem {
  * `period` parameter at all. Labels: adminJournalAuditPage.period.<value>.
  */
 const PERIOD_VALUES = ["7d", "30d", "3m", "12m", "all"];
+/** The bounded windows, offered by the « Période » pill; "all" is the pill switched off. */
+const PERIOD_WINDOWS = PERIOD_VALUES.filter((value) => value !== "all");
 
 /**
  * Resource-type filter, keyed on the values the backend actually stores in
@@ -116,36 +108,46 @@ function JournalAuditContent() {
   const tRoot = useTranslations();
   const t = useTranslations("adminJournalAuditPage");
   const locale = asUiLocale(useLocale());
-
-  // Deep links from a dossier, an establishment or /admin/equipe arrive with
-  // ?resourceId= or ?actor= and seed the matching filter. Such a link asks for
-  // that record's whole history, so the period widens to "all" — the default
-  // 7-day window would hide every older event.
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const requestedActor = searchParams.get("actor")?.trim() ?? "";
-  const requestedResourceId = searchParams.get("resourceId")?.trim() ?? "";
-  const isDeepLink = !!(requestedActor || requestedResourceId);
+  const currentQuery = searchParams.toString();
 
-  // Filters. `actor` holds a real User.id, not a display name: the backend
-  // filters AuditLog.userId, so a free-text name could never match.
-  const [period, setPeriod] = useState(isDeepLink ? "all" : "7d");
-  const [actor, setActor] = useState(requestedActor);
-  const [action, setAction] = useState("");
-  const [resourceType, setResourceType] = useState("");
-  const [resourceId, setResourceId] = useState(requestedResourceId);
-  const [resourceIdInput, setResourceIdInput] = useState(requestedResourceId);
-  const [currentPage, setCurrentPage] = useState(1);
+  // Every filter and the page live in the URL (G15). Deep links from a
+  // dossier, an establishment or /admin/equipe arrive with ?resourceId= or
+  // ?actor=. Such a link asks for that record's whole history, so the period
+  // defaults to "all" there — the 7-day window would hide every older event.
+  const actor = searchParams.get("actor")?.trim() ?? "";
+  const resourceId = searchParams.get("resourceId")?.trim() ?? "";
+  const isDeepLink = !!(actor || resourceId);
+  const rawPeriod = searchParams.get("periode") ?? "";
+  const period = PERIOD_WINDOWS.includes(rawPeriod) ? rawPeriod : rawPeriod === "tout" ? "all" : isDeepLink ? "all" : "7d";
+  const rawAction = searchParams.get("action") ?? "";
+  const action = ACTION_VALUES.includes(rawAction) ? rawAction : "";
+  const rawResourceType = searchParams.get("type") ?? "";
+  const resourceType = RESOURCE_TYPE_VALUES.includes(rawResourceType) ? rawResourceType : "";
+  const currentPage = parseAdminListPage(searchParams.get("page"));
+  const setFilters = (changes: Record<string, string | number | null>) =>
+    router.replace(hrefWith(pathname, currentQuery, { page: null, ...changes }), { scroll: false });
+  const setPage = (next: number) =>
+    router.replace(hrefWith(pathname, currentQuery, { page: next <= 1 ? null : next }), { scroll: false });
 
-  // Debounced so each keystroke does not run a new audit query.
+  // The identifier box keeps a draft, written to the URL after a pause, so
+  // each keystroke does not run a new audit query.
+  const [resourceIdInput, setResourceIdInput] = useState(resourceId);
+  const [syncedResourceId, setSyncedResourceId] = useState(resourceId);
+  if (syncedResourceId !== resourceId) {
+    setSyncedResourceId(resourceId);
+    setResourceIdInput(resourceId);
+  }
   useEffect(() => {
     const trimmed = resourceIdInput.trim();
     if (trimmed === resourceId) return;
     const timer = setTimeout(() => {
-      setResourceId(trimmed);
-      setCurrentPage(1);
+      router.replace(hrefWith(pathname, currentQuery, { page: null, resourceId: trimmed || null }), { scroll: false });
     }, 300);
     return () => clearTimeout(timer);
-  }, [resourceIdInput, resourceId]);
+  }, [resourceIdInput, resourceId, router, pathname, currentQuery]);
 
   /**
    * Source: GET /audit/reports?paginate=true (src/report/audit.controller.ts).
@@ -184,32 +186,26 @@ function JournalAuditContent() {
 
   const actorOptions = useMemo(() => {
     const users = actorsQuery.data?.users ?? [];
-    const options = [
-      { value: ALL, label: t("allUsers") },
-      ...users
-        .map((u) => ({
-          value: u.id,
-          label: `${[u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email} — ${directoryRoleLabel(u.role, locale)}`,
-        }))
-        .sort((a, b) => a.label.localeCompare(b.label, locale)),
-    ];
+    const options = users
+      .map((u) => ({
+        value: u.id,
+        label: `${[u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email} — ${directoryRoleLabel(u.role, locale)}`,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, locale));
     // An actor id from a deep link may fall outside the first 100 accounts
-    // listed above. Without its own option the select would display "Tous les
-    // utilisateurs" while the query is in fact filtered by that id.
+    // listed above. Without its own option the pill would read as off while
+    // the query is in fact filtered by that id.
     if (actor && !options.some((o) => o.value === actor)) {
       options.push({ value: actor, label: t("deepLinkActor") });
     }
     return options;
   }, [actorsQuery.data, actor, t, locale]);
 
+  const defaultPeriod = isDeepLink ? "all" : "7d";
+  const hasFilter = period !== defaultPeriod || !!actor || !!action || !!resourceType || !!resourceId;
   const handleResetFilters = () => {
-    setPeriod("7d");
-    setActor("");
-    setAction("");
-    setResourceType("");
     setResourceIdInput("");
-    setResourceId("");
-    setCurrentPage(1);
+    router.replace(hrefWith(pathname, currentQuery, { page: null, periode: null, actor: null, action: null, type: null, resourceId: null }), { scroll: false });
   };
 
   /**
@@ -258,7 +254,7 @@ function JournalAuditContent() {
     <AdminPageHeader
       breadcrumb={[{ label: tRoot("adminNav.hubs.administration") }, { label: tRoot("adminNav.routes.journalAudit") }]}
       title={tRoot("adminNav.routes.journalAudit")}
-      actions={<AdminHeaderActions />}
+      subtitle={t("subtitle")}
     />
   );
 
@@ -277,123 +273,19 @@ function JournalAuditContent() {
     );
   }
 
+  const removeLabel = (label: string) => tRoot("adminDossiersPage.removeFilterChip", { label });
+
   return (
     <div className="cam-admin-page">
       {header}
 
-      <AdminTablePanel title={t("registerAriaLabel")} headingId="audit-register-heading">
-        <CardContent>
-          <FilterBar>
-          <div className="grid gap-2">
-            <Label htmlFor="filter-period">{t("periodLabel")}</Label>
-            <Select value={period} onValueChange={(v) => { setPeriod(v); setCurrentPage(1); }}>
-              <SelectTrigger id="filter-period" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIOD_VALUES.map((value) => (
-                  <SelectItem key={value} value={value}>{t(`period.${value}`)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Button type="button" variant="outline" onClick={handleResetFilters}>
-              {t("reset")}
-            </Button>
-          </div>
-          </FilterBar>
-        </CardContent>
-
-        <CardContent className="border-t pt-6">
-          <div role="region" aria-label={t("registerAriaLabel")}>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <FilterTableHead label={t("timestampColumn")} filterLabel={t("periodLabel")} active={period !== "7d"}>
-                    {(close) => <FilterTableOptions label={t("periodLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("periodLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={period} options={PERIOD_VALUES.map((value) => ({ value, label: t(`period.${value}`) }))} onChange={(value) => { setPeriod(value); setCurrentPage(1); }} onSelect={close} />}
-                  </FilterTableHead>
-                  <FilterTableHead label={t("actorColumn")} filterLabel={t("actorLabel")} active={!!actor}>
-                    {(close) => <FilterTableOptions label={t("actorLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("actorLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={actor || ALL} options={actorOptions} onChange={(value) => { setActor(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
-                  </FilterTableHead>
-                  <FilterTableHead label={t("actionColumn")} filterLabel={t("actionTypeLabel")} active={!!action}>
-                    {(close) => <FilterTableOptions label={t("actionTypeLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("actionTypeLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={action || ALL} options={[{ value: ALL, label: t("allActions") }, ...ACTION_VALUES.map((value) => ({ value, label: auditActionLabel(value, locale) }))]} onChange={(value) => { setAction(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
-                  </FilterTableHead>
-                  <FilterTableHead label={t("resourceLabel")} filterLabel={t("resourceLabel")} active={!!resourceType}>
-                    {(close) => <FilterTableOptions label={t("resourceLabel")} searchPlaceholder={tRoot("common.filterOptionSearch", { label: t("resourceLabel").toLocaleLowerCase() })} emptyLabel={tRoot("common.filterOptionEmpty")} value={resourceType || ALL} options={[{ value: ALL, label: t("allResources") }, ...RESOURCE_TYPE_VALUES.map((value) => ({ value, label: auditResourceLabel(value, locale) }))]} onChange={(value) => { setResourceType(fromAll(value)); setCurrentPage(1); }} onSelect={close} />}
-                  </FilterTableHead>
-                  <FilterTableHead label={t("idLabel")} filterLabel={t("idLabel")} active={!!resourceId} contentClassName="w-72 p-3">
-                    {() => (
-                      <div className="grid gap-2">
-                        <Label htmlFor="filter-resource-id">{t("idPlaceholder")}</Label>
-                        <Input id="filter-resource-id" value={resourceIdInput} onChange={(event) => setResourceIdInput(event.target.value)} placeholder={t("idPlaceholder")} />
-                      </div>
-                    )}
-                  </FilterTableHead>
-                  <TableHead scope="col">{t("detailsColumn")}</TableHead>
-                  <TableHead scope="col" className="text-right">{t("transitionColumn")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* Loading, error, authorization refusal and "no records" stay
-                    distinct. There is no branch that renders sample rows. */}
-                <DataStateRow
-                  colSpan={7}
-                  state={tableState}
-                  resource={t("resource")}
-                  error={auditQuery.error}
-                  onRetry={() => auditQuery.refetch()}
-                  title={tableState === "empty" ? t("emptyTitle") : undefined}
-                  hint={tableState === "empty" ? t("emptyHint") : undefined}
-                />
-                {displayItems.map((row) => (
-                  // The action badge carries the tone; the row is not tinted a
-                  // second time.
-                  <TableRow key={row.id}>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {row.timestamp}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <span className="font-medium text-foreground">{row.actor}</span>
-                      {/* Role comes from the audit entry's joined user record;
-                          omitted entirely for system-generated entries. */}
-                      {row.actorRole && (
-                        <span className="block text-muted-foreground">{row.actorRole}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <Badge variant={TONE_VARIANT[row.actionTone]}>{row.action}</Badge>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap font-medium text-foreground">{row.resourceType}</TableCell>
-                    <TableCell className="whitespace-nowrap font-mono text-xs">{row.resourceId}</TableCell>
-                    <TableCell title={row.details} className="max-w-md truncate">
-                      {row.details}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-right">
-                      {row.transition ? (
-                        <Badge variant={TONE_VARIANT[row.transitionTone ?? "neutral"]}>{row.transition}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">{NOT_PROVIDED}</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </AdminTablePanel>
-
-      {/* Pagination driven by the server-reported `total` for the same
-          filtered query. No fixed page buttons: the number of pages is
-          whatever the real total implies, and the range reflects the rows
-          actually returned. */}
-      <div className="flex flex-wrap items-center justify-end gap-4 py-4 text-sm text-muted-foreground">
-        <span>
-          {totalEvents === null
-            ? NOT_PROVIDED
-            : totalEvents === 0
+      <AdminTablePanel
+        title={t("registerAriaLabel")}
+        headingId="audit-register-heading"
+        description={t("registerDescription")}
+        meta={totalEvents === null ? undefined : (
+          <span role="status">
+            {totalEvents === 0
               ? t("zeroEvents")
               : t("showingRange", {
                   first: count(firstShown, locale),
@@ -401,29 +293,144 @@ function JournalAuditContent() {
                   total: count(totalEvents, locale),
                   count: totalEvents,
                 })}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={currentPage === 1}
-          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-        >
-          {t("previous")}
-        </Button>
-        <span>
-          {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pageCount === null || currentPage >= pageCount}
-          onClick={() => setCurrentPage((prev) => prev + 1)}
-        >
-          {t("next")}
-        </Button>
-      </div>
+          </span>
+        )}
+        busy={auditQuery.isFetching && !auditQuery.isLoading}
+        toolbar={
+          <div className="cam-filter-bar" role="group" aria-label={t("filtersAriaLabel")}>
+            <div className="cam-filter-bar-search">
+              <Label className="cam-sr-only" htmlFor="filter-resource-id">{t("idLabel")}</Label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+              <Input id="filter-resource-id" type="search" value={resourceIdInput} onChange={(event) => setResourceIdInput(event.target.value)} placeholder={t("idPlaceholder")} />
+            </div>
+            <AdminFilterPill
+              label={t("periodLabel")}
+              value={period === "all" ? "" : period}
+              allLabel={t("period.all")}
+              clearLabel={removeLabel(t("periodLabel"))}
+              onChange={(value) => setFilters({ periode: value || "tout" })}
+              options={PERIOD_WINDOWS.map((value) => ({ value, label: t(`period.${value}`) }))}
+            />
+            <AdminFilterPill
+              label={t("actorLabel")}
+              value={actor}
+              allLabel={t("allUsers")}
+              clearLabel={removeLabel(t("actorLabel"))}
+              onChange={(value) => setFilters({ actor: value || null })}
+              options={actorOptions}
+            />
+            <AdminFilterPill
+              label={t("actionTypeLabel")}
+              value={action}
+              allLabel={t("allActions")}
+              clearLabel={removeLabel(t("actionTypeLabel"))}
+              onChange={(value) => setFilters({ action: value || null })}
+              options={ACTION_VALUES.map((value) => ({ value, label: auditActionLabel(value, locale) }))}
+            />
+            <AdminFilterPill
+              label={t("resourceLabel")}
+              value={resourceType}
+              allLabel={t("allResources")}
+              clearLabel={removeLabel(t("resourceLabel"))}
+              onChange={(value) => setFilters({ type: value || null })}
+              options={RESOURCE_TYPE_VALUES.map((value) => ({ value, label: auditResourceLabel(value, locale) }))}
+            />
+            {hasFilter && (
+              <Button type="button" variant="ghost" size="sm" onClick={handleResetFilters}>
+                {t("reset")}
+              </Button>
+            )}
+          </div>
+        }
+        footer={
+          <div className="cam-audit-pager">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setPage(currentPage - 1)}
+            >
+              {t("previous")}
+            </Button>
+            <span>
+              {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pageCount === null || currentPage >= pageCount}
+              onClick={() => setPage(currentPage + 1)}
+            >
+              {t("next")}
+            </Button>
+          </div>
+        }
+      >
+        <div className="cam-audit-table-scroll" role="region" tabIndex={0} aria-labelledby="audit-register-heading">
+          <Table className="cam-audit-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">{t("timestampColumn")}</TableHead>
+                <TableHead scope="col">{t("actorColumn")}</TableHead>
+                <TableHead scope="col">{t("actionColumn")}</TableHead>
+                <TableHead scope="col">{t("resourceLabel")}</TableHead>
+                <TableHead scope="col">{t("detailsColumn")}</TableHead>
+                <TableHead scope="col" className="text-right">{t("transitionColumn")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {/* Loading, error, authorization refusal and "no records" stay
+                  distinct. There is no branch that renders sample rows. */}
+              <DataStateRow
+                colSpan={6}
+                state={tableState}
+                resource={t("resource")}
+                error={auditQuery.error}
+                onRetry={() => auditQuery.refetch()}
+                title={tableState === "empty" ? t("emptyTitle") : undefined}
+                hint={tableState === "empty" ? t("emptyHint") : undefined}
+              />
+              {displayItems.map((row) => (
+                // The action badge carries the tone; the row is not tinted a
+                // second time.
+                <TableRow key={row.id}>
+                  <TableCell className="whitespace-nowrap text-muted-foreground tabular-nums">
+                    {row.timestamp}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <span className="font-medium text-foreground">{row.actor}</span>
+                    {/* Role comes from the audit entry's joined user record;
+                        omitted entirely for system-generated entries. */}
+                    {row.actorRole && (
+                      <span className="block text-muted-foreground">{row.actorRole}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Badge variant={TONE_VARIANT[row.actionTone]}>{row.action}</Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <span className="font-medium text-foreground">{row.resourceType}</span>
+                    {/* The identifier is secondary monospace text, as for rule codes. */}
+                    <span className="cam-audit-resource-id">{row.resourceId}</span>
+                  </TableCell>
+                  <TableCell title={row.details} className="max-w-md truncate">
+                    {row.details}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right">
+                    {row.transition ? (
+                      <Badge variant={TONE_VARIANT[row.transitionTone ?? "neutral"]}>{row.transition}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">{NOT_PROVIDED}</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </AdminTablePanel>
     </div>
   );
 }

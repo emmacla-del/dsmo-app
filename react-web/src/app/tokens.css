@@ -361,6 +361,11 @@
      (.cam-wizard-rail: registration, Modern Jobs, VT) and the staff
      console's dark rail (.cam-admin-rail). One width, so they line up. */
   --cam-side-rail-width: 280px;
+  /* The staff console rail from 1024px up: an icon strip by default, full
+     labels when the officer expands it (remembered per browser). */
+  --cam-admin-rail-compact-width: var(--cam-space-8);
+  --cam-admin-rail-expanded-width: 248px;
+  --cam-admin-rail-flyout-width: 248px;
   /* The smallest the ONEFOP emblem is shown. It is a seal -- ring lettering
      around a magnifier -- and below this its text is an illegible smear, so
      a crisp CAMLEAP wordmark beside it reads as amateur, the opposite of

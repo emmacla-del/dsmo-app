@@ -833,7 +833,7 @@ export default function DiffusionPage() {
         </section>
 
         {/* ── Right column: dataset summary and documentation ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-5)", minWidth: 0 }}>
+        <div className="cam-export-side">
           <section className="cam-admin-section" aria-labelledby="dataset-summary-heading">
             <div className="cam-admin-section-head">
               <div>

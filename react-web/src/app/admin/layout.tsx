@@ -17,6 +17,12 @@ import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
+import {
+  getAdminRailExpandedServerSnapshot,
+  getAdminRailExpandedSnapshot,
+  subscribeAdminRailExpanded,
+  writeAdminRailExpanded,
+} from "@/lib/admin-rail-preference";
 
 // Every admin page renders its own AdminPageHeader. The layout used to carry
 // a PAGE_TITLES table as the fallback for pages that did not; the last entry
@@ -38,6 +44,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const locale = asUiLocale(useLocale());
   const pathname = usePathname();
   const isDossierWorkflow = pathname.startsWith("/admin/dossiers");
+  // A single dossier: fixed frame, only the answers scroll.
+  const isDossierDetail = /^\/admin\/dossiers\/[^/]+/.test(pathname);
+  // One registration under review: the same fixed frame, only its centre column scrolls.
+  const isRegistrationReview = /^\/admin\/inscriptions\/(?!nouvelle(?:\/|$))[^/]+/.test(pathname);
   const router = useRouter();
   const { isLoading, forbidden, user, isAuthenticated } = useAdminScreenGuard(ADMIN_ROLES);
   const canReadPilotage = hasRole(user?.role, PILOTAGE_READ_ROLES);
@@ -96,6 +106,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   );
 
   const drawerOpen = menuOpen && isDrawer;
+
+  // From 1024px up the rail is an icon strip unless the officer expanded it;
+  // the choice is kept per browser and applies on every console page.
+  const railExpanded = useSyncExternalStore(
+    subscribeAdminRailExpanded,
+    getAdminRailExpandedSnapshot,
+    getAdminRailExpandedServerSnapshot
+  );
+  const toggleRail = useCallback(() => writeAdminRailExpanded(!getAdminRailExpandedSnapshot()), []);
 
   /**
    * Contain focus in the open drawer.
@@ -186,7 +205,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className={`cam-admin${drawerOpen ? " is-menu-open" : ""}${isDossierWorkflow ? " is-dossier-workflow" : ""}`}>
+    <div className={`cam-admin${drawerOpen ? " is-menu-open" : ""}${isDossierWorkflow ? " is-dossier-workflow" : ""}${isDossierDetail ? " is-dossier-detail" : ""}${isRegistrationReview ? " is-review-detail" : ""}${railExpanded ? " is-rail-expanded" : " is-rail-compact"}`}>
       <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
         <AdminSidebar
           role={user?.role}
@@ -196,6 +215,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           onLogout={handleLogout}
           showRailNotifications={!isDossierWorkflow}
           accountScope={scopeLabel}
+          expanded={railExpanded}
+          onToggleExpanded={toggleRail}
         />
       </Suspense>
 
@@ -206,7 +227,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {/* The menu button sits inside this element, so it is inert too while
           the drawer is open — which matches what is on screen, since the
           scrim covers it. Escape and the scrim are the ways back out. */}
-      <div className="cam-admin-body" inert={drawerOpen}>
+        <div className="cam-admin-body" inert={drawerOpen}>
         {/* On narrow screens, account actions stay in the navigation drawer.
             The dossier workspace uses the institutional masthead at desktop. */}
         <div className="cam-admin-topbar">

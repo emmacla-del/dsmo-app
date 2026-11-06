@@ -340,12 +340,16 @@ test("arriving from « Examine issues » scrolls to « To verify »", async () =
   }
 });
 
-test("every questionnaire section of an enterprise file is open: nothing to expand", () => {
+// Layout v2 (spec §4C, 2026-11-02): a section with a finding stays open; a
+// section without one folds, and is still on the page and in the index.
+test("sections with a finding are open; the others fold and stay on the page", () => {
   const { container } = renderWorkspace();
-  const sections = container.querySelectorAll(".cam-dossier-answer-column [id^='dossier-section-']");
+  const sections = [...container.querySelectorAll(".cam-dossier-answer-column [id^='dossier-section-']")];
   assert.ok(sections.length > 1, "several sections are on the page");
-  for (const details of container.querySelectorAll(".cam-dossier-answer-column details")) {
-    assert.equal((details as HTMLDetailsElement).open, true, "no section is collapsed");
+  for (const section of sections) {
+    const flagged = section.querySelector(".cam-dossier-field-flag") !== null;
+    if (flagged) assert.ok(!(section instanceof HTMLDetailsElement) || section.open, `${section.id} has a finding and is open`);
+    if (section instanceof HTMLDetailsElement && !flagged) assert.equal(section.classList.contains("is-quiet"), true, `${section.id} folds as a quiet section`);
   }
 });
 

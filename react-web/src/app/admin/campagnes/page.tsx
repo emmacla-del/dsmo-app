@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { CircleAlert, Eye, Plus, Search, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -34,7 +36,10 @@ import { useAuthStore } from "@/lib/auth-store";
 import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "@/lib/roles";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { hrefWith } from "@/lib/admin-url";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
 import { count } from "@/lib/admin-data-state";
@@ -66,7 +71,6 @@ const STATUS_BADGE: Record<string, string> = {
 
 const fmt = formatCampaignDate;
 const effectiveDeadline = (c: Campaign) => c.extendedDeadline ?? c.deadline ?? null;
-const isPast = (iso: string | null | undefined) => !!iso && new Date(iso).getTime() < Date.now();
 
 function daysLeft(c: Campaign, t: Translate): { value: string; hint: string; tone?: "is-alert" | "is-warn" | "is-good" } {
   const deadline = effectiveDeadline(c);
@@ -124,15 +128,40 @@ type DialogState =
   | { type: "extend"; campaign: Campaign }
   | { type: "close"; campaign: Campaign }
   | { type: "archive"; campaign: Campaign }
+  | { type: "activate"; campaign: Campaign }
+  | { type: "pause"; campaign: Campaign }
   | { type: "delete"; campaign: Campaign }
   | { type: "details"; campaign: Campaign }
   | null;
 
 export default function CampagnesPage() {
+  return (
+    <Suspense fallback={null}>
+      <CampagnesContent />
+    </Suspense>
+  );
+}
+
+// History filters, kept in the URL (G15): ?q=, ?statut=, ?type=.
+const HISTORY_STATUSES = ["DRAFT", "PAUSED", "CLOSED", "ARCHIVED"] as const;
+const HISTORY_TYPES = ["DSMO", "ONEFOP", "REGISTRATION"] as const;
+type HistoryType = (typeof HISTORY_TYPES)[number];
+
+function historyType(c: Campaign): HistoryType | null {
+  if (isRegistrationCampaign(c)) return "REGISTRATION";
+  if (c.collectionType === "DSMO" || c.collectionType === "ONEFOP") return c.collectionType;
+  return null;
+}
+
+function CampagnesContent() {
   const { isLoading, forbidden } = useAdminScreenGuard(CAMPAIGN_ROLES);
   const role = useAuthStore((s) => s.user?.role);
   const canMutate = hasRole(role, NATIONAL_ROLES);
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
   const tRoot = useTranslations();
   const t = useTranslations("adminCampagnesPage");
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -142,6 +171,29 @@ export default function CampagnesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionSuccessCampaignId, setActionSuccessCampaignId] = useState<string | null>(null);
+
+  const setFilters = (changes: Record<string, string | null>) =>
+    router.replace(hrefWith(pathname, currentQuery, changes), { scroll: false });
+  const urlSearch = searchParams.get("q")?.trim() ?? "";
+  const rawStatus = searchParams.get("statut") ?? "";
+  const statusFilter = (HISTORY_STATUSES as readonly string[]).includes(rawStatus) ? rawStatus : "";
+  const rawType = searchParams.get("type") ?? "";
+  const typeFilter = (HISTORY_TYPES as readonly string[]).includes(rawType) ? rawType : "";
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  // The back button or a shared link changes the URL under the box: follow it.
+  const [syncedSearch, setSyncedSearch] = useState(urlSearch);
+  if (syncedSearch !== urlSearch) {
+    setSyncedSearch(urlSearch);
+    setSearchInput(urlSearch);
+  }
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === urlSearch) return;
+    const timer = setTimeout(() => {
+      router.replace(hrefWith(pathname, currentQuery, { q: next || null }), { scroll: false });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, urlSearch, router, pathname, currentQuery]);
 
   const allQuery = useQuery({
     queryKey: ["campaigns", "all"],
@@ -178,16 +230,14 @@ export default function CampagnesPage() {
     onError: failed,
   });
 
+  const breadcrumb = [{ label: tRoot("adminNav.hubs.collecte") }, { label: tRoot("adminNav.routes.campagnes") }];
+
   // The screen guard's two non-ready outcomes keep the page chrome and say
   // what is happening. Neither renders nothing (G10).
   if (isLoading || forbidden) {
     return (
       <div className="cam-admin-page">
-        <AdminPageHeader
-          breadcrumb={[{ label: tRoot("adminNav.hubs.collecte") }, { label: tRoot("adminNav.routes.campagnes") }]}
-          title={tRoot("adminNav.routes.campagnes")}
-          actions={<AdminHeaderActions />}
-        />
+        <AdminPageHeader breadcrumb={breadcrumb} title={tRoot("adminNav.routes.campagnes")} />
         <DataState
           state={isLoading ? "loading" : "forbidden"}
           resource={tRoot("adminNav.routes.campagnes")}
@@ -200,35 +250,46 @@ export default function CampagnesPage() {
   const campaigns: Campaign[] = allQuery.data ?? [];
   const activeCampaigns = campaigns.filter((c) => c.status === "ACTIVE");
   const otherCampaigns = campaigns.filter((c) => c.status !== "ACTIVE");
+  const needle = urlSearch.toLocaleLowerCase();
+  const shownCampaigns = otherCampaigns.filter((c) =>
+    (!needle || `${c.name} ${c.code} ${formatCampaignDisplayName(c.name)}`.toLocaleLowerCase().includes(needle))
+    && (!statusFilter || c.status === statusFilter)
+    && (!typeFilter || historyType(c) === typeFilter));
+  const typeOptionLabel = (value: string) => (value === "REGISTRATION" ? t("purpose.REGISTRATION") : t(`module.${value}`));
+  const activeFilterLabels = [
+    urlSearch ? `« ${urlSearch} »` : null,
+    statusFilter ? t(`status.${statusFilter}`) : null,
+    typeFilter ? typeOptionLabel(typeFilter) : null,
+  ].filter((label): label is string => !!label);
+  const hasFilter = activeFilterLabels.length > 0;
+  const clearFilters = () => {
+    setSearchInput("");
+    setFilters({ q: null, statut: null, type: null });
+  };
   const openRemind = (campaign: Campaign) => { setReminderType(REMINDER_TYPES[0].value); setDialog({ type: "remind", campaign }); };
   const openExtend = (campaign: Campaign) => { setExtendDate(""); setDialog({ type: "extend", campaign }); };
 
   return (
-    <div className="cam-admin-page">
+    <div className="cam-admin-page cam-campaigns-page">
       <AdminPageHeader
-        breadcrumb={[{ label: tRoot("adminNav.hubs.collecte") }, { label: tRoot("adminNav.routes.campagnes") }]}
+        breadcrumb={breadcrumb}
         title={tRoot("adminNav.routes.campagnes")}
+        subtitle={t("pageSubtitle")}
         actions={
-          <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
-            <AdminHeaderActions />
-            <Gated allowed={canMutate}>
-              {(disabled) => (
-                <button
-                  type="button"
-                  className="cam-button cam-button-primary cam-button-sm"
-                  disabled={disabled}
-                  style={disabled ? GATED_OFF : undefined}
-                  onClick={() => setCreateOpen(true)}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}>
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  {t("launchButton")}
-                </button>
-              )}
-            </Gated>
-          </div>
+          <Gated allowed={canMutate}>
+            {(disabled) => (
+              <button
+                type="button"
+                className="cam-button cam-button-primary cam-button-sm"
+                disabled={disabled}
+                style={disabled ? GATED_OFF : undefined}
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus size={15} aria-hidden="true" />
+                {t("launchButton")}
+              </button>
+            )}
+          </Gated>
         }
       />
       {!canMutate && (
@@ -267,186 +328,225 @@ export default function CampagnesPage() {
         </div>
       )}
 
-      {/* ── Active campaign(s): one per module can be open at once ── */}
-      {allQuery.isLoading ? null : activeCampaigns.length === 0 ? (
-        <div className="cam-campaign-banner cam-campaign-banner--idle">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <div>
-            <div className="cam-campaign-banner-title">{t("noActiveTitle")}</div>
-            <div className="cam-campaign-banner-meta">{t("noActiveHint")}</div>
-          </div>
+      {/* ── Running campaigns: one per module can be open at once ── */}
+      <section className="cam-campaign-running" aria-labelledby="campagnes-active-title">
+        <div className="cam-campaign-section-head">
+          <h2 id="campagnes-active-title" className="cam-admin-h2">{t("activeTitle")}</h2>
+          {!allQuery.isLoading && !allQuery.isError && (
+            <span className="cam-admin-meta">{t("activeCount", { count: activeCampaigns.length })}</span>
+          )}
         </div>
-      ) : (
-        activeCampaigns.map((c) => (
-          <ActiveCampaignCard
-            key={c.id}
-            campaign={c}
-            canMutate={canMutate}
-            pausePending={pauseMutation.isPending}
-            onDetails={() => setDialog({ type: "details", campaign: c })}
-            onRemind={() => openRemind(c)}
-            onExtend={() => openExtend(c)}
-            onPause={() => pauseMutation.mutate(c.id)}
-            onClose={() => setDialog({ type: "close", campaign: c })}
-            onArchive={() => setDialog({ type: "archive", campaign: c })}
-          />
-        ))
-      )}
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-4)", alignItems: "flex-start" }}>
-        {/* ── History ── */}
-        <div style={{ flex: "3 1 640px", minWidth: 0, overflow: "hidden" }}>
-          <AdminTablePanel
-            title={t("historyTitle")}
-            headingId="campagnes-history-title"
-            meta={t("campaignCount", { count: otherCampaigns.length })}
-          >
-          <div className="cam-pilot-panel-body" style={otherCampaigns.length > 0 && !allQuery.isError ? { padding: 0 } : undefined}>
-            {allQuery.isLoading ? (
-              <DataState dense state="loading" resource={tRoot("adminNav.routes.campagnes")} title={tRoot("common.loading")} />
-            ) : allQuery.isError ? (
-              <DataState
-                dense
-                state="error"
-                resource={tRoot("adminNav.routes.campagnes")}
-                title={t("loadError", { message: (allQuery.error as Error).message })}
-                onRetry={() => allQuery.refetch()}
+        {allQuery.isLoading ? (
+          <DataState dense state="loading" resource={tRoot("adminNav.routes.campagnes")} title={tRoot("common.loading")} />
+        ) : allQuery.isError ? null : activeCampaigns.length === 0 ? (
+          <div className="cam-campaign-card cam-campaign-card--idle">
+            <CircleAlert size={20} aria-hidden="true" />
+            <div>
+              <div className="cam-admin-strong">{t("noActiveTitle")}</div>
+              <div className="cam-admin-meta">{t("noActiveHint")}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="cam-campaign-running-grid">
+            {activeCampaigns.map((c) => (
+              <ActiveCampaignCard
+                key={c.id}
+                campaign={c}
+                canMutate={canMutate}
+                pausePending={pauseMutation.isPending}
+                onDetails={() => setDialog({ type: "details", campaign: c })}
+                onRemind={() => openRemind(c)}
+                onExtend={() => openExtend(c)}
+                onPause={() => setDialog({ type: "pause", campaign: c })}
+                onClose={() => setDialog({ type: "close", campaign: c })}
+                onArchive={() => setDialog({ type: "archive", campaign: c })}
               />
-            ) : otherCampaigns.length === 0 ? (
-              <DataState dense state="empty" resource={tRoot("adminNav.routes.campagnes")} title={t("noOtherTitle")} hint={t("noOtherHint")} />
-            ) : (
-              // Wide tables scroll horizontally inside the panel; no second bordered box.
-              <div style={{ overflowX: "auto" }}>
-                <table className="cam-table">
-                  <thead>
-                    <tr>
-                      <th scope="col" style={{ width: "42%" }}>{t("campaignColumn")}</th>
-                      <th scope="col">{t("typeColumn")}</th>
-                      <th scope="col">{t("openingColumn")}</th>
-                      <th scope="col">{t("closingColumn")}</th>
-                      <th scope="col">{t("statusColumn")}</th>
-                      <th scope="col" className="text-right">{t("actionsColumn")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {otherCampaigns.map((c) => (
-                      <tr key={c.id}>
-                        <td style={{ maxWidth: 360 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", minWidth: 0 }}>
-                            <div
-                              className="cam-admin-strong"
-                              title={`${c.name} (${c.code})`}
-                              style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}
-                            >
-                              {formatCampaignDisplayName(c.name)}
-                            </div>
-                            {/* Same name as the collection campaign of the quarter; the tag tells them apart. Collection rows stay untagged. */}
-                            {isRegistrationCampaign(c) && (
-                              <span className="cam-badge cam-badge-info" style={{ flexShrink: 0 }}>
-                                {t("purpose.REGISTRATION")}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>
-                          <span className="cam-badge cam-badge-neutral">
-                            {c.collectionType ?? (campaignPeriodicity(c) ? t(`periodicity.${campaignPeriodicity(c)}`) : "—")}
-                          </span>
-                          {c.referenceYear && c.referenceQuarter && (
-                            <div className="cam-admin-meta">
-                              {quarterRef(t, c.referenceYear, c.referenceQuarter)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>{fmt(c.startDate)}</td>
-                        <td className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>
-                          {fmt(effectiveDeadline(c))}
-                          {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && (
-                            <div className="cam-admin-meta">{t("extendedWas", { date: fmt(c.deadline) })}</div>
-                          )}
-                        </td>
-                        <td><StatusBadge status={c.status} registration={isRegistrationCampaign(c)} /></td>
-                        <td className="text-right" style={{ whiteSpace: "nowrap" }}>
-                          <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center", justifyContent: "flex-end" }}>
-                            {canActivate(c.status) && !isRegistrationCampaign(c) && (
-                              <Gated allowed={canMutate}>
-                                {(disabled) => (
-                                  <button
-                                    type="button"
-                                    className="cam-button cam-button-primary cam-button-sm"
-                                    onClick={() => activateMutation.mutate(c.id)}
-                                    disabled={disabled || activateMutation.isPending}
-                                    style={disabled ? GATED_OFF : undefined}
-                                  >
-                                    {t("activate")}
-                                  </button>
-                                )}
-                              </Gated>
-                            )}
-                            {c.status === "DRAFT" && (
-                              <Gated allowed={canMutate}>
-                                {(disabled) => (
-                                  <button
-                                    type="button"
-                                    className="cam-button cam-button-danger cam-button-sm"
-                                    onClick={() => setDialog({ type: "delete", campaign: c })}
-                                    disabled={disabled || deleteMutation.isPending}
-                                    style={disabled ? GATED_OFF : undefined}
-                                  >
-                                    {t("delete")}
-                                  </button>
-                                )}
-                              </Gated>
-                            )}
-                            {c.status !== "DRAFT" && c.status !== "ARCHIVED" && !isRegistrationCampaign(c) && (
-                              <Gated allowed={canMutate}>
-                                {(disabled) => (
-                                  <button
-                                    type="button"
-                                    className="cam-button cam-button-secondary cam-button-sm"
-                                    onClick={() => setDialog({ type: "archive", campaign: c })}
-                                    disabled={disabled || archiveMutation.isPending}
-                                    style={disabled ? GATED_OFF : undefined}
-                                  >
-                                    {t("archive")}
-                                  </button>
-                                )}
-                              </Gated>
-                            )}
-                            <button
-                              type="button"
-                              className="cam-text-button"
-                              aria-label={t("viewDetailsOf", { name: c.name })}
-                              title={t("viewDetails")}
-                              onClick={() => setDialog({ type: "details", campaign: c })}
-                            >
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-          </AdminTablePanel>
-        </div>
-
-        {/* ── Side panels (first active campaign) ── */}
-        {activeCampaigns[0] && (
-          <div style={{ flex: "1 1 300px", display: "flex", flexDirection: "column", gap: "var(--cam-space-4)", minWidth: 0 }}>
-            <TargetsPanel campaign={activeCampaigns[0]} />
-            <SchedulePanel campaign={activeCampaigns[0]} />
+            ))}
           </div>
         )}
-      </div>
+      </section>
 
+      {/* ── Every other campaign ── */}
+      <AdminTablePanel
+        title={t("historyTitle")}
+        headingId="campagnes-history-title"
+        description={t("historyDescription")}
+        meta={allQuery.isSuccess ? (hasFilter
+          ? t("filteredCount", { shown: shownCampaigns.length, total: otherCampaigns.length })
+          : t("campaignCount", { count: otherCampaigns.length })) : undefined}
+        toolbar={
+          <div className="cam-filter-bar" role="group" aria-label={tRoot("adminDossiersPage.filtersButton")}>
+            <div className="cam-filter-bar-search">
+              <label className="cam-sr-only" htmlFor="campagnes-search">{t("searchLabel")}</label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+              <Input
+                id="campagnes-search"
+                type="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder={t("searchPlaceholder")}
+              />
+            </div>
+            <AdminFilterPill
+              label={t("statusColumn")}
+              value={statusFilter}
+              allLabel={t("all")}
+              clearLabel={tRoot("adminDossiersPage.removeFilterChip", { label: t("statusColumn") })}
+              onChange={(value) => setFilters({ statut: value || null })}
+              options={HISTORY_STATUSES.map((value) => ({
+                value,
+                label: t(`status.${value}`),
+                count: otherCampaigns.filter((c) => c.status === value).length,
+              }))}
+            />
+            <AdminFilterPill
+              label={t("typeColumn")}
+              value={typeFilter}
+              allLabel={t("all")}
+              clearLabel={tRoot("adminDossiersPage.removeFilterChip", { label: t("typeColumn") })}
+              onChange={(value) => setFilters({ type: value || null })}
+              options={HISTORY_TYPES.map((value) => ({
+                value,
+                label: typeOptionLabel(value),
+                count: otherCampaigns.filter((c) => historyType(c) === value).length,
+              }))}
+            />
+            {hasFilter && (
+              <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+                {tRoot("adminDossiersPage.clearFilters")}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        {allQuery.isLoading ? (
+          <DataState dense state="loading" resource={tRoot("adminNav.routes.campagnes")} title={tRoot("common.loading")} />
+        ) : allQuery.isError ? (
+          <DataState
+            dense
+            state="error"
+            resource={tRoot("adminNav.routes.campagnes")}
+            title={t("loadError", { message: (allQuery.error as Error).message })}
+            onRetry={() => allQuery.refetch()}
+          />
+        ) : otherCampaigns.length === 0 ? (
+          <DataState dense state="empty" resource={tRoot("adminNav.routes.campagnes")} title={t("noOtherTitle")} hint={t("noOtherHint")} />
+        ) : shownCampaigns.length === 0 ? (
+          <DataState
+            dense
+            state="empty"
+            resource={tRoot("adminNav.routes.campagnes")}
+            title={t("noMatchTitle")}
+            hint={t("noMatchHint", { filters: activeFilterLabels.join(", ") })}
+          />
+        ) : (
+          <div className="cam-campaign-table-scroll" role="region" tabIndex={0} aria-labelledby="campagnes-history-title">
+            <table className="cam-table cam-campaign-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t("campaignColumn")}</th>
+                  <th scope="col">{t("typeColumn")}</th>
+                  <th scope="col">{t("openingColumn")}</th>
+                  <th scope="col">{t("closingColumn")}</th>
+                  <th scope="col">{t("statusColumn")}</th>
+                  <th scope="col" className="text-right">{t("actionsColumn")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shownCampaigns.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <div className="cam-campaign-name-cell">
+                        <span className="cam-admin-strong" title={`${c.name} (${c.code})`}>{formatCampaignDisplayName(c.name)}</span>
+                        <span className="cam-campaign-code">{c.code}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cam-campaign-type-cell">
+                        {/* Same name as the collection campaign of the quarter; the tag tells them apart. */}
+                        <span className={`cam-badge ${isRegistrationCampaign(c) ? "cam-badge-info" : "cam-badge-neutral"}`}>
+                          {historyType(c) ? typeOptionLabel(historyType(c) as string) : (campaignPeriodicity(c) ? t(`periodicity.${campaignPeriodicity(c)}`) : "—")}
+                        </span>
+                        {c.referenceYear && c.referenceQuarter && (
+                          <span className="cam-admin-meta">{quarterRef(t, c.referenceYear, c.referenceQuarter)}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="cam-campaign-date-cell">{fmt(c.startDate)}</td>
+                    <td className="cam-campaign-date-cell">
+                      {fmt(effectiveDeadline(c))}
+                      {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && (
+                        <div className="cam-admin-meta">{t("extendedWas", { date: fmt(c.deadline) })}</div>
+                      )}
+                    </td>
+                    <td><StatusBadge status={c.status} registration={isRegistrationCampaign(c)} /></td>
+                    <td className="text-right">
+                      <div className="cam-campaign-row-actions">
+                        {canActivate(c.status) && !isRegistrationCampaign(c) && (
+                          <Gated allowed={canMutate}>
+                            {(disabled) => (
+                              <button
+                                type="button"
+                                className="cam-button cam-button-primary cam-button-sm"
+                                onClick={() => setDialog({ type: "activate", campaign: c })}
+                                disabled={disabled || activateMutation.isPending}
+                                style={disabled ? GATED_OFF : undefined}
+                              >
+                                {t("activate")}
+                              </button>
+                            )}
+                          </Gated>
+                        )}
+                        {c.status !== "DRAFT" && c.status !== "ARCHIVED" && !isRegistrationCampaign(c) && (
+                          <Gated allowed={canMutate}>
+                            {(disabled) => (
+                              <button
+                                type="button"
+                                className="cam-button cam-button-secondary cam-button-sm"
+                                onClick={() => setDialog({ type: "archive", campaign: c })}
+                                disabled={disabled || archiveMutation.isPending}
+                                style={disabled ? GATED_OFF : undefined}
+                              >
+                                {t("archive")}
+                              </button>
+                            )}
+                          </Gated>
+                        )}
+                        <button
+                          type="button"
+                          className="cam-button cam-button-secondary cam-button-sm cam-campaign-icon-button"
+                          aria-label={t("viewDetailsOf", { name: c.name })}
+                          title={t("viewDetails")}
+                          onClick={() => setDialog({ type: "details", campaign: c })}
+                        >
+                          <Eye size={16} aria-hidden="true" />
+                        </button>
+                        {c.status === "DRAFT" && (
+                          <Gated allowed={canMutate}>
+                            {(disabled) => (
+                              <button
+                                type="button"
+                                className="cam-button cam-button-secondary cam-button-sm cam-campaign-icon-button cam-campaign-delete"
+                                aria-label={t("deleteOf", { name: c.name })}
+                                title={t("delete")}
+                                onClick={() => setDialog({ type: "delete", campaign: c })}
+                                disabled={disabled || deleteMutation.isPending}
+                                style={disabled ? GATED_OFF : undefined}
+                              >
+                                <Trash2 size={16} aria-hidden="true" />
+                              </button>
+                            )}
+                          </Gated>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AdminTablePanel>
       {/* ── Dialogs ── */}
       <AdminDialog
         open={dialog?.type === "remind"}
@@ -587,6 +687,56 @@ export default function CampagnesPage() {
         </p>
       </AdminDialog>
 
+      {/* Activating opens collection (and, with automatic reminders, emails
+          the targeted establishments); pausing closes it until reactivation.
+          Both change what declarants can do, so both are confirmed. */}
+      <AdminDialog
+        open={dialog?.type === "activate"}
+        onClose={() => setDialog(null)}
+        eyebrow={t("activateEyebrow")}
+        title={dialog?.type === "activate" ? t("activateTitle", { name: formatCampaignDisplayName(dialog.campaign.name) }) : t("activateTitleFallback")}
+        footer={
+          <>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>{tRoot("common.cancel")}</button>
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              disabled={activateMutation.isPending}
+              onClick={() => dialog?.type === "activate" && activateMutation.mutate(dialog.campaign.id)}
+            >
+              {activateMutation.isPending ? t("activating") : t("activateCampaign")}
+            </button>
+          </>
+        }
+      >
+        <p className="cam-campaign-dialog-text">{t("activateBody")}</p>
+        {dialog?.type === "activate" && dialog.campaign.autoReminders === true && (
+          <p className="cam-campaign-dialog-text cam-admin-meta">{t("activateRemindersNote")}</p>
+        )}
+      </AdminDialog>
+
+      <AdminDialog
+        open={dialog?.type === "pause"}
+        onClose={() => setDialog(null)}
+        eyebrow={t("pauseEyebrow")}
+        title={dialog?.type === "pause" ? t("pauseTitle", { name: formatCampaignDisplayName(dialog.campaign.name) }) : t("pauseTitleFallback")}
+        footer={
+          <>
+            <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => setDialog(null)}>{tRoot("common.cancel")}</button>
+            <button
+              type="button"
+              className="cam-button cam-button-primary cam-button-sm"
+              disabled={pauseMutation.isPending}
+              onClick={() => dialog?.type === "pause" && pauseMutation.mutate(dialog.campaign.id)}
+            >
+              {pauseMutation.isPending ? t("pausing") : t("pauseCampaign")}
+            </button>
+          </>
+        }
+      >
+        <p className="cam-campaign-dialog-text">{t("pauseBody")}</p>
+      </AdminDialog>
+
       {dialog?.type === "details" && <DetailsDialog campaign={dialog.campaign} onClose={() => setDialog(null)} />}
       <CreateCampaignDialog
         open={createOpen}
@@ -597,56 +747,107 @@ export default function CampagnesPage() {
   );
 }
 
-// ── Active campaign card ────────────────────────────────────────────────────
+// ── Running campaign card ───────────────────────────────────────────────────
+
+/** Share of the collection period already elapsed, from the dates only. */
+function elapsedShare(c: Campaign): number | null {
+  const start = c.startDate ? new Date(c.startDate).getTime() : NaN;
+  const end = effectiveDeadline(c) ? new Date(effectiveDeadline(c) as string).getTime() : NaN;
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  return Math.min(1, Math.max(0, (Date.now() - start) / (end - start)));
+}
 
 function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, onRemind, onExtend, onPause, onClose, onArchive }: {
   campaign: Campaign; canMutate: boolean; pausePending: boolean;
   onDetails: () => void; onRemind: () => void; onExtend: () => void; onPause: () => void; onClose: () => void; onArchive: () => void;
 }) {
+  const tRoot = useTranslations();
   const t = useTranslations("adminCampagnesPage");
   const locale = asUiLocale(useLocale());
   const remaining = daysLeft(c, t);
-  const expected = c.progress?.total;
+  const share = elapsedShare(c);
+  const percent = share == null ? null : Math.round(share * 100);
+  const types = c.targetEntityTypes ?? [];
+  const titleId = `campaign-${c.id}-title`;
+  const extended = c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline;
+
   return (
-    <section className="cam-admin-section" aria-label={t("activeCampaignAriaLabel", { name: c.name })}>
-      <div className="cam-admin-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>
-            <h2 className="cam-admin-h2" title={`${c.name} (${c.code})`}>{formatCampaignDisplayName(c.name)}</h2>
+    <article className="cam-campaign-card" aria-labelledby={titleId}>
+      <header className="cam-campaign-card-head">
+        <div className="cam-campaign-card-heading">
+          <div className="cam-campaign-card-tags">
+            <span className="cam-badge cam-badge-neutral">{moduleLabel(t, c.collectionType)}</span>
             {c.referenceYear && c.referenceQuarter && (
-              <span className="cam-badge cam-badge-neutral">
-                {quarterRef(t, c.referenceYear, c.referenceQuarter)}
-              </span>
+              <span className="cam-badge cam-badge-neutral">{quarterRef(t, c.referenceYear, c.referenceQuarter)}</span>
             )}
             <StatusBadge status={c.status} />
           </div>
-          <span className="cam-admin-meta">
-            {t("dateRange", { start: fmt(c.startDate), end: fmt(effectiveDeadline(c)) })}
-            {c.extendedDeadline && c.deadline && c.extendedDeadline !== c.deadline && <> {t("extendedWasInline", { date: fmt(c.deadline) })}</>}
-          </span>
+          <h3 id={titleId} className="cam-campaign-card-title" title={`${c.name} (${c.code})`}>{formatCampaignDisplayName(c.name)}</h3>
+          <span className="cam-campaign-code">{c.code}</span>
         </div>
-        {c.description && <p className="cam-admin-meta" style={{ margin: 0 }}>{c.description}</p>}
-
-        {/* The section is already the card: the flush strip keeps the dividers, drops its box. */}
-        <div className="cam-admin-stats cam-admin-stats--flush">
-          <div className="cam-admin-stat">
-            <div className="cam-admin-stat-label">{t("daysRemaining")}</div>
-            <div className={`cam-admin-stat-value ${remaining.tone ?? ""}`}>{remaining.value}</div>
-            <div className="cam-admin-stat-hint">{remaining.hint}</div>
-          </div>
-          <div className="cam-admin-stat">
-            <div className="cam-admin-stat-label">{t("targetedEstablishments")}</div>
-            <div className="cam-admin-stat-value">{count(expected, locale)}</div>
-            <div className="cam-admin-stat-hint">{t("expectedAtActivation")}</div>
-          </div>
-          <div className="cam-admin-stat">
-            <div className="cam-admin-stat-label">{t("submissionsCollected")}</div>
-            <div className="cam-admin-stat-value">—</div>
-            <div className="cam-admin-stat-hint">{t("trackingUnavailable")}</div>
-          </div>
+        <div className={`cam-campaign-remaining ${remaining.tone ?? ""}`}>
+          <span className="cam-campaign-remaining-value">{remaining.value}</span>
+          <span className="cam-campaign-remaining-label">{t("daysRemaining")}</span>
         </div>
+      </header>
 
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--cam-space-2)" }}>
+      {c.description && <p className="cam-campaign-card-description">{c.description}</p>}
+
+      {percent != null && (
+        <div className="cam-campaign-period">
+          <div className="cam-campaign-period-labels">
+            <span>{t("factOpening")} · {fmt(c.startDate)}</span>
+            <span>{t("factDeadline")} · {fmt(effectiveDeadline(c))}</span>
+          </div>
+          <div
+            className="cam-campaign-period-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-label={t("periodElapsed", { percent })}
+          >
+            <span className={`cam-campaign-period-fill ${remaining.tone ?? ""}`} style={{ inlineSize: `${percent}%` }} />
+          </div>
+          <span className="cam-admin-meta">{t("periodElapsed", { percent })}</span>
+        </div>
+      )}
+
+      <dl className="cam-campaign-facts">
+        {percent == null && (
+          <>
+            <div><dt>{t("factOpening")}</dt><dd>{fmt(c.startDate)}</dd></div>
+            <div><dt>{t("factDeadline")}</dt><dd>{fmt(effectiveDeadline(c))}</dd></div>
+          </>
+        )}
+        <div>
+          <dt>{t("targetedEstablishments")}</dt>
+          <dd>{count(c.progress?.total, locale)}</dd>
+        </div>
+        <div>
+          <dt>{t("submissionsCollected")}</dt>
+          <dd title={t("trackingUnavailable")}>—</dd>
+        </div>
+        <div className="cam-campaign-facts-wide">
+          <dt>{t("targetTypesLabel")}</dt>
+          <dd>
+            {types.length === 0 ? t("allEstablishmentTypes") : (
+              <ul className="cam-campaign-type-list">
+                {types.map((type) => <li key={type}>{typeLabel(tRoot, type)}</li>)}
+              </ul>
+            )}
+          </dd>
+        </div>
+        {extended && (
+          <div className="cam-campaign-facts-wide">
+            <dt>{t("detailExtension")}</dt>
+            <dd>{t("extendedWas", { date: fmt(c.deadline) })}</dd>
+          </div>
+        )}
+      </dl>
+
+      <footer className="cam-campaign-card-actions">
+        <div className="cam-campaign-card-actions-main" role="group" aria-label={t("campaignActionsGroup")}>
           <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={onDetails}>{t("viewDetails")}</button>
           <Gated allowed={canMutate}>
             {(disabled) => (
@@ -665,6 +866,8 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
               )}
             </Gated>
           )}
+        </div>
+        <div className="cam-campaign-card-actions-lifecycle" role="group" aria-label={t("lifecycleGroup")}>
           <Gated allowed={canMutate}>
             {(disabled) => (
               <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled={disabled || pausePending} style={disabled ? GATED_OFF : undefined} onClick={onPause}>
@@ -687,72 +890,8 @@ function ActiveCampaignCard({ campaign: c, canMutate, pausePending, onDetails, o
             )}
           </Gated>
         </div>
-      </div>
-    </section>
-  );
-}
-
-// ── Side panels ─────────────────────────────────────────────────────────────
-
-function TargetsPanel({ campaign: c }: { campaign: Campaign }) {
-  const tRoot = useTranslations();
-  const t = useTranslations("adminCampagnesPage");
-  const types = c.targetEntityTypes ?? [];
-  return (
-    <section className="cam-pilot-panel" aria-labelledby="campagnes-targets-title">
-      <div className="cam-pilot-panel-head">
-        <h2 className="cam-admin-h2" id="campagnes-targets-title">{t("assignedQuestionnaires")}</h2>
-      </div>
-      <div className="cam-pilot-panel-body">
-        <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-2)" }}>
-          {moduleLabel(t, c.collectionType)}
-        </p>
-        {types.length === 0 ? (
-          <p style={{ margin: 0 }}>{t("allEstablishmentTypes")}</p>
-        ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {types.map((type) => (
-              <li key={type} style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-2)", padding: "var(--cam-space-2) 0", borderBottom: "var(--cam-border-width) solid var(--cam-border)" }}>
-                <span aria-hidden="true" style={{ color: "var(--cam-green)", fontWeight: 700 }}>✓</span>
-                <span className="cam-admin-strong">{typeLabel(tRoot, type)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function SchedulePanel({ campaign: c }: { campaign: Campaign }) {
-  const t = useTranslations("adminCampagnesPage");
-  const deadline = effectiveDeadline(c);
-  const steps = [
-    { label: t("collectionLaunch"), date: c.startDate ?? null },
-    { label: t("declarationDeadline"), date: deadline },
-  ];
-  return (
-    <section className="cam-pilot-panel" aria-labelledby="campagnes-schedule-title">
-      <div className="cam-pilot-panel-head">
-        <h2 className="cam-admin-h2" id="campagnes-schedule-title">{t("scheduleTitle")}</h2>
-      </div>
-      <div className="cam-pilot-panel-body">
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-3)" }}>
-          {steps.map((s) => {
-            const done = isPast(s.date);
-            return (
-              <li key={s.label} style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
-                <span className="cam-admin-strong" style={{ flex: 1 }}>{s.label}</span>
-                <span className="cam-admin-meta" style={{ whiteSpace: "nowrap" }}>{fmt(s.date)}</span>
-                {s.date && (
-                  <span className={`cam-badge ${done ? "cam-badge-success" : "cam-badge-warning"}`}>{done ? t("done") : t("inProgress")}</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </section>
+      </footer>
+    </article>
   );
 }
 

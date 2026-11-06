@@ -200,6 +200,7 @@ function ParametresContent() {
       )}
 
       {/* ── Informations de l'Observatoire ── */}
+      <div className="cam-settings-grid">
       <section className="cam-admin-section" aria-labelledby="obs-info-title">
         <div className="cam-admin-section-head">
           <h2 id="obs-info-title" className="cam-admin-h2">{t("identityTitle")}</h2>
@@ -262,7 +263,7 @@ function ParametresContent() {
             </div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--cam-space-5)" }}>
+          <div className="cam-settings-actions">
             <button type="submit" className="cam-button cam-button-primary" disabled={identityMutation.isPending}>
               {identityMutation.isPending ? t("saving") : t("save")}
             </button>
@@ -306,7 +307,7 @@ function ParametresContent() {
             </p>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--cam-space-5)" }}>
+          <div className="cam-settings-actions">
             <button
               type="submit"
               className="cam-button cam-button-secondary"
@@ -317,8 +318,10 @@ function ParametresContent() {
           </div>
         </form>
       </section>
+      </div>
 
       {/* ── Rôles & Permissions ── */}
+      <div className="cam-settings-grid cam-settings-grid--reference">
       <section className="cam-admin-section" aria-labelledby="roles-permissions-title">
         <div className="cam-admin-section-head">
           <div>
@@ -392,6 +395,7 @@ function ParametresContent() {
           )}
         </div>
       </section>
+      </div>
     </div>
   );
 }

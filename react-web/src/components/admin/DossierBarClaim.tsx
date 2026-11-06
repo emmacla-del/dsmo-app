@@ -57,7 +57,7 @@ export function DossierBarClaim({ claim, userId, role, readOnly, busy, saving, o
     <>
       <span className="cam-admin-meta" role={claim.expired ? "status" : undefined}>{label}</span>
       {canManageClaim && userId && (
-        <button type="button" className="cam-text-button" disabled={busy} onClick={() => onChange(ownsClaim ? null : userId)}>
+        <button type="button" className="cam-text-button" data-claim-action={ownsClaim ? "release" : "claim"} disabled={busy} onClick={() => onChange(ownsClaim ? null : userId)}>
           {saving ? t("claimSaving") : ownsClaim ? t("releaseClaim") : t("claimForMe")}
         </button>
       )}

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Plus, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -18,7 +20,10 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { GroupInvitationLinks } from "@/components/admin/GroupInvitationLinks";
 import { InviteAgentDialog } from "@/components/admin/InviteAgentDialog";
 import { PendingStaffRequests } from "@/components/admin/PendingStaffRequests";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { hrefWith } from "@/lib/admin-url";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { StatStrip } from "@/components/admin/StatStrip";
@@ -82,6 +87,17 @@ function MethodBadge({ method }: { method: string | null }) {
 }
 
 export default function OnefopUsersPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnefopUsersContent />
+    </Suspense>
+  );
+}
+
+// Agent-table filters, kept in the URL (G15): ?q=, ?role=, ?etat=.
+const AGENT_STATES = ["active", "inactive", "pending"] as const;
+
+function OnefopUsersContent() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(USER_ADMIN_ROLES);
   const tRoot = useTranslations();
   const t = useTranslations("adminUtilisateursPage");
@@ -93,6 +109,31 @@ export default function OnefopUsersPage() {
   const [profileAgent, setProfileAgent] = useState<AgentItem | null>(null);
   const [reassignAgent, setReassignAgent] = useState<AgentItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const urlSearch = searchParams.get("q")?.trim() ?? "";
+  const rawRole = searchParams.get("role") ?? "";
+  const roleFilter = (LISTED_STAFF_ROLES as readonly string[]).includes(rawRole) ? rawRole : "";
+  const rawState = searchParams.get("etat") ?? "";
+  const stateFilter = (AGENT_STATES as readonly string[]).includes(rawState) ? rawState : "";
+  const setFilters = (changes: Record<string, string | null>) =>
+    router.replace(hrefWith(pathname, currentQuery, changes), { scroll: false });
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  const [syncedSearch, setSyncedSearch] = useState(urlSearch);
+  if (syncedSearch !== urlSearch) {
+    setSyncedSearch(urlSearch);
+    setSearchInput(urlSearch);
+  }
+  useEffect(() => {
+    const next = searchInput.trim();
+    if (next === urlSearch) return;
+    const timer = setTimeout(() => {
+      router.replace(hrefWith(pathname, currentQuery, { q: next || null }), { scroll: false });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, urlSearch, router, pathname, currentQuery]);
 
   /**
    * Agent list.
@@ -104,9 +145,18 @@ export default function OnefopUsersPage() {
    * only. COMPANY accounts are never returned by this endpoint.
    */
   const agentsQuery = useQuery({
-    queryKey: ["auth", "users", "onefop-agents"],
+    queryKey: ["auth", "users", "onefop-agents", { urlSearch, roleFilter, stateFilter }],
     enabled,
-    queryFn: () => listUsers({ roles: LISTED_STAFF_ROLES, page: 1, pageSize: AGENTS_PAGE_SIZE }),
+    // Every filter is applied by GET /auth/users, so `total` is the filtered count.
+    queryFn: () => listUsers({
+      roles: roleFilter ? [roleFilter] : LISTED_STAFF_ROLES,
+      search: urlSearch || undefined,
+      ...(stateFilter === "pending"
+        ? { status: "PENDING_APPROVAL" }
+        : stateFilter ? { status: "ACTIVE", isActive: stateFilter === "active" } : {}),
+      page: 1,
+      pageSize: AGENTS_PAGE_SIZE,
+    }),
   });
 
   /**
@@ -148,8 +198,7 @@ export default function OnefopUsersPage() {
       title={tRoot("adminNav.routes.utilisateurs")}
       subtitle={t("subtitle")}
       actions={
-        <div style={{ display: "flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
-          <AdminHeaderActions />
+        <div className="cam-admin-header-buttons">
           {/* Inviting is the primary way in: the agent sets their own
               password. Direct creation, which hands the admin a temporary
               password to pass on, stays as the secondary path. */}
@@ -159,10 +208,7 @@ export default function OnefopUsersPage() {
               className="cam-button cam-button-secondary cam-button-sm"
               onClick={() => setCreateOpen(true)}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginRight: "var(--cam-space-1)" }}>
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
+              <Plus size={15} aria-hidden="true" />
               {t("addOfficer")}
             </button>
           )}
@@ -266,9 +312,44 @@ export default function OnefopUsersPage() {
         meta={tableState === "ready"
           ? t("shownOf", { shown: count(agents.length, locale), total: count(agentsQuery.data?.total ?? null, locale) })
           : NOT_PROVIDED}
+        toolbar={
+          <div className="cam-filter-bar" role="group" aria-label={tRoot("adminDossiersPage.filtersButton")}>
+            <div className="cam-filter-bar-search">
+              <label className="cam-sr-only" htmlFor="agents-search">{t("searchLabel")}</label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+              <Input id="agents-search" type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t("searchPlaceholder")} />
+            </div>
+            <AdminFilterPill
+              label={t("roleColumn")}
+              value={roleFilter}
+              allLabel={t("allRoles")}
+              clearLabel={tRoot("adminDossiersPage.removeFilterChip", { label: t("roleColumn") })}
+              onChange={(value) => setFilters({ role: value || null })}
+              options={LISTED_STAFF_ROLES.map((value) => ({ value, label: directoryRoleLabel(value, locale) }))}
+            />
+            <AdminFilterPill
+              label={t("statusColumn")}
+              value={stateFilter}
+              allLabel={t("allStates")}
+              clearLabel={tRoot("adminDossiersPage.removeFilterChip", { label: t("statusColumn") })}
+              onChange={(value) => setFilters({ etat: value || null })}
+              options={AGENT_STATES.map((value) => ({ value, label: t(`state.${value}`) }))}
+            />
+            {(urlSearch || roleFilter || stateFilter) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => { setSearchInput(""); setFilters({ q: null, role: null, etat: null }); }}
+              >
+                {tRoot("adminDossiersPage.clearFilters")}
+              </Button>
+            )}
+          </div>
+        }
       >
-        <div className="cam-table-wrapper">
-          <table className="cam-table">
+        <div className="cam-agents-table-scroll" role="region" tabIndex={0} aria-labelledby="agents-table-title">
+          <table className="cam-table cam-agents-table">
             <thead>
               <tr>
                 <th scope="col">{t("nameColumn")}</th>
@@ -278,14 +359,13 @@ export default function OnefopUsersPage() {
                 <th scope="col" className="is-num">{t("formsColumn")}</th>
                 <th scope="col">{t("lastSignInColumn")}</th>
                 <th scope="col">{t("createdColumn")}</th>
-                <th scope="col">{t("registeredByColumn")}</th>
                 <th scope="col">{t("statusColumn")}</th>
                 <th scope="col" className="text-right">{t("actionsColumn")}</th>
               </tr>
             </thead>
             <tbody>
               <DataStateRow
-                colSpan={10}
+                colSpan={9}
                 state={tableState}
                 resource={t("resource")}
                 error={agentsQuery.error}
@@ -327,18 +407,17 @@ export default function OnefopUsersPage() {
                     </span>
                   </td>
 
-                  <td style={{ whiteSpace: "nowrap" }}>
-                    <span className="cam-admin-meta">{stamp(agent.createdAt, true, locale)}</span>
-                  </td>
-
-                  {/* Who minted the account and how. An account created by an
-                      admin names that admin; one that self-registered carries
-                      the method badge alone. */}
+                  {/* When, by whom and how the account was made. An account
+                      created by an admin names that admin; one that
+                      self-registered carries the method badge alone. */}
                   <td>
-                    {agent.createdByName && (
-                      <span className="cam-admin-meta" style={{ display: "block" }}>{agent.createdByName}</span>
-                    )}
-                    <MethodBadge method={agent.registrationMethod} />
+                    <span className="cam-agent-created">
+                      <span className="cam-admin-meta">{stamp(agent.createdAt, false, locale)}</span>
+                      {agent.createdByName && (
+                        <span className="cam-admin-meta">{t("createdBy", { name: agent.createdByName })}</span>
+                      )}
+                      <MethodBadge method={agent.registrationMethod} />
+                    </span>
                   </td>
 
                   <td style={{ whiteSpace: "nowrap" }}>

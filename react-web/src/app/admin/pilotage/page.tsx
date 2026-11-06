@@ -94,11 +94,14 @@ function DashboardMetricLink({
   label,
   value,
   caption,
+  tone,
 }: {
   href: string;
   label: ReactNode;
   value: ReactNode;
   caption: ReactNode;
+  /** Colour of a figure that needs attention (CLAUDE.md « Colour meaning »). */
+  tone?: "alert" | "info";
 }) {
   return (
     <Link
@@ -107,7 +110,7 @@ function DashboardMetricLink({
     >
       <Card className="cam-admin-panel-surface cam-dash-action-metric-card grid h-full grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1 p-3 transition-colors group-hover:bg-accent">
         <span>{label}</span>
-        <strong>{value}</strong>
+        <strong className={tone ? `is-${tone}` : undefined}>{value}</strong>
         <small>{caption}</small>
       </Card>
     </Link>
@@ -306,12 +309,12 @@ function CampaignCoverage({
               <div className="cam-dash-response-kpi">
                 <span>{t("responseRateLabel")}</span>
                 <strong>{percent(responsePct, 1, locale, 0)}</strong>
-                <small>{t("responseRateCaption", { received: count(totals.received, locale), stock: count(totals.registeredStock, locale) })}</small>
+                <small>{t("responseRateCaption", { received: totals.received, stock: totals.registeredStock })}</small>
               </div>
               <div className="cam-dash-response-kpi">
                 <span>{t("regionsReporting")}</span>
                 <strong>{count(reportingRegions, locale)} <small>{t("regionsOf", { total: count(data?.regions.length ?? 0, locale) })}</small></strong>
-                <small>{t("regionsAtFullResponse", { count: count(fullyReportingRegions, locale) })}</small>
+                <small>{t("regionsAtFullResponse", { count: fullyReportingRegions })}</small>
               </div>
               <div className="cam-dash-response-kpi">
                 <span>{t("lateLabel")}</span>
@@ -493,6 +496,7 @@ function PilotageDashboard() {
                   href="/admin/inscriptions?status=OVERDUE"
                   label={t("adminInscriptionsPage.statusOverdue", { days: registrationsQuery.data?.overdueDays ?? 7 })}
                   value={registrationsQuery.data ? count(registrationsQuery.data.counts.overdue, locale) : t("adminPilotagePage.metricUnavailable")}
+                  tone={(registrationsQuery.data?.counts.overdue ?? 0) > 0 ? "info" : undefined}
                   caption={t("adminPilotagePage.registrationOverdueCaption")}
                 />
                 <DashboardMetricLink
@@ -511,6 +515,7 @@ function PilotageDashboard() {
                   href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
                   label={t("adminPilotagePage.kpiQualityAlerts")}
                   value={queues?.blockingAnomaliesCount != null ? count(queues.blockingAnomaliesCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                  tone={(queues?.blockingAnomaliesCount ?? 0) > 0 ? "alert" : undefined}
                   caption={t("adminPilotagePage.qualityAnomalies")}
                 />
               </div>
@@ -609,6 +614,7 @@ function PilotageDashboard() {
                       href="/admin/inscriptions?status=OVERDUE"
                       label={t("adminInscriptionsPage.statusOverdue", { days: registrationsQuery.data?.overdueDays ?? 7 })}
                       value={registrationsQuery.data ? count(registrationsQuery.data.counts.overdue, locale) : t("adminPilotagePage.metricUnavailable")}
+                      tone={(registrationsQuery.data?.counts.overdue ?? 0) > 0 ? "info" : undefined}
                       caption={t("adminPilotagePage.registrationOverdueCaption")}
                     />
                   </div>
@@ -643,6 +649,7 @@ function PilotageDashboard() {
                     href={anomalyRegisterHref({ status: "OPEN", severity: "BLOCKING" })}
                     label={t("adminPilotagePage.kpiQualityAlerts")}
                     value={queues?.blockingAnomaliesCount != null ? count(queues.blockingAnomaliesCount, locale) : t("adminPilotagePage.metricUnavailable")}
+                  tone={(queues?.blockingAnomaliesCount ?? 0) > 0 ? "alert" : undefined}
                     caption={t("adminPilotagePage.qualityAnomalies")}
                   />
                 </div>

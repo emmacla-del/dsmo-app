@@ -87,6 +87,8 @@ export function listCompanies(params: {
   pageSize?: number;
   status?: string;
   region?: string;
+  /** An entity type code (ENTITY_TYPE_VALUES). */
+  entityType?: string;
   sortOrder?: "oldest" | "newest";
   year?: number;
   semester?: 1 | 2;
@@ -98,6 +100,7 @@ export function listCompanies(params: {
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   if (params.status) query.set("status", params.status);
   if (params.region) query.set("region", params.region);
+  if (params.entityType) query.set("entityType", params.entityType);
   if (params.sortOrder) query.set("sortOrder", params.sortOrder);
   if (params.year != null) query.set("year", String(params.year));
   if (params.semester != null) query.set("semester", String(params.semester));

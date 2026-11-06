@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   ENTITY_TYPE_OPTION_KEYS,
@@ -20,7 +20,11 @@ import { APPROVAL_ROLES, DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/role
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
-import { AdminFilterDisclosure } from "@/components/admin/AdminFilterDisclosure";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { AdminFilterField, AdminFilterMore, AdminScopePill, territoryPillFor } from "@/components/admin/AdminFilterBarParts";
+import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
+import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedViews";
+import { hrefWith, parseAdminListPage } from "@/lib/admin-url";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { DataStateRow } from "@/components/admin/DataState";
 import {
@@ -83,10 +87,9 @@ const ENTITY_TYPE_VALUES = [
 // User.isActive. "Incomplet" was offered but no record ever carries it, so
 // that filter could only ever return nothing.
 //
-// ACTIVE, PENDING_APPROVAL and REJECTED are literal UserStatus values and go
-// to the server as-is. SUSPENDED is not a UserStatus at all — suspension is
-// User.isActive === false — so GET /companies has no way to express it and
-// it stays a page-local narrowing. See SERVER_FILTERABLE_STATUSES.
+// All four go to GET /companies, which reads them as the stat strip does:
+// ACTIVE = approved and active, SUSPENDED = approved and deactivated
+// (User.isActive false), PENDING_APPROVAL and REJECTED as stored.
 // `labelKey` is under adminEtablissementsPage.
 const ACCOUNT_STATUSES = [
   { value: "ALL", labelKey: "allMasculine" },
@@ -96,7 +99,6 @@ const ACCOUNT_STATUSES = [
   { value: "SUSPENDED", labelKey: "status.SUSPENDU" },
 ];
 
-const SERVER_FILTERABLE_STATUSES = ["ACTIVE", "PENDING_APPROVAL", "REJECTED"];
 
 /**
  * One establishment row.
@@ -139,7 +141,19 @@ const STATUS_LABELS: Record<EtabItem["status"], string> = {
 };
 
 export default function EtablissementsPage() {
+  return (
+    <Suspense fallback={null}>
+      <EtablissementsContent />
+    </Suspense>
+  );
+}
+
+function EtablissementsContent() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const userId = useAuthStore((s) => s.user?.id);
   const tRoot = useTranslations();
   const t = useTranslations("adminEtablissementsPage");
   const tStats = useTranslations("adminLayout");
@@ -158,18 +172,38 @@ export default function EtablissementsPage() {
   const readOnly = isReadOnlyRole(role);
 
   const { regions: territoryRegions } = useTerritoryRegions();
-  const CAMEROON_REGIONS: string[] = useMemo(() => ["Toutes", ...territoryRegions], [territoryRegions]);
 
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [selectedType, setSelectedType] = useState("ALL");
-  const [selectedRegion, setSelectedRegion] = useState("Toutes");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">("newest");
-  const [periodYear, setPeriodYear] = useState<number | null>(null);
-  const [periodSemester, setPeriodSemester] = useState<Semester | null>(null);
-  const [periodQuarter, setPeriodQuarter] = useState<Quarter | null>(null);
-  const [page, setPage] = useState(1);
+  // Every filter and the page live in the URL (G15): a reload, a shared link
+  // or a saved view reopens the same list. Only the search box keeps a draft,
+  // written to the URL after a 300 ms pause.
+  const setFilters = (changes: Record<string, string | number | null>) =>
+    router.replace(hrefWith(pathname, currentQuery, { page: null, ...changes }), { scroll: false });
+  const urlSearch = searchParams.get("search")?.trim() ?? "";
+  const rawType = searchParams.get("type") ?? "";
+  const selectedType = (ENTITY_TYPE_VALUES as readonly string[]).includes(rawType) ? rawType : "ALL";
+  const selectedRegion = searchParams.get("region")?.trim() || "Toutes";
+  const rawStatus = searchParams.get("status") ?? "";
+  const selectedStatus = ACCOUNT_STATUSES.some((status) => status.value === rawStatus) ? rawStatus : "ALL";
+  const sortOrder: "oldest" | "newest" = searchParams.get("sort") === "oldest" ? "oldest" : "newest";
+  const rawYear = Number(searchParams.get("year"));
+  const periodYear = Number.isInteger(rawYear) && rawYear >= YEAR_MIN && rawYear <= 2100 ? rawYear : null;
+  const rawSemester = searchParams.get("semester");
+  const periodSemester: Semester | null = rawSemester === "1" ? 1 : rawSemester === "2" ? 2 : null;
+  const rawQuarter = Number(searchParams.get("quarter"));
+  const periodQuarter: Quarter | null = [1, 2, 3, 4].includes(rawQuarter)
+    && (periodSemester === null || (rawQuarter <= 2 ? 1 : 2) === periodSemester)
+    ? rawQuarter as Quarter
+    : null;
+  const page = parseAdminListPage(searchParams.get("page"));
+  const setPage = (next: number) => setFilters({ page: next <= 1 ? null : next });
+
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  // A saved view or the back button changes the URL under the box: follow it.
+  const [syncedSearch, setSyncedSearch] = useState(urlSearch);
+  if (syncedSearch !== urlSearch) {
+    setSyncedSearch(urlSearch);
+    setSearchInput(urlSearch);
+  }
   const latestAvailableYear = doualaYear(new Date()) ?? new Date().getFullYear();
   const yearOptions = Array.from(
     { length: Math.max(0, latestAvailableYear - YEAR_MIN + 1) },
@@ -181,21 +215,14 @@ export default function EtablissementsPage() {
       ? [3, 4]
       : [1, 2, 3, 4];
 
-  // Region and status are server-side filters now, so they share the search
-  // box's 300ms debounce: one timer, one refetch, and the three controls can
-  // never queue three separate requests between keystrokes.
-  const [appliedRegion, setAppliedRegion] = useState("Toutes");
-  const [appliedStatus, setAppliedStatus] = useState("ALL");
-
   useEffect(() => {
+    const next = searchInput.trim();
+    if (next === urlSearch) return;
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setAppliedRegion(selectedRegion);
-      setAppliedStatus(selectedStatus);
-      setPage(1);
+      router.replace(hrefWith(pathname, currentQuery, { page: null, search: next || null }), { scroll: false });
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchInput, selectedRegion, selectedStatus]);
+  }, [searchInput, urlSearch, router, pathname, currentQuery]);
 
   const statsQuery = useQuery({
     queryKey: ["admin", "data-management", "stats"],
@@ -210,16 +237,18 @@ export default function EtablissementsPage() {
 
   // Sent to GET /companies, which filters and counts over the whole
   // territory-scoped register rather than over the page already fetched.
-  const serverStatus = SERVER_FILTERABLE_STATUSES.includes(appliedStatus) ? appliedStatus : undefined;
-  const serverRegion = appliedRegion !== "Toutes" ? appliedRegion : undefined;
+  const serverStatus = selectedStatus !== "ALL" ? selectedStatus : undefined;
+  const serverRegion = selectedRegion !== "Toutes" ? selectedRegion : undefined;
+  const serverType = selectedType !== "ALL" ? selectedType : undefined;
 
   const companiesQuery = useQuery({
-    queryKey: ["dsmo", "companies", search, serverStatus ?? "ALL", serverRegion ?? "ALL", sortOrder, periodYear, periodSemester, periodQuarter, page],
+    queryKey: ["dsmo", "companies", urlSearch, serverStatus ?? "ALL", serverRegion ?? "ALL", serverType ?? "ALL", sortOrder, periodYear, periodSemester, periodQuarter, page],
     queryFn: () =>
       listCompanies({
-        search: search || undefined,
+        search: urlSearch || undefined,
         status: serverStatus,
         region: serverRegion,
+        entityType: serverType,
         sortOrder,
         year: periodYear ?? undefined,
         semester: periodSemester ?? undefined,
@@ -274,20 +303,8 @@ export default function EtablissementsPage() {
           : "SUSPENDU",
   }));
 
-  /**
-   * What is left for the client to narrow, now that search / region / status
-   * are applied and counted server-side.
-   *
-   * Two dimensions GET /companies cannot express:
-   *  - entity type: the endpoint takes no entityType param;
-   *  - "Suspendu": suspension is User.isActive === false, and the endpoint's
-   *    `status` param filters User.status, which has no SUSPENDED member.
-   *
-   * Both therefore narrow the *current page* only. `localNarrowing` is true
-   * whenever one is active, and the footer then stops claiming a server
-   * total it is no longer describing.
-   */
-  const localNarrowing = selectedType !== "ALL" || appliedStatus === "SUSPENDED";
+  // Type and « Suspendu » are filtered by GET /companies too (2026-11-03), so
+  // the rows, the total and the pager describe the same query.
 
   /**
    * Pager figures, all taken from the response GET /companies actually
@@ -311,11 +328,7 @@ export default function EtablissementsPage() {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   })();
 
-  const filteredRows = displayRows.filter((item) => {
-    if (selectedType !== "ALL" && item.type !== selectedType) return false;
-    if (appliedStatus === "SUSPENDED" && item.status !== "SUSPENDU") return false;
-    return true;
-  });
+  const filteredRows = displayRows;
 
   const tableState = resolveDataState({
     roleAllowed: canRead,
@@ -325,12 +338,21 @@ export default function EtablissementsPage() {
     rowCount: companiesQuery.data ? filteredRows.length : null,
   });
 
-  const hasActiveAdvancedFilters =
-    periodYear != null ||
-    periodSemester != null ||
-    periodQuarter != null ||
-    selectedStatus !== "ALL" ||
-    sortOrder !== "newest";
+  // Filter bar (spec §4F): search, scope, type / region / status pills,
+  // « Filtres » for the period and the order. Chips only for what has no pill.
+  const tq = (key: string, values?: Record<string, string>) => tRoot(`adminInscriptionsPage.${key}`, values);
+  const showRegionPill = territoryPillFor(role) === "region";
+  const panelChips = [
+    periodYear != null && { key: "year", label: `${t("yearColumn")} : ${periodYear}`, clear: () => setFilters({ year: null }) },
+    periodSemester != null && { key: "semester", label: `${t("semesterColumn")} : S${periodSemester}`, clear: () => setFilters({ semester: null, quarter: null }) },
+    periodQuarter != null && { key: "quarter", label: `${t("quarterColumn")} : Q${periodQuarter}`, clear: () => setFilters({ quarter: null }) },
+    sortOrder !== "newest" && { key: "sort", label: tRoot("adminDossiersPage.sortOldest"), clear: () => setFilters({ sort: null }) },
+  ].filter(Boolean) as { key: string; label: string; clear: () => void }[];
+  const hasAnyFilter = panelChips.length > 0 || searchInput.trim() !== "" || selectedType !== "ALL" || selectedRegion !== "Toutes" || selectedStatus !== "ALL";
+  const clearAllFilters = () => {
+    setSearchInput("");
+    setFilters({ search: null, type: null, region: null, status: null, sort: null, year: null, semester: null, quarter: null });
+  };
 
   /**
    * Exports exactly the rows on screen — one page of the server's filtered
@@ -396,12 +418,6 @@ export default function EtablissementsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {!readOnly && (
-              <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
-                <Download aria-hidden="true" />
-                {t("exportButton")}
-              </Button>
-            )}
-            {!readOnly && (
               <Button
                 type="button"
                 size="sm"
@@ -429,130 +445,111 @@ export default function EtablissementsPage() {
       />
 
       <AdminTablePanel
-        title={t("registerResource")}
+        title={t("registerTitle")}
         description={t("scopeNote")}
         headingId="establishments-register-title"
-        meta={tableState === "ready" ? count(filteredRows.length, locale) : NOT_PROVIDED}
+        actions={!readOnly ? (
+          <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
+            <Download aria-hidden="true" />
+            {t("exportButton")}
+          </Button>
+        ) : undefined}
         toolbar={
-          <div className="grid gap-3 md:grid-cols-5">
-            <div className="md:col-span-2">
-              <Label htmlFor="etab-search">{t("searchLabel")}</Label>
-              <Input
-                id="etab-search"
-                type="search"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder={t("searchPlaceholder")}
+          <div className="cam-registration-filters">
+            <div className="cam-filter-bar" role="group" aria-label={tRoot("adminDossiersPage.filtersButton")}>
+              <div className="cam-filter-bar-search">
+                <Label className="cam-sr-only" htmlFor="etab-search">{t("searchLabel")}</Label>
+                <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+                <Input id="etab-search" type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t("searchPlaceholder")} />
+              </div>
+              <AdminScopePill />
+              <AdminFilterPill
+                label={tRoot("companiesDirectory.typeColumn")}
+                value={selectedType === "ALL" ? "" : selectedType}
+                allLabel={t("allMasculine")}
+                clearLabel={tq("removeFilterChip", { label: tRoot("companiesDirectory.typeColumn") })}
+                onChange={(value) => setFilters({ type: value || null })}
+                options={ENTITY_TYPE_VALUES.map((value) => ({ value, label: typeDisplay(value) }))}
               />
+              {showRegionPill && <AdminFilterPill
+                label={tRoot("companiesDirectory.regionColumn")}
+                value={selectedRegion === "Toutes" ? "" : selectedRegion}
+                allLabel={t("allRegions")}
+                clearLabel={tq("removeFilterChip", { label: tRoot("companiesDirectory.regionColumn") })}
+                onChange={(value) => setFilters({ region: value || null })}
+                options={territoryRegions.map((value) => ({ value, label: value }))}
+              />}
+              <AdminFilterPill
+                label={t("statusFilterLabel")}
+                value={selectedStatus === "ALL" ? "" : selectedStatus}
+                allLabel={t("allMasculine")}
+                clearLabel={tq("removeFilterChip", { label: t("statusFilterLabel") })}
+                onChange={(value) => setFilters({ status: value || null })}
+                options={ACCOUNT_STATUSES.filter((status) => status.value !== "ALL").map((status) => ({ value: status.value, label: t(status.labelKey) }))}
+              />
+              {userId && <AdminSavedViews storageKey={`camleap.savedViews.etablissements.${userId}`} currentQuery={savedViewQuery(currentQuery)} onApply={(query) => router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false })} />}
+              <AdminFilterMore label={tRoot("adminDossiersPage.filtersButton")} count={panelChips.length}>
+                <AdminFilterField id="etab-year" label={t("yearColumn")}>
+                  <select
+                    id="etab-year"
+                    className="cam-admin-input w-full"
+                    value={periodYear == null ? "all" : String(periodYear)}
+                    onChange={(event) => {
+                      setFilters({ year: event.target.value === "all" ? null : Number(event.target.value) });
+                    }}
+                  >
+                    <option value="all">{t("allYears")}</option>
+                    {yearOptions.map((year) => (
+                      <option key={year} value={String(year)}>{year}</option>
+                    ))}
+                  </select>
+                </AdminFilterField>
+                <AdminFilterField id="etab-semester" label={t("semesterColumn")}>
+                  <select
+                    id="etab-semester"
+                    className="cam-admin-input w-full"
+                    value={periodSemester == null ? "all" : String(periodSemester)}
+                    onChange={(event) => {
+                      setFilters({ semester: event.target.value === "all" ? null : event.target.value, quarter: null });
+                    }}
+                  >
+                    <option value="all">{t("allSemesters")}</option>
+                    <option value="1">S1</option>
+                    <option value="2">S2</option>
+                  </select>
+                </AdminFilterField>
+                <AdminFilterField id="etab-quarter" label={t("quarterColumn")}>
+                  <select
+                    id="etab-quarter"
+                    className="cam-admin-input w-full"
+                    value={periodQuarter == null ? "all" : String(periodQuarter)}
+                    onChange={(event) => {
+                      setFilters({ quarter: event.target.value === "all" ? null : Number(event.target.value) });
+                    }}
+                  >
+                    <option value="all">{t("allQuarters")}</option>
+                    {quarterOptions.map((quarter) => (
+                      <option key={quarter} value={String(quarter)}>Q{quarter}</option>
+                    ))}
+                  </select>
+                </AdminFilterField>
+                <AdminFilterField id="etab-sort" label={tRoot("adminDossiersPage.sortLabel")}>
+                  <select
+                    id="etab-sort"
+                    className="cam-admin-input w-full"
+                    value={sortOrder}
+                    onChange={(event) => {
+                      setFilters({ sort: event.target.value === "oldest" ? "oldest" : null });
+                    }}
+                  >
+                    <option value="newest">{tRoot("adminDossiersPage.sortNewest")}</option>
+                    <option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option>
+                  </select>
+                </AdminFilterField>
+              </AdminFilterMore>
+              {hasAnyFilter && <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{tq("clearFilters")}</Button>}
             </div>
-            <div>
-              <Label htmlFor="etab-type">{tRoot("companiesDirectory.typeColumn")}</Label>
-              <select
-                id="etab-type"
-                className="cam-admin-input w-full"
-                value={selectedType}
-                onChange={(event) => setSelectedType(event.target.value)}
-              >
-                <option value="ALL">{t("allMasculine")}</option>
-                {ENTITY_TYPE_VALUES.map((value) => (
-                  <option key={value} value={value}>{typeDisplay(value)}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="etab-region">{tRoot("companiesDirectory.regionColumn")}</Label>
-              <select
-                id="etab-region"
-                className="cam-admin-input w-full"
-                value={selectedRegion}
-                onChange={(event) => setSelectedRegion(event.target.value)}
-              >
-                {CAMEROON_REGIONS.map((region) => (
-                  <option key={region} value={region}>{region === "Toutes" ? t("allRegions") : region}</option>
-                ))}
-              </select>
-            </div>
-            <AdminFilterDisclosure label={t("moreFilters")} active={hasActiveAdvancedFilters}>
-              <div>
-                <Label htmlFor="etab-year">{t("yearColumn")}</Label>
-                <select
-                  id="etab-year"
-                  className="cam-admin-input w-full"
-                  value={periodYear == null ? "all" : String(periodYear)}
-                  onChange={(event) => {
-                    setPeriodYear(event.target.value === "all" ? null : Number(event.target.value));
-                    setPage(1);
-                  }}
-                >
-                  <option value="all">{t("allYears")}</option>
-                  {yearOptions.map((year) => (
-                    <option key={year} value={String(year)}>{year}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="etab-semester">{t("semesterColumn")}</Label>
-                <select
-                  id="etab-semester"
-                  className="cam-admin-input w-full"
-                  value={periodSemester == null ? "all" : String(periodSemester)}
-                  onChange={(event) => {
-                    setPeriodSemester(event.target.value === "all" ? null : event.target.value === "1" ? 1 : 2);
-                    setPeriodQuarter(null);
-                    setPage(1);
-                  }}
-                >
-                  <option value="all">{t("allSemesters")}</option>
-                  <option value="1">S1</option>
-                  <option value="2">S2</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="etab-quarter">{t("quarterColumn")}</Label>
-                <select
-                  id="etab-quarter"
-                  className="cam-admin-input w-full"
-                  value={periodQuarter == null ? "all" : String(periodQuarter)}
-                  onChange={(event) => {
-                    setPeriodQuarter(event.target.value === "all" ? null : Number(event.target.value) as Quarter);
-                    setPage(1);
-                  }}
-                >
-                  <option value="all">{t("allQuarters")}</option>
-                  {quarterOptions.map((quarter) => (
-                    <option key={quarter} value={String(quarter)}>Q{quarter}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="etab-status">{t("statusFilterLabel")}</Label>
-                <select
-                  id="etab-status"
-                  className="cam-admin-input w-full"
-                  value={selectedStatus}
-                  onChange={(event) => setSelectedStatus(event.target.value)}
-                >
-                  {ACCOUNT_STATUSES.map((status) => (
-                    <option key={status.value} value={status.value}>{t(status.labelKey)}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="etab-sort">{tRoot("adminDossiersPage.sortLabel")}</Label>
-                <select
-                  id="etab-sort"
-                  className="cam-admin-input w-full"
-                  value={sortOrder}
-                  onChange={(event) => {
-                    setSortOrder(event.target.value === "oldest" ? "oldest" : "newest");
-                    setPage(1);
-                  }}
-                >
-                  <option value="newest">{tRoot("adminDossiersPage.sortNewest")}</option>
-                  <option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option>
-                </select>
-              </div>
-            </AdminFilterDisclosure>
+            <AdminActiveFilterChips filters={panelChips.map(({ key, label, clear }) => ({ key, label, onClear: clear }))} label={tq("activeFiltersLabel")} removeFilterLabel={(label) => tq("removeFilterChip", { label })} />
           </div>
         }
       >
@@ -636,9 +633,7 @@ export default function EtablissementsPage() {
         <span className="me-2">
           {companiesQuery.isLoading
             ? NOT_PROVIDED
-            : localNarrowing
-              ? t("localNarrowing", { shown: count(filteredRows.length, locale), page: count(rawRows.length, locale) })
-              : filteredTotal === null
+            : filteredTotal === null
                 ? NOT_PROVIDED
                 : t("showingRange", { from: count(rangeFrom, locale), to: count(rangeTo, locale), total: count(filteredTotal, locale) })}
         </span>
@@ -646,7 +641,7 @@ export default function EtablissementsPage() {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          onClick={() => setPage(page - 1)}
           disabled={page <= 1}
         >
           {t("previousButton")}
@@ -664,7 +659,7 @@ export default function EtablissementsPage() {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onClick={() => setPage(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
         >
           {t("nextButton")}

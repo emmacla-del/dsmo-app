@@ -35,6 +35,15 @@ const SCHEMA_ENTITY_KEY: Record<string, string> = {
  * schema does not know — in which case no section is shown, rather than
  * another type's. */
 /** The schema's name for this file's form ("enterprise", "projectProgram"…), or null. */
+/**
+ * Whether a section counts as read once it is on screen. A folded section shows
+ * only its title, so it counts only when opened: the rail's « Sections
+ * parcourues » must not report answers nobody has unfolded.
+ */
+export function sectionCountsAsRead(section: Element): boolean {
+  return section.tagName !== "DETAILS" || (section as HTMLDetailsElement).open;
+}
+
 export function dossierEntityKey(formType: string | null | undefined): string | null {
   return (formType && SCHEMA_ENTITY_KEY[formType]) || null;
 }

@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -11,7 +12,10 @@ import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
-import { FilterTableHead, FilterTableOptions } from "@/components/admin/FilterTableHead";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { AdminScopePill } from "@/components/admin/AdminFilterBarParts";
+import { Button } from "@/components/ui/button";
+import { hrefWith } from "@/lib/admin-url";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -50,6 +54,8 @@ export default function EquipePage() {
 }
 
 /** A 0–1 ratio from the summary as a percent label, or the neutral marker. */
+const DEFAULT_PERIOD: ActorSummaryPeriod = "30d";
+
 function ratioLabel(ratio: number | null | undefined, locale: ReturnType<typeof asUiLocale>): string {
   return ratio == null ? NOT_PROVIDED : percent(ratio * 100, 0, locale);
 }
@@ -62,10 +68,19 @@ function EquipeContent() {
   const locale = asUiLocale(useLocale());
   const { regions: territoryRegions } = useTerritoryRegions();
 
-  // Filters
-  const [period, setPeriod] = useState<ActorSummaryPeriod>("30d");
-  const [roleFilter, setRoleFilter] = useState<string>("");
-  const [regionFilter, setRegionFilter] = useState<string>("");
+  // Filters live in the URL (G15): ?periode=, ?role=, ?region=. The
+  // period defaults to 30 days, the window the « Période » pill shows as off.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const rawPeriod = searchParams.get("periode") ?? "";
+  const period: ActorSummaryPeriod = (ACTOR_SUMMARY_PERIODS as readonly string[]).includes(rawPeriod) ? rawPeriod as ActorSummaryPeriod : DEFAULT_PERIOD;
+  const rawRole = searchParams.get("role") ?? "";
+  const roleFilter = MONITORED_ROLES.some((r) => r.value === rawRole) ? rawRole : "";
+  const regionFilter = searchParams.get("region")?.trim() ?? "";
+  const setFilters = (changes: Record<string, string | null>) =>
+    router.replace(hrefWith(pathname, currentQuery, changes), { scroll: false });
 
   // Nudge modal state
   const [nudgeTarget, setNudgeTarget] = useState<ActorSummaryActor | null>(null);
@@ -192,41 +207,52 @@ function EquipeContent() {
       <AdminTablePanel
         title={t("adminEquipePage.rosterTitle")}
         headingId="equipe-roster-title"
+        description={t("adminEquipePage.rosterDescription")}
         meta={summaryState === "ready" ? t("adminEquipePage.rosterCount", { count: actors.length }) : undefined}
-      >
-        <div className="cam-admin-section-body">
-          <div className="cam-admin-filters" role="group" aria-label={t("adminEquipePage.filtersAriaLabel")}>
-            <div className="cam-field">
-              <label className="cam-admin-label" htmlFor="filter-period">{t("adminEquipePage.periodLabel")}</label>
-              <select
-                id="filter-period"
-                className="cam-select"
-                value={period}
-                onChange={(e) => setPeriod(e.target.value as ActorSummaryPeriod)}
-              >
-                {ACTOR_SUMMARY_PERIODS.map((p) => (
-                  <option key={p} value={p}>{t(`adminEquipePage.period.${p}`)}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* A regional admin's scope is fixed server-side, so the region
-                is shown but cannot be changed. */}
+        toolbar={
+          <div className="cam-filter-bar" role="group" aria-label={t("adminEquipePage.filtersAriaLabel")}>
+            <AdminFilterPill
+              label={t("adminEquipePage.periodLabel")}
+              value={period === DEFAULT_PERIOD ? "" : period}
+              allLabel={t(`adminEquipePage.period.${DEFAULT_PERIOD}`)}
+              clearLabel={t("adminDossiersPage.removeFilterChip", { label: t("adminEquipePage.periodLabel") })}
+              onChange={(value) => setFilters({ periode: value || null })}
+              options={ACTOR_SUMMARY_PERIODS.filter((p) => p !== DEFAULT_PERIOD).map((p) => ({ value: p, label: t(`adminEquipePage.period.${p}`) }))}
+            />
+            <AdminFilterPill
+              label={t("adminEquipePage.roleLabel")}
+              value={roleFilter}
+              allLabel={t("adminEquipePage.allTerritorialRoles")}
+              clearLabel={t("adminDossiersPage.removeFilterChip", { label: t("adminEquipePage.roleLabel") })}
+              onChange={(value) => setFilters({ role: value || null })}
+              options={MONITORED_ROLES.map((r) => ({ value: r.value, label: t(`adminEquipePage.roleOption.${r.value}`) }))}
+            />
+            {/* A regional admin's scope is fixed server-side: it is shown
+                locked instead of a region filter they cannot use. */}
+            {isRegional ? <AdminScopePill /> : (
+              <AdminFilterPill
+                label={t("adminEquipePage.regionLabel")}
+                value={regionFilter}
+                allLabel={t("adminEquipePage.allRegions")}
+                clearLabel={t("adminDossiersPage.removeFilterChip", { label: t("adminEquipePage.regionLabel") })}
+                onChange={(value) => setFilters({ region: value || null })}
+                options={territoryRegions.map((value) => ({ value, label: value }))}
+              />
+            )}
+            {(period !== DEFAULT_PERIOD || roleFilter || (!isRegional && regionFilter)) && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setFilters({ periode: null, role: null, region: null })}>
+                {t("adminDossiersPage.clearFilters")}
+              </Button>
+            )}
           </div>
-        </div>
-
-        <div className="cam-table-wrapper">
-          <table className="cam-table">
+        }
+      >
+        <div className="cam-equipe-table-scroll" role="region" tabIndex={0} aria-labelledby="equipe-roster-title">
+          <table className="cam-table cam-equipe-table">
             <thead>
               <tr>
                 <th scope="col">{t("adminEquipePage.column.actor")}</th>
-                <FilterTableHead label={t("adminEquipePage.roleLabel")} filterLabel={t("adminEquipePage.roleLabel")} active={!!roleFilter}>
-                  {(close) => <FilterTableOptions label={t("adminEquipePage.roleLabel")} searchPlaceholder={t("common.filterOptionSearch", { label: t("adminEquipePage.roleLabel").toLocaleLowerCase() })} emptyLabel={t("common.filterOptionEmpty")} value={roleFilter} options={[{ value: "", label: t("adminEquipePage.allTerritorialRoles") }, ...MONITORED_ROLES.map((r) => ({ value: r.value, label: t(`adminEquipePage.roleOption.${r.value}`) }))]} onChange={setRoleFilter} onSelect={close} />}
-                </FilterTableHead>
-                <FilterTableHead label={t("adminEquipePage.regionLabel")} filterLabel={t("adminEquipePage.regionLabel")} active={!!regionFilter || isRegional}>
-                  {(close) => <FilterTableOptions label={t("adminEquipePage.regionLabel")} searchPlaceholder={t("common.filterOptionSearch", { label: t("adminEquipePage.regionLabel").toLocaleLowerCase() })} emptyLabel={t("common.filterOptionEmpty")} value={isRegional ? user?.region ?? "" : regionFilter} options={isRegional ? [{ value: user?.region ?? "", label: user?.region ?? t("adminEquipePage.myRegion") }] : [{ value: "", label: t("adminEquipePage.allRegions") }, ...territoryRegions.map((value) => ({ value, label: value }))]} onChange={setRegionFilter} onSelect={close} />}
-                </FilterTableHead>
-                <th scope="col">{t("adminEquipePage.departmentLabel")}</th>
+                <th scope="col">{t("adminEquipePage.column.territory")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.registrations")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.conversions")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.coverage")}</th>
@@ -245,7 +271,7 @@ function EquipeContent() {
               {/* Loading, failure and "no one matches these filters" stay
                   three distinct renders. */}
               <DataStateRow
-                colSpan={12}
+                colSpan={10}
                 state={summaryState}
                 resource={t("adminNav.routes.equipe")}
                 error={summaryQuery.error}
@@ -374,53 +400,56 @@ function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =>
   const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
   const t = useTranslations("adminEquipePage");
   const locale = asUiLocale(useLocale());
-  const roleLabel =
-    actor.role === "REGIONAL_ADMIN"
-      ? t("roleRegionalAdmin")
-      : actor.role === "DIVISIONAL_ADMIN"
-        ? t("roleDepartmentalAdmin")
-        : actor.role;
+  const roleLabel = MONITORED_ROLES.some((r) => r.value === actor.role)
+    ? t(`roleOption.${actor.role}`)
+    : t("otherRole");
 
   const { decisions } = actor.processing;
 
   return (
     <tr>
       <td>
-        <span className="cam-admin-strong">{actor.displayName}</span>
-        <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "nowrap" }}>
-          {t("lastSystemAction")}{" "}
-          {actor.lastActionAt ? stamp(actor.lastActionAt, true, locale) : t("noActionRecorded")}
+        <span className="cam-equipe-cell">
+          <span className="cam-admin-strong">{actor.displayName}</span>
+          <span className="cam-admin-meta">{roleLabel}</span>
+          <span className="cam-admin-meta">
+            {t("lastSystemAction")}{" "}
+            {actor.lastActionAt ? stamp(actor.lastActionAt, true, locale) : t("noActionRecorded")}
+          </span>
         </span>
       </td>
-      <td>{roleLabel}</td>
-      <td>{actor.region ?? t("unassigned")}</td>
-      <td>{actor.department ?? t("unassigned")}</td>
+      <td>
+        <span className="cam-equipe-cell">
+          <span>{actor.region ?? t("unassigned")}</span>
+          {actor.role === "DIVISIONAL_ADMIN" && <span className="cam-admin-meta">{actor.department ?? t("unassigned")}</span>}
+        </span>
+      </td>
       <td className="is-num">
         {count(actor.field.registrationsMade, locale)}
-        <span className="cam-admin-meta" style={{ display: "block", whiteSpace: "nowrap" }}>
-          {t("lastRegistrationShort", { date: stamp(actor.field.lastRegistrationAt, true, locale) })}
+        <span className="cam-admin-meta cam-equipe-sub">
+          {t("lastRegistrationShort", { date: stamp(actor.field.lastRegistrationAt, false, locale) })}
         </span>
       </td>
       <td className="is-num">
         {count(actor.field.conversions, locale)}
         {actor.field.conversionRate != null && (
-          <span className="cam-admin-meta" style={{ display: "block" }}>{ratioLabel(actor.field.conversionRate, locale)}</span>
+          <span className="cam-admin-meta cam-equipe-sub">{ratioLabel(actor.field.conversionRate, locale)}</span>
         )}
       </td>
-      <td className="is-num" style={{ whiteSpace: "nowrap" }}>
+      <td className="is-num cam-equipe-nowrap">
         {count(actor.coverage.current, locale)} / {count(actor.coverage.target, locale)}
-        <span className="cam-admin-meta" style={{ display: "block" }}>{ratioLabel(actor.coverage.percent, locale)}</span>
+        <span className="cam-admin-meta cam-equipe-sub">{ratioLabel(actor.coverage.percent, locale)}</span>
       </td>
       <td className="is-num">{count(actor.processing.backlog, locale)}</td>
       <td className="is-num">
         {actor.processing.stale > 0 ? (
-          <span className="cam-badge cam-badge-error">{count(actor.processing.stale, locale)}</span>
+          <span className="cam-badge cam-badge-info" title={t("staleTitle")}>{count(actor.processing.stale, locale)}</span>
         ) : (
           count(actor.processing.stale, locale)
         )}
       </td>
       <td>
-        <span style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-1)" }}>
+        <span className="cam-equipe-decisions">
           <span className="cam-badge cam-badge-success" title={t("approvedTitle")}>
             {t("approvedShort", { count: decisions.approved })}
           </span>
@@ -432,13 +461,13 @@ function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =>
           </span>
         </span>
       </td>
-      <td className="is-num" style={{ whiteSpace: "nowrap" }}>
+      <td className="is-num cam-equipe-nowrap">
         {actor.processing.medianDaysToDecision != null
           ? t("medianDays", { days: actor.processing.medianDaysToDecision })
           : NOT_PROVIDED}
       </td>
       <td className="text-right">
-        <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--cam-space-1)" }}>
+        <div className="cam-equipe-actions">
           <button
             type="button"
             className="cam-button cam-button-secondary cam-button-sm"
@@ -448,11 +477,11 @@ function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =>
             {t("nudgeButton")}
           </button>
           {canReadAudit && (
-            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button" style={{ whiteSpace: "nowrap" }}>
+            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button">
               {t("viewLogLink")}
             </Link>
           )}
-          <Link href={`/admin/inscriptions?createdBy=${encodeURIComponent(actor.userId)}`} className="cam-text-button" style={{ whiteSpace: "nowrap" }}>
+          <Link href={`/admin/inscriptions?createdBy=${encodeURIComponent(actor.userId)}`} className="cam-text-button">
             {t("viewRegistrationsLink")}
           </Link>
         </div>

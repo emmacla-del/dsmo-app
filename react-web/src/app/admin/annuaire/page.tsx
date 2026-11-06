@@ -9,7 +9,6 @@ import { CompaniesDirectory } from "@/components/admin/CompaniesDirectory";
 import { UsersDirectory } from "@/components/admin/UsersDirectory";
 import { USER_ADMIN_ROLES } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import { DataState } from "@/components/admin/DataState";
 import { hrefWith } from "@/lib/admin-url";
@@ -25,7 +24,6 @@ function AnnuaireHeader({ title }: { title: string }) {
     <AdminPageHeader
       breadcrumb={[{ label: t("adminNav.hubs.administration") }, { label: title }]}
       title={title}
-      actions={<AdminHeaderActions />}
     />
   );
 }

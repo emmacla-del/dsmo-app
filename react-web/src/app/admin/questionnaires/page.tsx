@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Eye, FileText } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
@@ -11,7 +12,6 @@ import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-direct
 import { asUiLocale } from "@/lib/register-i18n";
 import { localized } from "@/lib/onefop-schema";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
@@ -64,13 +64,14 @@ export default function QuestionnairesPage() {
     })),
   });
 
+  const previewEntity = selectedPreview ? schemaQuery.data?.entities[selectedPreview.schemaKey] : undefined;
+
   return (
     <div className="cam-admin-page">
       <AdminPageHeader
         breadcrumb={[{ label: tRoot("adminNav.hubs.collecte") }, { label: tRoot("adminNav.routes.questionnaires") }]}
         title={tRoot("adminNav.routes.questionnaires")}
         subtitle={t("subtitle")}
-        actions={<AdminHeaderActions />}
       />
 
       {schemaQuery.isError && (
@@ -87,39 +88,52 @@ export default function QuestionnairesPage() {
       <AdminTablePanel
         title={t("registerTitle")}
         headingId="q-register-title"
+        description={t("registerDescription")}
         meta={schemaQuery.data ? t("activeSchema", {
-                version: schemaQuery.data.schemaVersion,
-                sections: schemaQuery.data.astTotals.sections,
-                questions: schemaQuery.data.astTotals.questions,
-              }) : undefined}
+          version: schemaQuery.data.schemaVersion,
+          sections: schemaQuery.data.astTotals.sections,
+          questions: schemaQuery.data.astTotals.questions,
+        }) : undefined}
       >
-        <Table className="cam-admin-data-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">{t("questionnaireColumn")}</TableHead>
-              <TableHead scope="col" className="text-right">{t("sectionsColumn")}</TableHead>
-              <TableHead scope="col" className="text-right" title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}>
+        <div className="cam-questionnaire-table-scroll" role="region" tabIndex={0} aria-labelledby="q-register-title">
+          <Table className="cam-admin-data-table cam-questionnaire-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">{t("questionnaireColumn")}</TableHead>
+                <TableHead scope="col" className="text-right">{t("sectionsColumn")}</TableHead>
+                <TableHead scope="col" className="text-right">{t("fieldsColumn")}</TableHead>
+                <TableHead scope="col" className="text-right" title={canReadSubmissions ? t("inYourTerritory") : t("notForYourRole")}>
                   {t("totalDeclarations")}
-              </TableHead>
-              <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+                </TableHead>
+                <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {QUESTIONNAIRES.map((q, i) => {
                 const entity = schemaQuery.data?.entities[q.schemaKey];
+                const fields = entity?.sections.reduce((sum, section) => sum + section.fields.length, 0);
                 const totalQuery = totals[i];
                 // A count still loading shows the neutral marker, never "…" (G10).
                 const totalLoading = canReadSubmissions && totalQuery.isLoading;
                 const total = !canReadSubmissions || totalQuery.isError || !totalQuery.data
                   ? NOT_PROVIDED
                   : count(totalQuery.data.total, locale);
+                const schemaFigure = (value: number | undefined) => (value != null
+                  ? count(value, locale)
+                  : schemaQuery.isLoading ? NOT_PROVIDED : metricUnavailable(locale));
                 return (
-                <TableRow key={q.formType}>
-                    <TableCell className="font-medium">{typeLabel(q.formType)}</TableCell>
+                  <TableRow key={q.formType}>
+                    <TableCell>
+                      <div className="cam-questionnaire-name">
+                        <span className="cam-questionnaire-icon" aria-hidden="true"><FileText size={16} /></span>
+                        <span className="cam-admin-strong">{typeLabel(q.formType)}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right tabular-nums" aria-busy={schemaQuery.isLoading || undefined}>
-                      {entity
-                        ? count(entity.sectionCount, locale)
-                        : schemaQuery.isLoading ? NOT_PROVIDED : metricUnavailable(locale)}
+                      {schemaFigure(entity?.sectionCount)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums" aria-busy={schemaQuery.isLoading || undefined}>
+                      {schemaFigure(fields)}
                     </TableCell>
                     <TableCell
                       className="text-right tabular-nums"
@@ -128,37 +142,40 @@ export default function QuestionnairesPage() {
                     >
                       {total}
                     </TableCell>
-                    <TableCell className="text-right" style={{ whiteSpace: "nowrap" }}>
-                      <div style={{ display: "inline-flex", gap: "var(--cam-space-2)", alignItems: "center" }}>
-                        {canReadSubmissions ? (
-                          <Link
-                            href={`/admin/dossiers?formType=${q.formType}`}
-                            className="cam-button cam-button-secondary cam-button-sm"
-                          >
-                            {t("viewFiles")}
-                          </Link>
-                        ) : (
-                          <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled>
-                            {t("viewFiles")}
-                          </button>
-                        )}
+                    <TableCell className="text-right">
+                      <div className="cam-questionnaire-actions">
                         <button
                           type="button"
                           className="cam-button cam-button-secondary cam-button-sm"
                           onClick={() => setSelectedPreview(q)}
+                          aria-label={t("previewOf", { type: typeLabel(q.formType) })}
                         >
+                          <Eye size={15} aria-hidden="true" />
                           {t("preview")}
                         </button>
+                        {canReadSubmissions ? (
+                          <Link
+                            href={`/admin/dossiers?formType=${q.formType}`}
+                            className="cam-button cam-button-secondary cam-button-sm"
+                            aria-label={t("viewFilesOf", { type: typeLabel(q.formType) })}
+                          >
+                            {t("viewFiles")}
+                          </Link>
+                        ) : (
+                          <button type="button" className="cam-button cam-button-secondary cam-button-sm" disabled title={t("notForYourRole")}>
+                            {t("viewFiles")}
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                 );
               })}
-          </TableBody>
-        </Table>
+            </TableBody>
+          </Table>
+        </div>
       </AdminTablePanel>
 
-      {/* Preview Modal */}
       {selectedPreview && (
         <AdminDialog
           open={!!selectedPreview}
@@ -167,12 +184,8 @@ export default function QuestionnairesPage() {
           title={t("previewTitle", { type: typeLabel(selectedPreview.formType) })}
           wide
           footer={
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--cam-space-3)" }}>
-              <button
-                type="button"
-                className="cam-button cam-button-secondary"
-                onClick={() => setSelectedPreview(null)}
-              >
+            <>
+              <button type="button" className="cam-button cam-button-secondary" onClick={() => setSelectedPreview(null)}>
                 {t("close")}
               </button>
               {canReadSubmissions && (
@@ -184,55 +197,38 @@ export default function QuestionnairesPage() {
                   {t("openFiles")}
                 </Link>
               )}
-            </div>
+            </>
           }
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-            <div>
-              <div className="cam-admin-strong">
-                {t("nationalQuestionnaire", { type: typeLabel(selectedPreview.formType) })}
-              </div>
+          <div className="cam-questionnaire-preview">
+            <div className="cam-questionnaire-preview-head">
+              <div className="cam-admin-strong">{t("nationalQuestionnaire", { type: typeLabel(selectedPreview.formType) })}</div>
               <div className="cam-admin-meta">{t("exportFormatLine")}</div>
             </div>
 
-            <div>
-              <div className="cam-admin-label" style={{ marginBottom: "var(--cam-space-2)" }}>
-                {t("surveySections")} {schemaQuery.data?.entities[selectedPreview.schemaKey] ? `(${schemaQuery.data.entities[selectedPreview.schemaKey].sections.length})` : ""}
-              </div>
-              {schemaQuery.data?.entities[selectedPreview.schemaKey]?.sections &&
-              schemaQuery.data.entities[selectedPreview.schemaKey].sections.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
-                  {schemaQuery.data.entities[selectedPreview.schemaKey].sections.map((sec) => (
-                    <div
-                      key={sec.id}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}
-                    >
-                      <div>
-                        {/* The section title is AST data, rendered as the schema
-                            carries it in the console locale. */}
-                        {/* The schema identifier stays reachable as a tooltip,
-                            not as on-screen text. */}
-                        <div className="cam-admin-strong" title={sec.id}>
-                          {(sec.title ? localized(sec.title, locale) : "") || sec.id}
-                        </div>
-                        {sec.order !== null && (
-                          <div className="cam-admin-meta">{t("sectionOrder", { order: sec.order })}</div>
-                        )}
-                      </div>
-                      <span className="cam-admin-meta cam-admin-strong" style={{ whiteSpace: "nowrap" }}>
-                        {t("fieldCount", { count: sec.fields.length })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="cam-admin-meta" style={{ margin: 0 }}>
-                  {schemaQuery.isLoading
-                    ? t("loadingStructure")
-                    : t("noStructure")}
-                </p>
-              )}
-            </div>
+            <h3 className="cam-admin-label cam-questionnaire-preview-title">
+              {t("surveySections")} {previewEntity ? `(${previewEntity.sections.length})` : ""}
+            </h3>
+            {previewEntity?.sections && previewEntity.sections.length > 0 ? (
+              <ol className="cam-questionnaire-sections">
+                {previewEntity.sections.map((sec, index) => (
+                  <li key={sec.id}>
+                    <span className="cam-questionnaire-section-number" aria-hidden="true">{sec.order ?? index + 1}</span>
+                    {/* The section title is AST data, rendered as the schema carries
+                        it in the console locale; the identifier stays a tooltip. */}
+                    <span className="cam-questionnaire-section-title" title={sec.id}>
+                      {(sec.title ? localized(sec.title, locale) : "") || sec.id}
+                      {sec.order !== null && <span className="cam-sr-only"> — {t("sectionOrder", { order: sec.order })}</span>}
+                    </span>
+                    <span className="cam-questionnaire-section-count">{t("fieldCount", { count: sec.fields.length })}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="cam-admin-meta cam-questionnaire-preview-empty">
+                {schemaQuery.isLoading ? t("loadingStructure") : t("noStructure")}
+              </p>
+            )}
           </div>
         </AdminDialog>
       )}

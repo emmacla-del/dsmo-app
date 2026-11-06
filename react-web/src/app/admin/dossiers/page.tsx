@@ -6,8 +6,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Download, MoreHorizontal, TriangleAlert } from "lucide-react";
-import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
+import { Download, MoreHorizontal, Search, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getAdminListFacets, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -23,6 +23,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
+import { AdminFilterPill, AdminLockedFilterPill } from "@/components/admin/AdminFilterPill";
+import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedViews";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
@@ -623,28 +625,32 @@ function DossiersContent({
 
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
+  // The list's filters, shared by the list request and the pill counts (facets).
+  const listFilterParams = {
+    status: vue === "completed" || !statusFilter ? undefined : statusFilter,
+    statuses: vue === "completed"
+      ? (statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED")
+      : !statusFilter ? "PENDING_REVIEW,CORRECTION_REQUESTED" : undefined,
+    view: vue === "completed" ? "completed" as const : "queue" as const,
+    includeArchived,
+    formType: typeFilter || undefined,
+    period: periodFilter || undefined,
+    region: regionFilter || undefined,
+    department: departmentFilter || undefined,
+    campaignId: listCampaignId,
+    quarterCode: listQuarterCode,
+    late: lateFilter || undefined,
+    overdue: vue === "completed" ? undefined : overdueFilter || undefined,
+    quality: qualityParam,
+    assignment: assignmentParam,
+    search: search || undefined,
+    companyId: companyIdFilter || undefined,
+  };
   const questionnairesQuery = useQuery({
     queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignId: listCampaignId ?? "", quarterCode: listQuarterCode ?? "", quality: qualityParam ?? "", assignment: assignmentParam ?? "", lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: async () => {
       const result = await listAdminQuestionnaires({
-        status: vue === "completed" || !statusFilter ? undefined : statusFilter,
-        statuses: vue === "completed"
-          ? (statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED")
-          : !statusFilter ? "PENDING_REVIEW,CORRECTION_REQUESTED" : undefined,
-        view: vue === "completed" ? "completed" : "queue",
-        includeArchived,
-        formType: typeFilter || undefined,
-        period: periodFilter || undefined,
-        region: regionFilter || undefined,
-        department: departmentFilter || undefined,
-        campaignId: listCampaignId,
-        quarterCode: listQuarterCode,
-        late: lateFilter || undefined,
-        overdue: vue === "completed" ? undefined : overdueFilter || undefined,
-        quality: qualityParam,
-        assignment: assignmentParam,
-        search: search || undefined,
-        companyId: companyIdFilter || undefined,
+        ...listFilterParams,
         sort: sortOrder || undefined,
         limit: PAGE_SIZE,
         offset,
@@ -658,6 +664,15 @@ function DossiersContent({
     placeholderData: keepPreviousData,
     refetchInterval: vue === "submissions" ? 60_000 : false,
   });
+  // Counts next to each pill option; same filters as the list.
+  const facetsQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "facets", listFilterParams],
+    queryFn: () => getAdminListFacets(listFilterParams),
+    enabled: vue === "submissions" && territoryFiltersValid && !statusRedirectPending && !queueViewPending,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+  const facets = facetsQuery.data;
 
   const archiveMutation = useMutation({
     mutationFn: (target: { item: DossierItem; reason: string }) => archiveDossier(target.item.id, target.reason),
@@ -1003,9 +1018,21 @@ function DossiersContent({
     activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${resolvedCompanyName}`, remove: () => setUrlFilter({ companyId: null }) });
   }
   if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
-  const filterPanelCount = activeFilterChips.filter(({ key }) =>
-    !["search", "status", "overdue"].includes(key) && !(key === "assignment" && assignmentFilter === "unassigned"),
+  // Filter bar (layout v2): search, up to four single-choice pills, and one
+  // « Filtres » panel holding every filter. A filter shown as a pill is not
+  // repeated as a chip; the panel button counts only what the pills don't show.
+  const territoryPill: "region" | "department" | null =
+    user?.role === "DIVISIONAL_ADMIN" ? null : user?.role === "REGIONAL_ADMIN" ? "department" : "region";
+  const scopedDepartments = user?.role === "REGIONAL_ADMIN" && user.region && territoryStructure.isSuccess
+    ? (territoryStructure.data.find((region) => region.name === user.region)?.departments.map((department) => department.name) ?? [])
+    : territoryDepartments;
+  const showAssignmentPill = !activeQueueView;
+  const pillFilterKeys = ["search", "quality", "formType", ...(territoryPill ? [territoryPill] : []), ...(showAssignmentPill ? ["assignment"] : [])];
+  const panelOnlyChips = activeFilterChips.filter(({ key }) => !pillFilterKeys.includes(key));
+  const filterPanelCount = panelOnlyChips.filter(({ key }) =>
+    !["status", "overdue"].includes(key) && !(key === "assignment" && assignmentFilter === "unassigned"),
   ).length;
+  const hasAnyBarFilter = activeFilterChips.some(({ key }) => key !== "status" && key !== "overdue");
   const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, assignment: null, quality: null, companyId: null, campaignId: null, includeArchived: "true", sort: null, search: null, q: null });
   const closeFilterPanel = useCallback(() => {
     setFiltersOpen(false);
@@ -1392,25 +1419,6 @@ function DossiersContent({
       subtitle={t("pageSubtitle")}
       actions={(
         <div className="cam-dossier-header-actions">
-          {vue === "submissions" && <div className="cam-dossier-queue-tools ml-auto">
-            <div className="cam-dossier-queue-search-field">
-              <Label className="cam-sr-only" htmlFor="dossiers-search-submissions">{t("freeSearchLabel")}</Label>
-              <Input id="dossiers-search-submissions" type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
-            </div>
-            <Button
-              ref={filterTriggerRef}
-              type="button"
-              variant="outline"
-              className="cam-dossier-filter-trigger"
-              aria-expanded={filterPanelOpen}
-              aria-controls="cam-dossier-filter-panel"
-              onClick={toggleFilterPanel}
-            >
-              {t("filtersButton")}
-              {filterPanelCount > 0 && <span className="cam-dossier-filter-count">{filterPanelCount}</span>}
-              <ChevronDown aria-hidden="true" />
-            </Button>
-          </div>}
           {vue !== "submissions" && <label className="cam-dossier-campaign">
             <span>{t("campaignLabel")}</span>
             <select
@@ -1710,6 +1718,82 @@ function DossiersContent({
               <button type="button" className="cam-dossier-quick-filter" aria-pressed={overdueFilter} onClick={() => setOverdue(!overdueFilter)}>{t("overdueQuickFilter")}</button>
             </div>
           </div>
+          <div className="cam-filter-bar" role="group" aria-label={t("filtersButton")}>
+            <div className="cam-filter-bar-search">
+              <Label className="cam-sr-only" htmlFor="dossiers-search-submissions">{t("freeSearchLabel")}</Label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+              <Input id="dossiers-search-submissions" type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
+            </div>
+            {user?.role === "REGIONAL_ADMIN" && <AdminLockedFilterPill label={scopeLabel} title={scopeLabel} />}
+            {user?.role === "DIVISIONAL_ADMIN" && <AdminLockedFilterPill label={scopeLabel} title={scopeLabel} />}
+            <AdminFilterPill
+              label={t("controlsColumn")}
+              value={qualityFilter}
+              allLabel={t("statusAll")}
+              clearLabel={t("removeFilterChip", { label: t("controlsColumn") })}
+              onChange={setQuality}
+              options={[
+                { value: "blocking", label: t("qualityBlocking"), count: facets?.quality.blocking },
+                { value: "warnings", label: t("qualityWarnings"), count: facets?.quality.warnings },
+                { value: "clean", label: t("qualityClean"), count: facets?.quality.clean },
+              ]}
+            />
+            {territoryPill === "region" && <AdminFilterPill
+              label={t("regionColumn")}
+              value={regionFilter}
+              allLabel={t("allRegions")}
+              clearLabel={t("removeFilterChip", { label: t("regionColumn") })}
+              onChange={setRegion}
+              options={territoryRegions.map((value) => ({ value, label: value, count: facets ? facets.region[value] ?? 0 : undefined }))}
+            />}
+            {territoryPill === "department" && <AdminFilterPill
+              label={t("departmentLabel")}
+              value={departmentFilter}
+              allLabel={t("allDepartments")}
+              clearLabel={t("removeFilterChip", { label: t("departmentLabel") })}
+              onChange={setDepartment}
+              options={scopedDepartments.map((value) => ({ value, label: value, count: facets ? facets.department[value] ?? 0 : undefined }))}
+            />}
+            <AdminFilterPill
+              label={typeColumnLabel}
+              value={typeFilter}
+              allLabel={t("allEntityTypes")}
+              clearLabel={t("removeFilterChip", { label: typeColumnLabel })}
+              onChange={setType}
+              options={FORM_TYPES.map((value) => ({ value, label: typeLabel(value), count: facets ? facets.formType[value] ?? 0 : undefined }))}
+            />
+            {showAssignmentPill && <AdminFilterPill
+              label={t("assignedLabel")}
+              value={assignmentFilter}
+              allLabel={t("assignedAll")}
+              clearLabel={t("removeFilterChip", { label: t("assignedLabel") })}
+              onChange={setAssignment}
+              options={[
+                { value: "me", label: t("assignedToMeOnly"), count: facets?.assignment.me },
+                { value: "unassigned", label: t("unassigned"), count: facets?.assignment.unassigned },
+                { value: "other", label: t("assignedOther"), count: facets?.assignment.other },
+              ]}
+            />}
+            {user?.id && <AdminSavedViews
+              storageKey={`camleap.savedViews.dossiers.${user.id}`}
+              currentQuery={savedViewQuery(searchParams.toString())}
+              onApply={(query) => router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false })}
+            />}
+            <button
+              ref={filterTriggerRef}
+              type="button"
+              className={`cam-filter-pill cam-filter-bar-more${filterPanelCount > 0 ? " is-active" : ""}`}
+              aria-expanded={filterPanelOpen}
+              aria-controls="cam-dossier-filter-panel"
+              onClick={toggleFilterPanel}
+            >
+              <SlidersHorizontal aria-hidden="true" className="size-4" />
+              {t("filtersButton")}
+              {filterPanelCount > 0 && <span className="cam-dossier-filter-count">{filterPanelCount}</span>}
+            </button>
+            {hasAnyBarFilter && <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("clearFilters")}</Button>}
+          </div>
+          <AdminActiveFilterChips filters={panelOnlyChips.filter(({ key }) => key !== "status" && key !== "overdue").map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
         </CardContent>
         <CardContent className={`overflow-x-auto pt-5${vue === "submissions" ? ` cam-dossier-submissions-table cam-dossier-review-queue-table${readOnly ? " cam-dossier-submissions-table--read-only cam-dossier-review-queue-table--read-only" : ""}` : isCompletedView ? " cam-dossier-completed-table" : ""}`}>
           <Table>

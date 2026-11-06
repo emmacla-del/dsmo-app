@@ -1,12 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdminDialog } from "@/components/admin/AdminDialog";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { DataState } from "@/components/admin/DataState";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
@@ -134,7 +133,6 @@ function CiblesContent() {
         breadcrumb={[{ label: t("adminNav.hubs.collecte") }, { label: t("adminNav.routes.cibles") }]}
         title={t("adminNav.routes.cibles")}
         subtitle={t("adminCiblesPage.subtitle")}
-        actions={<AdminHeaderActions />}
       />
 
       {!canWrite && (
@@ -197,11 +195,14 @@ function TargetsPanel({
   canWrite,
   showCentral,
   campaignId,
+  picker,
 }: {
   field: TargetField;
   campaignId: string;
   canWrite: boolean;
   showCentral: boolean;
+  /** The campaign picker, shown in the panel's toolbar. */
+  picker: ReactNode;
 }) {
   const t = useTranslations();
   const locale = asUiLocale(useLocale());
@@ -309,17 +310,21 @@ function TargetsPanel({
     setConfirmOpen(false);
   }
 
-  if (query.isLoading) {
-    return <DataState state="loading" resource={t("adminNav.routes.cibles")} title={t("common.loading")} />;
-  }
-  if (query.isError) {
+  if (query.isLoading || query.isError) {
     return (
-      <DataState
-        state="error"
-        resource={t("adminNav.routes.cibles")}
-        title={formatApiError(query.error, locale)}
-        onRetry={() => query.refetch()}
-      />
+      <AdminTablePanel title={t("adminCiblesPage.viewQuotas")} headingId="campaign-targets-table-heading" toolbar={picker}>
+        {query.isLoading ? (
+          <DataState dense state="loading" resource={t("adminNav.routes.cibles")} title={t("common.loading")} />
+        ) : (
+          <DataState
+            dense
+            state="error"
+            resource={t("adminNav.routes.cibles")}
+            title={formatApiError(query.error, locale)}
+            onRetry={() => query.refetch()}
+          />
+        )}
+      </AdminTablePanel>
     );
   }
 
@@ -341,13 +346,12 @@ function TargetsPanel({
         <div className="cam-admin-notice cam-admin-notice--error" role="alert">{saveError}</div>
       )}
 
-      {query.data && (
-        <p className="cam-admin-lede">
-          {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(t, query.data.campaign.status)}
-        </p>
-      )}
-
-      <AdminTablePanel title={t("adminCiblesPage.viewQuotas")} headingId="campaign-targets-table-heading">
+      <AdminTablePanel
+        title={t("adminCiblesPage.viewQuotas")}
+        headingId="campaign-targets-table-heading"
+        toolbar={picker}
+        actions={canWrite && unsavedChanges ? <span className="cam-target-unsaved" role="status">{t("adminCiblesPage.unsavedChanges")}</span> : undefined}
+      >
       <TargetGrid
         regions={regions}
         drafts={drafts}
@@ -475,48 +479,45 @@ function QuotasPanel({
 
   return (
     <>
-      {canList && (
-        <label className="cam-target-year">
-          {t("onefopCampaignLabel")}
-          <select
-            className="cam-select"
-            value={campaignId}
-            onChange={(event) => onCampagneChange(event.target.value)}
-          >
-            {collection.length > 0 && (
-              <optgroup label={t("collectionCampaignsGroup")}>
-                {collection.map((campaign) => (
-                  <option key={campaign.id} value={campaign.id}>
-                    {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({campaignStatusLabel(tRoot, campaign.status)})
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {registration.length > 0 && (
-              <optgroup label={t("registrationCampaignsGroup")}>
-                {registration.map((campaign) => (
-                  <option key={campaign.id} value={campaign.id}>
-                    {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({t("registrationStatus")})
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </label>
-      )}
-      {selectedCampaign && (
-        <p className="cam-admin-meta" style={{ margin: 0 }}>
-          {isRegistrationCampaign(selectedCampaign)
-            ? <>{t("registrationTargetsNoteBefore")} <Link href={coverageHref(null)}>{t("registrationTargetsNoteLink")}</Link> {t("registrationTargetsNoteAfter")}</>
-            : t("declarationQuotasNote")}
-        </p>
-      )}
       {campaignId && (
         <TargetsPanel
           field="submissionTarget"
           campaignId={campaignId}
           canWrite={canWrite}
           showCentral={showCentral}
+          picker={
+            <CampaignPicker
+              id="quotas-campaign"
+              label={t("onefopCampaignLabel")}
+              value={campaignId}
+              onChange={canList ? onCampagneChange : undefined}
+              campaign={selectedCampaign}
+              note={selectedCampaign
+                ? isRegistrationCampaign(selectedCampaign)
+                  ? <>{t("registrationTargetsNoteBefore")} <Link href={coverageHref(null)}>{t("registrationTargetsNoteLink")}</Link> {t("registrationTargetsNoteAfter")}</>
+                  : t("declarationQuotasNote")
+                : undefined}
+            >
+              {collection.length > 0 && (
+                <optgroup label={t("collectionCampaignsGroup")}>
+                  {collection.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({campaignStatusLabel(tRoot, campaign.status)})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {registration.length > 0 && (
+                <optgroup label={t("registrationCampaignsGroup")}>
+                  {registration.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({t("registrationStatus")})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </CampaignPicker>
+          }
         />
       )}
     </>
@@ -603,28 +604,31 @@ function ReturnsPanel({
 
   return (
     <>
-      {(canList || onefop.length > 1) && (
-        <label className="cam-target-year">
-          {t("onefopCollectionCampaignLabel")}
-          <select
-            className="cam-select"
-            value={campaignId}
-            onChange={(event) => onCampagneChange(event.target.value)}
-          >
-            {onefop.map((campaign) => (
-              <option key={campaign.id} value={campaign.id}>
-                {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({campaignStatusLabel(tRoot, campaign.status)})
-              </option>
-            ))}
-          </select>
-        </label>
+      {campaignId && (
+        <ReturnsContent
+          campaignId={campaignId}
+          picker={
+            <CampaignPicker
+              id="returns-campaign"
+              label={t("onefopCollectionCampaignLabel")}
+              value={campaignId}
+              onChange={canList || onefop.length > 1 ? onCampagneChange : undefined}
+              campaign={onefop.find((campaign) => campaign.id === campaignId)}
+            >
+              {onefop.map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {referencePeriodLabel(campaign.code, locale)} — {formatCampaignDisplayName(campaign.name)} ({campaignStatusLabel(tRoot, campaign.status)})
+                </option>
+              ))}
+            </CampaignPicker>
+          }
+        />
       )}
-      {campaignId && <ReturnsContent campaignId={campaignId} />}
     </>
   );
 }
 
-function ReturnsContent({ campaignId }: { campaignId: string }) {
+function ReturnsContent({ campaignId, picker }: { campaignId: string; picker: ReactNode }) {
   const t = useTranslations("adminCiblesPage");
   const tRoot = useTranslations();
   const locale = asUiLocale(useLocale());
@@ -642,27 +646,19 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
     setExpanded(new Set(query.data.regions.map((region) => region.regionId)));
   }, [query.data]);
 
-  if (query.isLoading) {
-    return <DataState state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingReturns")} />;
-  }
-  if (query.isError) {
-    return (
-      <DataState
-        state="error"
-        resource={tRoot("adminNav.routes.cibles")}
-        title={formatApiError(query.error, locale)}
-        onRetry={() => query.refetch()}
-      />
-    );
-  }
-  if (!query.data) return null;
-
   return (
-    <>
-      <p className="cam-admin-lede">
-        {formatCampaignDisplayName(query.data.campaign.name)} — {referencePeriodLabel(query.data.campaign.code, locale)} — {campaignStatusLabel(tRoot, query.data.campaign.status)}
-      </p>
-      <AdminTablePanel title={t("viewReturns")} headingId="campaign-returns-table-heading">
+    <AdminTablePanel title={t("viewReturns")} headingId="campaign-returns-table-heading" toolbar={picker}>
+      {query.isLoading ? (
+        <DataState dense state="loading" resource={tRoot("adminNav.routes.cibles")} title={t("loadingReturns")} />
+      ) : query.isError ? (
+        <DataState
+          dense
+          state="error"
+          resource={tRoot("adminNav.routes.cibles")}
+          title={formatApiError(query.error, locale)}
+          onRetry={() => query.refetch()}
+        />
+      ) : query.data ? (
         <CampaignReturnsTable
           data={query.data}
           expanded={expanded}
@@ -675,8 +671,64 @@ function ReturnsContent({ campaignId }: { campaignId: string }) {
             })
           }
         />
-      </AdminTablePanel>
-    </>
+      ) : null}
+    </AdminTablePanel>
+  );
+}
+
+/**
+ * The campaign a quotas or returns table is about: a labelled select (when the
+ * reader may choose) and the campaign's period, status and kind. Sits in the
+ * table card's toolbar, above the figures it changes.
+ */
+function CampaignPicker({
+  id,
+  label,
+  value,
+  onChange,
+  campaign,
+  note,
+  children,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange?: (id: string) => void;
+  campaign?: Pick<Campaign, "id" | "name" | "code" | "status" | "purpose" | "collectionType">;
+  note?: ReactNode;
+  children: ReactNode;
+}) {
+  const t = useTranslations("adminCiblesPage");
+  const tRoot = useTranslations();
+  const locale = asUiLocale(useLocale());
+  const registration = campaign ? isRegistrationCampaign(campaign as Campaign) : false;
+  return (
+    <div className="cam-campaign-picker">
+      <div className="cam-campaign-picker-field">
+        <label className="cam-admin-label" htmlFor={onChange ? id : undefined} id={`${id}-label`}>{label}</label>
+        {onChange ? (
+          <select id={id} className="cam-admin-input" value={value} onChange={(event) => onChange(event.target.value)}>
+            {children}
+          </select>
+        ) : (
+          <span className="cam-admin-strong" aria-labelledby={`${id}-label`}>
+            {campaign ? formatCampaignDisplayName(campaign.name) : "—"}
+          </span>
+        )}
+      </div>
+      {campaign && (
+        <div className="cam-campaign-picker-summary">
+          <span className="cam-badge cam-badge-neutral">{referencePeriodLabel(campaign.code, locale)}</span>
+          <span className={`cam-badge ${registration ? "cam-badge-info" : "cam-badge-neutral"}`}>
+            {registration ? tRoot("adminCampagnesPage.purpose.REGISTRATION") : tRoot("adminCampagnesPage.purpose.COLLECTION")}
+          </span>
+          <span className={`cam-badge ${campaign.status === "ACTIVE" ? "cam-badge-success" : "cam-badge-neutral"}`}>
+            {registration ? t("registrationStatus") : campaignStatusLabel(tRoot, campaign.status)}
+          </span>
+        </div>
+      )}
+      {note && <p className="cam-campaign-picker-note">{note}</p>}
+    </div>
   );
 }
 

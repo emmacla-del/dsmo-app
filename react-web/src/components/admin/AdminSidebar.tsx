@@ -7,6 +7,8 @@ import { useTranslations } from "next-intl";
 import {
   Database,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -44,6 +46,19 @@ export interface AdminSidebarProps {
   /** Show the bell in the rail when the route has no institutional masthead. */
   showRailNotifications?: boolean;
   accountScope?: string;
+  /**
+   * From 1024px up: full labels (true) or the icon strip (false). In the
+   * strip, hovering or focusing a hub opens a flyout with its name and pages.
+   * Ignored by the drawer below 1024px, which always shows labels.
+   */
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
+}
+
+/** True when `pathname` is the sub-route's page or one of its children. */
+function isSubRouteActive(pathname: string, href: string): boolean {
+  const base = href.split("?")[0];
+  return pathname === base || pathname.startsWith(`${base}/`);
 }
 
 // ── Hub Icons ─────────────────────────────────────────────────────────────────────────
@@ -83,6 +98,8 @@ export function AdminSidebar({
   onLogout,
   showRailNotifications = true,
   accountScope,
+  expanded = false,
+  onToggleExpanded,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -92,6 +109,8 @@ export function AdminSidebar({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const accountTriggerRef = useRef<HTMLButtonElement>(null);
+  // A flyout closed with Escape stays closed until the pointer or focus leaves its hub.
+  const [dismissedFlyout, setDismissedFlyout] = useState<string | null>(null);
 
   // The signed-in account's profile, unless a role was passed explicitly.
   // Either way the hubs come from NAV_PROFILES, each href already pointing at
@@ -135,8 +154,11 @@ export function AdminSidebar({
     <aside id="cam-admin-rail" className="cam-admin-rail" aria-label={t("navAriaLabel")}>
       {/* ── Brand ── */}
       <div className="cam-admin-rail-brand">
-        <div className="cam-admin-rail-brand-name">CAMLEAP</div>
-        <div className="cam-admin-rail-brand-sub">{t("brandSubtitle")}</div>
+        <span className="cam-admin-rail-brand-mark" aria-hidden="true">C</span>
+        <div className="cam-admin-rail-brand-copy">
+          <div className="cam-admin-rail-brand-name">CAMLEAP</div>
+          <div className="cam-admin-rail-brand-sub">{t("brandSubtitle")}</div>
+        </div>
       </div>
 
       {/* ── Primary Navigation Hubs ── */}
@@ -145,27 +167,81 @@ export function AdminSidebar({
           const isActive = activeHub?.key === hub.key;
           const badgeCount = getBadgeCount(hub.badgeKey);
           const HubIcon = HUB_ICONS[hub.iconName];
+          const hubName = tNav(`hubs.${hub.key}`);
+          const pages = hub.subRoutes.filter((sub) => !sub.hidden);
 
           return (
-            <Link
+            <div
               key={hub.key}
-              href={hub.href}
-              className="cam-admin-rail-hub"
-              aria-current={isActive ? "page" : undefined}
+              className={`cam-admin-rail-item${dismissedFlyout === hub.key ? " is-flyout-dismissed" : ""}`}
+              onMouseLeave={() => setDismissedFlyout((current) => (current === hub.key ? null : current))}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setDismissedFlyout((current) => (current === hub.key ? null : current));
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                setDismissedFlyout(hub.key);
+                event.currentTarget.querySelector<HTMLElement>(".cam-admin-rail-hub")?.focus();
+              }}
             >
-              <span className="cam-admin-rail-hub-icon" aria-hidden="true">
-                <HubIcon size={18} />
-              </span>
+              <Link
+                href={hub.href}
+                className="cam-admin-rail-hub"
+                aria-current={isActive ? "page" : undefined}
+              >
+                <span className="cam-admin-rail-hub-icon" aria-hidden="true">
+                  <HubIcon size={18} />
+                </span>
 
-              <span className="cam-admin-rail-hub-label">{tNav(`hubs.${hub.key}`)}</span>
+                <span className="cam-admin-rail-hub-label">{hubName}</span>
 
-              {badgeCount > 0 && <Badge count={badgeCount} />}
-            </Link>
+                {badgeCount > 0 && <Badge count={badgeCount} />}
+              </Link>
+
+              {/* Icon strip only (CSS): the hub's name and its pages. The
+                  links are out of the tab order until the hub has focus. */}
+              <div className="cam-admin-rail-flyout">
+                <div className="cam-admin-rail-flyout-panel">
+                  <div className="cam-admin-rail-flyout-title" aria-hidden="true">{hubName}</div>
+                  {pages.length > 1 && (
+                    <ul className="cam-admin-rail-flyout-list" aria-label={hubName}>
+                      {pages.map((sub) => (
+                        <li key={sub.href}>
+                          <Link
+                            href={sub.href}
+                            className="cam-admin-rail-flyout-link"
+                            aria-current={isSubRouteActive(pathname, sub.href) ? "page" : undefined}
+                          >
+                            {tNav(`routes.${sub.labelKey}`)}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
           );
         })}
       </nav>
 
       <AdminRailActions showNotifications={showRailNotifications} />
+
+      {onToggleExpanded && (
+        <button
+          type="button"
+          className="cam-admin-rail-toggle"
+          aria-expanded={expanded}
+          aria-controls="cam-admin-rail"
+          onClick={onToggleExpanded}
+          title={expanded ? t("collapseRail") : t("expandRail")}
+        >
+          {expanded ? <PanelLeftClose size={18} aria-hidden="true" /> : <PanelLeftOpen size={18} aria-hidden="true" />}
+          <span className="cam-admin-rail-toggle-label">{expanded ? t("collapseRail") : t("expandRail")}</span>
+        </button>
+      )}
 
       {/* ── Footer: signed-in identity, language, and sign-out. ── */}
       {onLogout && (

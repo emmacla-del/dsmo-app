@@ -5596,7 +5596,7 @@ a.cam-dash-review-row:hover {
    page whose job is reading. */
 .cam-dossier-fields dt {
   font-size: var(--cam-font-size-sm);
-  font-weight: var(--cam-font-weight-semibold, 600);
+  font-weight: var(--cam-font-weight-semibold);
   line-height: var(--cam-line-height-label, 1.3);
   color: var(--cam-text);
 }
@@ -10341,3 +10341,1535 @@ a.cam-dash-review-row:hover {
 .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(5) { width: 13% !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(6) { width: 13% !important; }
 .cam-admin.is-dossier-workflow .cam-dossier-review-queue-table.cam-dossier-submissions-table:not(.cam-dossier-submissions-table--read-only) :is(thead th, tbody td):nth-child(7) { width: 17% !important; }
+
+/* ── Filter bar v2 (dossier queue): search, single-choice pills, « Filtres » panel ── */
+.cam-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-2);
+  margin-top: var(--cam-space-3);
+}
+.cam-filter-bar-search {
+  position: relative;
+  flex: 1 1 15rem;
+  max-width: 22.5rem;
+}
+.cam-filter-bar-search input {
+  padding-inline-start: 2.25rem;
+  border-radius: var(--cam-radius-full);
+}
+.cam-filter-bar-search-icon {
+  position: absolute;
+  inset-inline-start: 0.75rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  color: var(--cam-text-muted);
+  pointer-events: none;
+}
+.cam-filter-pill-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.cam-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-1-5);
+  min-height: 2.25rem;
+  padding: 0 var(--cam-space-3);
+  border: 1px solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font: inherit;
+  font-size: var(--cam-font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cam-filter-pill:hover { border-color: var(--cam-field-border); }
+.cam-filter-pill[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--cam-primary-tint); border-color: var(--cam-primary); }
+.cam-filter-pill.is-active {
+  background: var(--cam-primary-tint);
+  border-color: var(--cam-primary);
+  color: var(--cam-primary-dark);
+}
+.cam-filter-pill-wrap .cam-filter-pill.is-active { padding-inline-end: 2.25rem; }
+.cam-filter-pill.is-locked {
+  background: var(--cam-surface-subtle);
+  border-style: dashed;
+  cursor: default;
+}
+.cam-filter-pill-clear {
+  position: absolute;
+  inset-inline-end: 0.375rem;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface);
+  color: var(--cam-primary-dark);
+  cursor: pointer;
+}
+.cam-filter-pill-clear:hover { background: var(--cam-success-border); }
+.cam-filter-pill:focus-visible,
+.cam-filter-pill-clear:focus-visible,
+.cam-filter-pill-option:focus-visible {
+  outline: 2px solid var(--cam-gold);
+  outline-offset: 2px;
+}
+.cam-filter-pill-popover.cam-filter-pill-popover {
+  width: 17rem;
+  padding: var(--cam-space-1-5);
+  border-radius: var(--cam-radius-lg);
+}
+.cam-filter-pill-options {
+  display: flex;
+  flex-direction: column;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+.cam-filter-pill-option {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2-5);
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 var(--cam-space-2);
+  border: 0;
+  border-radius: var(--cam-radius-control);
+  background: none;
+  color: var(--cam-text);
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.cam-filter-pill-option:hover { background: var(--cam-surface-subtle); }
+.cam-filter-pill-option.is-selected { font-weight: 600; color: var(--cam-primary-dark); }
+.cam-filter-pill-radio {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--cam-field-border);
+  border-radius: var(--cam-radius-full);
+}
+.cam-filter-pill-option.is-selected .cam-filter-pill-radio {
+  border-color: var(--cam-primary);
+  box-shadow: inset 0 0 0 3px var(--cam-surface);
+  background: var(--cam-primary);
+}
+.cam-filter-bar-more { margin-inline-start: auto; }
+@media (max-width: 639px) {
+  .cam-filter-bar-search { flex-basis: 100%; max-width: none; }
+  .cam-filter-bar-more { margin-inline-start: 0; }
+}
+
+/* Queue v2: lateness is a time signal, not an error. Red stays for blocking
+   findings only; overdue waiting uses the information tone. */
+.cam-admin.is-dossier-workflow .cam-dossier-submissions-table .cam-dossier-overdue-badge {
+  border-color: var(--cam-info-border);
+  background: var(--cam-info-bg);
+  color: var(--cam-info);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   Dossier review workspace v2 (/admin/dossiers/[id]) — spec §4C.
+   Section index | answers | review panel. From 1024px the page does not
+   scroll: only the answers column does. Every size is a token or one of the
+   layout variables declared here; every colour is a token.
+   ════════════════════════════════════════════════════════════════════════ */
+.cam-dossier-workspace-page {
+  --cam-dossier-sections-width: 13.75rem;
+  --cam-dossier-panel-width: 21.25rem;
+  --cam-dossier-column-gap: var(--cam-space-4-5);
+  --cam-dossier-dot: var(--cam-space-2);
+  --cam-dossier-bar-height: var(--cam-space-1-5);
+  --cam-dossier-card-pad-y: var(--cam-space-3);
+  --cam-dossier-card-pad-x: var(--cam-space-4);
+}
+
+/* Header: name, status and waiting time on one line; previous / next at its right. */
+.cam-dossier-title-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-2) var(--cam-space-3); min-width: 0; }
+.cam-dossier-waiting-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--cam-space-2);
+  border: var(--cam-border-width, 1px) solid var(--cam-info-border);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-info-bg);
+  color: var(--cam-info);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-base);
+  white-space: nowrap;
+}
+.cam-dossier-header-actions-v2 { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--cam-space-2); min-width: 0; }
+.cam-dossier-header-actions-v2 .cam-dossier-decision-navigation { display: flex; flex-wrap: wrap; gap: var(--cam-space-2); }
+
+/* Grid */
+.cam-dossier-workspace-layout.is-three-column {
+  display: grid;
+  grid-template-columns: var(--cam-dossier-sections-width) minmax(0, 1fr) var(--cam-dossier-panel-width);
+  gap: var(--cam-dossier-column-gap);
+  align-items: start;
+}
+
+/* Cards: the admin console's container (decision 2026-11-02). */
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail,
+.cam-dossier-workspace-layout.is-three-column .cam-dossier-findings,
+.cam-dossier-workspace-layout.is-three-column .cam-dossier-section,
+.cam-dossier-workspace-layout.is-three-column #dossier-history,
+.cam-dossier-review-card {
+  margin: 0;
+  padding: var(--cam-dossier-card-pad-y) var(--cam-dossier-card-pad-x);
+  background: var(--cam-surface);
+  border: var(--cam-border-width, 1px) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+}
+.cam-dossier-workspace-layout.is-three-column .cam-dossier-section h2,
+.cam-dossier-workspace-layout.is-three-column .cam-dossier-findings > h2,
+.cam-dossier-workspace-layout.is-three-column #dossier-history h2,
+.cam-dossier-review-card h2 {
+  margin: 0;
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+}
+.cam-dossier-workspace-layout.is-three-column .cam-dossier-answer-column { display: flex; flex-direction: column; gap: var(--cam-space-4) !important; min-width: 0; }
+
+/* Section index (left) */
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail { display: flex; flex-direction: column; gap: var(--cam-space-3); font-size: var(--cam-font-size-sm); }
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav { display: flex; flex-direction: column; gap: var(--cam-space-hairline, 2px); }
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav h2 {
+  margin: 0 0 var(--cam-space-1-5);
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-bold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-2) var(--cam-space-2-5);
+  border-radius: var(--cam-radius-control);
+  color: var(--cam-text);
+  text-decoration: none;
+}
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav a::before {
+  content: "";
+  flex: none;
+  width: var(--cam-dossier-dot);
+  height: var(--cam-dossier-dot);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border-strong);
+}
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav a:has(.cam-dossier-rail-flag)::before { background: var(--cam-gold-dark); }
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav a:has(.cam-dossier-rail-flag.is-blocking)::before { background: var(--cam-flag-red); }
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav a:hover { background: var(--cam-surface-subtle); }
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav a[aria-current="location"] {
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-bold);
+}
+.cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav .cam-admin-meta { font-size: var(--cam-font-size-2xs); white-space: nowrap; }
+.cam-dossier-rail-flag {
+  margin-inline-start: auto;
+  padding: 0 var(--cam-space-2);
+  border: var(--cam-border-width, 1px) solid var(--cam-warning-border);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-warning-bg);
+  color: var(--cam-amber-text);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: var(--cam-line-height-base);
+}
+.cam-dossier-rail-flag.is-blocking { border-color: var(--cam-error-border); background: var(--cam-error-bg); color: var(--cam-error); }
+.cam-dossier-rail-progress { display: flex; flex-direction: column; gap: var(--cam-space-1-5); padding-inline: var(--cam-space-2-5); }
+.cam-dossier-rail-progress progress,
+.cam-dossier-review-progress {
+  width: 100%;
+  height: var(--cam-dossier-bar-height);
+  border: 0;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border);
+  accent-color: var(--cam-primary);
+  overflow: hidden;
+}
+.cam-dossier-rail-progress progress::-webkit-progress-bar,
+.cam-dossier-review-progress::-webkit-progress-bar { background: var(--cam-border); }
+.cam-dossier-rail-progress progress::-webkit-progress-value,
+.cam-dossier-review-progress::-webkit-progress-value { background: var(--cam-primary); border-radius: var(--cam-radius-full); }
+.cam-dossier-rail-progress progress::-moz-progress-bar,
+.cam-dossier-review-progress::-moz-progress-bar { background: var(--cam-primary); border-radius: var(--cam-radius-full); }
+
+/* Answers (centre) */
+.cam-dossier-section-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-2) var(--cam-space-2-5); margin-bottom: var(--cam-space-3); }
+.cam-dossier-workspace-layout.is-three-column #dossier-structure .cam-dossier-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  gap: var(--cam-space-2) var(--cam-space-4);
+}
+.cam-dossier-workspace-layout.is-three-column #dossier-structure dt { color: var(--cam-text-muted); font-size: var(--cam-font-size-2xs); font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-workspace-layout.is-three-column #dossier-structure dd { margin: 0; font-size: var(--cam-font-size-sm); }
+details.cam-dossier-section.is-quiet > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  cursor: pointer;
+  list-style: none;
+}
+details.cam-dossier-section.is-quiet > summary::-webkit-details-marker { display: none; }
+details.cam-dossier-section.is-quiet > summary h2 { flex: 1; min-width: 0; }
+details.cam-dossier-section.is-quiet > summary::after {
+  content: "";
+  flex: none;
+  width: var(--cam-space-2);
+  height: var(--cam-space-2);
+  border-right: 2px solid var(--cam-text-muted);
+  border-bottom: 2px solid var(--cam-text-muted);
+  transform: rotate(45deg) translateY(-25%);
+}
+details.cam-dossier-section.is-quiet[open] > summary::after { transform: rotate(-135deg); }
+details.cam-dossier-section.is-quiet[open] > summary { margin-bottom: var(--cam-space-3); }
+/* A finding said under the answer it concerns; the table outlined in its severity. */
+.cam-dossier-field .cam-dossier-field-flag {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  margin: var(--cam-space-2-5) 0 0;
+  padding: var(--cam-space-2-5) var(--cam-space-3);
+  border: var(--cam-border-width, 1px) solid var(--cam-warning-border);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-warning-bg);
+  font-size: var(--cam-font-size-sm);
+}
+.cam-dossier-field .cam-dossier-field-flag.is-blocking { border-color: var(--cam-error-border); background: var(--cam-error-bg); }
+.cam-dossier-field-flag-label { font-size: var(--cam-font-size-2xs); letter-spacing: 0.04em; text-transform: uppercase; }
+.cam-dossier-field-flag ul { margin: 0; padding-inline-start: var(--cam-space-4); }
+.cam-dossier-field-flag li { font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-field-flag a { font-size: var(--cam-font-size-xs); }
+.cam-dossier-field.is-flagged--blocking .cam-table,
+.cam-dossier-field.is-flagged--blocking .cam-dash-table { box-shadow: 0 0 0 2px var(--cam-error-border); }
+.cam-dossier-field.is-flagged--warning .cam-table,
+.cam-dossier-field.is-flagged--warning .cam-dash-table { box-shadow: 0 0 0 2px var(--cam-warning-border); }
+[id^="finding-"] { scroll-margin-top: var(--cam-space-3); }
+[id^="finding-"]:focus { outline: none; }
+[id^="finding-"]:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: var(--cam-space-1); }
+
+/* Review panel (right) */
+.cam-dossier-review-panel { display: flex; flex-direction: column; gap: var(--cam-space-3); min-width: 0; }
+.cam-dossier-review-card { display: flex; flex-direction: column; gap: var(--cam-space-2-5); font-size: var(--cam-font-size-sm); }
+.cam-dossier-review-card p { margin: 0; }
+.cam-dossier-review-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--cam-space-2); }
+/* Claim card: a dot, who holds the file, and the claim action. */
+.cam-dossier-review-card.cam-dossier-decision-state { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--cam-space-2) var(--cam-space-2-5); }
+.cam-dossier-review-card.cam-dossier-decision-state::before {
+  content: "";
+  flex: none;
+  width: var(--cam-space-2-5);
+  height: var(--cam-space-2-5);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border-strong);
+}
+.cam-dossier-review-card.cam-dossier-decision-state:has([data-claim-action="release"])::before { background: var(--cam-primary); }
+.cam-dossier-review-card.cam-dossier-decision-state > .cam-admin-meta { flex: 1; min-width: 0; color: var(--cam-text); font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-review-panel [data-claim-action="release"] { font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-review-panel [data-claim-action="claim"] {
+  flex-basis: 100%;
+  min-height: var(--cam-form-field-height);
+  justify-content: center;
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-primary);
+  color: var(--cam-surface);
+  font-weight: var(--cam-font-weight-semibold);
+  text-decoration: none;
+}
+.cam-dossier-review-panel [data-claim-action="claim"]:hover { background: var(--cam-primary-dark); }
+.cam-dossier-review-counts { color: var(--cam-text-muted); }
+.cam-dossier-review-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--cam-space-2); }
+.cam-dossier-review-checklist a {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-2-5);
+  padding: var(--cam-space-2-5);
+  border: var(--cam-border-width, 1px) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  color: var(--cam-text);
+  text-decoration: none;
+}
+.cam-dossier-review-checklist a:hover,
+.cam-dossier-review-checklist a:focus-visible { border-color: var(--cam-primary); box-shadow: var(--cam-focus-shadow); }
+.cam-dossier-review-dot {
+  flex: none;
+  width: var(--cam-dossier-dot);
+  height: var(--cam-dossier-dot);
+  margin-top: var(--cam-space-1-5);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-gold-dark);
+}
+.cam-dossier-review-checklist .is-blocking .cam-dossier-review-dot { background: var(--cam-flag-red); }
+.cam-dossier-review-item-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.cam-dossier-review-item-text { font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-review-item-go { flex: none; color: var(--cam-primary); font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-review-keys { color: var(--cam-text-muted); font-size: var(--cam-font-size-2xs); }
+.cam-dossier-review-prompt { color: var(--cam-text-muted); }
+.cam-dossier-review-decisions .cam-button { width: 100%; justify-content: center; }
+.cam-dossier-review-blocked { color: var(--cam-error); font-weight: var(--cam-font-weight-semibold); }
+.cam-dossier-review-button-count { font-weight: var(--cam-font-weight-regular); }
+.cam-dossier-review-history-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-1-5);
+  padding-inline: var(--cam-space-1);
+  color: var(--cam-primary);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  text-decoration: none;
+}
+.cam-dossier-review-arrow {
+  width: var(--cam-space-1-5);
+  height: var(--cam-space-1-5);
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+.cam-dossier-review-close,
+.cam-dossier-review-summary,
+.cam-dossier-review-scrim { display: none; }
+
+/* Desktop: fixed frame, only the answers scroll. The rail is the console's shared one (see "Console rail" at the end). */
+@media (min-width: 1024px) {
+  .cam-admin.is-dossier-workflow.is-dossier-detail,
+  .cam-admin.is-dossier-workflow.is-dossier-detail .cam-admin-body { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+  .cam-admin.is-dossier-workflow.is-dossier-detail .cam-admin-main { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: var(--cam-space-4); }
+  .cam-admin.is-dossier-workflow.is-dossier-detail .cam-admin-route-transition { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .cam-dossier-workspace-page { display: flex; flex: 1; flex-direction: column; gap: var(--cam-space-3); min-height: 0; }
+  .cam-dossier-workspace-page > * { flex: none; }
+  .cam-dossier-workspace-page > .cam-dossier-workspace-layout.is-three-column { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail,
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-review-panel {
+    position: static;
+    align-self: start;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-answer-column {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+    padding-inline-end: var(--cam-space-2);
+    padding-bottom: var(--cam-space-6);
+  }
+  .cam-dossier-workspace-layout.is-three-column .cam-dossier-section,
+  .cam-dossier-workspace-layout.is-three-column .cam-dossier-field,
+  .cam-dossier-workspace-layout.is-three-column #dossier-history { scroll-margin-top: var(--cam-space-3); }
+}
+
+/* Laptops: sections become a strip above; answers and panel side by side. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .cam-dossier-workspace-page { --cam-dossier-panel-width: 18rem; }
+  .cam-dossier-workspace-layout.is-three-column { grid-template-columns: minmax(0, 1fr) var(--cam-dossier-panel-width); }
+  .cam-dossier-workspace-page > .cam-dossier-workspace-layout.is-three-column { grid-template-rows: auto minmax(0, 1fr); }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail { grid-column: 1 / -1; flex-direction: row; align-items: center; overflow: visible; }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav { flex-direction: row; overflow-x: auto; white-space: nowrap; }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav h2,
+  .cam-dossier-rail-progress { display: none; }
+}
+
+/* Tablets: one column, the review panel first. */
+@media (max-width: 1023px) {
+  .cam-dossier-workspace-layout.is-three-column { grid-template-columns: minmax(0, 1fr); }
+  .cam-dossier-review-panel { order: -1; }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail { position: static; }
+}
+
+/* Phones: the panel is a sheet opened from a summary bar. */
+@media (max-width: 639px) {
+  .cam-dossier-review-summary {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: var(--cam-z-nav);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--cam-space-3);
+    padding: var(--cam-space-3) var(--cam-space-4) calc(var(--cam-space-3) + env(safe-area-inset-bottom));
+    background: var(--cam-surface);
+    border-top: var(--cam-border-width, 1px) solid var(--cam-border);
+    box-shadow: var(--cam-shadow-md);
+  }
+  .cam-dossier-review-summary > div { display: flex; flex-direction: column; min-width: 0; }
+  .cam-dossier-review-summary-blocking { color: var(--cam-error); font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); }
+  .cam-dossier-review-summary .cam-button { min-height: var(--cam-button-height); }
+  .cam-admin.is-dossier-workflow .cam-admin-main { padding-bottom: calc(var(--cam-button-height) + var(--cam-space-7)); }
+  .cam-dossier-review-scrim { display: block; position: fixed; inset: 0; z-index: var(--cam-z-dropdown); background: var(--cam-scrim); }
+  .cam-dossier-review-panel {
+    display: none;
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: var(--cam-z-dialog);
+    max-height: 85vh;
+    order: 0;
+    padding: var(--cam-space-6) var(--cam-space-4) var(--cam-space-4);
+    background: var(--cam-bg);
+    border-radius: var(--cam-radius-lg) var(--cam-radius-lg) 0 0;
+    overflow-y: auto;
+  }
+  .cam-dossier-review-panel.is-open { display: flex; }
+  .cam-dossier-review-close {
+    display: inline-flex;
+    position: absolute;
+    top: var(--cam-space-2);
+    inset-inline-end: var(--cam-space-2);
+    width: var(--cam-button-height);
+    height: var(--cam-button-height);
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: none;
+    font-size: var(--cam-font-size-xl);
+    cursor: pointer;
+  }
+  .cam-dossier-review-keys { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-answer-column { scroll-behavior: auto; }
+}
+
+/* ── Filter pills: per-option counts; saved views (2026-11-02) ── */
+.cam-filter-pill-option-label { flex: 1; min-width: 0; }
+.cam-filter-pill-count {
+  flex: none;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.cam-filter-pill-option.is-empty { color: var(--cam-text-muted); }
+.cam-saved-views-popover.cam-saved-views-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  width: 20rem;
+  padding: var(--cam-space-3);
+  border-radius: var(--cam-radius-lg);
+}
+.cam-saved-views-empty { margin: 0; }
+.cam-saved-views-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--cam-space-1); }
+.cam-saved-views-list li { display: flex; align-items: center; gap: var(--cam-space-1); }
+.cam-saved-views-apply {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: var(--cam-space-2);
+  border: 0;
+  border-radius: var(--cam-radius-control);
+  background: none;
+  color: var(--cam-text);
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.cam-saved-views-apply:hover { background: var(--cam-surface-subtle); }
+.cam-saved-views-apply[aria-current="true"] { background: var(--cam-primary-tint); color: var(--cam-primary-dark); }
+.cam-saved-views-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--cam-space-7);
+  height: var(--cam-space-7);
+  border: 0;
+  border-radius: var(--cam-radius-full);
+  background: none;
+  color: var(--cam-text-muted);
+  cursor: pointer;
+}
+.cam-saved-views-remove:hover { background: var(--cam-error-bg); color: var(--cam-error); }
+.cam-saved-views-form { display: flex; flex-direction: column; gap: var(--cam-space-1-5); padding-top: var(--cam-space-3); border-top: var(--cam-border-width, 1px) solid var(--cam-border); }
+.cam-saved-views-form p { margin: 0; }
+.cam-saved-views-row { display: flex; gap: var(--cam-space-2); }
+.cam-saved-views-row .cam-input { flex: 1; min-width: 0; }
+
+/* ── Review workspace: position in the queue; previous period beside answers ── */
+.cam-dossier-queue-position { color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); white-space: nowrap; }
+.cam-dossier-previous { margin-top: var(--cam-space-2); }
+.cam-dossier-previous > summary {
+  color: var(--cam-primary);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  cursor: pointer;
+}
+.cam-dossier-previous[open] > summary { margin-bottom: var(--cam-space-2); }
+.cam-dossier-previous[open] {
+  padding: var(--cam-space-2-5) var(--cam-space-3);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface-subtle);
+}
+.cam-dossier-previous-inline {
+  margin: var(--cam-space-1) 0 0;
+  color: var(--cam-text-muted);
+  font-size: var(--cam-font-size-xs);
+}
+.cam-dossier-previous-inline > span {
+  margin-inline-end: var(--cam-space-1);
+  padding: 0 var(--cam-space-1-5);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-surface-subtle);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-filter-bar .cam-saved-views-trigger { margin-inline-start: auto; }
+.cam-filter-bar .cam-saved-views-trigger + .cam-filter-bar-more { margin-inline-start: 0; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Registration review page (/admin/inscriptions/[id]) — spec §4C.
+   Reuses the dossier workspace (columns, cards, panel, phone sheet); this
+   block adds the console frame for the route and the registration-only
+   pieces. Tokens only.
+   ════════════════════════════════════════════════════════════════════════ */
+.cam-registration-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cam-space-2) var(--cam-space-3); }
+.cam-registration-ref { font-family: var(--cam-font-mono); font-size: var(--cam-font-size-xs); }
+.cam-registration-lead { margin: 0 0 var(--cam-space-2-5); color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); }
+.cam-registration-hints { margin: 0 0 var(--cam-space-3); padding-inline-start: var(--cam-space-5); font-size: var(--cam-font-size-sm); }
+.cam-registration-hints li + li { margin-top: var(--cam-space-1); }
+.cam-registration-link { color: var(--cam-primary); font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-before { color: var(--cam-text-muted); text-decoration: line-through; }
+.cam-registration-after { font-weight: var(--cam-font-weight-semibold); }
+
+/* « Informations à vérifier »: label | declared value | Conforme / Non conforme. */
+.cam-registration-verify { display: flex; flex-direction: column; }
+.cam-registration-verify-row {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--cam-space-2) var(--cam-space-4);
+  padding: var(--cam-space-2-5) 0;
+  border-top: var(--cam-border-width, 1px) solid var(--cam-border);
+  scroll-margin-top: var(--cam-space-3);
+}
+.cam-registration-verify-row:first-child { border-top: 0; }
+.cam-registration-verify-row:focus { outline: none; }
+.cam-registration-verify-row:focus-visible,
+.cam-registration-verify-row:target { outline: 2px solid var(--cam-focus); outline-offset: var(--cam-space-1); border-radius: var(--cam-radius-control); }
+.cam-registration-verify-label { color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-verify-value { min-width: 0; font-size: var(--cam-font-size-sm); overflow-wrap: anywhere; }
+.cam-registration-verify-value.is-empty { color: var(--cam-text-muted); font-style: italic; }
+.cam-registration-segmented {
+  display: inline-flex;
+  border: var(--cam-border-width, 1px) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-control);
+  overflow: hidden;
+}
+.cam-registration-segmented label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cam-form-field-height);
+  padding: 0 var(--cam-space-3);
+  background: var(--cam-surface);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cam-registration-segmented label + label { border-inline-start: var(--cam-border-width, 1px) solid var(--cam-border-strong); }
+.cam-registration-segmented input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: inherit; }
+.cam-registration-segmented label:has(input:focus-visible) { outline: 2px solid var(--cam-focus); outline-offset: calc(var(--cam-space-1) * -1); }
+.cam-registration-segmented label:has(input:disabled) { color: var(--cam-text-muted); background: var(--cam-surface-subtle); cursor: not-allowed; }
+.cam-registration-segmented label.is-ok:has(input:checked) { background: var(--cam-success-bg); color: var(--cam-success); }
+.cam-registration-segmented label.is-ko:has(input:checked) { background: var(--cam-error-bg); color: var(--cam-error); }
+
+.cam-registration-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  gap: var(--cam-space-3) var(--cam-space-4);
+  margin: 0;
+}
+.cam-registration-fields dt { color: var(--cam-text-muted); font-size: var(--cam-font-size-2xs); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-fields dd { margin: 0; font-size: var(--cam-font-size-sm); overflow-wrap: anywhere; }
+.cam-registration-registered-by { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-1-5); }
+
+/* Review panel pieces */
+.cam-registration-claim .cam-registration-claim-hint { flex-basis: 100%; color: var(--cam-text-muted); font-size: var(--cam-font-size-xs); }
+.cam-registration-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--cam-space-1); }
+.cam-registration-checklist a {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  padding: var(--cam-space-1-5) var(--cam-space-2);
+  border-radius: var(--cam-radius-control);
+  color: var(--cam-text);
+  text-decoration: none;
+}
+.cam-registration-checklist a::before {
+  content: "";
+  flex: none;
+  width: var(--cam-dossier-dot);
+  height: var(--cam-dossier-dot);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-border-strong);
+}
+.cam-registration-checklist .is-ok a::before { background: var(--cam-success); }
+.cam-registration-checklist .is-ko a::before { background: var(--cam-flag-red); }
+.cam-registration-checklist a:hover { background: var(--cam-surface-subtle); }
+.cam-registration-checklist-label { flex: 1; min-width: 0; }
+.cam-registration-checklist-state { flex: none; color: var(--cam-text-muted); font-size: var(--cam-font-size-xs); }
+.cam-registration-checklist .is-ok .cam-registration-checklist-state { color: var(--cam-success); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-checklist .is-ko .cam-registration-checklist-state { color: var(--cam-error); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-central { display: flex; align-items: flex-start; gap: var(--cam-space-2-5); padding-top: var(--cam-space-2-5); border-top: var(--cam-border-width, 1px) solid var(--cam-border); }
+.cam-registration-central label { display: flex; flex-direction: column; gap: var(--cam-space-1); }
+.cam-dossier-review-decisions .cam-registration-reject { border-color: var(--cam-error-border); color: var(--cam-error); }
+.cam-dossier-review-decisions > button { width: 100%; }
+.cam-registration-reason { display: flex; flex-direction: column; gap: var(--cam-space-2); padding-top: var(--cam-space-2-5); border-top: var(--cam-border-width, 1px) solid var(--cam-border); }
+.cam-registration-reason-actions { display: flex; flex-wrap: wrap; gap: var(--cam-space-2); }
+.cam-registration-error { color: var(--cam-error); font-weight: var(--cam-font-weight-semibold); }
+
+/* Queue rows: the main action and its menu side by side. */
+.cam-registration-row-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--cam-space-1); }
+
+/* Console frame for this route: fixed height, only the centre column scrolls. */
+@media (min-width: 1024px) {
+  .cam-admin.is-review-detail { --cam-admin-content-padding-right: var(--cam-space-6); }
+  .cam-admin.is-review-detail,
+  .cam-admin.is-review-detail .cam-admin-body { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+  .cam-admin.is-review-detail .cam-admin-main { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-bottom: var(--cam-space-4); }
+  .cam-admin.is-review-detail .cam-admin-route-transition { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+}
+
+@media (max-width: 639px) {
+  .cam-admin.is-review-detail .cam-admin-main { padding-bottom: calc(var(--cam-button-height) + var(--cam-space-7)); }
+  .cam-registration-verify-row { grid-template-columns: minmax(0, 1fr); }
+  .cam-registration-segmented { justify-self: start; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Registration and surveys hubs, layout v2 (2026-11-02) — spec §4F, §4C.
+   Filter bar for the lists without the dossier side panel, record pages,
+   the assisted-registration form, the quality centre. Tokens only.
+   ════════════════════════════════════════════════════════════════════════ */
+.cam-registration-filters { display: flex; flex-direction: column; gap: var(--cam-space-2); margin-bottom: var(--cam-space-4); }
+.cam-admin-table-panel-toolbar .cam-registration-filters { margin-bottom: 0; }
+
+/* « Filtres » popover */
+.cam-filter-more-popover.cam-filter-more-popover {
+  width: min(24rem, calc(100vw - var(--cam-space-8)));
+  padding: var(--cam-space-4);
+  border-radius: var(--cam-radius-lg);
+}
+.cam-filter-more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cam-space-3); }
+.cam-filter-more-field { display: flex; flex-direction: column; gap: var(--cam-space-1); min-width: 0; }
+.cam-filter-more-field.is-wide { grid-column: 1 / -1; }
+.cam-filter-more-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--cam-space-2); margin-top: var(--cam-space-2); }
+.cam-filter-more-dates .cam-dash-context { grid-column: 1 / -1; margin: 0; }
+.cam-filter-more-check { flex-direction: row; align-items: center; gap: var(--cam-space-2); padding-top: var(--cam-space-1); }
+@media (max-width: 639px) {
+  .cam-filter-more-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Record pages (establishment detail): main column | side column. */
+.cam-record-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--cam-space-4-5); align-items: start; }
+.cam-record-main,
+.cam-record-side { display: flex; flex-direction: column; gap: var(--cam-space-4); min-width: 0; }
+.cam-record-card { margin: 0; }
+.cam-record-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: var(--cam-space-3) var(--cam-space-4);
+  margin: 0;
+}
+.cam-record-fields.is-single { grid-template-columns: minmax(0, 1fr); }
+.cam-record-fields dt { color: var(--cam-text-muted); font-size: var(--cam-font-size-2xs); font-weight: var(--cam-font-weight-semibold); }
+.cam-record-fields dd { margin: var(--cam-space-1) 0 0; font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); overflow-wrap: anywhere; }
+.cam-record-figures dd { font-size: var(--cam-font-size-xl); font-weight: var(--cam-font-weight-bold); font-variant-numeric: tabular-nums; }
+@media (min-width: 1100px) {
+  .cam-record-layout { grid-template-columns: minmax(0, 1fr) var(--cam-dossier-panel-width, 21.25rem); }
+  .cam-record-side { position: sticky; top: var(--cam-space-4); max-height: calc(100dvh - var(--cam-space-8)); overflow-y: auto; overscroll-behavior: contain; }
+}
+
+/* Assisted registration: a step index beside the form from 1024px. */
+.cam-record-form-status { margin: 0 auto 0 0; color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-steps li[data-done] .cam-registration-step-number { border-color: var(--cam-success-border); background: var(--cam-success-bg); color: var(--cam-success); }
+.cam-registration-steps li[data-done] a { color: var(--cam-text); }
+@media (min-width: 1024px) {
+  .cam-assisted-registration-page .cam-assisted-registration-lede { width: 100%; max-width: 68ch; margin-inline: 0; }
+  .cam-record-form-layout {
+    display: grid;
+    grid-template-columns: var(--cam-dossier-sections-width, 13.75rem) minmax(0, var(--cam-registration-content-width));
+    gap: var(--cam-space-6);
+    align-items: start;
+  }
+  .cam-record-form-layout > .cam-registration-steps {
+    position: sticky;
+    top: var(--cam-space-4);
+    width: auto;
+    margin: 0;
+    padding: var(--cam-space-3);
+    overflow: visible;
+    background: var(--cam-surface);
+    border: var(--cam-border-width, 1px) solid var(--cam-border);
+    border-radius: var(--cam-radius-lg);
+  }
+  .cam-record-form-layout > .cam-registration-steps ol { grid-template-columns: minmax(0, 1fr); min-width: 0; gap: var(--cam-space-1); }
+  .cam-record-form-layout > .cam-registration-steps li:not(:last-child)::after {
+    top: calc(var(--cam-space-2) + 2rem);
+    left: calc(var(--cam-space-2) + 1rem);
+    width: 1px;
+    height: var(--cam-space-1);
+  }
+  .cam-record-form-layout > .cam-registration-steps a { border-radius: var(--cam-radius-control); font-size: var(--cam-font-size-sm); }
+  .cam-record-form-layout > .cam-registration-steps a:hover { background: var(--cam-surface-subtle); text-decoration: none; }
+  .cam-record-form-layout > .cam-assisted-registration-form { width: 100%; margin-inline: 0; }
+}
+
+/* Quality centre */
+.cam-quality-kpis-title { margin-bottom: var(--cam-space-3); }
+.cam-quality-aggregates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--cam-space-5); }
+.cam-quality-rules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cam-quality-rules li { padding: var(--cam-space-3) 0; border-top: var(--cam-border-width, 1px) solid var(--cam-border); }
+.cam-quality-rules li:first-child { border-top: 0; padding-top: 0; }
+.cam-quality-rules li p { margin: var(--cam-space-1) 0 0; }
+.cam-quality-rule-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cam-space-3); }
+
+/* Registration review: history (newest first). */
+.cam-registration-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cam-registration-history li {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr);
+  gap: var(--cam-space-1) var(--cam-space-3);
+  padding: var(--cam-space-2-5) 0;
+  border-top: var(--cam-border-width, 1px) solid var(--cam-border);
+  font-size: var(--cam-font-size-sm);
+}
+.cam-registration-history li:first-child { border-top: 0; padding-top: 0; }
+.cam-registration-history time { color: var(--cam-text-muted); }
+.cam-registration-history p { margin: var(--cam-space-1) 0 0; }
+.cam-registration-history blockquote {
+  margin: var(--cam-space-1-5) 0 0;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  border-inline-start: 3px solid var(--cam-border-strong);
+  background: var(--cam-surface-subtle);
+  border-radius: var(--cam-radius-control);
+  white-space: pre-line;
+}
+@media (max-width: 639px) {
+  .cam-registration-history li { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Registration queue: room for « Réclamer et ouvrir » + the row menu (2026-11-03). */
+.cam-admin .cam-registration-queue-table { min-width: 1140px; }
+.cam-admin .cam-registration-queue-table th:nth-child(1) { width: 21%; }
+.cam-admin .cam-registration-queue-table th:nth-child(2) { width: 11%; }
+.cam-admin .cam-registration-queue-table th:nth-child(3) { width: 11%; }
+.cam-admin .cam-registration-queue-table th:nth-child(4) { width: 11%; }
+.cam-admin .cam-registration-queue-table th:nth-child(5) { width: 10%; }
+.cam-admin .cam-registration-queue-table th:nth-child(6) { width: 11%; }
+.cam-admin .cam-registration-queue-table th:nth-child(7) { width: 10%; }
+.cam-admin .cam-registration-queue-table th:nth-child(8) { width: 15%; }
+.cam-admin .cam-registration-queue-table td { overflow-wrap: anywhere; }
+
+/* Registration review: label and value stacked, the two choices beside them. */
+.cam-registration-verify-row { grid-template-columns: minmax(0, 1fr) auto; }
+.cam-registration-verify-label { grid-column: 1; }
+.cam-registration-verify-value { grid-column: 1; grid-row: 2; font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-verify-row > .cam-registration-segmented,
+.cam-registration-verify-row > span[aria-hidden] { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.cam-registration-review-page .cam-dossier-section td,
+.cam-registration-review-page .cam-dossier-section th[scope="row"] { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 639px) {
+  .cam-registration-verify-row > .cam-registration-segmented { grid-column: 1; grid-row: 3; justify-self: start; }
+}
+
+/* « Filtres » renders in a portal, outside .cam-admin: its fields carry their own styles. */
+.cam-filter-more-popover .cam-admin-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--cam-form-field-height);
+  min-width: 0;
+  padding: 0 var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-border-strong);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-family: inherit;
+  font-size: var(--cam-font-size-sm);
+}
+.cam-filter-more-popover .cam-admin-input:focus-visible { border-color: var(--cam-focus); outline: 2px solid var(--cam-focus); outline-offset: 1px; }
+.cam-filter-more-popover .cam-admin-label { color: var(--cam-text); font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); }
+.cam-record-card.cam-record-card { border: var(--cam-border-width, 1px) solid var(--cam-border); border-radius: var(--cam-radius-lg); box-shadow: none; }
+
+/* The route-enter animation leaves a transform on its wrapper, which turns
+   position: fixed into « fixed to the wrapper »: the phone summary bar and
+   sheet of the review workspaces ended up at the bottom of the page. Pages
+   with a fixed review panel enter without it. */
+.cam-admin-route-transition:has(.cam-dossier-review-summary) { animation: none; transform: none; }
+
+/* Phones: the section index becomes one scrolling row of chips. */
+@media (max-width: 639px) {
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail { padding: var(--cam-space-2); }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav { flex-direction: row; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .cam-dossier-workspace-layout.is-three-column > .cam-dossier-rail nav h2,
+  .cam-dossier-rail-progress { display: none; }
+}
+
+/* ── Console rail (2026-11-03): one rail on every console page ──
+   From 1024px up the rail is the same everywhere: the green rail, its brand,
+   full height, beside the page (and beside the dossier masthead, which now
+   starts at the rail's edge). It is an icon strip by default
+   (`is-rail-compact`); hovering or focusing a hub opens a flyout with the
+   hub's name and pages. « Afficher les libellés du menu » switches to full
+   labels (`is-rail-expanded`), remembered per browser.
+   The doubled `.cam-admin.cam-admin` outranks the older dossier theme rules
+   without touching them. Below 1024px the drawer is unchanged. */
+.cam-admin-rail-item { position: relative; }
+.cam-admin-rail-flyout,
+.cam-admin-rail-brand-mark,
+.cam-admin-rail-toggle { display: none; }
+
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin {
+    --cam-side-rail-width: var(--cam-admin-rail-expanded-width);
+    grid-template-columns: var(--cam-side-rail-width) minmax(0, 1fr);
+  }
+  .cam-admin.cam-admin.is-rail-compact { --cam-side-rail-width: var(--cam-admin-rail-compact-width); }
+
+  .cam-admin.cam-admin .cam-admin-rail {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 0;
+    width: var(--cam-side-rail-width);
+    height: 100vh;
+    height: 100dvh;
+    padding: var(--cam-space-5) var(--cam-space-3) var(--cam-space-4);
+    gap: var(--cam-space-4);
+    background: var(--cam-green-dark);
+    z-index: calc(var(--cam-z-nav) + 2);
+  }
+
+  /* Brand: mark + name; the mark alone in the strip. */
+  .cam-admin.cam-admin .cam-admin-rail-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--cam-space-2);
+    min-height: var(--cam-admin-rail-icon-size);
+  }
+  .cam-admin-rail-brand-mark {
+    display: inline-grid;
+    place-items: center;
+    width: var(--cam-admin-rail-icon-size);
+    height: var(--cam-admin-rail-icon-size);
+    flex: none;
+    border-radius: var(--cam-radius-control);
+    background: var(--cam-surface);
+    color: var(--cam-green-dark);
+    font-size: var(--cam-font-size-sm);
+    font-weight: var(--cam-font-weight-bold);
+    line-height: 1;
+  }
+  .cam-admin-rail-brand-copy { min-width: 0; }
+  .cam-admin.cam-admin .cam-admin-rail-brand-name { font-size: var(--cam-font-size-base); }
+  .cam-admin.cam-admin .cam-admin-rail-brand-sub { margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Hubs: one row height and one active style on every page. */
+  .cam-admin.cam-admin .cam-admin-rail-hub {
+    min-height: 0;
+    gap: var(--cam-space-3);
+    padding: var(--cam-space-1) var(--cam-space-2);
+    border-inline-start: none;
+    border-radius: var(--cam-radius-control);
+  }
+  .cam-admin.cam-admin .cam-admin-rail-hub[aria-current="page"] {
+    border-inline-start: none;
+    border-radius: var(--cam-radius-control);
+    padding-inline-start: var(--cam-space-2);
+    background: var(--cam-green);
+    color: var(--cam-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  }
+  .cam-admin.cam-admin .cam-admin-rail-hub:hover:not([aria-current="page"]) { background: rgba(255, 255, 255, 0.1); }
+  .cam-admin.cam-admin .cam-admin-rail-hub-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .cam-admin.cam-admin .cam-admin-rail-tools-row { grid-template-columns: 32px 32px; justify-content: end; }
+
+  /* The expand / collapse control, above the account. */
+  .cam-admin-rail-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--cam-space-3);
+    width: 100%;
+    min-height: 36px;
+    flex: none;
+    padding: 0 var(--cam-space-2);
+    padding-inline-start: calc(var(--cam-space-2) + (var(--cam-admin-rail-icon-size) - 18px) / 2);
+    border: none;
+    border-radius: var(--cam-radius-control);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    font: inherit;
+    font-size: var(--cam-font-size-2xs);
+    font-weight: var(--cam-font-weight-semibold);
+    text-align: start;
+    cursor: pointer;
+  }
+  .cam-admin-rail-toggle:hover { background: rgba(255, 255, 255, 0.1); color: var(--cam-surface); }
+  .cam-admin-rail-toggle:focus-visible { outline: 2px solid var(--cam-white); outline-offset: -2px; }
+  .cam-admin-rail-toggle-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cam-admin-rail-toggle + .cam-admin-rail-account { margin-top: 0; }
+  .cam-admin.cam-admin .cam-admin-rail-account { margin-top: auto; }
+
+  /* Dossier routes: the masthead starts at the rail's edge instead of
+     running over it, so the rail is the same as on every other page. */
+  .cam-admin.cam-admin.is-dossier-workflow .cam-admin-rail-brand { display: flex; }
+  .cam-admin.cam-admin.is-dossier-workflow .cam-admin-topbar { left: 0; right: 0; width: auto; }
+
+  /* ── Icon strip ── */
+  .cam-admin.cam-admin.is-rail-compact .cam-admin-rail {
+    padding-inline: var(--cam-space-2);
+    align-items: stretch;
+    overflow: visible;
+  }
+  .cam-admin.is-rail-compact .cam-admin-rail-brand { justify-content: center; }
+  .cam-admin.is-rail-compact .cam-admin-rail-brand-copy,
+  .cam-admin.is-rail-compact .cam-admin-rail-hub-label,
+  .cam-admin.is-rail-compact .cam-admin-rail-toggle-label,
+  .cam-admin.is-rail-compact .cam-admin-account-trigger-copy,
+  .cam-admin.is-rail-compact .cam-admin-account-trigger-chevron {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .cam-admin.cam-admin.is-rail-compact .cam-admin-rail-hub { justify-content: center; padding-inline: 0; position: relative; }
+  .cam-admin.cam-admin.is-rail-compact .cam-admin-rail-hub[aria-current="page"] { padding-inline-start: 0; }
+  .cam-admin.is-rail-compact .cam-admin-rail-badge {
+    position: absolute;
+    top: calc(var(--cam-space-1) * -1);
+    inset-inline-end: calc(var(--cam-space-1) * -1);
+    min-width: 18px;
+    height: 18px;
+    margin: 0;
+  }
+  .cam-admin.cam-admin.is-rail-compact .cam-admin-rail-tools-row { grid-template-columns: 32px; justify-content: center; }
+  .cam-admin.is-rail-compact .cam-admin-rail-toggle { justify-content: center; padding: 0; }
+  .cam-admin.is-rail-compact .cam-admin-rail-account { position: relative; }
+  .cam-admin.is-rail-compact .cam-admin-account-trigger { justify-content: center; padding-inline: 0; }
+  .cam-admin.is-rail-compact .cam-admin-account-menu {
+    position: absolute;
+    inset-inline-start: calc(100% + var(--cam-space-3));
+    bottom: 0;
+    width: var(--cam-admin-rail-flyout-width);
+    background: var(--cam-green-dark);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Flyout: a transparent bridge (padding) so the pointer can cross the gap. */
+  .cam-admin.is-rail-compact .cam-admin-rail-item:hover > .cam-admin-rail-flyout,
+  .cam-admin.is-rail-compact .cam-admin-rail-item:focus-within > .cam-admin-rail-flyout {
+    display: block;
+    position: absolute;
+    top: calc(var(--cam-space-2) * -1);
+    inset-inline-start: 100%;
+    z-index: 1;
+    padding-inline-start: var(--cam-space-3);
+  }
+  .cam-admin.is-rail-compact .cam-admin-rail-item.is-flyout-dismissed > .cam-admin-rail-flyout { display: none; }
+  .cam-admin-rail-flyout-panel {
+    width: var(--cam-admin-rail-flyout-width);
+    padding: var(--cam-space-2);
+    border: var(--cam-border-width) solid var(--cam-border);
+    border-radius: var(--cam-radius-lg);
+    background: var(--cam-surface);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+    color: var(--cam-text);
+  }
+  .cam-admin-rail-flyout-title {
+    padding: var(--cam-space-1) var(--cam-space-2);
+    font-size: var(--cam-font-size-sm);
+    font-weight: var(--cam-font-weight-bold);
+    line-height: var(--cam-line-height-ui);
+  }
+  .cam-admin-rail-flyout-list {
+    display: grid;
+    gap: var(--cam-space-hairline, 2px);
+    margin: var(--cam-space-1) 0 0;
+    padding: var(--cam-space-1) 0 0;
+    border-top: var(--cam-border-width) solid var(--cam-border);
+    list-style: none;
+  }
+  .cam-admin-rail-flyout-link {
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 var(--cam-space-2);
+    border-radius: var(--cam-radius-control);
+    color: var(--cam-text);
+    font-size: var(--cam-font-size-2xs);
+    font-weight: var(--cam-font-weight-semibold);
+    text-decoration: none;
+  }
+  .cam-admin-rail-flyout-link:hover { background: var(--cam-surface-subtle); }
+  .cam-admin-rail-flyout-link[aria-current="page"] {
+    background: var(--cam-primary-tint);
+    color: var(--cam-primary);
+    box-shadow: inset 3px 0 0 var(--cam-primary);
+  }
+  .cam-admin-rail-flyout-link:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+}
+
+@media (prefers-reduced-motion: no-preference) and (min-width: 1024px) {
+  .cam-admin.cam-admin { transition: grid-template-columns 0.18s ease; }
+}
+
+/* Content gutters from 1024px up: the same on both sides now that the rail
+   is the same on every page (was 24px left, 80px right). */
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin {
+    --cam-admin-content-padding-left: var(--cam-space-6);
+    --cam-admin-content-padding-right: var(--cam-space-6);
+  }
+}
+
+/* ── Campaigns (/admin/campagnes), 2026-11-03 ──
+   Running campaigns as cards (one per module), then the history as one table
+   card with its filter bar. */
+.cam-campaign-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+  margin-bottom: var(--cam-space-3);
+}
+.cam-campaign-running-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 640px), 1fr));
+  gap: var(--cam-space-4);
+}
+.cam-campaign-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-4);
+  min-width: 0;
+  padding: var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+}
+.cam-campaign-card--idle {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--cam-space-3);
+  color: var(--cam-text-muted);
+}
+.cam-campaign-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cam-space-4);
+}
+.cam-campaign-card-heading { display: grid; gap: var(--cam-space-1); min-width: 0; }
+.cam-campaign-card-tags { display: flex; flex-wrap: wrap; gap: var(--cam-space-1); }
+.cam-campaign-card-title {
+  margin: var(--cam-space-1) 0 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-tight);
+  color: var(--cam-text);
+  overflow-wrap: anywhere;
+}
+.cam-campaign-code {
+  font-family: var(--cam-font-mono);
+  font-size: var(--cam-font-size-3xs);
+  color: var(--cam-text-muted);
+}
+.cam-campaign-remaining {
+  display: grid;
+  justify-items: end;
+  flex: none;
+  text-align: end;
+}
+.cam-campaign-remaining-value {
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-tight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cam-campaign-remaining-label { font-size: var(--cam-font-size-2xs); color: var(--cam-text-muted); }
+.cam-campaign-remaining.is-good .cam-campaign-remaining-value { color: var(--cam-success); }
+.cam-campaign-remaining.is-warn .cam-campaign-remaining-value { color: var(--cam-warning); }
+.cam-campaign-remaining.is-alert .cam-campaign-remaining-value { color: var(--cam-error); }
+.cam-campaign-card-description { margin: 0; font-size: var(--cam-font-size-sm); color: var(--cam-text-muted); }
+
+.cam-campaign-period { display: grid; gap: var(--cam-space-1); }
+.cam-campaign-period-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+.cam-campaign-period-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface-subtle);
+}
+.cam-campaign-period-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: inherit;
+  background: var(--cam-primary);
+}
+.cam-campaign-period-fill.is-warn { background: var(--cam-gold-dark); }
+.cam-campaign-period-fill.is-alert { background: var(--cam-error); }
+
+.cam-campaign-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: var(--cam-space-3) var(--cam-space-4);
+  margin: 0;
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+.cam-campaign-facts > div { display: grid; gap: var(--cam-space-hairline); min-width: 0; }
+.cam-campaign-facts-wide { grid-column: 1 / -1; }
+.cam-campaign-facts dt { font-size: var(--cam-font-size-2xs); color: var(--cam-text-muted); }
+.cam-campaign-facts dd {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+  font-variant-numeric: tabular-nums;
+}
+.cam-campaign-type-list { display: flex; flex-wrap: wrap; gap: var(--cam-space-1); margin: 0; padding: 0; list-style: none; }
+.cam-campaign-type-list > li {
+  padding: var(--cam-space-hairline) var(--cam-space-2);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface-subtle);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-campaign-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+  margin-top: auto;
+  padding-top: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+.cam-campaign-card-actions-main,
+.cam-campaign-card-actions-lifecycle { display: flex; flex-wrap: wrap; gap: var(--cam-space-2); }
+
+/* History table */
+.cam-campaign-table-scroll { overflow-x: auto; }
+.cam-campaign-table-scroll:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+.cam-campaign-table { min-width: 820px; }
+.cam-campaign-name-cell,
+.cam-campaign-type-cell { display: grid; gap: var(--cam-space-hairline); justify-items: start; min-width: 0; }
+.cam-campaign-name-cell > .cam-admin-strong { max-width: 34ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cam-campaign-type-cell > .cam-badge { white-space: nowrap; }
+.cam-campaign-date-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cam-campaign-row-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--cam-space-2); white-space: nowrap; }
+.cam-campaign-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  padding: 0;
+}
+.cam-campaign-icon-button.cam-campaign-delete:hover:not(:disabled) { color: var(--cam-error); border-color: var(--cam-error-border); }
+
+@media (max-width: 639px) {
+  .cam-campaign-card { padding: var(--cam-space-4); }
+  .cam-campaign-card-head { flex-direction: column; }
+  .cam-campaign-remaining { justify-items: start; text-align: start; }
+  .cam-campaign-facts { grid-template-columns: minmax(0, 1fr); }
+  .cam-campaign-card-actions,
+  .cam-campaign-card-actions-main,
+  .cam-campaign-card-actions-lifecycle { justify-content: flex-start; }
+}
+
+/* ── Quotas et rapports (/admin/cibles), 2026-11-03 ──
+   The campaign picker sits in the table card's toolbar, above the figures it
+   changes; the guidance and the save button keep the card's padding. */
+.cam-campaign-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cam-space-2) var(--cam-space-4);
+}
+.cam-campaign-picker-field { display: grid; gap: var(--cam-space-1); flex: 1 1 360px; min-width: 0; max-width: 640px; }
+.cam-campaign-picker-field > .cam-admin-input { width: 100%; }
+.cam-campaign-picker-summary { display: flex; flex-wrap: wrap; gap: var(--cam-space-1); padding-bottom: var(--cam-space-2); }
+.cam-campaign-picker-note { flex-basis: 100%; margin: 0; font-size: var(--cam-font-size-2xs); color: var(--cam-text-muted); }
+.cam-admin-table-panel .cam-target-guidance { margin: 0; padding: var(--cam-space-3) var(--cam-space-4) 0; }
+.cam-admin-table-panel .cam-target-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0;
+  padding: var(--cam-space-4);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+.cam-target-unsaved {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-1);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-warning);
+}
+.cam-target-unsaved::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-gold-dark);
+}
+
+/* ── Formulaires d'enquête (/admin/questionnaires), 2026-11-03 ── */
+.cam-questionnaire-table-scroll { overflow-x: auto; }
+.cam-questionnaire-table-scroll:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+.cam-questionnaire-table { min-width: 760px; }
+.cam-questionnaire-name { display: flex; align-items: center; gap: var(--cam-space-3); min-width: 0; }
+.cam-questionnaire-icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--cam-admin-rail-icon-size);
+  height: var(--cam-admin-rail-icon-size);
+  flex: none;
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary);
+}
+.cam-questionnaire-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--cam-space-2); white-space: nowrap; }
+.cam-questionnaire-actions .cam-button { gap: var(--cam-space-1); }
+.cam-questionnaire-preview { display: grid; gap: var(--cam-space-4); }
+.cam-questionnaire-preview-head { display: grid; gap: var(--cam-space-1); }
+.cam-questionnaire-preview-title { margin: 0; }
+.cam-questionnaire-preview-empty { margin: 0; }
+.cam-questionnaire-sections {
+  display: grid;
+  margin: calc(var(--cam-space-2) * -1) 0 0;
+  padding: 0;
+  list-style: none;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+}
+.cam-questionnaire-sections > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-2) var(--cam-space-3);
+}
+.cam-questionnaire-sections > li + li { border-top: var(--cam-border-width) solid var(--cam-border); }
+.cam-questionnaire-section-number {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface-subtle);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+.cam-questionnaire-section-title { font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); }
+.cam-questionnaire-section-count { font-size: var(--cam-font-size-2xs); color: var(--cam-text-muted); white-space: nowrap; }
+
+/* ── Notifications (/admin/notifications), 2026-11-03 ──
+   One card per day; unread rows carry a dot and a « Marquer comme lue ». */
+.cam-notification-inbox { display: grid; gap: var(--cam-space-5); }
+.cam-notification-group { display: grid; gap: var(--cam-space-2); }
+.cam-notification-day {
+  margin: 0;
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cam-text-muted);
+}
+.cam-notification-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+}
+.cam-notification-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--cam-space-3);
+  align-items: start;
+  padding: var(--cam-space-4);
+}
+.cam-notification-item + .cam-notification-item { border-top: var(--cam-border-width) solid var(--cam-border); }
+.cam-notification-icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--cam-admin-rail-icon-size);
+  height: var(--cam-admin-rail-icon-size);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary);
+}
+.cam-notification-item.is-read .cam-notification-icon { background: var(--cam-surface-subtle); color: var(--cam-text-muted); }
+.cam-notification-body { display: grid; gap: var(--cam-space-1); min-width: 0; }
+.cam-notification-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-2); }
+.cam-notification-dot { width: 8px; height: 8px; flex: none; border-radius: var(--cam-radius-full); background: var(--cam-info); }
+.cam-notification-subject {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--cam-text);
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-bold);
+  text-align: start;
+  cursor: pointer;
+}
+.cam-notification-subject:hover { color: var(--cam-primary); text-decoration: underline; }
+.cam-notification-subject:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: 2px; border-radius: var(--cam-radius-control); }
+.cam-notification-item.is-read .cam-notification-subject { font-weight: var(--cam-font-weight-semibold); color: var(--cam-text-muted); }
+.cam-notification-text { margin: 0; font-size: var(--cam-font-size-sm); color: var(--cam-text-muted); white-space: pre-wrap; }
+.cam-notification-side { display: grid; justify-items: end; gap: var(--cam-space-1); }
+.cam-notification-time { font-size: var(--cam-font-size-2xs); color: var(--cam-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cam-notification-mark { font-size: var(--cam-font-size-2xs); white-space: nowrap; }
+@media (max-width: 639px) {
+  .cam-notification-item { grid-template-columns: auto minmax(0, 1fr); }
+  .cam-notification-side { grid-column: 2; justify-items: start; grid-auto-flow: column; justify-content: start; gap: var(--cam-space-3); }
+}
+
+/* ── Journal d'audit (/admin/journal-audit), 2026-11-03 ── */
+.cam-audit-table-scroll { overflow-x: auto; }
+.cam-audit-table-scroll:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+.cam-audit-table { min-width: 900px; }
+.cam-audit-resource-id { display: block; font-family: var(--cam-font-mono); font-size: var(--cam-font-size-3xs); color: var(--cam-text-muted); }
+.cam-audit-pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--cam-space-3); font-size: var(--cam-font-size-sm); color: var(--cam-text-muted); }
+.cam-audit-pager { margin-inline-start: auto; width: 100%; }
+
+/* ── Utilisateurs & rôles (/admin/utilisateurs), 2026-11-03 ── */
+.cam-admin-header-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-2); }
+.cam-admin-header-buttons .cam-button { gap: var(--cam-space-1); }
+.cam-agents-table-scroll { overflow-x: auto; }
+.cam-agents-table-scroll:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+.cam-agents-table { min-width: 1040px; }
+.cam-agent-created { display: grid; gap: var(--cam-space-hairline); justify-items: start; white-space: nowrap; }
+/* The row actions stay in view while the wide table scrolls. */
+.cam-agents-table td:last-child,
+.cam-agents-table th:last-child {
+  position: sticky;
+  inset-inline-end: 0;
+  background: var(--cam-surface);
+  box-shadow: -6px 0 6px -6px rgba(15, 23, 42, 0.25);
+}
+.cam-agents-table thead th:last-child { background: var(--cam-admin-table-header-bg); }
+
+/* ── Tableau de bord (/admin/pilotage), 2026-11-03 ──
+   The « À traiter » tiles sit on one row when they fit (the « five » modifier
+   was overridden by the base grid declared after it); figures that need
+   attention take their colour; the operation tabs follow the card closely. */
+.cam-admin-dashboard .cam-dash-action-summary-grid,
+.cam-admin-dashboard .cam-dash-action-summary-grid--five {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+.cam-admin .cam-dash-action-metric-card > strong.is-alert { color: var(--cam-error); }
+.cam-admin .cam-dash-action-metric-card > strong.is-info { color: var(--cam-info); }
+.cam-admin-dashboard .cam-dash-operation-tabs { margin: 0 0 var(--cam-space-4); }
+.cam-admin-dashboard [data-slot="tabs-content"] { display: grid; gap: var(--cam-space-4); }
+.cam-admin-dashboard .cam-dash-national-summary,
+.cam-admin-dashboard .cam-dash-action-summary { margin-bottom: 0; }
+/* The activity chart beside the coverage table is a card like its neighbour,
+   and its title matches the card titles. */
+.cam-admin-dashboard .cam-dash-coverage-analysis > .cam-registration-trend {
+  margin: 0;
+  padding: var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+}
+.cam-admin-dashboard .cam-dash-progress-title {
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-tight);
+}
+.cam-admin-dashboard [data-slot="tabs-content"] > * { margin-block: 0; }
+
+/* ── Exports de données (/admin/diffusion), 2026-11-03 ──
+   The dataset summary stays in view while the export is configured. */
+.cam-export-side { display: flex; flex-direction: column; gap: var(--cam-space-5); min-width: 0; }
+@media (min-width: 1100px) {
+  .cam-export-side { position: sticky; top: var(--cam-space-5); }
+}
+
+/* ── Paramètres (/admin/parametres), 2026-11-03 ──
+   The two forms side by side; the role reference and the audit extract below. */
+.cam-settings-grid { display: grid; gap: var(--cam-space-5); align-items: start; }
+.cam-settings-grid > .cam-admin-section { margin: 0; }
+.cam-settings-actions { display: flex; justify-content: flex-end; margin-top: var(--cam-space-5); }
+@media (min-width: 1200px) {
+  .cam-settings-grid { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+  /* The role reference and the audit extract need the full width. */
+  .cam-settings-grid.cam-settings-grid--reference { grid-template-columns: minmax(0, 1fr); }
+}
+.cam-campaign-dialog-text { margin: 0; }
+
+/* ── Équipe territoriale (/admin/equipe), 2026-11-03 ── */
+.cam-equipe-table-scroll { overflow-x: auto; }
+.cam-equipe-table-scroll:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+.cam-equipe-table { min-width: 1060px; }
+.cam-equipe-cell { display: grid; gap: var(--cam-space-hairline); }
+.cam-equipe-sub { display: block; white-space: nowrap; }
+.cam-equipe-nowrap { white-space: nowrap; }
+.cam-equipe-decisions { display: flex; flex-wrap: wrap; gap: var(--cam-space-1); }
+.cam-equipe-actions { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--cam-space-1); white-space: nowrap; }
+.cam-equipe-table td:last-child,
+.cam-equipe-table th:last-child {
+  position: sticky;
+  inset-inline-end: 0;
+  background: var(--cam-surface);
+  box-shadow: -6px 0 6px -6px rgba(15, 23, 42, 0.25);
+}
+.cam-equipe-table thead th:last-child { background: var(--cam-admin-table-header-bg); }
+
+/* ── Annuaire (/admin/annuaire), 2026-11-03 ──
+   Status chips (whose accounts) above the filter bar (search, role, region),
+   both in the card's toolbar; the count and « Actualiser » in its head. */
+.cam-directory-toolbar { display: grid; gap: var(--cam-space-3); }
+.cam-directory-body { display: flex; flex-direction: column; gap: var(--cam-space-4); }
+.cam-directory-refresh { gap: var(--cam-space-1); }
+.cam-admin .cam-equipe-table { min-width: 1240px; }
+.cam-equipe-table td:first-child,
+.cam-equipe-table th:first-child { min-width: 210px; }
+.cam-admin .cam-campaign-table .cam-campaign-type-cell > .cam-badge { white-space: nowrap; }

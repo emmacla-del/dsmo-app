@@ -35,7 +35,9 @@
     "columnNameEn": "Name (EN)",
     "columnCategory": "Category",
     "columnCode": "Code",
-    "sectorCount": "{count, plural, one {# sector} other {# sectors}}"
+    "sectorCount": "{count, plural, one {# sector} other {# sectors}}",
+    "searchLabel": "Search sectors",
+    "searchPlaceholder": "Name, English name or code…"
   },
   "forgotPasswordPage": {
     "passwordTooShortError": "Password must be at least 8 characters long.",
@@ -1609,7 +1611,9 @@
     "accountMenuAriaLabel": "Account menu",
     "accountSettingsButton": "Account & Settings",
     "languageLabel": "Language",
-    "logoutButton": "Sign out"
+    "logoutButton": "Sign out",
+    "expandRail": "Show menu labels",
+    "collapseRail": "Collapse menu"
   },
   "adminHeaderActions": {
     "noActiveCampaign": "No active campaign",
@@ -1641,7 +1645,22 @@
     "viewAll": "View all"
   },
   "adminNotificationsPage": {
-    "closeAriaLabel": "Close"
+    "closeAriaLabel": "Close",
+    "subtitle": "Messages addressed to you: assignments, reminders and decisions.",
+    "viewsAriaLabel": "Filter notifications",
+    "viewAll": "All ({count})",
+    "viewUnread": "Unread ({count})",
+    "noUnread": "No unread notification.",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "markRead": "Mark as read",
+    "openLink": "Open",
+    "kind": {
+      "NUDGE": "Reminder",
+      "ASSIGNMENT": "Assignment",
+      "APPROVAL": "Approval",
+      "REJECTION": "Rejection"
+    }
   },
   "adminError": {
     "title": "An error occurred while loading",
@@ -1707,7 +1726,10 @@
     "credentialsAcknowledged": "I have recorded or handed over the password. I understand it will not be shown again.",
     "credentialsLeaveTitle": "Close without recording the password?",
     "credentialsLeaveBody": "The temporary password will not be shown again. If you close or reload this page now, it will be lost permanently.",
-    "credentialsLeaveConfirm": "Close anyway"
+    "credentialsLeaveConfirm": "Close anyway",
+    "stepDoneLabel": "(complete)",
+    "stepsProgress": "{done} of {total} steps complete",
+    "readyToSubmit": "Ready to be saved"
   },
   "adminPilotagePage": {
     "dashboardSubtitle": "An overview of account registrations, survey submissions, campaign coverage, and data quality.",
@@ -2151,7 +2173,8 @@
     "actionsColumn": "Actions",
     "nonRespFileNONE": "No file",
     "nonRespFileDRAFT": "Draft started",
-    "nonRespFileREJECTED": "File rejected"
+    "nonRespFileREJECTED": "File rejected",
+    "unsavedChanges": "Unsaved changes"
   },
   "adminDossiersPage": {
     "bulkJustificationLabel": "Justification",
@@ -2748,6 +2771,24 @@
     "identificationTitle": "Identification",
     "flaggedHere": "Check here",
     "flaggedBack": "Back to the « To verify » list",
+    "claimToDecide": "Claim this file to decide: endorse, request a correction or reject.",
+    "checklistTitle": "To verify",
+    "checklistProgress": "{done} of {total} handled",
+    "checklistOpen": "View",
+    "decisionHeading": "Decision",
+    "correctionPointsSuffix": " · {count, plural, one {# point} other {# points}}",
+    "waitingSince": "Waiting for {count, plural, one {# day} other {# days}}",
+    "sectionBlockingBadge": "{count} blocking",
+    "sectionWarningBadge": "{count, plural, one {# warning} other {# warnings}}",
+    "queuePosition": "File {position} of {total}",
+    "previousPeriodTitle": "Previous period ({period})",
+    "sectionNoFlags": "No issues flagged",
+    "sectionsViewed": "Sections viewed: {seen} of {total}",
+    "reviewSummary": "{count, plural, =0 {Nothing to check} one {# point to check} other {# points to check}}",
+    "reviewSummaryBlocking": "{count} blocking · cannot endorse",
+    "openReviewPanel": "Decide",
+    "closeReviewPanel": "Close the review panel",
+    "keyboardHint": "J / K: next or previous point",
     "explainButton": "Explain",
     "explainTitle": "Explain this warning",
     "explainBody": "Say why these figures are right despite the warning. The note is recorded with your name and the date; the warning leaves the « To verify » list and no longer needs a justification at endorsement.",
@@ -2845,7 +2886,11 @@
     "rejectedShort": "{count} rej.",
     "correctionsTitle": "Further information requested",
     "correctionsShort": "{count} f.i.",
-    "medianDays": "{days} d"
+    "medianDays": "{days} d",
+    "rosterDescription": "One row per regional or departmental administrator, over the chosen period.",
+    "otherRole": "Other role",
+    "staleTitle": "Files waiting beyond the time limit",
+    "departmentLabel": "Department"
   },
   "adminInscriptionsPage": {
     "pageTitle": "Registration queue",
@@ -3076,7 +3121,8 @@
     "localNarrowing": "{shown} of {page} establishments on this page (type / suspended filtered locally)",
     "showingRange": "Showing {from}–{to} of {total} establishments",
     "previousButton": "Previous",
-    "nextButton": "Next"
+    "nextButton": "Next",
+    "registerTitle": "Establishment register"
   },
   "adminEtablissementPage": {
     "backLink": "← Back to establishments",
@@ -3100,7 +3146,7 @@
     "mainActivityLabel": "Main activity:",
     "reactivateAccount": "Reactivate the account",
     "suspendAccount": "Suspend the account",
-    "generalInfoTitle": "General information",
+    "generalInfoTitle": "Identification",
     "field": {
       "name": "Company name",
       "entityType": "Entity type",
@@ -3162,7 +3208,7 @@
     "auditForbiddenTitle": "Audit log not available to your role",
     "auditEmptyHint": "Recorded events will appear here.",
     "fullLogLink": "View full log →",
-    "manageTitle": "User account management",
+    "manageTitle": "Manage the user account",
     "registeredOn": "{name} — registered on {date}",
     "actionsLogged": "Actions taken are recorded in the audit log.",
     "closeButton": "Close",
@@ -3182,7 +3228,9 @@
     "deleteAccount": "Delete the account",
     "deleteHint": "Permanent deletion of the user account. This action cannot be undone.",
     "deleting": "Deleting…",
-    "delete": "Delete"
+    "delete": "Delete",
+    "locationTitle": "Location and contact",
+    "respondentTitle": "Respondent"
   },
   "adminCampagnesPage": {
     "readOnlyReason": "Reserved for administrators and the central level: your role allows read-only access.",
@@ -3359,7 +3407,36 @@
     "descriptionLabel": "Description or instructions (optional)",
     "descriptionRegistration": "Internal note on the registration quota",
     "descriptionCollection": "Specific instructions sent to reporting establishments…",
-    "autoReminders": "Enable automatic reminders (sent 7, 3 and 1 days before the deadline)"
+    "autoReminders": "Enable automatic reminders (sent 7, 3 and 1 days before the deadline)",
+    "pageSubtitle": "Open, follow and close collection and registration campaigns.",
+    "activeTitle": "Running campaigns",
+    "activeCount": "{count, plural, =0 {No active campaign} one {# active campaign} other {# active campaigns}}",
+    "historyDescription": "Drafts, paused, closed and archived campaigns.",
+    "filteredCount": "{shown} of {total}",
+    "searchLabel": "Search campaigns",
+    "searchPlaceholder": "Campaign name or code…",
+    "noMatchTitle": "No campaign matches the filters",
+    "noMatchHint": "Active filters: {filters}. Clear them to see the whole history.",
+    "factOpening": "Opening",
+    "factDeadline": "Deadline",
+    "periodElapsed": "{percent}% of the collection period elapsed",
+    "targetTypesLabel": "Targeted establishment types",
+    "campaignActionsGroup": "Campaign follow-up",
+    "lifecycleGroup": "Campaign lifecycle",
+    "deleteOf": "Delete {name}",
+    "activateEyebrow": "Activation",
+    "activateTitle": "Activate “{name}”?",
+    "activateTitleFallback": "Activate the campaign",
+    "activateBody": "Collection will open: the targeted establishments will be able to file their declaration for this campaign.",
+    "activateRemindersNote": "Automatic reminders are on: an announcement email will be sent to the targeted establishments.",
+    "activating": "Activating…",
+    "activateCampaign": "Activate the campaign",
+    "pauseEyebrow": "Pause",
+    "pauseTitle": "Pause “{name}”?",
+    "pauseTitleFallback": "Pause the campaign",
+    "pauseBody": "Collection will close until the campaign is reactivated: establishments will no longer be able to file a declaration for it. Declarations already received are kept.",
+    "pausing": "Pausing…",
+    "pauseCampaign": "Pause"
   },
   "adminQuestionnairesPage": {
     "subtitle": "National survey and declaration form templates for ONEFOP statistical collection",
@@ -3384,7 +3461,11 @@
     "sectionOrder": "Order: {order}",
     "fieldCount": "{count, plural, one {# question / field} other {# questions / fields}}",
     "loadingStructure": "Loading the questionnaire structure…",
-    "noStructure": "Section structure not available for this questionnaire."
+    "noStructure": "Section structure not available for this questionnaire.",
+    "fieldsColumn": "Questions / fields",
+    "registerDescription": "The seven national questionnaires of the ONEFOP schema, with the declarations filed in your area.",
+    "previewOf": "Preview the {type} questionnaire",
+    "viewFilesOf": "See {type} files"
   },
   "adminCentreQualitePage": {
     "viewsAriaLabel": "Quality centre views",
@@ -3516,7 +3597,9 @@
     "previous": "Previous",
     "next": "Next",
     "pageNumber": "Page {page}",
-    "pageOf": "Page {page} / {pages}"
+    "pageOf": "Page {page} / {pages}",
+    "subtitle": "Every action recorded on the platform: who, what, when, and the state before and after.",
+    "registerDescription": "Filters are applied by the server; the page link keeps the selection."
   },
   "adminParametresPage": {
     "role": {
@@ -3591,7 +3674,7 @@
     "forbiddenTitle": "Restricted access",
     "forbiddenBody": "ONEFOP account management is reserved for ONEFOP administrators.",
     "subtitle": "Access, role and administrative activity management",
-    "addOfficer": "Add officer",
+    "addOfficer": "Add an officer",
     "closeAriaLabel": "Close",
     "kpiActive": "Active officers",
     "kpiActiveHint": "Active ONEFOP accounts (central, regional, departmental)",
@@ -3607,7 +3690,7 @@
     "staffNumberColumn": "Staff number",
     "formsColumn": "Forms collected",
     "lastSignInColumn": "Last sign-in",
-    "createdColumn": "Account created on",
+    "createdColumn": "Created",
     "registeredByColumn": "Registered by",
     "statusColumn": "Status",
     "actionsColumn": "Actions",
@@ -3659,7 +3742,17 @@
     "roleRegionalHint": "Covers the whole region",
     "roleDivisionalHint": "Covers one department of the region",
     "selectDepartment": "Select a department",
-    "selectRegionFirst": "Select a region first"
+    "selectRegionFirst": "Select a region first",
+    "createdBy": "by {name}",
+    "searchLabel": "Search officers",
+    "searchPlaceholder": "Name or email address…",
+    "allRoles": "All roles",
+    "allStates": "All",
+    "state": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "pending": "Awaiting approval"
+    }
   },
   "adminDiffusionPage": {
     "allEmployers": "All employers",
@@ -4562,5 +4655,106 @@
     "helpCtaTitle": "Ready to start?",
     "helpCtaBody": "It all starts with registering your organisation.",
     "helpCtaAction": "Start my registration"
+  },
+  "adminSavedViews": {
+    "menuLabel": "Saved views",
+    "empty": "No saved view yet.",
+    "saveLabel": "Save the current view",
+    "namePlaceholder": "View name",
+    "save": "Save",
+    "remove": "Delete the view {name}",
+    "hint": "Saves the view, the search and the active filters. Visible to you only, on this device.",
+    "nothingToSave": "Add at least one filter to save a view.",
+    "filterCount": "{count, plural, =0 {No filter} one {# filter} other {# filters}}"
+  },
+  "adminRegistrationReview": {
+    "documentTitle": "Registration review",
+    "loadingTitle": "Loading the registration…",
+    "notFoundTitle": "Registration not found",
+    "notFoundHint": "It does not exist or is outside your jurisdiction.",
+    "forbiddenTitle": "Access denied",
+    "resource": "the registration",
+    "position": "Registration {position} of {total}",
+    "previous": "Previous",
+    "next": "Next",
+    "waitingSince": "{count, plural, =0 {Waiting since today} one {Waiting for # day} other {Waiting for # days}}",
+    "reference": "Ref. {ref}",
+    "submittedOn": "submitted on {date}",
+    "niu": "Tax ID {niu}",
+    "sectionsNav": "Registration sections",
+    "sectionsTitle": "Sections",
+    "duplicatesTitle": "Possible duplicate",
+    "duplicatesIntro": "Other registrations share an identifier with this one. Compare them before deciding.",
+    "duplicatesSearch": "Search the register for {organisation}",
+    "changesTitle": "Changed by the declarant",
+    "changesWhen": "on {date}, after a request for more information",
+    "changesNavLabel": "Changes",
+    "verifyHint": "No default answer: not checked is not \"non-compliant\".",
+    "verifyNavLabel": "To check",
+    "identityTitle": "Identification and location",
+    "identityNavLabel": "Identification",
+    "taxNumberLabel": "Tax ID",
+    "cnpsLabel": "CNPS no.",
+    "submittedLabel": "Submitted on",
+    "registrationNumberLabel": "Registration no.",
+    "claimYou": "Claimed by you",
+    "claimYouHint": "Other officers see it as taken.",
+    "claimOther": "Claimed by {name}",
+    "claimOtherHint": "You can still decide; the decision is recorded under your name.",
+    "claimFree": "Not claimed",
+    "claimFreeHint": "Claim it so other officers know you are reviewing it.",
+    "claimButton": "Claim",
+    "releaseButton": "Release",
+    "claimFailed": "The claim did not go through.",
+    "checklistTitle": "To check",
+    "checklistProgress": "{done} of {total} checked",
+    "stateOk": "Compliant",
+    "stateKo": "Non-compliant",
+    "stateTodo": "To check",
+    "stateEmpty": "Not provided",
+    "centralHint": "Required for this entity type.",
+    "decisionTitle": "Decision",
+    "reasonSent": "This message is sent to the declarant.",
+    "confirmReject": "Confirm rejection",
+    "confirmComplements": "Send the request",
+    "cancelChoice": "Cancel",
+    "decidedTitle": "Decision recorded",
+    "decidedHint": "This registration no longer awaits a decision.",
+    "decidedOn": "on {date}",
+    "approvalComment": "Comment",
+    "rejectionReason": "Reason for rejection",
+    "staleFileError": "The registration changed after you opened it. Reload it before deciding.",
+    "reloadButton": "Reload the registration",
+    "openReviewPanel": "Check and decide",
+    "closeReviewPanel": "Close the decision panel",
+    "summaryReady": "Ready to approve",
+    "summaryToCheck": "{done} of {total} checked",
+    "endOfQueue": "End of the queue: no more registrations to review with these filters.",
+    "claimAndOpen": "Claim and open",
+    "openPage": "Open",
+    "openWithoutClaim": "Open without claiming",
+    "quickReview": "Quick review (dialog)",
+    "rowActions": "Actions for {organisation}",
+    "historyTitle": "History",
+    "historyResource": "the registration history",
+    "historyByDeclarant": "by the declarant",
+    "historyBy": "by {name}",
+    "historyAssignedTo": "Assigned to {name}",
+    "historyReleased": "Released",
+    "historyChanged": "Fields changed: {fields}",
+    "historySubmitted": "Registration submitted",
+    "historyAction": {
+      "COMPANY_REGISTRATION_ASSISTED": "Registered by an officer",
+      "COMPANY_REGISTRATION_AUTO_APPROVED": "Approved automatically",
+      "COMPANY_REGISTRATION_APPROVED": "Account approved",
+      "COMPANY_REGISTRATION_REJECTED": "Account rejected",
+      "COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED": "More information requested",
+      "COMPANY_REGISTRATION_RESUBMITTED": "Corrections sent",
+      "REGISTRATION_ASSIGNED": "Assignment changed",
+      "REGISTRATION_ARCHIVED": "Registration archived",
+      "REGISTRATION_RESTORED": "Registration restored",
+      "USER_ACTIVATED": "Account reactivated",
+      "USER_SUSPENDED": "Account suspended"
+    }
   }
 }

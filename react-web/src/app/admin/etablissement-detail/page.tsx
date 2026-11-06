@@ -279,7 +279,12 @@ function EtablissementDetail() {
           { label: shortName ?? NOT_PROVIDED },
         ]}
         title={shortName ?? t("titleFallback")}
-        subtitle={t("subtitle")}
+        subtitle={<span className="cam-dossier-header-facts">
+          {company.entityType && <span>{typeDisplay(company.entityType)}</span>}
+          <span>{t("idLabel")} <span className="cam-registration-ref">{fact(company.establishmentId)}</span></span>
+          <span>{[company.region, company.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span>
+          {company.mainActivity && <span>{company.mainActivity}</span>}
+        </span>}
         statusBadge={
           !linkedAccount
             ? { label: t("badgeNoAccount"), variant: "neutral" }
@@ -308,13 +313,6 @@ function EtablissementDetail() {
         }
       />
 
-      {/* Every value is this establishment's own stored field. */}
-      <p className="text-sm text-muted-foreground">
-        {company.entityType && <>{typeDisplay(company.entityType)} · </>}
-        {t("idLabel")} <span className="font-mono font-medium text-foreground">{fact(company.establishmentId)}</span>
-        {" · "}
-        {t("mainActivityLabel")} <span className="font-medium text-foreground">{fact(company.mainActivity)}</span>
-      </p>
 
       {toastMessage && (
         <Alert variant="success" role="status" className="mb-4 flex items-center justify-between gap-4"><AlertDescription>{toastMessage}</AlertDescription><Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeAriaLabel")} onClick={() => setToastMessage(null)}>×</Button></Alert>
@@ -324,12 +322,12 @@ function EtablissementDetail() {
         <Alert variant="destructive" className="mb-4"><AlertDescription>{actionError}</AlertDescription></Alert>
       )}
 
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
-        {/* ── Left column ── */}
-        <div className="flex min-w-0 flex-col gap-5">
+      <div className="cam-record-layout">
+        {/* ── Main column: what the establishment declared ── */}
+        <div className="cam-record-main">
           {/* Identification: Company model fields only. */}
-          <Card><CardHeader><CardTitle id="etab-general-title" className="text-base">{t("generalInfoTitle")}</CardTitle></CardHeader>
-            <CardContent><dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:font-medium [&_dt]:text-sm [&_dt]:text-muted-foreground">
+          <Card className="cam-record-card"><CardHeader><CardTitle id="etab-general-title" className="text-base">{t("generalInfoTitle")}</CardTitle></CardHeader>
+            <CardContent><dl className="cam-record-fields">
               <Field label={t("field.name")} value={company.name} />
               <Field label={t("field.entityType")} value={company.entityType ? typeDisplay(company.entityType) : null} />
               <Field label={t("field.registrationNumber")} value={company.registrationNumber} />
@@ -341,11 +339,21 @@ function EtablissementDetail() {
               <Field label={t("field.size")} value={company.enterpriseSize} />
               <Field label={t("field.mainActivity")} value={company.mainActivity} />
               <Field label={t("field.sector")} value={sectorLabel(company.sector, locale)} />
+            </dl></CardContent>
+          </Card>
+
+          <Card className="cam-record-card"><CardHeader><CardTitle id="etab-location-title" className="text-base">{t("locationTitle")}</CardTitle></CardHeader>
+            <CardContent><dl className="cam-record-fields">
               <Field label={t("field.phone")} value={company.phone} />
               <Field label={t("field.address")} value={company.address} />
               <Field label={t("field.region")} value={company.region} />
               <Field label={t("field.department")} value={company.department} />
               <Field label={t("field.subdivision")} value={company.subdivision} />
+            </dl></CardContent>
+          </Card>
+
+          <Card className="cam-record-card"><CardHeader><CardTitle id="etab-respondent-title" className="text-base">{t("respondentTitle")}</CardTitle></CardHeader>
+            <CardContent><dl className="cam-record-fields">
               <Field
                 label={t("field.contactPerson")}
                 value={respondent ? `${respondent}${company.respondentFunction ? ` — ${respondentFunctionLabel(company.respondentFunction, locale)}` : ""}` : null}
@@ -355,8 +363,8 @@ function EtablissementDetail() {
           </Card>
 
           {/* Workforce as last declared on the Company record. */}
-          <Card><CardHeader><CardTitle id="etab-workforce-title" className="text-base">{t("workforceTitle")}</CardTitle></CardHeader>
-            <CardContent><dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:font-medium [&_dt]:text-sm [&_dt]:text-muted-foreground">
+          <Card className="cam-record-card"><CardHeader><CardTitle id="etab-workforce-title" className="text-base">{t("workforceTitle")}</CardTitle></CardHeader>
+            <CardContent><dl className="cam-record-fields cam-record-figures">
               <Field label={t("workforceTotal")} value={count(company.totalEmployees, locale)} />
               <Field label={t("men")} value={count(company.menCount, locale)} />
               <Field label={t("women")} value={count(company.womenCount, locale)} />
@@ -411,10 +419,10 @@ function EtablissementDetail() {
           </AdminTablePanel>
         </div>
 
-        {/* ── Right column ── */}
-        <div className="flex min-w-0 flex-col gap-5">
+        {/* ── Side column: the account and its trail; stays in view on desktop ── */}
+        <aside className="cam-record-side" aria-label={t("linkedAccountTitle")}>
           {/* Exactly one account can be linked: Company.user is singular. */}
-          <Card><CardHeader><CardTitle id="etab-account-title" className="text-base">{t("linkedAccountTitle")}</CardTitle></CardHeader>
+          <Card className="cam-record-card"><CardHeader><CardTitle id="etab-account-title" className="text-base">{t("linkedAccountTitle")}</CardTitle></CardHeader>
             <CardContent>
               {!linkedAccount ? (
                 <DataState
@@ -456,9 +464,9 @@ function EtablissementDetail() {
               the registration IP, a geolocation, a last-modified stamp and a
               document-verification status; none of those is stored anywhere,
               so none is shown. */}
-          <Card><CardHeader><CardTitle id="etab-registration-title" className="text-base">{t("accountInfoTitle")}</CardTitle></CardHeader>
+          <Card className="cam-record-card"><CardHeader><CardTitle id="etab-registration-title" className="text-base">{t("accountInfoTitle")}</CardTitle></CardHeader>
             <CardContent>
-              <dl className="grid gap-4 [&_dd]:mt-1 [&_dd]:font-medium [&_dt]:text-sm [&_dt]:text-muted-foreground">
+              <dl className="cam-record-fields is-single">
                 <Field label={t("registrationDate")} value={stamp(company.createdAt, true, locale)} />
               </dl>
               <div className="mt-4">
@@ -474,7 +482,7 @@ function EtablissementDetail() {
           </Card>
 
           {/* Real audit entries for the linked account. */}
-          <Card><CardHeader><CardTitle id="etab-audit-title" className="text-base">{t("auditTitle")}</CardTitle></CardHeader>
+          <Card className="cam-record-card"><CardHeader><CardTitle id="etab-audit-title" className="text-base">{t("auditTitle")}</CardTitle></CardHeader>
             <CardContent>
               {!linkedAccount ? (
                 <DataState
@@ -523,7 +531,7 @@ function EtablissementDetail() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </aside>
       </div>
 
       {/* ── Account management.

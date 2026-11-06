@@ -892,8 +892,7 @@ export interface AdminQuestionnairesPage {
 }
 
 // TODO(backend, S): delete QuestionnairesService.getAllQuestionnaires in a follow-up — dead code since 40529d79 (GET /admin/questionnaires now uses listForAdmin)
-export function listAdminQuestionnaires(
-  params: {
+export type AdminListParams = {
     status?: string; statuses?: string; view?: "queue" | "completed" | "all";
     formType?: string; period?: string; region?: string; search?: string;
     companyId?: string;
@@ -912,8 +911,10 @@ export function listAdminQuestionnaires(
     /** "oldest" lists the longest-waiting first; the server default is newest first. */
     sort?: "oldest";
     limit?: number; offset?: number;
-  } = {},
-) {
+  };
+
+/** Query string of the admin dossier list, shared by the list and its facet counts. */
+function adminListQuery(params: AdminListParams): URLSearchParams {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.statuses) query.set("statuses", params.statuses);
@@ -935,13 +936,35 @@ export function listAdminQuestionnaires(
   if (params.sort) query.set("sort", params.sort);
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
-  const qs = query.toString();
+  return query;
+}
+
+export function listAdminQuestionnaires(params: AdminListParams = {}) {
+  const qs = adminListQuery(params).toString();
   return apiFetch<AdminQuestionnairesPage>(`/admin/questionnaires${qs ? `?${qs}` : ""}`);
+}
+
+/** GET /admin/questionnaires/facets: how many files each filter option would list, other filters kept. */
+export interface AdminListFacets {
+  quality: Record<"clean" | "warnings" | "blocking", number>;
+  assignment: Record<"me" | "unassigned" | "other", number>;
+  formType: Record<string, number>;
+  region: Record<string, number>;
+  department: Record<string, number>;
+}
+
+export function getAdminListFacets(params: Omit<AdminListParams, "limit" | "offset" | "sort"> = {}) {
+  const qs = adminListQuery(params).toString();
+  return apiFetch<AdminListFacets>(`/admin/questionnaires/facets${qs ? `?${qs}` : ""}`);
 }
 
 export interface DossierNeighbours {
   previous: { id: string; submissionId: string } | null;
   next: { id: string; submissionId: string } | null;
+  /** 1-based place of the file in the filtered list; null once it has left it. */
+  position?: number | null;
+  /** Size of the filtered list. */
+  total?: number;
 }
 
 export function getDossierNeighbours(id: string, filters: {
@@ -1012,6 +1035,8 @@ export interface AdminDossier {
    * ADMIN_ONEFOP (server: src/questionnaires/staff-names.ts).
    */
   rawData?: Record<string, unknown> | null;
+  /** The same establishment's last endorsed file for an earlier round, for comparison. */
+  previousPeriod?: { id: string; submissionId: string; quarterCode: string | null; rawData: Record<string, unknown> | null } | null;
 }
 
 export function getAdminDossier(id: string, includeArchived = false) {

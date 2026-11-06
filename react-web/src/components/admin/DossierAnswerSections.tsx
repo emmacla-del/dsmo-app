@@ -12,13 +12,14 @@ export function PlacedFlagNotice({ flags, label, back }: { flags: PlacedFlag[]; 
   const blocking = flags.some((flag) => flag.severity === "blocking");
   return (
     <div className={`cam-dossier-field-flag${blocking ? " is-blocking" : " is-warning"}`} role="note">
-      <strong>{label}</strong>
-      <ul>{flags.map((flag, index) => <li key={index}>{flag.text}</li>)}</ul>
+      <strong className="cam-dossier-field-flag-label">{label}</strong>
+      <ul>{flags.map((flag, index) => <li key={index} className={`is-${flag.severity}`}>{flag.text}</li>)}</ul>
       <a href="#dossier-verify">{back}</a>
     </div>
   );
 }
 import { ReviewStatisticalTable, reviewTableDefinition } from "./ReviewStatisticalTable";
+import { CoherenceProvider } from "@/components/onefop/coherence/Coherence";
 
 /** A paper question number (« 2.1 », « 4.10 ») is shown; a variable name (« S21Q01 ») never is (§8). */
 function paperNumber(code: string | null): string | null {
@@ -57,7 +58,16 @@ function fieldValue(field: OnefopField, data: FormData, locale: "fr" | "en", yes
   return formatAnswer(field, value, locale, { yes, no, row: (n) => String(n) });
 }
 
-function AnswerField({ field, data, yes, no, notAnswered, tableNote, cellIdLabel, recordedAnswerLabel, locale, quarterCode }: {
+/** The same establishment's file for an earlier round, shown beside each answer. */
+export interface PreviousPeriodAnswers {
+  data: FormData;
+  /** « T2 2026 » — the earlier round's name. */
+  label: string;
+  /** The earlier round's code, for its own tables' period labels. */
+  quarterCode: string | null;
+}
+
+function AnswerField({ field, data, yes, no, notAnswered, tableNote, cellIdLabel, recordedAnswerLabel, locale, quarterCode, previous, previousTitle }: {
   field: OnefopField;
   data: FormData;
   yes: string;
@@ -68,12 +78,54 @@ function AnswerField({ field, data, yes, no, notAnswered, tableNote, cellIdLabel
   recordedAnswerLabel: string;
   locale: "fr" | "en";
   quarterCode: string | null;
+  previous?: PreviousPeriodAnswers | null;
+  /** « Période précédente (T2 2026) ». */
+  previousTitle?: string;
 }) {
   const cells = field.table?.matrix?.flat() ?? [];
   const labelled = hasLabelledTable(field, data);
   const isMatrix = !labelled && cells.length > 0;
   const values = isMatrix || labelled ? null : fieldValue(field, data, locale, yes, no);
   const number = paperNumber(field.paperCode);
+  const render = (source: FormData, sourceQuarter: string | null) => {
+    const sourceValues = isMatrix || labelled ? null : fieldValue(field, source, locale, yes, no);
+    return (
+      <>
+            {labelled ? (
+              <ReviewStatisticalTable field={field} data={source} quarterCode={sourceQuarter} />
+            ) : isMatrix ? (
+              <>
+                <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-2)" }}>{tableNote}</p>
+                <div className="cam-table-wrapper">
+                  <table className="cam-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">{cellIdLabel}</th>
+                        <th scope="col">{recordedAnswerLabel}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cells.map((cellId) => (
+                        <tr key={cellId}>
+                          <th scope="row">{cellId}</th>
+                          <td>{isBlank(source[cellId]) ? notAnswered : rawValue(source[cellId], yes, no)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : sourceValues?.length ? (
+              sourceValues.map((value, index) => <div key={`${field.id}-${index}`}>{value}</div>)
+            ) : (
+              <span className="cam-admin-meta">{notAnswered}</span>
+            )}
+      </>
+    );
+  };
+  const previousValues = previous && !isMatrix && !labelled ? fieldValue(field, previous.data, locale, yes, no) : null;
+  const changed = previous && !isMatrix && !labelled
+    && JSON.stringify(previousValues ?? []) !== JSON.stringify(values ?? []);
   return (
     <>
       <dt>
@@ -81,41 +133,27 @@ function AnswerField({ field, data, yes, no, notAnswered, tableNote, cellIdLabel
         {localized(field.label, locale) || field.id}
       </dt>
       <dd>
-        {labelled ? (
-          <ReviewStatisticalTable field={field} data={data} quarterCode={quarterCode} />
-        ) : isMatrix ? (
-          <>
-            <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-2)" }}>{tableNote}</p>
-            <div className="cam-table-wrapper">
-              <table className="cam-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{cellIdLabel}</th>
-                    <th scope="col">{recordedAnswerLabel}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cells.map((cellId) => (
-                    <tr key={cellId}>
-                      <th scope="row">{cellId}</th>
-                      <td>{isBlank(data[cellId]) ? notAnswered : rawValue(data[cellId], yes, no)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : values?.length ? (
-          values.map((value, index) => <div key={`${field.id}-${index}`}>{value}</div>)
-        ) : (
-          <span className="cam-admin-meta">{notAnswered}</span>
+        {render(data, quarterCode)}
+        {previous && (isMatrix || labelled) && (
+          <details className="cam-dossier-previous">
+            <summary>{previousTitle}</summary>
+            {/* The earlier file carries none of this file's findings. */}
+            <CoherenceProvider flags={[]} readOnly>
+              {render(previous.data, previous.quarterCode)}
+            </CoherenceProvider>
+          </details>
+        )}
+        {changed && (
+          <p className="cam-dossier-previous-inline">
+            <span>{previous!.label}</span> {previousValues?.length ? previousValues.join(", ") : notAnswered}
+          </p>
         )}
       </dd>
     </>
   );
 }
 
-function QuestionnaireSection({ section, title, data, yes, no, notAnswered, emptyMessage, tableNote, cellIdLabel, recordedAnswerLabel, locale, anchorId, quarterCode, flags, flagLabel, flagBack }: {
+function QuestionnaireSection({ section, title, data, yes, no, notAnswered, emptyMessage, tableNote, cellIdLabel, recordedAnswerLabel, locale, anchorId, quarterCode, flags, flagLabel, flagBack, quietLabel, blockingBadge, warningBadge, previous, previousTitle }: {
   section: OnefopSection;
   title: string;
   data: FormData;
@@ -132,6 +170,13 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
   flags: Record<string, PlacedFlag[]>;
   flagLabel: string;
   flagBack: string;
+  /** Shown on a folded section that carries no finding. */
+  quietLabel: string;
+  /** Section header badges: how many blocking findings / warnings sit in it. */
+  blockingBadge: (count: number) => string;
+  warningBadge: (count: number) => string;
+  previous?: PreviousPeriodAnswers | null;
+  previousTitle?: string;
 }) {
   // A reason or domain the respondent typed is the row's label in its table
   // (as in the wizard), so it is not listed a second time on its own.
@@ -144,9 +189,11 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
     if (subsectionTitle && ids.length > 1) headingAt.set(ids[0], subsectionTitle);
   }
 
-  return (
-    <section className="cam-dossier-section" id={anchorId}>
-      <h2>{title}</h2>
+  const sectionFlags = visible.flatMap((field) => flags[dossierFieldAnchor(field.id)] ?? []);
+  const flagged = sectionFlags.length > 0;
+  const blockingInSection = sectionFlags.filter((flag) => flag.severity === "blocking").length;
+  const warningsInSection = sectionFlags.length - blockingInSection;
+  const body = (
       <div className="cam-dossier-section-body">
         {visible.length === 0 ? (
           <p className="cam-admin-meta">{emptyMessage}</p>
@@ -164,7 +211,6 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
                 {headingAt.has(field.id) && (
                   <div className="cam-admin-label" style={{ gridColumn: "1 / -1" }}>{headingAt.get(field.id)}</div>
                 )}
-                {flags[dossierFieldAnchor(field.id)] && <PlacedFlagNotice flags={flags[dossierFieldAnchor(field.id)]} label={flagLabel} back={flagBack} />}
                 <AnswerField
                   field={field}
                   data={data}
@@ -176,18 +222,44 @@ function QuestionnaireSection({ section, title, data, yes, no, notAnswered, empt
                   tableNote={tableNote}
                   locale={locale}
                   quarterCode={quarterCode}
+                  previous={previous}
+                  previousTitle={previousTitle}
                 />
+                {/* Said right under the answer it concerns, where the reviewer is looking. */}
+                {flags[dossierFieldAnchor(field.id)] && <PlacedFlagNotice flags={flags[dossierFieldAnchor(field.id)]} label={flagLabel} back={flagBack} />}
               </div>
             ))}
           </dl>
         )}
       </div>
-    </section>
+  );
+  // A section with a finding stays open; the others fold to one line the
+  // reviewer can open (the rail's links open them too).
+  if (flagged) {
+    return (
+      <section className="cam-dossier-section" id={anchorId}>
+        <div className="cam-dossier-section-head">
+          <h2>{title}</h2>
+          {blockingInSection > 0 && <span className="cam-badge cam-badge-error">{blockingBadge(blockingInSection)}</span>}
+          {warningsInSection > 0 && <span className="cam-badge cam-badge-warning">{warningBadge(warningsInSection)}</span>}
+        </div>
+        {body}
+      </section>
+    );
+  }
+  return (
+    <details className="cam-dossier-section is-quiet" id={anchorId}>
+      <summary>
+        <h2>{title}</h2>
+        <span className="cam-admin-meta">{quietLabel}</span>
+      </summary>
+      {body}
+    </details>
   );
 }
 
 /** Read-only rendering of the questionnaire's schema sections from rawData. */
-export function DossierAnswerSections({ entity, sectionId, title, data, quarterCode = null, flags = {} }: {
+export function DossierAnswerSections({ entity, sectionId, title, data, quarterCode = null, flags = {}, previous = null }: {
   entity: OnefopEntity;
   sectionId: string;
   title: string;
@@ -196,6 +268,8 @@ export function DossierAnswerSections({ entity, sectionId, title, data, quarterC
   quarterCode?: string | null;
   /** Findings placed on this file's answers (placeFindings), keyed by anchor. */
   flags?: Record<string, PlacedFlag[]>;
+  /** The establishment's previous endorsed file, to compare each answer with. */
+  previous?: PreviousPeriodAnswers | null;
 }) {
   const locale = asUiLocale(useLocale());
   const t = useTranslations("adminDossierPage");
@@ -221,6 +295,11 @@ export function DossierAnswerSections({ entity, sectionId, title, data, quarterC
       flags={flags}
       flagLabel={t("flaggedHere")}
       flagBack={t("flaggedBack")}
+      quietLabel={t("sectionNoFlags")}
+      blockingBadge={(count) => t("sectionBlockingBadge", { count })}
+      warningBadge={(count) => t("sectionWarningBadge", { count })}
+      previous={previous}
+      previousTitle={previous ? t("previousPeriodTitle", { period: previous.label }) : undefined}
     />
   );
 }

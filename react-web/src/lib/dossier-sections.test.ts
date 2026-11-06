@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { OnefopEntity, OnefopField } from "./onefop-schema";
-import { dossierSectionState } from "./dossier-sections";
+import { dossierSectionState, sectionCountsAsRead } from "./dossier-sections";
 import { loadOnefopSchema } from "@/test/schema";
 
 const field = (id: string, extra: Partial<OnefopField> = {}): OnefopField => ({
@@ -53,4 +53,11 @@ test("a VT section a closed centre was not asked reads not applicable, never emp
   const closed = { VT1_12: "Fermée/ Closed" };
   assert.equal(dossierSectionState(vt, second.id, closed), "notApplicable");
   assert.equal(dossierSectionState(vt, first.id, closed), "answered");
+});
+
+test("a folded section counts as read only once it is open", () => {
+  const section = (tagName: string, open?: boolean) => ({ tagName, open }) as unknown as Element;
+  assert.equal(sectionCountsAsRead(section("DETAILS", false)), false);
+  assert.equal(sectionCountsAsRead(section("DETAILS", true)), true);
+  assert.equal(sectionCountsAsRead(section("SECTION")), true);
 });

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { RefreshCw, Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { formatApiError } from "@/lib/pilotage-targets";
@@ -28,6 +30,10 @@ import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
 import { useAuthStore } from "@/lib/auth-store";
 import { NOT_PROVIDED, resolveDataState } from "@/lib/admin-data-state";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { hrefWith, parseAdminListPage } from "@/lib/admin-url";
 
 const PAGE_SIZE = 20;
 
@@ -90,22 +96,43 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
     ? ADMIN_ROLES
     : ADMIN_ROLES.filter((role) => role !== "ADMIN_ONEFOP_REGISTRATIONS" && role !== "ADMIN_ONEFOP_SUBMISSIONS"));
   const { regions: directoryRegions } = useTerritoryRegions();
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>(defaultStatus);
-  const [roleFilter, setRoleFilter] = useState(roleScopes ? (defaultRoleScope ?? roleScopes[0].key) : "");
-  const [regionFilter, setRegionFilter] = useState("");
-  const [page, setPage] = useState(1);
+  // Filters and page live in the URL (G15): ?q=, ?role=, ?region=,
+  // ?statut=, ?page=. Only the search box keeps a draft, written after a pause.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const setFilters = (changes: Record<string, string | number | null>) =>
+    router.replace(hrefWith(pathname, currentQuery, { page: null, ...changes }), { scroll: false });
+  const search = searchParams.get("q")?.trim() ?? "";
+  const rawStatus = searchParams.get("statut") ?? "";
+  const statusFilter: StatusFilterKey = STATUS_FILTERS.some((f) => f.key === rawStatus) ? rawStatus as StatusFilterKey : defaultStatus;
+  const defaultRole = roleScopes ? (defaultRoleScope ?? roleScopes[0].key) : "";
+  const rawRole = searchParams.get("role") ?? "";
+  const roleFilter = roleScopes
+    ? (roleScopes.some((scope) => scope.key === rawRole) ? rawRole : defaultRole)
+    : (roleOptions.includes(rawRole) ? rawRole : "");
+  const regionFilter = showRegionFilter ? searchParams.get("region")?.trim() ?? "" : "";
+  const page = parseAdminListPage(searchParams.get("page"));
+  const setPage = (next: number) =>
+    router.replace(hrefWith(pathname, currentQuery, { page: next <= 1 ? null : next }), { scroll: false });
+  const [searchInput, setSearchInput] = useState(search);
+  const [syncedSearch, setSyncedSearch] = useState(search);
+  if (syncedSearch !== search) {
+    setSyncedSearch(search);
+    setSearchInput(search);
+  }
   const [modal, setModal] = useState<Modal | null>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
+      router.replace(hrefWith(pathname, currentQuery, { page: null, q: next || null }), { scroll: false });
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search, router, pathname, currentQuery]);
 
   const activeFilter = STATUS_FILTERS.find((f) => f.key === statusFilter)!;
 
@@ -167,90 +194,89 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
   });
 
   return (
-    <AdminTablePanel title={t("homeAnnuairePage.usersTabLabel")} headingId="users-directory-table-heading">
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--cam-space-4)" }}>
-      <div className="cam-admin-filters">
-        <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="users-search">{t("usersDirectory.searchLabel")}</label>
-          <div className="cam-admin-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              id="users-search"
-              type="search"
-              className="cam-input"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={t("usersDirectory.searchPlaceholder")}
-            />
+    <AdminTablePanel
+      title={t("homeAnnuairePage.usersTabLabel")}
+      headingId="users-directory-table-heading"
+      // Only once the list has answered: "0 comptes" while loading or after a
+      // failure would state a count nobody has read (G10).
+      meta={query.data ? <span role="status">{t("usersDirectory.accountsCount", { count: total })}</span> : undefined}
+      actions={
+        <button type="button" className="cam-button cam-button-secondary cam-button-sm cam-directory-refresh" onClick={() => query.refetch()}>
+          <RefreshCw size={14} aria-hidden="true" />
+          {t("usersDirectory.refresh")}
+        </button>
+      }
+      toolbar={
+        <div className="cam-directory-toolbar">
+          <div className="cam-admin-chips" role="group" aria-label={t("usersDirectory.statusFilterAriaLabel")}>
+            {STATUS_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className="cam-admin-chip"
+                aria-pressed={statusFilter === f.key}
+                onClick={() => setFilters({ statut: f.key === defaultStatus ? null : f.key })}
+              >
+                {locale === "en" ? f.labelEn : f.label}
+              </button>
+            ))}
           </div>
-        </div>
-        <div className="cam-field">
-          <label className="cam-admin-label" htmlFor="users-role">{t("usersDirectory.roleLabel")}</label>
-          <select
-            id="users-role"
-            className="cam-select"
-            value={roleFilter}
-            onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-          >
+          <div className="cam-filter-bar" role="group" aria-label={t("adminDossiersPage.filtersButton")}>
+            <div className="cam-filter-bar-search">
+              <label className="cam-sr-only" htmlFor="users-search">{t("usersDirectory.searchLabel")}</label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
+              <Input
+                id="users-search"
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t("usersDirectory.searchPlaceholder")}
+              />
+            </div>
             {roleScopes ? (
-              roleScopes.map((scope) => (
-                <option key={scope.key} value={scope.key}>{scope.label}</option>
-              ))
+              <AdminFilterPill
+                label={t("usersDirectory.roleLabel")}
+                value={roleFilter === defaultRole ? "" : roleFilter}
+                allLabel={roleScopes.find((scope) => scope.key === defaultRole)?.label ?? t("usersDirectory.allRolesOption")}
+                clearLabel={t("adminDossiersPage.removeFilterChip", { label: t("usersDirectory.roleLabel") })}
+                onChange={(value) => setFilters({ role: value || null })}
+                options={roleScopes.filter((scope) => scope.key !== defaultRole).map((scope) => ({ value: scope.key, label: scope.label }))}
+              />
             ) : (
-              <>
-                <option value="">{t("usersDirectory.allRolesOption")}</option>
-                {roleOptions.map((r: string) => (
-                  <option key={r} value={r}>{directoryRoleLabel(r, locale)}</option>
-                ))}
-              </>
+              <AdminFilterPill
+                label={t("usersDirectory.roleLabel")}
+                value={roleFilter}
+                allLabel={t("usersDirectory.allRolesOption")}
+                clearLabel={t("adminDossiersPage.removeFilterChip", { label: t("usersDirectory.roleLabel") })}
+                onChange={(value) => setFilters({ role: value || null })}
+                options={roleOptions.map((r: string) => ({ value: r, label: directoryRoleLabel(r, locale) }))}
+              />
             )}
-          </select>
-        </div>
-        {showRegionFilter && (
-          <div className="cam-field">
-            <label className="cam-admin-label" htmlFor="users-region">{t("usersDirectory.regionLabel")}</label>
-            <select
-              id="users-region"
-              className="cam-select"
-              value={regionFilter}
-              onChange={(e) => { setRegionFilter(e.target.value); setPage(1); }}
-            >
-              <option value="">{t("usersDirectory.allRegionsOption")}</option>
-              {directoryRegions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
+            {showRegionFilter && (
+              <AdminFilterPill
+                label={t("usersDirectory.regionLabel")}
+                value={regionFilter}
+                allLabel={t("usersDirectory.allRegionsOption")}
+                clearLabel={t("adminDossiersPage.removeFilterChip", { label: t("usersDirectory.regionLabel") })}
+                onChange={(value) => setFilters({ region: value || null })}
+                options={directoryRegions.map((r) => ({ value: r, label: r }))}
+              />
+            )}
+            {(search || roleFilter !== defaultRole || regionFilter || statusFilter !== defaultStatus) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => { setSearchInput(""); setFilters({ q: null, role: null, region: null, statut: null }); }}
+              >
+                {t("adminDossiersPage.clearFilters")}
+              </Button>
+            )}
           </div>
-        )}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "var(--cam-space-3)" }}>
-        <div className="cam-admin-chips" role="group" aria-label={t("usersDirectory.statusFilterAriaLabel")}>
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className="cam-admin-chip"
-              aria-pressed={statusFilter === f.key}
-              onClick={() => { setStatusFilter(f.key); setPage(1); }}
-            >
-              {locale === "en" ? f.labelEn : f.label}
-            </button>
-          ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--cam-space-3)" }}>
-          {/* Only once the list has answered: "0 comptes" while loading or
-              after a failure would state a count nobody has read (G10). */}
-          {query.data && <span className="cam-admin-meta">{t("usersDirectory.accountsCount", { count: total })}</span>}
-          <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => query.refetch()}>
-            {t("usersDirectory.refresh")}
-          </button>
-        </div>
-      </div>
-
+      }
+    >
+    <div className="cam-directory-body">
       {filterIgnored && (
         <div role="alert" className="cam-admin-notice cam-admin-notice--warn">
           <span>{t("usersDirectory.filterIgnoredWarning")}</span>
@@ -408,13 +434,13 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
 
           {total > 0 && (
             <div className="cam-pagination">
-              <button className="cam-pagination-btn" type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              <button className="cam-pagination-btn" type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
                 {t("usersDirectory.prevPage")}
               </button>
               <span className="cam-pagination-info">
                 {t("usersDirectory.pageIndicator", { page, totalPages })}
               </span>
-              <button className="cam-pagination-btn" type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <button className="cam-pagination-btn" type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
                 {t("usersDirectory.nextPage")}
               </button>
             </div>
