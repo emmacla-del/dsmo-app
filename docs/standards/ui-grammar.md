@@ -395,7 +395,7 @@ screen:
   inside it becomes a second flex item, and the sentence renders as two
   columns. Wrap mixed content in a single `<span>`.
 - **The filter row stays a grid, not a flex wrap.**
-  `components/admin/FilterBar.tsx` keeps `.cam-admin-filters`' rule,
+  the filter grid kept `.cam-admin-filters`' rule,
   `repeat(auto-fit, minmax(190px, 1fr))`. The first conversion replaced it
   with `flex flex-wrap` and per-control widths (`w-56`, `w-48`, …), which
   gave a ragged right edge and orphaned the last field on its own row; the

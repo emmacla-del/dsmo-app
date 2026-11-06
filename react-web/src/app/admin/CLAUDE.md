@@ -93,7 +93,7 @@ When this file and the spec disagree, the spec wins; fix this file.
 
 - Real `<button>`, `<a href>`, `<input>` with `<label>`; icon-only buttons get `aria-label`.
 - Popovers and sheets: focus moves in on open, Escape closes, focus returns to the trigger.
-- Keyboard shortcuts (J / K in the workspace) are ignored while typing and while a dialog is open.
+- Keyboard shortcuts (J / K in the workspace) work only with focus on a finding or in the review panel (WCAG 2.1.4), and are ignored while typing and while a dialog is open.
 - Result counts and refreshes are announced with `AdminLiveResultCount` / `role="status"`.
 - Respect `prefers-reduced-motion`.
 
