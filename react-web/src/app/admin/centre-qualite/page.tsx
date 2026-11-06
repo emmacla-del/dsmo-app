@@ -25,8 +25,6 @@ import {
   type AnomalyRecord,
   type AnomalyResolutionType,
   type ResolveAnomalyPayload,
-  type QualitySummary,
-  type ValidationRuleItem,
   ruleFamilyLabel,
 } from "@/lib/anomaly-registry";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";

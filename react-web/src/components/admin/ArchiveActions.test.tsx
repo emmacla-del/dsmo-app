@@ -1,4 +1,4 @@
-import { renderWithProviders, screen, userEvent } from "@/test/render";
+import { renderWithProviders, screen } from "@/test/render";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ArchiveActions } from "./ArchiveActions";

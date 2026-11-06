@@ -14,7 +14,7 @@ import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { CoveragePeriodSelector } from "@/components/admin/CoveragePeriodSelector";
 import { CoverageEntityTypeTable, CoverageTable, CoverageTableHelp, type CoverageColumns } from "@/components/admin/CoverageTable";
 import { DataState } from "@/components/admin/DataState";
-import { canListCampaigns, doualaCalendarYear, formatApiError, getAnnualCoverage, getQuarterCoverage, getSemesterCoverage, parseYearParam, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
+import { canListCampaigns, doualaCalendarYear, formatApiError, getAnnualCoverage, getQuarterCoverage, getSemesterCoverage, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
 import { count, percent } from "@/lib/admin-data-state";
 import { listCompanyRegistrations } from "@/lib/user-directory";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

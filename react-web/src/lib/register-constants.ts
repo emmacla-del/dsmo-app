@@ -17,11 +17,8 @@ export type EntityType =
   | "projectProgram"
   | "vocationalTraining";
 
-// The wizard's step sequence, owned here because it had two independent
-// copies: STEPS in app/register/page.tsx (navigation order) and
-// REGISTRATION_STEPS in components/auth/RegistrationProgress.tsx (rail
-// labels). They happened to agree, but nothing enforced it, and a drift would
-// have surfaced as a mislabeled or skipped circle rather than a type error.
+// The wizard's step sequence, owned here so that navigation order
+// (app/register/page.tsx) and the step labels cannot drift apart.
 //
 // `id` is what page.tsx navigates by; `labelKey` resolves against next-intl's
 // registerPage namespace.

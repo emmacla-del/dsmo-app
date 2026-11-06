@@ -156,10 +156,8 @@ test("visibleEntityDataForType never emits a key outside the type's config", () 
 });
 
 test("REGISTRATION_STEP_IDS mirrors REGISTRATION_STEPS in order", () => {
-  // app/register/page.tsx navigates by REGISTRATION_STEP_IDS and
-  // components/auth/RegistrationProgress.tsx renders REGISTRATION_STEPS. Both
-  // now derive from the same array, so this locks the derivation rather than
-  // comparing two hand-written copies as the old duplication would have needed.
+  // Both derive from the same array, so this locks the derivation rather than
+  // comparing two hand-written copies.
   assert.deepEqual(
     [...REGISTRATION_STEP_IDS],
     REGISTRATION_STEPS.map((step) => step.id)

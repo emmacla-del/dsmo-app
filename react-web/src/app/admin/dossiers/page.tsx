@@ -512,7 +512,6 @@ function DossiersContent({
   }, []);
 
   // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
-  // TODO(design, S): what is "ASFOP" in the Figma's questionnaire types? Labels use entityTypeLabel until the domain answers (VOCATIONAL_TRAINING?)
   const campaignsQuery = useQuery({
     queryKey: ["admin", "pilotage", "active-campaigns"],
     queryFn: getActiveCollectionCampaigns,
@@ -1836,10 +1835,6 @@ function DossiersContent({
                     : d.adminStatus === "APPROVED" ? "approved"
                       : d.adminStatus === "REJECTED" ? "rejected"
                         : d.adminStatus === "SUPERSEDED" ? "superseded" : "neutral";
-                const qualityText = [
-                  d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : null,
-                  d.warningCount > 0 ? t("warnings", { count: d.warningCount }) : null,
-                ].filter(Boolean).join(" · ");
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
                 const territoryTitle = [d.region, d.department].filter(Boolean).join(" / ") || NOT_PROVIDED;
