@@ -48,6 +48,7 @@ function makeService(rows: any[]) {
     company: {
       count: jest.fn(async () => rows.length),
       findMany: jest.fn().mockResolvedValueOnce(rows).mockResolvedValue([]),
+      findFirst: jest.fn(async () => rows[0] ?? null),
     },
     user: { groupBy: jest.fn(async () => []) },
     auditLog: { findMany: jest.fn(async () => []) },
@@ -76,6 +77,8 @@ describe('AuthService.getCompanyRegistration', () => {
     expect(where.user.status).toBeUndefined();
     expect(JSON.stringify(where)).toContain('Territory A');
     expect(prisma.company.findMany.mock.calls[0][0].take).toBe(1);
+    // The status tabs' territory-wide counts are the list's, not one file's.
+    expect(prisma.user.groupBy).not.toHaveBeenCalled();
   });
 
   it('answers not found when the registration is outside the territory or unknown', async () => {
@@ -103,6 +106,11 @@ describe('AuthService.getCompanyRegistrationHistory', () => {
     expect(history[0]).toMatchObject({ action: 'COMPANY_REGISTRATION_RESUBMITTED', byDeclarant: true, actorName: null, changedFields: ['phone'] });
     expect(JSON.stringify(history[0])).not.toContain('"before"');
     expect(history[1]).toMatchObject({ byDeclarant: false, actorName: 'Nadège Kamga', text: 'Le NIU manque.' });
+    // Authorised with the list's filter alone: no rows, hints or counts are built.
+    const scope = prisma.company.findFirst.mock.calls[0][0].where;
+    expect(scope.user.id).toBe('user-1');
+    expect(JSON.stringify(scope)).toContain('Territory A');
+    expect(prisma.company.findMany).not.toHaveBeenCalled();
   });
 
   it('answers not found outside the territory, before reading any history', async () => {

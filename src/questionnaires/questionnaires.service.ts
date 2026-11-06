@@ -3714,9 +3714,10 @@ export class QuestionnairesService {
     // « Dossier n sur N »: the same filtered list, counted. The file's place is
     // the number of files before it plus one, only while it is still in the list.
     const submissions = (this.prisma as any).onefopSubmission;
-    const [previous, next, total, before, inList] = await Promise.all([
-      seek('previous'),
-      seek('next'),
+    // In two waves: the pooler's session mode caps connections, and wide
+    // fan-outs have exhausted it (EMAXCONNSESSION).
+    const [previous, next] = await Promise.all([seek('previous'), seek('next')]);
+    const [total, before, inList] = await Promise.all([
       submissions.count({ where }),
       submissions.count({ where: sideWhere('previous') }),
       submissions.count({ where: { AND: [...where.AND, { id: cursor.id }] } }),
@@ -3759,13 +3760,19 @@ export class QuestionnairesService {
       return counts;
     };
     const withoutAssignment = { assignment: undefined, assigneeId: undefined };
-    const [clean, warnings, blocking, me, unassigned, other, formType, region, department] = await Promise.all([
+    // Three at a time: this runs on every filter change, beside the list's own
+    // queries, and the pooler's session mode caps connections (EMAXCONNSESSION).
+    const [clean, warnings, blocking] = await Promise.all([
       count({ quality: 'clean' }),
       count({ quality: 'warnings' }),
       count({ quality: 'blocking' }),
+    ]);
+    const [me, unassigned, other] = await Promise.all([
       actorId ? count({ assignment: 'me', assigneeId: actorId }) : Promise.resolve(0),
       count({ ...withoutAssignment, assignment: 'unassigned' }),
       actorId ? count({ assignment: 'other', assigneeId: actorId }) : Promise.resolve(0),
+    ]);
+    const [formType, region, department] = await Promise.all([
       byField('formType', { formType: undefined }),
       byField('region', { region: undefined, department: undefined }),
       byField('department', { department: undefined }),

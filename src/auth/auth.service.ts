@@ -1795,6 +1795,22 @@ export class AuthService {
 
   async listCompanyRegistrations(
     actor: Territory,
+    params: Parameters<AuthService['companyRegistrationRows']>[1],
+  ) {
+    const { regionScope, cutoff, includeArchived, ...rows } = await this.companyRegistrationRows(actor, params);
+    // ADR-0001 / Phase 1: companyRegistrationCounts is view-aware via view
+    // (queue | organisations | all). Counts are territory-scoped and ignore
+    // search/type/date filters by design; the response exposes countsView. See
+    // docs/plans/admin-modules-phase1-contract.md C.1.
+    // Counts drive the status tabs: they follow the territory selection so
+    // the tab numbers match the rows, but not search/type/date.
+    const counts = await this.companyRegistrationCounts(regionScope, cutoff, rows.countsView, includeArchived);
+    return { ...rows, counts };
+  }
+
+  /** The rows of the registration list, without the territory-wide counts of its status tabs. */
+  private async companyRegistrationRows(
+    actor: Territory,
     params: {
       entityType?: string;
       region?: string;
@@ -1894,16 +1910,9 @@ export class AuthService {
         overdue: isOverdue(since, overdueDays),
       };
     });
-    // ADR-0001 / Phase 1: companyRegistrationCounts is view-aware via view
-    // (queue | organisations | all). Counts are territory-scoped and ignore
-    // search/type/date filters by design; the response exposes countsView. See
-    // docs/plans/admin-modules-phase1-contract.md C.1.
-    // Counts drive the status tabs: they follow the territory selection so
-    // the tab numbers match the rows, but not search/type/date.
-    const counts = await this.companyRegistrationCounts(regionScope, cutoff, countsView, includeArchived);
     // overdueDays travels with the list so the screen words "plus de N jours"
     // with the threshold actually applied.
-    return { items: itemsWithResubmission, total, page, pageSize, counts, countsView, overdueDays };
+    return { items: itemsWithResubmission, total, page, pageSize, countsView, overdueDays, regionScope, cutoff, includeArchived };
   }
 
   /**
@@ -1915,7 +1924,7 @@ export class AuthService {
   async getCompanyRegistration(actor: Territory, userId: string) {
     const id = userId?.trim();
     if (!id) throw new NotFoundException('Inscription introuvable.');
-    const result = await this.listCompanyRegistrations(actor, { status: 'ALL', userId: id, page: 1, pageSize: 1 });
+    const result = await this.companyRegistrationRows(actor, { status: 'ALL', userId: id, page: 1, pageSize: 1 });
     const item = result.items[0];
     if (!item) throw new NotFoundException('Inscription introuvable.');
     return { ...item, overdueDays: result.overdueDays };
@@ -1924,15 +1933,19 @@ export class AuthService {
   /**
    * What happened to one registration file, newest first, for the review
    * page: the audit entries written on the account (resourceType User).
-   * Territory and existence are checked through getCompanyRegistration, so a
-   * file outside the reader's ressort answers 404 here too. Only the reason or
+   * Territory and existence are checked with the list's own filter, so a file
+   * outside the reader's ressort answers 404 here too. Only the reason or
    * message sent to the declarant and the names of the fields changed are
    * returned, not the stored before/after values.
    */
   async getCompanyRegistrationHistory(actor: Territory, userId: string) {
-    const registration = await this.getCompanyRegistration(actor, userId);
+    const id = userId?.trim();
+    if (!id) throw new NotFoundException('Inscription introuvable.');
+    const { where } = await this.buildCompanyRegistrationWhere(actor, { status: 'ALL', userId: id });
+    const registration = await this.prisma.company.findFirst({ where, select: { id: true } });
+    if (!registration) throw new NotFoundException('Inscription introuvable.');
     const rows = await this.prisma.auditLog.findMany({
-      where: { resourceType: 'User', resourceId: registration.id, action: { in: [...REGISTRATION_HISTORY_ACTIONS] } },
+      where: { resourceType: 'User', resourceId: id, action: { in: [...REGISTRATION_HISTORY_ACTIONS] } },
       select: {
         id: true,
         action: true,
@@ -1953,8 +1966,8 @@ export class AuthService {
         id: row.id,
         action: row.action,
         at: row.createdAt,
-        byDeclarant: row.userId === registration.id,
-        actorName: row.userId === registration.id ? null : name || row.user?.email || null,
+        byDeclarant: row.userId === id,
+        actorName: row.userId === id ? null : name || row.user?.email || null,
         text,
         changedFields: changes,
         assigneeName: typeof details.assigneeName === 'string' ? details.assigneeName : null,
