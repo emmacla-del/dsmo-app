@@ -114,7 +114,7 @@ The ladder is monotonic by name. `3xs` was called `2xs` until the 12px step was 
 
 ### G14 — Spacing
 
-**Inline `style` carries layout only** — `display`, `grid*`, `flex*`, `gap`, `justify*`, `align*` — and every length in it is `var(--cam-space-*)` (1=4, 1-5=6, 2=8, 2-5=10, 3=12, 4=16, 4-5=20, 5=24, 6=32, 7=48). No colour, no border, no radius, no background, no padding literal.
+**Inline `style` carries layout only** — `display`, `grid*`, `flex*`, `gap`, `justify*`, `align*` — and every length in it is `var(--cam-space-*)` (1=4, 1-5=6, 2=8, 2-5=10, 3=12, 4=16, 4-5=20, 5=24, 6=32, 7=48, 8=64, 9=80). No colour, no border, no radius, no background, no padding literal.
 
 **G14 is the load-bearing rule.** It is the one-sentence form of the measurement above: *inline style positions things, classes paint them.* A page obeying G14 cannot break G1, G4, G5, G11 or G13.
 
@@ -128,7 +128,7 @@ Every respondent form (registration, Modern Jobs, VT) draws its three kinds of t
 
 | Text | Class | Tokens | Today |
 |---|---|---|---|
-| Question | `.cam-question` | `--cam-question-size`, `--cam-question-weight`, `--cam-question-line-height` | 15px semibold, 1.3 |
+| Question | `.cam-question` | `--cam-question-size`, `--cam-question-weight`, `--cam-question-line-height` | 15px medium, 1.3 |
 | Answer: typed value, option text, Oui/Non | `.cam-answer` | `--cam-answer-size` | 14px regular |
 | Hint: helper line, option caption, note | `.cam-hint` | `--cam-microcopy-size`, `--cam-microcopy-color` | 12px muted |
 
@@ -196,11 +196,9 @@ Its classes are unprefixed and local to that module (`.page`, `.masthead`, `.ban
 
 **Why this section exists.** The portal was built on a palette of its own — a second green family (`--cam-portal-teal` `#476c59`, ink `#112530`, cream) approved for this page alone on 2026-10-12. A `.cam-button` inside the portal therefore painted teal while the same class in the staff console painted brand green. The owner retired it on 2026-10-13, and on 2026-10-14 every call site was repointed onto the canonical names. **Nothing in the repository objected while that second palette existed**, because no rule scanned CSS modules. `hex-in-module-css` is the countermeasure.
 
-### The cream exception
+### Portal background
 
-`--cam-portal-cream` (`#f7f5ed`) is the one colour in `tokens.css` that is not part of the canonical palette (owner, 2026-10-14). The front door is the only surface that is not the working application, and the warm ground is what separates "public institution" from "staff console".
-
-It is read in exactly one place: `.page` sets `--cam-bg: var(--cam-portal-cream)`. Every other rule in the portal reads `--cam-bg` as usual, so the exception is written down once and the rest of the file stays canonical. **No file outside `portal.module.css` may read it.**
+The cream ground of 2026-10-14 (`--cam-portal-cream`) is gone. The portal's page background is `--cam-portal-bg` (`#ffffff`).
 
 ### The hero artwork exception
 
@@ -229,7 +227,7 @@ The owner exempted **exactly those two files** from `respondent-hex-in-tsx` on 2
 
 ### Section rhythm
 
-Band depth comes from `--cam-section-pad-hero` (48px), `--cam-section-pad-standard` (32px) and `--cam-section-pad-compact` (24px), not from a literal. A hero gets more air than a standard band and a compact band less, so the page has a rhythm rather than one repeated gap.
+Band depth comes from `--cam-section-pad-hero` (80px, 48px on a phone), `--cam-section-pad-standard` (64px, 48px on a phone) and `--cam-section-pad-compact` (32px, 24px on a phone), not from a literal. A hero gets more air than a standard band and a compact band less, so the page has a rhythm rather than one repeated gap.
 
 ### What is enforced
 
@@ -249,9 +247,9 @@ Layout values stay literal here as everywhere: `max-width`, `height`, `grid-temp
 
 Both compositions read `react-web/src/app/tokens.css`. The catalogue, including which call site may use a token, is `docs/standards/tokens.md`. A page does not invent a colour, a size, or a spacing step.
 
-**Token vocabulary.** Colour lives in the brand, surface, text, and state tokens (`--cam-green` `#1e6b3a`, `--cam-text` `#000000`, `--cam-bg` `#ffffff`, `--cam-border` `#d9d9d9`, and the rest of that file; every grey is neutral, owner 2026-10-10). Type: the font-size ladder in G13 (no 10, 16, or 20 step), weights `--cam-font-weight-regular` through `-bold` (400/500/600/700), line-heights tight 1.2, title 1.25, label 1.3, ui 1.4, copy 1.45, base 1.5. Spacing is G14: 4/8/12/16/24/32/48. Radii on the ladder are 2/4/6/10 and pill (`--cam-radius-sm` through `--cam-radius-full`). `--cam-field-radius` (8px) and `--cam-section-radius` (12px) are purpose values, not new ladder steps. `--cam-font-size-input-ios` (16px) is the phone control size and is not a ladder step.
+**Token vocabulary.** Colour lives in the brand, surface, text, and state tokens (`--cam-green` `#00766c`, `--cam-text` `#1e293b`, `--cam-bg` `#f8fafc`, `--cam-border` `#e2e8f0`, and the rest of that file). Type: the font-size ladder in G13 (no 10, 16, or 20 step), weights `--cam-font-weight-regular` through `-bold` (400/500/600/700), line-heights tight 1.2, title 1.25, label 1.3, ui 1.4, copy 1.45, base 1.5. Spacing is G14: 4/8/12/16/24/32/48/64/80. Radii on the ladder are 2/4/8/12 and pill (`--cam-radius-sm`, `-md`, `-control`, `-lg`, `-full`). `--cam-field-radius` (8px) and `--cam-section-radius` (12px) are purpose names for the `-control` and `-lg` steps. `--cam-font-size-input-ios` (16px) is the phone control size and is not a ladder step.
 
-**Field slot.** The staff console's slot is G8: `.cam-field`, `.cam-admin-label`, and `.cam-input` / `.cam-select` / `.cam-admin-textarea`, at `--cam-form-field-height`. The wizard's slot is `FormRow` (`src/components/auth/FormRow.tsx`). It renders `.field` with the label as a sibling of the control. The wizard is one column at every width: the label stacks above the input (`globals.css`, `.cam-form-flow .field>label`, `margin-bottom: var(--cam-field-stack-gap)`), and the hint (`.field-hint`) sits directly under the control. There is no side-by-side layout, no label column and no container query; the former `@container cam-form (min-width: 560px)` grid and its `--cam-field-label-col` / `--cam-field-label-gap` tokens were removed by the owner's decision of 2026-10-10. Do not reintroduce them. `size` is `full`, `medium`, or `short` (`FormRow.tsx`). `full` adds no class. `medium` adds `.field--medium` and `short` adds `.field--short`. Those two rules cap every child of the row except the label (the control, its hint, its status line) at `var(--cam-field-width-medium)` (280px) and `var(--cam-field-width-short)` (220px) (`globals.css`).
+**Field slot.** The staff console's slot is G8: `.cam-field`, `.cam-admin-label`, and `.cam-input` / `.cam-select` / `.cam-admin-textarea`, at `--cam-form-field-height`. The wizard's slot is `FormRow` (`src/components/auth/FormRow.tsx`). It renders `.field` with the label as a sibling of the control. The wizard is one column at every width: the label stacks above the input (`globals.css`, `.cam-form-flow .field>label`, `margin-bottom: var(--cam-field-stack-gap)`), and the hint (`.field-hint`) sits directly under the control. There is no side-by-side layout, no label column and no container query; the former `@container cam-form (min-width: 560px)` grid and its `--cam-field-label-col` / `--cam-field-label-gap` tokens were removed by the owner's decision of 2026-10-10. Do not reintroduce them. `size` is `full`, `medium`, or `short` (`FormRow.tsx`). `full` adds no class. `medium` adds `.field--medium` and `short` adds `.field--short`. Those two rules cap every child of the row except the label (the control, its hint, its status line) at `var(--cam-field-width-medium)` (240px) and `var(--cam-field-width-short)` (180px) (`globals.css`).
 
 **Buttons.** The staff console uses G5: `.cam-button` plus one of `-primary`, `-secondary`, `-danger`, with `-sm` in a toolbar and `.cam-text-button` for a text action. The auth card uses `.btn-primary`, which is `width: 100%` (`.cam-auth-page .btn-primary`). A button at the end of the wizard review uses `.btn-primary--inline`, which sets `width: auto`. The submit adds `.btn-primary--submit` (`min-width: 160px`). The two modifiers are separate because the confirmations do not have that floor.
 
@@ -267,7 +265,7 @@ Both compositions read `react-web/src/app/tokens.css`. The catalogue, including 
 
 ### Phantom-token audit
 
-Recorded 2026-10-07. A search of `react-web/src` finds no `--cam-surface-card`, `--cam-font-display`, `--cam-highlight-bg`, or `--cam-space-8`. Those four names were never in the code. The grammar script's phantom-token pass has no baseline and fails on a `var(--cam-*)` with no definition and no fallback. `npm run check:ui-grammar` passed on this date, which includes the wizard sources. No undefined `var(--cam-*)` was reported.
+Recorded 2026-10-07. A search of `react-web/src` finds no `--cam-surface-card`, `--cam-font-display`, `--cam-highlight-bg`, or `--cam-space-8`. Those four names were never in the code at that date; `--cam-space-8` (64px) has been a token since. The grammar script's phantom-token pass has no baseline and fails on a `var(--cam-*)` with no definition and no fallback. `npm run check:ui-grammar` passed on this date, which includes the wizard sources. No undefined `var(--cam-*)` was reported.
 
 ---
 
@@ -279,11 +277,11 @@ The registration route adds this shell on top of the shared tokens. Login, forgo
 
 **Frame.** `.flow-frame` is the one bordered element (`max-width: var(--cam-container-wizard)`, `overflow: clip`). It is not a container query and not a scroller. The document is the only scroll container on the route: a long section makes the page longer, and nothing inside the frame scrolls (owner's decision, 2026-10-10; CLAUDE.md §13). The section sits in `.flow-frame-content`. The snackbar and the missing-fields summary sit at the top of `.flow-frame-content`. The footer (Retour / Continuer / Soumettre) is `.flow-frame-dock`, the frame's last row, in normal flow after the last field. It is **not** sticky (owner's decision, 2026-10-10, government-form convention): a pinned bar covered the focused field (WCAG 2.2, 2.4.11) and sat on the phone keyboard. Do not make it sticky again. On a wide screen the dossier panel (`.flow-panel`) is `position: sticky; top: 0`, one viewport tall, and never scrolls on its own. Do not reintroduce a fixed-height frame with an inner scroll region.
 
-**Rail (phone).** `RegistrationProgress` (`src/components/auth/RegistrationProgress.tsx`) renders `.registration-progress` and `.progress-rail` in `.flow-header`. It is a row of the page's flex column, not a `position: sticky` bar, so it scrolls away with the page on a long section. Its circles are the shared `.cam-step-marker` (see §Wizard rail).
+**Header.** `.flow-header` holds the logo only. Registration is one stacked form with no step rail.
 
 ### Wizard rail
 
-Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). Each wizard decides the state of a step from its own data; everything else comes from one source:
+Modern Jobs and VT share one side navigation (owner, 2026-10-10). Registration no longer has a step rail. Each wizard decides the state of a step from its own data; everything else comes from one source:
 
 | What | Where |
 |---|---|
