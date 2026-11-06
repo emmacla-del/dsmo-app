@@ -281,6 +281,41 @@ export function listCompanyRegistrations(params: {
 }
 
 /**
+ * One registration file, in the list's own shape and under the list's
+ * territory rules, for the review page (/admin/inscriptions/[id]). `id` is
+ * the registration row's user id (CompanyRegistrationItem.id). Any status:
+ * a decided file still opens, read-only. 404 outside the reader's ressort.
+ */
+export function getCompanyRegistration(id: string) {
+  return apiFetch<CompanyRegistrationItem & { overdueDays: number }>(
+    `/auth/company-registrations/${encodeURIComponent(id)}`,
+  );
+}
+
+/** One event in a registration's history (an audit entry on the account). */
+export interface CompanyRegistrationHistoryEntry {
+  id: string;
+  /** The audit action, e.g. COMPANY_REGISTRATION_APPROVED. */
+  action: string;
+  at: string;
+  /** The declarant acted (a resubmission), not an officer. */
+  byDeclarant: boolean;
+  actorName: string | null;
+  /** The reason or message sent to the declarant, when there is one. */
+  text: string | null;
+  /** Field names changed by a resubmission; values are not returned. */
+  changedFields: string[];
+  assigneeName: string | null;
+}
+
+/** GET /auth/company-registrations/:id/history — newest first, same territory rules as the file. */
+export function getCompanyRegistrationHistory(id: string) {
+  return apiFetch<CompanyRegistrationHistoryEntry[]>(
+    `/auth/company-registrations/${encodeURIComponent(id)}/history`,
+  );
+}
+
+/**
  * Claims (assigneeId) or releases (null) a registration file's review.
  * `id` is the registration row's user id (CompanyRegistrationItem.id).
  */
