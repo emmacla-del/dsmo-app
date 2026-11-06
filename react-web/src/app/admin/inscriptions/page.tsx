@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,46 +10,30 @@ import type { DateRange } from "react-day-picker";
 import { useAuthStore } from "@/lib/auth-store";
 import { API_BASE_URL, getToken, localeHeader } from "@/lib/api-client";
 import {
-  approveUser,
   listCompanyRegistrations,
-  rejectUser,
-  requestComplements,
   archiveUser,
   restoreUser,
   suspendUser,
   activateUser,
   assignRegistrationUser,
-  type ApproveUserOptions,
   type CompanyRegistrationItem,
-  type CompanyRegistrationsResult,
 } from "@/lib/user-directory";
 import { clampAdminListPage, parseAdminListPage, parseRegistrationVue } from "@/lib/admin-url";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildRegistrationReturnTo } from "@/lib/admin-return";
 import { registrationReviewHref, saveRegistrationTrail, type RegistrationListParams } from "@/lib/registration-trail";
-import {
-  applyRegistrationDecision,
-  clampRegistrationQueuePage,
-  type RegistrationDecisionStatus,
-} from "@/lib/registration-queue-cache";
-import { ENTITY_TYPE_OPTION_KEYS, hasRealNiu } from "@/lib/companies-directory";
+import { ENTITY_TYPE_OPTION_KEYS } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
-import { respondentFunctionLabel } from "@/lib/display-labels";
 import { APPROVAL_ROLES, DIRECTORY_ROLES, USER_ARCHIVE_ROLES, USER_LIFECYCLE_ROLES, hasRole } from "@/lib/roles";
 import {
-  approvalGate,
   inscriptionsHref,
   normalizeInscriptionsHref,
   normalizeRegistrationStatus,
   organisationsStatusesForFilter,
   REGISTRATION_ENTITY_TYPES,
   REGISTRATION_METHOD_VALUES,
-  registrationMethodBadgeClass,
   registrationMethodLabel,
-  verificationFlags,
-  verificationRows,
-  type VerificationMarks,
   REGISTRATION_OVERDUE_DEFAULT_DAYS,
   daysWaiting,
 } from "@/lib/inscriptions";
@@ -62,7 +46,6 @@ import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChip
 import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
 import { AdminFilterField, AdminFilterMore, AdminScopePill, territoryPillFor } from "@/components/admin/AdminFilterBarParts";
 import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedViews";
-import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -73,7 +56,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
   TableBody,
@@ -82,7 +64,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,15 +78,6 @@ type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
 // API entity types, labelled through ENTITY_TYPE_OPTION_KEYS (the public
 // wizard's labels, no administrative codes).
-// Company column names as the correction form presents them, so a reviewer
-// reads the diff in the applicant's own words: keys under
-// adminInscriptionsPage.field. An unmapped key falls back to itself rather
-// than being hidden.
-const FIELD_KEYS = new Set([
-  "name", "taxNumber", "mainActivity", "secondaryActivity", "parentCompany", "address", "phone", "email",
-  "cnpsNumber", "fax", "socialCapital", "entityType", "region", "department", "subdivision",
-  "regionId", "departmentId", "subdivisionId",
-]);
 
 // The stored account status decides the badge: its label (a key under
 // adminInscriptionsPage) and its tone. An unknown status shows as itself,
@@ -117,16 +89,6 @@ const STATUS_BADGE: Record<string, { textKey: string; tone: Tone }> = {
   REJECTED: { textKey: "badgeRejected", tone: "danger" },
 };
 
-/**
- * registrationMethodBadgeClass() answers in `cam-badge-*` class names, and
- * /admin/utilisateurs still renders them that way. Rather than change a
- * helper two pages share, its answer is translated here.
- */
-const CAM_BADGE_TONE: Record<string, Tone> = {
-  "cam-badge-success": "success",
-  "cam-badge-info": "info",
-  "cam-badge-neutral": "neutral",
-};
 
 function buildOrganisationsRequestParams(filters: {
   search: string;
@@ -270,13 +232,6 @@ function InscriptionsContent() {
   }, [t, vue]);
   const entityLabel = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? "—";
-  const fieldLabel = (field: string) => (FIELD_KEYS.has(field) ? t(`field.${field}`) : field);
-  // An empty or absent before/after reads as a dash rather than as "null".
-  const diffValue = (value: unknown) => {
-    if (value === null || value === undefined || value === "") return "—";
-    if (typeof value === "string") return ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value;
-    return String(value);
-  };
 
   const requestedSearch = searchParams.get("search") ?? searchParams.get("organisation") ?? "";
   const rawRequestedMethod = searchParams.get("registrationMethod") ?? "";
@@ -334,15 +289,7 @@ function InscriptionsContent() {
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>(
     parsedFromDate && parsedToDate && customDatesValid ? { from: parsedFromDate, to: parsedToDate } : undefined,
   );
-  const [reviewing, setReviewing] = useState<CompanyRegistrationItem | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<CompanyRegistrationItem | null>(null);
-  const reviewingIdRef = useRef<string | null>(null);
-  const [decision, setDecision] = useState<"APPROVE" | "REJECT" | "REQUEST_COMPLEMENTS">("APPROVE");
-  const [comment, setComment] = useState("");
-  const [centralChecked, setCentralChecked] = useState(false);
-  // The reviewer's ✓/✗ per verified row. A row absent from the map is
-  // unanswered, which is neither ✓ nor ✗.
-  const [marks, setMarks] = useState<VerificationMarks>({});
   // The review page (/admin/inscriptions/[id]) comes back with the decision it
   // recorded, when it had no next file to move to.
   const arrivedDecision = searchParams.get("decisionNotice");
@@ -648,101 +595,6 @@ function InscriptionsContent() {
     },
   });
 
-  const closeReview = () => {
-    reviewingIdRef.current = null;
-    setReviewing(null);
-    setDecision("APPROVE");
-    setComment("");
-    setCentralChecked(false);
-    setMarks({});
-  };
-
-  // The decided row and the counters change the moment the server confirms,
-  // then the refetch has the last word (defect 20, as defect 9 did for the
-  // file page): in-flight reads are cancelled so an older answer cannot
-  // overwrite the decision.
-  const done = (text: string, id: string, status: RegistrationDecisionStatus) => {
-    const queue = { queryKey: ["auth", "company-registrations"] };
-    void queryClient.cancelQueries(queue).then(() => {
-      // Per cached page, not setQueriesData: each one was fetched under its
-      // own status filter — key[3], the `statusFilter` in the key built
-      // above — and a decision that moves the file out of that view has to
-      // take it off that page, not restyle it in place.
-      for (const query of queryClient.getQueryCache().findAll(queue)) {
-        const view = query.queryKey[3];
-        queryClient.setQueryData<CompanyRegistrationsResult>(query.queryKey, (page) =>
-          applyRegistrationDecision(page, id, status, typeof view === "string" ? view : undefined),
-        );
-      }
-      const currentPage = queryClient.getQueryData<CompanyRegistrationsResult>(queueQueryKey);
-      if (currentPage) {
-        const nextPage = clampRegistrationQueuePage(page, currentPage.total, PAGE_SIZE);
-        if (nextPage !== page) setPage(nextPage);
-      }
-      void queryClient.invalidateQueries(queue);
-    });
-    setNotice({ tone: "success", text });
-    if (reviewingIdRef.current === id) closeReview();
-  };
-
-  const failed = (e: Error & { status?: number }) => {
-    if (e?.status === 409) {
-      setNotice({ tone: "error", text: e.message || t("staleFileError") });
-      return;
-    }
-    setNotice({ tone: "error", text: e.message });
-  };
-
-  const approveMutation = useMutation({
-    mutationFn: ({ id, options }: { id: string; options: ApproveUserOptions }) => approveUser(id, options),
-    onSuccess: (_data, { id }) => done(t("approvedNotice"), id, "ACTIVE"),
-    onError: failed,
-  });
-  const rejectMutation = useMutation({
-    mutationFn: ({ id, reason, expectedRevision }: { id: string; reason: string; expectedRevision?: string }) => rejectUser(id, reason, expectedRevision),
-    onSuccess: (_data, { id }) => done(t("rejectedNotice"), id, "REJECTED"),
-    onError: failed,
-  });
-  const complementsMutation = useMutation({
-    mutationFn: ({ id, message, expectedRevision }: { id: string; message: string; expectedRevision?: string }) => requestComplements(id, message, expectedRevision),
-    onSuccess: (_data, { id }) => done(t("complementsNotice"), id, "COMPLEMENTS_REQUESTED"),
-    onError: failed,
-  });
-
-  const rows = reviewing ? verificationRows(reviewing, locale) : [];
-  const gate = approvalGate(rows, marks, locale);
-  // Why Approuver cannot be confirmed yet, shown in the dialog next to the
-  // decision; null once it can. The server enforces the same rules.
-  const approveBlocked = !reviewing
-    ? null
-    : gate.message ??
-      (reviewing.requiresCentralStructureCheck && !centralChecked
-        ? t("centralCheckRequired")
-        : null);
-
-  const handleDecisionSubmit = () => {
-    if (!reviewing) return;
-    if (decision === "APPROVE") {
-      if (approveBlocked) return;
-      approveMutation.mutate({
-        id: reviewing.id,
-        options: { centralStructureConfirmed: centralChecked, ...verificationFlags(rows, marks), expectedRevision: reviewing.updatedAt },
-      });
-    } else if (decision === "REJECT") {
-      if (!comment.trim()) {
-        setNotice({ tone: "error", text: t("rejectReasonRequired") });
-        return;
-      }
-      rejectMutation.mutate({ id: reviewing.id, reason: comment.trim(), expectedRevision: reviewing.updatedAt });
-    } else {
-      if (!comment.trim()) {
-        setNotice({ tone: "error", text: t("complementsMessageRequired") });
-        return;
-      }
-      complementsMutation.mutate({ id: reviewing.id, message: comment.trim(), expectedRevision: reviewing.updatedAt });
-    }
-  };
-
   // The region filter is applied by the API, inside the reviewer's own
   // territory scope, so paging and the totals stay consistent with it.
   const territoryValidationError = hasTerritoryFilters && territoryStructure.isError;
@@ -758,7 +610,6 @@ function InscriptionsContent() {
   const total = territoryFiltersValid ? queueQuery.data?.total ?? 0 : 0;
   const queueUpdating = territoryFiltersValid && queueQuery.isFetching && queueQuery.data !== undefined;
   const organisationsUpdating = territoryFiltersValid && isBackgroundRefreshing(organisationsQuery.isFetching, organisationsQuery.data);
-  const pendingMutation = approveMutation.isPending || rejectMutation.isPending || complementsMutation.isPending;
 
   // « Réclamer et ouvrir » / « Ouvrir »: the review page, with this page of
   // the queue as its previous / next trail. A claim that fails (someone else
@@ -1273,13 +1124,12 @@ function InscriptionsContent() {
                         <Button type="button" size="sm" variant={canClaim ? "default" : "outline"} disabled={queueUpdating || opening !== null} onClick={() => void openReviewPage(item, canClaim)}>
                           {canClaim ? tRoot("adminRegistrationReview.claimAndOpen") : tRoot("adminRegistrationReview.openPage")}
                         </Button>
-                        <DropdownMenu>
+                        {canClaim && <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" className="shrink-0" aria-label={tRoot("adminRegistrationReview.rowActions", { organisation: item.organisation })} title={t("actionsColumn")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {canClaim && <DropdownMenuItem onSelect={() => void openReviewPage(item, false)}>{tRoot("adminRegistrationReview.openWithoutClaim")}</DropdownMenuItem>}
-                            <DropdownMenuItem disabled={queueUpdating} onSelect={() => { setNotice(null); reviewingIdRef.current = item.id; setReviewing(item); }}>{tRoot("adminRegistrationReview.quickReview")}</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => void openReviewPage(item, false)}>{tRoot("adminRegistrationReview.openWithoutClaim")}</DropdownMenuItem>
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu>}
                       </>;
                     })()}
                   </div></TableCell>
@@ -1308,204 +1158,8 @@ function InscriptionsContent() {
       )}
       </>)}
 
-      <AdminDialog
-        open={!!reviewing}
-        onClose={closeReview}
-        title={t("reviewTitle", { organisation: reviewing?.organisation || "" })}
-        eyebrow={t("reviewEyebrow")}
-        footer={
-          <>
-            <Button type="button" variant="outline" onClick={closeReview} disabled={pendingMutation}>
-              {tRoot("common.cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleDecisionSubmit}
-              disabled={pendingMutation || (decision === "APPROVE" && !!approveBlocked)}
-              aria-describedby={decision === "APPROVE" && approveBlocked ? "inscription-approve-blocked" : undefined}
-            >
-              {pendingMutation
-                ? t("decisionSubmitting")
-                : decision === "APPROVE"
-                  ? t("approveAccount")
-                  : decision === "REJECT"
-                    ? t("rejectAccount")
-                    : t("requestComplements")}
-            </Button>
-          </>
-        }
-      >
-        {reviewing && (
-          <div className="flex flex-col gap-3">
-            {/* The dialog is modal, so the page-level notice sits behind it:
-                a refused decision is repeated here, where the reviewer is. */}
-            {notice?.tone === "error" && (
-              <Alert variant="destructive">
-                <span>{notice.text}</span>
-              </Alert>
-            )}
-            <p className="m-0">{t("typeLine")} <strong>{entityLabel(reviewing.entityType)}</strong> — {reviewing.region} / {reviewing.department}</p>
-            <p className="m-0">{t("niuLine", { niu: hasRealNiu(reviewing.taxNumber) ? reviewing.taxNumber ?? NOT_PROVIDED : NOT_PROVIDED })}</p>
-            <p className="m-0">{t("registeredOnLine", { date: stamp(reviewing.submittedAt, true, locale) })}</p>
-            {reviewing.duplicateHints.length > 0 && (
-              <Alert role="status" variant="warning" className="block">
-                {reviewing.duplicateHints.map((hint) => <p key={hint} className="m-0">{hint}</p>)}
-              </Alert>
-            )}
-            {reviewing.lastResubmission && (
-              <div>
-                <p className="mt-0 mb-1">
-                  <strong>{t("correctionsSent")}</strong> {t("correctionsSentOn", { date: stamp(reviewing.lastResubmission.at, true, locale) })}
-                </p>
-                {Object.keys(reviewing.lastResubmission.changes).length === 0 ? (
-                  <p className="m-0">{t("resubmittedUnchanged")}</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead scope="col">{t("fieldColumn")}</TableHead>
-                        <TableHead scope="col">{t("beforeColumn")}</TableHead>
-                        <TableHead scope="col">{t("afterColumn")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Object.entries(reviewing.lastResubmission.changes).map(([field, diff]) => (
-                        <TableRow key={field}>
-                          <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground">{fieldLabel(field)}</TableHead>
-                          <TableCell>{diffValue(diff.before)}</TableCell>
-                          <TableCell>{diffValue(diff.after)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
-            )}
-            <h3 className="mt-2 mb-0 text-sm font-semibold text-foreground">{t("toVerifyTitle")}</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">{t("itemColumn")}</TableHead>
-                  <TableHead scope="col">{t("declaredValueColumn")}</TableHead>
-                  <TableHead scope="col">{t("verificationColumn")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.key}>
-                    <TableHead scope="row" className="h-auto whitespace-normal font-medium text-foreground">{row.label}</TableHead>
-                    <TableCell>{row.value ?? <span className="text-muted-foreground">{t("notRecorded")}</span>}</TableCell>
-                    <TableCell>
-                      {/* No value selected = not answered yet. An empty value
-                          cannot be attested, so its ✓ is disabled. */}
-                      <RadioGroup
-                        aria-label={t("verificationAriaLabel", { label: row.label })}
-                        className="flex flex-wrap gap-3"
-                        value={marks[row.key] ?? ""}
-                        onValueChange={(value) => setMarks((current) => ({ ...current, [row.key]: value as "ok" | "ko" }))}
-                      >
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem id={`verify-${row.key}-ok`} value="ok" disabled={row.value === null} />
-                          <Label htmlFor={`verify-${row.key}-ok`} className="font-normal">{t("compliant")}</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem id={`verify-${row.key}-ko`} value="ko" />
-                          <Label htmlFor={`verify-${row.key}-ko`} className="font-normal">{t("nonCompliant")}</Label>
-                        </div>
-                      </RadioGroup>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <div>
-              <h3 className="mt-2 mb-0 text-sm font-semibold text-foreground">{t("respondentTitle")}</h3>
-              <p className="cam-admin-choice-hint m-0">{t("respondentNote")}</p>
-            </div>
-            <dl className="cam-admin-kv">
-              <div>
-                <dt>{t("nameLabel")}</dt>
-                <dd>{[reviewing.respondentFirstName, reviewing.respondentLastName].filter(Boolean).join(" ") || NOT_PROVIDED}</dd>
-              </div>
-              <div><dt>{t("functionLabel")}</dt><dd>{respondentFunctionLabel(reviewing.respondentFunction, locale) || NOT_PROVIDED}</dd></div>
-              <div>
-                <dt>{t("phoneLabel")}</dt>
-                <dd>{[reviewing.respondentPhone, reviewing.respondentPhone2].filter(Boolean).join(" · ") || NOT_PROVIDED}</dd>
-              </div>
-              <div><dt>{t("loginEmailLabel")}</dt><dd>{reviewing.email}</dd></div>
-              <div>
-                <dt>{t("registeredByLabel")}</dt>
-                <dd>
-                  {reviewing.createdByName && <div>{reviewing.createdByName}</div>}
-                  <MethodBadge method={reviewing.registrationMethod} />
-                </dd>
-              </div>
-            </dl>
-            {reviewing.requiresCentralStructureCheck && (
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="inscription-central-check"
-                  checked={centralChecked}
-                  onCheckedChange={(c) => setCentralChecked(c === true)}
-                />
-                <Label htmlFor="inscription-central-check" className="font-normal leading-snug">
-                  {t("centralConfirmed")}
-                </Label>
-              </div>
-            )}
-            <RadioGroup
-              aria-label={t("decisionAriaLabel")}
-              className="flex flex-col gap-2"
-              value={decision}
-              onValueChange={(value) => setDecision(value as typeof decision)}
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="decision-approve" value="APPROVE" />
-                <Label htmlFor="decision-approve" className="font-normal">{t("approveAccount")}</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="decision-reject" value="REJECT" />
-                <Label htmlFor="decision-reject" className="font-normal">{t("rejectAccount")}</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="decision-complements" value="REQUEST_COMPLEMENTS" />
-                <Label htmlFor="decision-complements" className="font-normal">{t("requestComplements")}</Label>
-              </div>
-            </RadioGroup>
-            {decision === "APPROVE" && approveBlocked && (
-              <p id="inscription-approve-blocked" role="status" className="cam-admin-choice-hint m-0">
-                {approveBlocked}
-              </p>
-            )}
-            {decision !== "APPROVE" && (
-              <div className="grid gap-2">
-                <Label htmlFor="inscription-decision-comment">
-                  {decision === "REJECT" ? t("rejectReasonLabel") : t("complementsMessageLabel")}{" "}
-                  <span aria-hidden="true">*</span>
-                </Label>
-                <Textarea
-                  id="inscription-decision-comment"
-                  rows={3}
-                  required
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  aria-describedby="inscription-decision-comment-hint"
-                />
-                <p id="inscription-decision-comment-hint" className="cam-admin-choice-hint m-0">
-                  {decision === "REJECT" ? t("rejectReasonHint") : t("complementsMessageHint")}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </AdminDialog>
     </div>
   );
 }
 
 /** The registration-method badge, or a dash for a row that predates tracking. */
-function MethodBadge({ method }: { method: string | null }) {
-  const label = registrationMethodLabel(method, asUiLocale(useLocale()));
-  if (!label) return <span className="text-muted-foreground">{NOT_PROVIDED}</span>;
-  return <Badge variant={CAM_BADGE_TONE[registrationMethodBadgeClass(method)] ?? "neutral"}>{label}</Badge>;
-}
