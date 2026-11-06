@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -37,7 +37,9 @@ import { AdminScopePill } from "@/components/admin/AdminFilterBarParts";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { ViewSwitch } from "@/components/admin/ViewSwitch";
 import {
+  clampAdminListPage,
   hrefWith,
+  parseAdminListPage,
   parseAnomalyFamilyFilter,
   parseAnomalyStatusFilter,
   parseQualiteVue,
@@ -116,10 +118,13 @@ function CentreQualiteContent() {
   const filterSeverity = parseSeverityFilter(searchParams.get("severity"));
   const filterFamily = parseAnomalyFamilyFilter(searchParams.get("family"));
   const setRegisterFilter = (key: "status" | "severity" | "family", value: string) =>
-    router.replace(hrefWith(pathname, searchParams.toString(), { [key]: value === "ALL" || value === "" ? null : value }));
+    router.replace(hrefWith(pathname, searchParams.toString(), { page: null, [key]: value === "ALL" || value === "" ? null : value }));
   const hasRegisterFilter = filterStatus !== "ALL" || filterSeverity !== "ALL" || filterFamily !== "ALL";
   const clearRegisterFilters = () =>
-    router.replace(hrefWith(pathname, searchParams.toString(), { status: null, severity: null, family: null }));
+    router.replace(hrefWith(pathname, searchParams.toString(), { page: null, status: null, severity: null, family: null }));
+  const registerPage = parseAdminListPage(searchParams.get("page"));
+  const setRegisterPage = (next: number) =>
+    router.replace(hrefWith(pathname, searchParams.toString(), { page: next <= 1 ? null : next }), { scroll: false });
   const tq = (key: string, values?: Record<string, string>) => tRoot(`adminInscriptionsPage.${key}`, values);
 
   const [selectedAnomaly, setSelectedAnomaly] = useState<AnomalyRecord | null>(null);
@@ -145,10 +150,11 @@ function CentreQualiteContent() {
    */
   // Each of the three queries runs only on its own tab (?vue=).
   const anomaliesQuery = useQuery({
-    queryKey: ["admin", "anomalies", "registry", filterStatus, filterSeverity, filterFamily],
+    queryKey: ["admin", "anomalies", "registry", filterStatus, filterSeverity, filterFamily, registerPage],
     queryFn: () =>
       listAnomalyRegistry({
         limit: REGISTRY_PAGE_SIZE,
+        offset: (registerPage - 1) * REGISTRY_PAGE_SIZE,
         status: filterStatus === "ALL" ? undefined : filterStatus,
         isBlocking:
           filterSeverity === "BLOCKING" ? true : filterSeverity === "WARNING" ? false : undefined,
@@ -181,6 +187,16 @@ function CentreQualiteContent() {
 
   const items = useMemo(() => anomaliesQuery.data?.items ?? [], [anomaliesQuery.data]);
   const totalCount = anomaliesQuery.data?.total ?? null;
+  const registerPageCount = totalCount === null ? null : Math.max(1, Math.ceil(totalCount / REGISTRY_PAGE_SIZE));
+
+  // Resolving the last row of the last page, or a shared link to a page that
+  // no longer exists, would otherwise read as an empty register.
+  useEffect(() => {
+    if (vue !== "registre" || totalCount === null) return;
+    const validPage = clampAdminListPage(registerPage, totalCount, REGISTRY_PAGE_SIZE);
+    if (validPage === registerPage) return;
+    router.replace(hrefWith(pathname, searchParams.toString(), { page: validPage <= 1 ? null : validPage }), { scroll: false });
+  }, [vue, totalCount, registerPage, router, pathname, searchParams]);
 
   const registryState = resolveDataState({
     roleAllowed: canReadRegistry,
@@ -432,6 +448,29 @@ function CentreQualiteContent() {
           headingId="anomalies-registry-title"
           title={totalCount === null ? t("registerTitle") : `${t("registerTitle")} (${count(totalCount, locale)})`}
           description={t("registerSubtitle")}
+          footer={
+            registerPageCount !== null && registerPageCount > 1 ? (
+              <div className="cam-audit-pager">
+                <button
+                  type="button"
+                  className="cam-button cam-button-secondary cam-button-sm"
+                  disabled={registerPage <= 1}
+                  onClick={() => setRegisterPage(registerPage - 1)}
+                >
+                  {tRoot("adminJournalAuditPage.previous")}
+                </button>
+                <span>{tRoot("adminJournalAuditPage.pageOf", { page: registerPage, pages: registerPageCount })}</span>
+                <button
+                  type="button"
+                  className="cam-button cam-button-secondary cam-button-sm"
+                  disabled={registerPage >= registerPageCount}
+                  onClick={() => setRegisterPage(registerPage + 1)}
+                >
+                  {tRoot("adminJournalAuditPage.next")}
+                </button>
+              </div>
+            ) : undefined
+          }
           actions={
             <button type="button" className="cam-button cam-button-secondary cam-button-sm" onClick={() => anomaliesQuery.refetch()}>
               {t("refresh")}

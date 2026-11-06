@@ -22,6 +22,7 @@ import {
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AccountActionConfirm } from "@/components/admin/AccountActionConfirm";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { formatApiError } from "@/lib/pilotage-targets";
 import {
@@ -106,6 +107,18 @@ function EtablissementDetail() {
   const [accountOpen, setAccountOpen] = useState(searchParams.get("manage") === "true");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Which account action is awaiting its second step, if any.
+  const [confirming, setConfirming] = useState<"status" | "delete" | null>(null);
+
+  const askConfirmation = (action: "status" | "delete") => {
+    setActionError(null);
+    setConfirming((current) => (current === action ? null : action));
+  };
+  const closeAccount = () => {
+    setAccountOpen(false);
+    setConfirming(null);
+    setActionError(null);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -190,6 +203,7 @@ function EtablissementDetail() {
     mutationFn: () => suspendUser(linkedAccount!.id),
     onSuccess: () => {
       invalidate();
+      setConfirming(null);
       showToast(t("accountSuspended"));
     },
     onError: (e: unknown) => setActionError(formatApiError(e, locale)),
@@ -199,6 +213,7 @@ function EtablissementDetail() {
     mutationFn: () => activateUser(linkedAccount!.id),
     onSuccess: () => {
       invalidate();
+      setConfirming(null);
       showToast(t("accountReactivated"));
     },
     onError: (e: unknown) => setActionError(formatApiError(e, locale)),
@@ -208,7 +223,7 @@ function EtablissementDetail() {
     mutationFn: () => deleteUser(linkedAccount!.id),
     onSuccess: () => {
       invalidate();
-      setAccountOpen(false);
+      closeAccount();
       showToast(t("accountDeleted"));
       router.push("/admin/etablissements");
     },
@@ -264,6 +279,7 @@ function EtablissementDetail() {
     .trim();
   const isSuspended = !!linkedAccount && !linkedAccount.isActive;
   const shortName = company.name?.split("—")[0].trim() || null;
+  const accountName = shortName || linkedAccount?.email || t("titleFallback");
   const accountPending = suspendMutation.isPending || activateMutation.isPending;
   const toggleAccount = () => (isSuspended ? activateMutation.mutate() : suspendMutation.mutate());
 
@@ -542,13 +558,13 @@ function EtablissementDetail() {
           as done after merely showing a toast. ── */}
       <AdminDialog
         open={accountOpen && !!linkedAccount}
-        onClose={() => setAccountOpen(false)}
+        onClose={closeAccount}
         wide
         title={t("manageTitle")}
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">{t("actionsLogged")}</span>
-            <Button type="button" variant="outline" onClick={() => setAccountOpen(false)}>
+            <Button type="button" variant="outline" onClick={closeAccount}>
               {t("closeButton")}
             </Button>
           </div>
@@ -564,7 +580,7 @@ function EtablissementDetail() {
             </div>
           </div>
 
-          {actionError && (
+          {actionError && !confirming && (
             <Alert variant="destructive"><AlertDescription>{actionError}</AlertDescription></Alert>
           )}
 
@@ -593,11 +609,25 @@ function EtablissementDetail() {
                     size="sm"
                     variant={isSuspended ? "default" : "destructive"}
                     disabled={accountPending}
-                    onClick={toggleAccount}
+                    aria-expanded={confirming === "status"}
+                    onClick={() => askConfirmation("status")}
                   >
-                    {accountPending ? t("saving") : isSuspended ? t("reactivate") : t("suspend")}
+                    {isSuspended ? t("reactivate") : t("suspend")}
                   </Button>
                 </div>
+                {confirming === "status" && (
+                  <AccountActionConfirm
+                    message={tRoot(isSuspended ? "usersDirectory.reactivateBody" : "usersDirectory.suspendBody", { name: accountName })}
+                    confirmLabel={isSuspended ? t("reactivate") : t("suspend")}
+                    pendingLabel={t("saving")}
+                    cancelLabel={tRoot("common.cancel")}
+                    destructive={!isSuspended}
+                    pending={accountPending}
+                    error={actionError}
+                    onCancel={() => setConfirming(null)}
+                    onConfirm={toggleAccount}
+                  />
+                )}
               </div>
 
               <div>
@@ -623,11 +653,30 @@ function EtablissementDetail() {
                     variant="destructive"
                     size="sm"
                     disabled={deleteMutation.isPending}
-                    onClick={() => deleteMutation.mutate()}
+                    aria-expanded={confirming === "delete"}
+                    onClick={() => askConfirmation("delete")}
                   >
-                    {deleteMutation.isPending ? t("deleting") : t("delete")}
+                    {t("delete")}
                   </Button>
                 </div>
+                {confirming === "delete" && (
+                  <AccountActionConfirm
+                    message={`${tRoot("usersDirectory.deleteUserTitle", { name: accountName })} ${tRoot("usersDirectory.deleteWarning")}`}
+                    confirmLabel={t("delete")}
+                    pendingLabel={t("deleting")}
+                    cancelLabel={tRoot("common.cancel")}
+                    destructive
+                    typedConfirmation={
+                      linkedAccount?.email
+                        ? { value: linkedAccount.email, label: tRoot("usersDirectory.typeToConfirmLabel", { email: linkedAccount.email }) }
+                        : undefined
+                    }
+                    pending={deleteMutation.isPending}
+                    error={actionError}
+                    onCancel={() => setConfirming(null)}
+                    onConfirm={() => deleteMutation.mutate()}
+                  />
+                )}
               </div>
             </>
           )}

@@ -207,6 +207,12 @@ function ParametresContent() {
         </div>
 
         <form onSubmit={handleSaveIdentity} className="cam-admin-section-body">
+          {identityMutation.isError && (
+            <div role="alert" className="cam-admin-notice cam-admin-notice--error">
+              <span>{formatApiError(identityMutation.error, locale)}</span>
+            </div>
+          )}
+
           <div className="cam-field">
             <label className="cam-admin-label" htmlFor="obs-name">{t("nameLabel")}</label>
             <input

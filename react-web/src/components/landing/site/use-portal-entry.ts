@@ -7,6 +7,7 @@
 import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { useIsClient } from "@/lib/use-is-client";
+import { adminHomeFor } from "@/lib/nav-profiles";
 import { ADMIN_ROLES, hasRole } from "@/lib/roles";
 import { REGISTER_HREF } from "./site-content";
 
@@ -17,7 +18,7 @@ export function usePortalEntry() {
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = isClient && status === "authenticated";
   const isAdmin = isAuthenticated && hasRole(user?.role, ADMIN_ROLES);
-  const spaceHref = isAdmin ? "/admin/pilotage" : "/home";
+  const spaceHref = isAdmin ? adminHomeFor(user?.role) : "/home";
 
   return {
     isAuthenticated,

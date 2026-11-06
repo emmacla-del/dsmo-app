@@ -21,6 +21,7 @@ import { findIdentifier } from "@/lib/api-client";
 import { takeLoginIdentifier } from "@/lib/login-handoff";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
+import { adminHomeFor } from "@/lib/nav-profiles";
 import { ADMIN_ROLES, hasRole } from "@/lib/roles";
 
 type Tab = "login" | "forgot";
@@ -67,7 +68,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (status === "authenticated") {
       if (hasRole(user?.role, ADMIN_ROLES)) {
-        router.replace("/admin/pilotage");
+        router.replace(adminHomeFor(user?.role));
       } else if (
         user?.role === "COMPANY" &&
         (user.status === "PENDING_APPROVAL" || user.status === "COMPLEMENTS_REQUESTED")

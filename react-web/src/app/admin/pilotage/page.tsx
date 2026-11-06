@@ -129,9 +129,9 @@ function DashboardMetricLink({
  * establishments had declared (2026-10-17).
  *
  * The campaign id comes from GET /admin/pilotage/campaigns/active, open to
- * PILOTAGE_READ_ROLES like the returns themselves; any other role (AUDITOR,
- * which lands here as the /admin fallback) sees that the figure is
- * unavailable to it, never "no active campaign".
+ * PILOTAGE_READ_ROLES like the returns themselves; any other role that opens
+ * this page sees that the figure is unavailable to it, never "no active
+ * campaign".
  */
 function CampaignCoverage({
   campaign,

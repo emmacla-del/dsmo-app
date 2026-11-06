@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useAuthStore } from "@/lib/auth-store";
+import { adminHomeFor } from "@/lib/nav-profiles";
 
 export default function AdminError({
   error,
@@ -12,6 +14,7 @@ export default function AdminError({
   reset: () => void;
 }) {
   const t = useTranslations("adminError");
+  const role = useAuthStore((s) => s.user?.role);
 
   useEffect(() => {
     // Log the error to client console for diagnostics
@@ -60,7 +63,7 @@ export default function AdminError({
           {t("retryButton")}
         </button>
 
-        <Link href="/admin/pilotage" className="cam-button cam-button-secondary">
+        <Link href={adminHomeFor(role)} className="cam-button cam-button-secondary">
           {t("backToOverview")}
         </Link>
       </div>

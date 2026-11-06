@@ -8,8 +8,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ALL_ROLES, TERRITORIAL_ROLES, type UserRole } from "./roles";
-import { EMPTY_NAV_PROFILE, NAV_PROFILES, navHubsFor, resolveNavProfile } from "./nav-profiles";
+import { EMPTY_NAV_PROFILE, NAV_PROFILES, adminHomeFor, navHubsFor, resolveNavProfile } from "./nav-profiles";
 import { ADMIN_HUBS, getAllowedRoles, isRoleAllowed, isSubRouteActive } from "@/app/admin/_routes";
+
+test("every staff role starts on a page it may open, so the role gate cannot redirect to itself", () => {
+  for (const role of ALL_ROLES.filter((r) => r !== "COMPANY")) {
+    const home = adminHomeFor(role);
+    assert.ok(isRoleAllowed(getAllowedRoles(home) ?? undefined, role), `${role} may not open its home ${home}`);
+  }
+});
+
+test("AUDITOR starts on the audit journal; every other staff role keeps the dashboard", () => {
+  assert.equal(adminHomeFor("AUDITOR"), "/admin/journal-audit");
+  for (const role of ALL_ROLES.filter((r) => r !== "COMPANY" && r !== "AUDITOR")) {
+    assert.equal(adminHomeFor(role), "/admin/pilotage", role);
+  }
+});
 
 test("NAV_PROFILES covers every role exactly once", () => {
   assert.deepEqual(Object.keys(NAV_PROFILES).sort(), [...ALL_ROLES].sort());

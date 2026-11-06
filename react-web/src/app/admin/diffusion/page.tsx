@@ -28,7 +28,7 @@ import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { StatStrip } from "@/components/admin/StatStrip";
 import { useActiveCampaign } from "@/components/admin/AdminHeaderActions";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
-import { NATIONAL_ROLES } from "@/lib/roles";
+import { NATIONAL_ROLES, RESTRICTED_EXPORT_ROLES, hasRole } from "@/lib/roles";
 import { DataState } from "@/components/admin/DataState";
 import { useOnefopSchema } from "@/lib/use-onefop-schema";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -141,6 +141,9 @@ export default function DiffusionPage() {
   const tStats = useTranslations("adminLayout");
   const locale = asUiLocale(useLocale());
   const user = useAuthStore((s) => s.user);
+  // The two files that name people are refused by the server to every other
+  // role that can open this page, so they are not offered to it.
+  const canDownloadRestricted = hasRole(user?.role, RESTRICTED_EXPORT_ROLES);
   // The subtitle names the active campaign, when there is one, instead of
   // a fixed « Campagne 2026 »: by its period in the page's language ("Q4
   // 2026"), not its stored title, which is French, in capitals, and worded
@@ -775,7 +778,7 @@ export default function DiffusionPage() {
 
             {/* 8.8 names people, so it is never in the file above: its own
                 download, same filters (spss/vt-roster-export.ts). */}
-            {selectedQuestionnaire === "TVET" && (
+            {selectedQuestionnaire === "TVET" && canDownloadRestricted && (
               <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
                 <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-1)" }}>{t("rosterTitle")}</legend>
                 <p className="cam-admin-meta" style={{ margin: 0 }}>{t("rosterHint")}</p>
@@ -804,7 +807,7 @@ export default function DiffusionPage() {
             {/* Contact details (1.15, 1.16, 2.1.12) name and reach people, so
                 they left the file above in v11: their own download, same
                 filters (spss/vt-contact-export.ts). */}
-            {selectedQuestionnaire === "TVET" && (
+            {selectedQuestionnaire === "TVET" && canDownloadRestricted && (
               <fieldset style={{ border: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "var(--cam-space-2)" }}>
                 <legend className="cam-admin-label" style={{ padding: 0, marginBottom: "var(--cam-space-1)" }}>{t("contactTitle")}</legend>
                 <p className="cam-admin-meta" style={{ margin: 0 }}>{t("contactHint")}</p>

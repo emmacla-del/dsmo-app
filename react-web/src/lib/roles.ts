@@ -159,6 +159,14 @@ export const SETTINGS_ROLES: readonly UserRole[] = ["SUPER_ADMIN"];
  */
 export const USER_ADMIN_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP"];
 
+/**
+ * The exports that name people: the 8.8 staff list and the VT contact file.
+ * Mirrors @Roles on export/vt-roster/* and export/vt-contact/* in
+ * data-management.controller.ts, which is the enforcing copy. Narrower than
+ * the /admin/diffusion route (NATIONAL_ROLES).
+ */
+export const RESTRICTED_EXPORT_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "ADMIN_ONEFOP"];
+
 /** Audit log and activity journal readers. */
 export const AUDIT_ROLES: readonly UserRole[] = ["SUPER_ADMIN", "AUDITOR"];
 

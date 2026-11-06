@@ -147,6 +147,17 @@ export function resolveNavProfile(role: string | null | undefined): NavProfile {
 }
 
 /**
+ * Where a staff role starts: the first page its rail offers. That is the
+ * dashboard for everyone but AUDITOR, which may not open it. Sending AUDITOR
+ * there left it on an empty page, because RequireAdminRole refused the
+ * dashboard and redirected to the dashboard. Every "go to the console" link
+ * and redirect uses this, never a hard-coded /admin/pilotage.
+ */
+export function adminHomeFor(role: string | null | undefined): string {
+  return navHubsFor(role)[0]?.href ?? "/admin/pilotage";
+}
+
+/**
  * The hubs to render for `role`, in profile order, each with `href` pointing
  * at the first sub-route that role may actually open.
  *
