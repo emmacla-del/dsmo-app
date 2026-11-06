@@ -23,7 +23,8 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
-import { AdminFilterPill, AdminLockedFilterPill } from "@/components/admin/AdminFilterPill";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { AdminScopePill, territoryPillFor } from "@/components/admin/AdminFilterBarParts";
 import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedViews";
 import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -1021,8 +1022,7 @@ function DossiersContent({
   // Filter bar (layout v2): search, up to four single-choice pills, and one
   // « Filtres » panel holding every filter. A filter shown as a pill is not
   // repeated as a chip; the panel button counts only what the pills don't show.
-  const territoryPill: "region" | "department" | null =
-    user?.role === "DIVISIONAL_ADMIN" ? null : user?.role === "REGIONAL_ADMIN" ? "department" : "region";
+  const territoryPill = territoryPillFor(user?.role);
   const scopedDepartments = user?.role === "REGIONAL_ADMIN" && user.region && territoryStructure.isSuccess
     ? (territoryStructure.data.find((region) => region.name === user.region)?.departments.map((department) => department.name) ?? [])
     : territoryDepartments;
@@ -1724,8 +1724,7 @@ function DossiersContent({
               <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
               <Input id="dossiers-search-submissions" type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
             </div>
-            {user?.role === "REGIONAL_ADMIN" && <AdminLockedFilterPill label={scopeLabel} title={scopeLabel} />}
-            {user?.role === "DIVISIONAL_ADMIN" && <AdminLockedFilterPill label={scopeLabel} title={scopeLabel} />}
+            <AdminScopePill />
             <AdminFilterPill
               label={t("controlsColumn")}
               value={qualityFilter}

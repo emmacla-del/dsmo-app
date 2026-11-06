@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ExplainFindingError, explainFindingAnomalies, explainNoteValid } from "./dossier-explain";
+import { ExplainFindingError, explainFindingAnomalies, explainNoteValid, reviewerExplainedCount } from "./dossier-explain";
+
+test("only a reviewer's explanation counts as handled by a person", () => {
+  assert.equal(reviewerExplainedCount([
+    { resolutionType: "REVIEWER_EXPLANATION" },
+    { resolutionType: "RULE_RECHECK" },
+    { resolutionType: "DECLARANT_CORRECTION" },
+    { resolutionType: null },
+  ]), 1);
+});
 
 test("each anomaly of a finding is closed with the next dossier revision", async () => {
   const calls: Array<[string, number, string, string]> = [];

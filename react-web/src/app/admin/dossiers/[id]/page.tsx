@@ -27,7 +27,8 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { DossierClaimPanel, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
 import { mergeDossierHistory, type DossierHistoryEntry } from "@/lib/dossier-history";
-import { groupDossierFindings, mergeSameRule } from "@/lib/dossier-findings";
+import { findingKeysApply, groupDossierFindings, mergeSameRule } from "@/lib/dossier-findings";
+import { reviewerExplainedCount } from "@/lib/dossier-explain";
 import { findingTargets, placeFindings, sectionFlagCount } from "@/lib/finding-targets";
 import { PlacedFlagNotice } from "@/components/admin/DossierAnswerSections";
 import { ExplainFindingAction, ExplainedFindings, RecheckCoherenceAction, explainedFindingsKey, useExplainedFindings } from "@/components/admin/DossierExplainFinding";
@@ -524,13 +525,12 @@ function SubmissionDetailContent() {
     };
   }, []);
 
-  // J / K move between the open findings; never while typing or in a dialog.
+  // J / K move between the open findings, from a finding or the review panel only.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "j" && event.key !== "k") return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (!findingKeysApply(event.target as Element | null)) return;
       if (document.querySelector("dialog[open]")) return;
       const cards = Array.from(document.querySelectorAll<HTMLElement>("[id^='finding-']"));
       if (cards.length === 0) return;
@@ -733,6 +733,7 @@ function SubmissionDetailContent() {
   const hasOpenWarnings = (diag?.warningAnomalies.length ?? 0) > 0;
   const approvalChecksReady = diagnosticState === "ready" && (diag?.blockingAnomalies.length ?? 0) === 0;
   const explained = useExplainedFindings(dossier?.id);
+  const explainedByReviewer = reviewerExplainedCount(explained.items);
   // The cells behind each open finding, recomputed from the figures as filed,
   // so the tables mark what disagrees and say what it is compared with.
   // Joined to a string so the memo reruns when the codes change, not on each render.
@@ -1438,10 +1439,10 @@ function SubmissionDetailContent() {
         <section className="cam-dossier-review-card cam-dossier-review-verify" aria-labelledby="dossier-controls-title">
           <div className="cam-dossier-review-card-head">
             <h2 id="dossier-controls-title">{t("checklistTitle")}</h2>
-            {diagnosticState === "ready" && <span className="cam-admin-meta">{t("checklistProgress", { done: explained.items.length, total: explained.items.length + openFindings })}</span>}
+            {diagnosticState === "ready" && <span className="cam-admin-meta">{t("checklistProgress", { done: explainedByReviewer, total: explainedByReviewer + openFindings })}</span>}
           </div>
-          {diagnosticState === "ready" && explained.items.length + openFindings > 0 && (
-            <progress className="cam-dossier-review-progress" value={explained.items.length} max={explained.items.length + openFindings} aria-hidden="true" />
+          {diagnosticState === "ready" && explainedByReviewer + openFindings > 0 && (
+            <progress className="cam-dossier-review-progress" value={explainedByReviewer} max={explainedByReviewer + openFindings} aria-hidden="true" />
           )}
           {/* The status is the header's; this says what is left to check
               and whether the file can enter the statistics. */}

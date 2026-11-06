@@ -1,6 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { groupDossierFindings } from "./dossier-findings";
+import { findingKeysApply, groupDossierFindings } from "./dossier-findings";
+
+test("J / K act only on a finding or in the review panel, and never while typing", () => {
+  const element = (tagName: string, inside: boolean, isContentEditable = false) =>
+    ({ tagName, isContentEditable, closest: () => (inside ? {} : null) }) as unknown as Element;
+  assert.equal(findingKeysApply(element("DIV", true)), true);
+  assert.equal(findingKeysApply(element("A", true)), true);
+  assert.equal(findingKeysApply(element("BODY", false)), false);
+  assert.equal(findingKeysApply(element("BUTTON", false)), false);
+  assert.equal(findingKeysApply(element("TEXTAREA", true)), false);
+  assert.equal(findingKeysApply(element("DIV", true, true)), false);
+  assert.equal(findingKeysApply(null), false);
+});
 
 test("blocking findings come before warnings, each grouped by rule family in first-seen order", () => {
   const groups = groupDossierFindings(

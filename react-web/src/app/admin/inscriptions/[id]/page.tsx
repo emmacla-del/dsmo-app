@@ -71,20 +71,6 @@ type Choice = "REJECT" | "REQUEST_COMPLEMENTS" | null;
 type StatusVariant = "pending" | "validated" | "rejected" | "correction" | "active" | "neutral";
 
 const DECIDABLE_STATUSES = new Set(["PENDING_APPROVAL", "COMPLEMENTS_REQUESTED"]);
-// Labelled audit actions (adminRegistrationReview.historyAction.*); mirrors the server's REGISTRATION_HISTORY_ACTIONS.
-const HISTORY_ACTIONS = new Set([
-  "COMPANY_REGISTRATION_ASSISTED",
-  "COMPANY_REGISTRATION_AUTO_APPROVED",
-  "COMPANY_REGISTRATION_APPROVED",
-  "COMPANY_REGISTRATION_REJECTED",
-  "COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED",
-  "COMPANY_REGISTRATION_RESUBMITTED",
-  "REGISTRATION_ASSIGNED",
-  "REGISTRATION_ARCHIVED",
-  "REGISTRATION_RESTORED",
-  "USER_ACTIVATED",
-  "USER_SUSPENDED",
-]);
 const STATUS_BADGE: Record<string, { textKey: string; variant: StatusVariant }> = {
   PENDING_APPROVAL: { textKey: "badgePending", variant: "pending" },
   COMPLEMENTS_REQUESTED: { textKey: "badgeComplements", variant: "correction" },
@@ -357,7 +343,7 @@ function RegistrationReview({ id }: { id: string }) {
   // The file's own creation is always the oldest event; an assisted
   // registration already has an audit entry for it.
   const hasCreationEvent = (historyQuery.data ?? []).some((entry) => entry.action === "COMPANY_REGISTRATION_ASSISTED");
-  const historyLabel = (action: string) => (HISTORY_ACTIONS.has(action) ? t(`historyAction.${action}`) : action);
+  const historyLabel = (action: string) => (t.has(`historyAction.${action}`) ? t(`historyAction.${action}`) : action);
   const niu = hasRealNiu(item.taxNumber) ? item.taxNumber : null;
 
   const submitChoice = () => {

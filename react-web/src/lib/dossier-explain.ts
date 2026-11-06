@@ -7,6 +7,11 @@ import type { ResolveAnomalyPayload } from "./anomaly-registry";
  */
 export const EXPLAINED_RESOLUTION = "REVIEWER_EXPLANATION" as const;
 
+/** How many of these resolved warnings a reviewer explained; the system's re-check closes others. */
+export function reviewerExplainedCount(items: readonly { resolutionType: string | null }[]): number {
+  return items.filter((item) => item.resolutionType === EXPLAINED_RESOLUTION).length;
+}
+
 /** The server's bounds on a resolution note (ResolveAnomalyDto, review notes). */
 export const EXPLAIN_NOTE_MIN = 10;
 export const EXPLAIN_NOTE_MAX = 2000;

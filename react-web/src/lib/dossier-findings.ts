@@ -23,6 +23,17 @@ export interface DossierFindingGroup<T extends DossierFinding = DossierFinding> 
   findings: T[];
 }
 
+/**
+ * Whether J / K may act on this key press. Single-letter shortcuts stay inside
+ * the findings and the review panel (WCAG 2.1.4): anywhere else on the page a
+ * stray letter, from dictation say, must do nothing. Never while typing.
+ */
+export function findingKeysApply(target: Element | null): boolean {
+  if (!target || (target as HTMLElement).isContentEditable) return false;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return false;
+  return target.closest("[id^='finding-'], #dossier-review-panel") !== null;
+}
+
 export function groupDossierFindings<T extends DossierFinding>(blocking: T[], warnings: T[]): DossierFindingGroup<T>[] {
   const bySeverity = (severity: DossierFindingSeverity, findings: T[]) => {
     const groups = new Map<string | null, T[]>();
