@@ -292,6 +292,13 @@ Avoid:
 - duplicated headings
 - technical codes exposed to respondents
 
+The staff console is the one exception on cards. There the card is the
+container: one card per result set, answer section, side panel or history,
+never a card inside a card (`docs/standards/admin-layout-spec.md` §8, owner's
+decision, 2026-11-06). « Unnecessary cards » still rules out decorative boxes
+there, and every card on respondent screens (forms, wizards, Mon espace, the
+public portal). §9's rule on radio and checkbox options applies everywhere.
+
 ---
 
 # 9. FORM CONTROL RULES

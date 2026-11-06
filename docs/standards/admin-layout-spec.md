@@ -1,6 +1,6 @@
 ﻿# CAM-LEAP Staff Console Layout Specification
 
-**Status:** Proposed companion to `docs/standards/ui-grammar.md`. Revision 2 (2026-11-02): adds the filter bar pattern (§4F), the three-column review workspace (§4C), the compact rail on a dossier (§2) and a change record (§10). Sections marked **[v2]** describe the layout now in the code; each is listed in §10 for the product team to accept or send back.
+**Status:** Normative companion to `docs/standards/ui-grammar.md`. Revision 2 (2026-11-02), approved by the owner on 2026-11-06: adds the filter bar pattern (§4F), the three-column review workspace (§4C), the compact rail on a dossier (§2) and a change record (§10). Sections marked **[v2]** describe the layout now in the code; each is listed in §10, the record of what was accepted.
 **Scope:** Every route under `react-web/src/app/admin/**` and every shared layout component under `react-web/src/components/admin/**`.
 **Purpose:** Specify page composition, hierarchy, responsive behavior, and the responsibility of each route and shared component. This is a layout map and implementation contract; it does not prescribe token values or replace route-specific product requirements.
 
@@ -193,7 +193,7 @@ A route may depart from a family pattern when the domain workflow requires it. D
 
 Documented exceptions:
 
-- Cards (decision 2026-11-02): the admin console uses cards as its container for result sets, answer sections, side panels and history. This replaces revision 1's « one document, no card » rule for admin routes (ui-grammar G4 still applies to the respondent side).
+- Cards (decided 2026-11-02, accepted by the owner 2026-11-06): the admin console uses cards as its container for result sets, answer sections, side panels and history, one card each and never a card inside a card. This replaces revision 1's « one document, no card » rule for admin routes. Respondent screens keep the no-card rule (Engineering Constitution §8).
 
 - `/admin/dossiers*`: institutional masthead (tricolour, scope) above the page; the workspace's three-column layout and review panel (§4C) replace the standard header actions for decisions.
 
@@ -215,7 +215,7 @@ Update this specification when adding/removing an admin route, changing the shel
 
 ## 10. Change record (revision 2)
 
-Each line is in the code as of 2026-11-02 and awaits the product team's decision. Rejecting one means reverting it in the code and in this file together. IDs match the stage-1 change log.
+Every line below was accepted by the owner in chat on 2026-11-06, the card decision included. This is now the layout of the console: changing a line is a new product decision, made in the code and in this file together. IDs match the stage-1 change log.
 
 | ID | Kind | Section | Change | Files |
 |---|---|---|---|---|

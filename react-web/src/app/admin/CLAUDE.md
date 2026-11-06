@@ -25,7 +25,7 @@ When this file and the spec disagree, the spec wins; fix this file.
 
 ## Containers
 
-- Cards are the admin console's container (decision 2026-11-02): one card per result set, answer section, side panel or history. Use `--cam-surface`, a 1px `--cam-border` and `--cam-radius-lg`. Don't nest cards inside cards.
+- Cards are the admin console's container (accepted by the owner 2026-11-06): one card per result set, answer section, side panel or history. Use `--cam-surface`, a 1px `--cam-border` and `--cam-radius-lg`. Don't nest cards inside cards.
 
 ## Lists and queues
 

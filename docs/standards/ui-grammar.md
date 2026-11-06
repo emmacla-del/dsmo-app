@@ -56,6 +56,9 @@ Tailwind palette classes (`bg-slate-50`, `text-gray-700`, …) are a second desi
 | Titled block | `.cam-admin-section` › `-head` › `.cam-admin-h2` › `-body` |
 | Dashboard panel | `.cam-pilot-panel` › `-head` / `-body` |
 | Card in a grid | `.cam-dash-card` › `-head` / `-title` |
+| Result set | `AdminTablePanel` |
+
+The card is the staff console's container: one per result set, answer section, side panel or history, on `--cam-surface` with a 1px `--cam-border` and `--cam-radius-lg`, never a card inside a card (`admin-layout-spec.md` §8, owner's decision, 2026-11-06). Respondent screens have no cards.
 
 Never an inline white box. The mechanical tell is an inline `style` object carrying **both** a `background` and a `border` — that is a card, and it has a class.
 
@@ -295,7 +298,7 @@ Registration, Modern Jobs and VT share one side navigation (owner, 2026-10-10). 
 - **Numbering** follows each paper form: Modern Jobs from 0, VT and registration from 1.
 - **Rhythm** is one ladder for all three wide rails, set by the screen's height and never by the wizard (2026-10-21): 48px rows and a 32px gap; 40px rows and 24px from `max-height: 800px`; 32px rows and 16px from `max-height: 620px`. The rows read `--cam-step-row-pad`. The phone drawer is `.cam-sheet` titled « Sommaire » in both questionnaires.
 - **The respondent workspace rail** (`.cam-home-rail`, `app/home/layout.tsx`) is site navigation, but it is the panel a respondent leaves to open a questionnaire, so it matches the wizard rail: `--cam-side-rail-width`, 16px side padding, 14px semibold items in 40px rows, bold green with a 3px green edge for the page in hand, 12px muted identity lines. Classes paint it; no inline style.
-- **The staff console's rail** (`.cam-admin-rail`) is site navigation, not form progress, so it keeps its dark green and its own classes. It shares everything else: `--cam-side-rail-width`, the 24/16/16 padding and 24px gap, 46px rows (a `--cam-step-marker-size` icon box), and 14px semibold items, bold when current.
+- **The staff console's rail** (`.cam-admin-rail`) is site navigation, not form progress, so it keeps its dark green and its own classes. From 1024px it is an icon strip that expands to full labels, on every console route (`admin-layout-spec.md` §2), with its own widths (`--cam-admin-rail-compact-width`, `--cam-admin-rail-expanded-width`). It shares the 46px rows (a `--cam-step-marker-size` icon box) and 14px semibold items, bold when current.
 
 Do not draw a step list, a step circle or a progress bar for a wizard any other way.
 
