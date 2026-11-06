@@ -19,6 +19,9 @@ import { IgnoredIdentityChange, lockCompanyIdentity } from './company-territory-
 import { Territory, territoryWhere } from '../auth/territory';
 import { formatDoualaDateFr } from '../common/utils/douala-date';
 
+/** The entity types a register filter may ask for (OnefopEntityType, minus the retired value). */
+export const REGISTER_ENTITY_TYPES = ['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING'] as const;
+
 const REGISTRATION_PERIOD_MIN_YEAR = 2000;
 const DOUALA_YEAR_FORMATTER = new Intl.DateTimeFormat('en', {
   timeZone: 'Africa/Douala',
@@ -350,6 +353,7 @@ export class DsmoService {
       search?: string;
       status?: string;
       region?: string;
+      entityType?: string;
       sortOrder?: 'oldest' | 'newest';
       year?: number;
       semester?: 1 | 2;
@@ -374,8 +378,22 @@ export class DsmoService {
     };
 
 
-    if (params.status && params.status !== 'ALL') {
+    // Same reading as getCompanyStats(): « active » and « suspended » are
+    // both approved accounts, told apart by User.isActive.
+    if (params.status === 'SUSPENDED') {
+      accountWhere.status = UserStatus.ACTIVE;
+      accountWhere.isActive = false;
+    } else if (params.status === 'ACTIVE') {
+      accountWhere.status = UserStatus.ACTIVE;
+      accountWhere.isActive = true;
+    } else if (params.status && params.status !== 'ALL') {
       accountWhere.status = params.status as any;
+    }
+    // A known entity type narrows the register; anything else is ignored
+    // rather than turning the list into an empty one nobody can explain.
+    const entityType = params.entityType?.trim().toUpperCase();
+    if (entityType && (REGISTER_ENTITY_TYPES as readonly string[]).includes(entityType)) {
+      where.entityType = entityType;
     }
     if (params.region && params.region !== 'Toutes') {
       where.region = { equals: params.region.trim(), mode: 'insensitive' };

@@ -352,6 +352,45 @@ export class AdminQuestionnairesController {
     );
   }
 
+  /**
+   * Counts for the queue's filter pills, with the same filters as the list.
+   * Literal route: declared before the :id routes.
+   */
+  @Get('facets')
+  @Roles(...DOSSIER_READ_ROLES)
+  async getFacets(
+    @Query('status') status?: string,
+    @Query('statuses') statuses?: string,
+    @Query('region') region?: string,
+    @Query('search') search?: string,
+    @Query('formType') formType?: string,
+    @Query('period') period?: string,
+    @Query('companyId') companyId?: string,
+    @Query('department') department?: string,
+    @Query('campaignId') campaignId?: string,
+    @Query('quarterCode') quarterCode?: string,
+    @Query('late') late?: string,
+    @Query('overdue') overdue?: string,
+    @Request() req?: any,
+    @Query('view') view?: string,
+    @Query('includeArchived') includeArchived?: string,
+    @Query('assignedToMe') assignedToMe?: string,
+    @Query('quality') quality?: string,
+    @Query('assignment') assignment?: string,
+  ) {
+    const filters = parseAdminListFilters({
+      status, statuses, formType, period, region, department, search, companyId,
+      campaignId, quarterCode, late, overdue, assignedToMe, quality, assignment,
+      actorId: req?.user?.id,
+    });
+    return this.service.getAdminListFacets(
+      filters,
+      optionalText(req?.user?.id),
+      territoryFromUser(req?.user),
+      includeArchivedFlag(includeArchived, view === 'completed'),
+    );
+  }
+
   @Get('pending')
   @Roles(...DOSSIER_READ_ROLES)
   async getPending(

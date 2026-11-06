@@ -538,6 +538,23 @@ export class AuthController {
     res.send(csv);
   }
 
+
+  /** One registration, for the review page. Literal routes (export) are declared first. */
+  @Get('company-registrations/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...REGISTRATION_ADMIN_ROLES, ...READ_ONLY_NATIONAL_ROLES)
+  async getCompanyRegistration(@Request() req: any, @Param('id') id: string) {
+    return this.authService.getCompanyRegistration(territoryFromUser(req.user), id);
+  }
+
+  /** The file's history, for the review page (same roles and territory as the file). */
+  @Get('company-registrations/:id/history')
+  @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
+  @Roles(...REGISTRATION_ADMIN_ROLES, ...READ_ONLY_NATIONAL_ROLES)
+  async getCompanyRegistrationHistory(@Request() req: any, @Param('id') id: string) {
+    return this.authService.getCompanyRegistrationHistory(territoryFromUser(req.user), id);
+  }
+
   @Post('resubmit-registration')
   @UseGuards(JwtAuthGuard, ActiveCompanyGuard)
   @AllowInactiveCompany({ statuses: [UserStatus.COMPLEMENTS_REQUESTED] })

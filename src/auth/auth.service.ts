@@ -39,6 +39,22 @@ import {
   type VerificationFlags,
 } from './registration-verification';
 
+/** Audit actions shown in a registration's history, on the account (resourceType User). */
+export const REGISTRATION_HISTORY_ACTIONS = [
+  'COMPANY_REGISTRATION_ASSISTED',
+  'COMPANY_REGISTRATION_AUTO_APPROVED',
+  'COMPANY_REGISTRATION_APPROVED',
+  'COMPANY_REGISTRATION_REJECTED',
+  'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED',
+  'COMPANY_REGISTRATION_RESUBMITTED',
+  'REGISTRATION_ASSIGNED',
+  'REGISTRATION_ARCHIVED',
+  'REGISTRATION_RESTORED',
+  'USER_ACTIVATED',
+  'USER_SUSPENDED',
+] as const;
+const REGISTRATION_HISTORY_LIMIT = 50;
+
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const TWO_FACTOR_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -1618,6 +1634,7 @@ export class AuthService {
       overdue?: boolean;
       assigneeId?: string;
       duplicates?: string;
+      userId?: string;
     },
   ) {
     if (params.status !== undefined && params.statuses !== undefined) {
@@ -1728,6 +1745,9 @@ export class AuthService {
     // own region.
     const createdBy = params.createdBy?.trim();
     if (createdBy) userWhere.createdBy = createdBy;
+    // One registration, still inside the actor's territory and archive rules.
+    const userId = params.userId?.trim();
+    if (userId) userWhere.id = userId;
     const assigneeId = params.assigneeId?.trim();
     if (assigneeId) userWhere.assigneeId = assigneeId;
     const registrationMethod = params.registrationMethod?.trim();
@@ -1800,6 +1820,8 @@ export class AuthService {
       duplicates?: string;
       page?: number;
       pageSize?: number;
+      /** One registration (its COMPANY user id): getCompanyRegistration. */
+      userId?: string;
     },
   ) {
     const page = params.page && params.page > 0 ? params.page : 1;
@@ -1882,6 +1904,62 @@ export class AuthService {
     // overdueDays travels with the list so the screen words "plus de N jours"
     // with the threshold actually applied.
     return { items: itemsWithResubmission, total, page, pageSize, counts, countsView, overdueDays };
+  }
+
+  /**
+   * One registration for the review page (GET /auth/company-registrations/:id),
+   * in the same shape as a list row (duplicates, last resubmission, overdue).
+   * Built from the list's own query, so territory and archive rules are the
+   * same; any status. Out of territory reads as not found.
+   */
+  async getCompanyRegistration(actor: Territory, userId: string) {
+    const id = userId?.trim();
+    if (!id) throw new NotFoundException('Inscription introuvable.');
+    const result = await this.listCompanyRegistrations(actor, { status: 'ALL', userId: id, page: 1, pageSize: 1 });
+    const item = result.items[0];
+    if (!item) throw new NotFoundException('Inscription introuvable.');
+    return { ...item, overdueDays: result.overdueDays };
+  }
+
+  /**
+   * What happened to one registration file, newest first, for the review
+   * page: the audit entries written on the account (resourceType User).
+   * Territory and existence are checked through getCompanyRegistration, so a
+   * file outside the reader's ressort answers 404 here too. Only the reason or
+   * message sent to the declarant and the names of the fields changed are
+   * returned, not the stored before/after values.
+   */
+  async getCompanyRegistrationHistory(actor: Territory, userId: string) {
+    const registration = await this.getCompanyRegistration(actor, userId);
+    const rows = await this.prisma.auditLog.findMany({
+      where: { resourceType: 'User', resourceId: registration.id, action: { in: [...REGISTRATION_HISTORY_ACTIONS] } },
+      select: {
+        id: true,
+        action: true,
+        userId: true,
+        createdAt: true,
+        details: true,
+        user: { select: { firstName: true, lastName: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: REGISTRATION_HISTORY_LIMIT,
+    });
+    return rows.map((row) => {
+      const details = (row.details && typeof row.details === 'object' ? row.details : {}) as Record<string, unknown>;
+      const name = [row.user?.firstName, row.user?.lastName].filter(Boolean).join(' ').trim();
+      const text = typeof details.reason === 'string' ? details.reason : typeof details.message === 'string' ? details.message : null;
+      const changes = details.changes && typeof details.changes === 'object' ? Object.keys(details.changes as object) : [];
+      return {
+        id: row.id,
+        action: row.action,
+        at: row.createdAt,
+        byDeclarant: row.userId === registration.id,
+        actorName: row.userId === registration.id ? null : name || row.user?.email || null,
+        text,
+        changedFields: changes,
+        assigneeName: typeof details.assigneeName === 'string' ? details.assigneeName : null,
+      };
+    });
   }
 
   /**

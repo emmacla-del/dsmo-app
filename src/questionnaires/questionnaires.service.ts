@@ -28,6 +28,7 @@ import { OnefopSchemaLoaderService } from '../onefop-schema-validation/onefop-sc
 import { Territory, assertReadTerritorialAuthority, assertTerritorialAuthority, territoryWhere } from '../auth/territory';
 import { READ_ONLY_NATIONAL_ROLES, SURVEY_ADMIN_ROLES } from '../auth/staff-scope';
 import { assigneeName, resolveAssignee } from '../auth/assignee';
+import { pickPreviousPeriod } from './previous-period';
 import {
   CLAIM_ASSIGNMENT_AUDIT_ACTION,
   CLAIM_EXPIRED_AUDIT_ACTION,
@@ -3671,7 +3672,14 @@ export class QuestionnairesService {
     filters: AdminListFilters & { sort?: AdminListSort },
     territory?: Territory,
     includeArchived = false,
-  ): Promise<{ previous: { id: string; submissionId: string } | null; next: { id: string; submissionId: string } | null }> {
+  ): Promise<{
+    previous: { id: string; submissionId: string } | null;
+    next: { id: string; submissionId: string } | null;
+    /** 1-based place of this file in the filtered list; null when it has left the list. */
+    position: number | null;
+    /** Size of the filtered list. */
+    total: number;
+  }> {
     const cursor = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ id }, territoryWhere(territory), archiveState(includeArchived)] },
       select: { id: true, submissionId: true, submissionDate: true },
@@ -3681,10 +3689,9 @@ export class QuestionnairesService {
     const where = buildAdminListWhere(filters, territory, new Date(), includeArchived);
     const direction = filters.sort === 'oldest' ? 'asc' : 'desc';
     const opposite = direction === 'asc' ? 'desc' : 'asc';
-    const seek = async (side: 'previous' | 'next') => {
-      const forward = side === 'next';
-      const comparison = (forward ? direction : opposite) === 'asc' ? 'gt' : 'lt';
-      const seekWhere = {
+    const sideWhere = (side: 'previous' | 'next') => {
+      const comparison = ((side === 'next') ? direction : opposite) === 'asc' ? 'gt' : 'lt';
+      return {
         AND: [
           ...where.AND,
           { OR: [
@@ -3693,6 +3700,10 @@ export class QuestionnairesService {
           ] },
         ],
       };
+    };
+    const seek = async (side: 'previous' | 'next') => {
+      const forward = side === 'next';
+      const seekWhere = sideWhere(side);
       const order = forward ? direction : opposite;
       return (this.prisma as any).onefopSubmission.findFirst({
         where: seekWhere,
@@ -3700,8 +3711,66 @@ export class QuestionnairesService {
         select: { id: true, submissionId: true },
       });
     };
-    const [previous, next] = await Promise.all([seek('previous'), seek('next')]);
-    return { previous: previous ?? null, next: next ?? null };
+    // « Dossier n sur N »: the same filtered list, counted. The file's place is
+    // the number of files before it plus one, only while it is still in the list.
+    const submissions = (this.prisma as any).onefopSubmission;
+    const [previous, next, total, before, inList] = await Promise.all([
+      seek('previous'),
+      seek('next'),
+      submissions.count({ where }),
+      submissions.count({ where: sideWhere('previous') }),
+      submissions.count({ where: { AND: [...where.AND, { id: cursor.id }] } }),
+    ]);
+    return { previous: previous ?? null, next: next ?? null, position: inList > 0 ? before + 1 : null, total };
+  }
+
+  /**
+   * Counts behind the queue's filter pills: for each filter, how many files
+   * each option would list with every *other* active filter kept. Built from
+   * buildAdminListWhere, so a count never disagrees with the list it opens.
+   */
+  async getAdminListFacets(
+    filters: AdminListFilters,
+    actorId: string | undefined,
+    territory?: Territory,
+    includeArchived = false,
+  ): Promise<{
+    quality: Record<'clean' | 'warnings' | 'blocking', number>;
+    assignment: Record<'me' | 'unassigned' | 'other', number>;
+    formType: Record<string, number>;
+    region: Record<string, number>;
+    department: Record<string, number>;
+  }> {
+    const now = new Date();
+    const submissions = (this.prisma as any).onefopSubmission;
+    const count = (changes: Partial<AdminListFilters>) =>
+      submissions.count({ where: buildAdminListWhere({ ...filters, ...changes }, territory, now, includeArchived) });
+    const byField = async (field: 'formType' | 'region' | 'department', changes: Partial<AdminListFilters>) => {
+      const rows: Array<Record<string, unknown> & { _count: { _all: number } }> = await submissions.groupBy({
+        by: [field],
+        where: buildAdminListWhere({ ...filters, ...changes }, territory, now, includeArchived),
+        _count: { _all: true },
+      });
+      const counts: Record<string, number> = {};
+      for (const row of rows) {
+        const key = row[field];
+        if (typeof key === 'string' && key) counts[key] = (counts[key] ?? 0) + row._count._all;
+      }
+      return counts;
+    };
+    const withoutAssignment = { assignment: undefined, assigneeId: undefined };
+    const [clean, warnings, blocking, me, unassigned, other, formType, region, department] = await Promise.all([
+      count({ quality: 'clean' }),
+      count({ quality: 'warnings' }),
+      count({ quality: 'blocking' }),
+      actorId ? count({ assignment: 'me', assigneeId: actorId }) : Promise.resolve(0),
+      count({ ...withoutAssignment, assignment: 'unassigned' }),
+      actorId ? count({ assignment: 'other', assigneeId: actorId }) : Promise.resolve(0),
+      byField('formType', { formType: undefined }),
+      byField('region', { region: undefined, department: undefined }),
+      byField('department', { department: undefined }),
+    ]);
+    return { quality: { clean, warnings, blocking }, assignment: { me, unassigned, other }, formType, region, department };
   }
 
   async listByStatus(status: string, limit: number, offset: number, territory?: Territory) {
@@ -3743,6 +3812,31 @@ export class QuestionnairesService {
     // the review panel falls back to when the questionnaire collects none.
     // It is flattened rather than returned, so the response gains one field
     // and not the establishment row.
+    // The same establishment's last endorsed file for an earlier round, so the
+    // reviewer can compare figures. Same territory and archive rules as the file.
+    // Chosen by the round each file covers, not by filing date: a correction of
+    // T3 is filed after T4, and T4 is not its previous period.
+    const previousCandidates = submission.establishmentId && submission.submissionDate
+      ? await (this.prisma as any).onefopSubmission.findMany({
+        where: { AND: [
+          { establishmentId: submission.establishmentId },
+          { formType: submission.formType },
+          { id: { not: submission.id } },
+          { status: 'APPROVED' },
+          territoryWhere(territory),
+          NOT_ARCHIVED,
+        ] },
+        orderBy: [{ submissionDate: 'desc' }, { id: 'desc' }],
+        select: { id: true, quarterCode: true, submissionDate: true },
+      })
+      : [];
+    const previousId = pickPreviousPeriod(submission, previousCandidates);
+    const previousPeriod = previousId
+      ? await (this.prisma as any).onefopSubmission.findFirst({
+        where: { id: previousId },
+        select: { id: true, submissionId: true, quarterCode: true, rawData: true },
+      })
+      : null;
     const { establishment, assignee, supersedes, claimActivityAt: _claimActivityAt, ...rest } = submission;
     const claimState = getEffectiveClaimState(submission);
 
@@ -3751,6 +3845,9 @@ export class QuestionnairesService {
       rawData: withoutStaffNames(rest.rawData, territory?.role),
       yearOfCreation: establishment?.company?.yearOfCreation ?? null,
       supersedes: supersedes?.[0] ? { id: supersedes[0].id, submissionId: supersedes[0].submissionId } : null,
+      previousPeriod: previousPeriod
+        ? { id: previousPeriod.id, submissionId: previousPeriod.submissionId, quarterCode: previousPeriod.quarterCode ?? null, rawData: withoutStaffNames(previousPeriod.rawData, territory?.role) }
+        : null,
       assigneeId: claimState.assigneeId,
       assigneeName: claimState.assigneeId ? assigneeName(assignee) : null,
       claimExpired: claimState.expired,
