@@ -151,7 +151,7 @@ const auditDetails = (tx: ReturnType<typeof makeService>['tx']) =>
   (tx.auditLog.create.mock.calls[0][0] as any).data.details;
 
 describe('AuthService.resubmitRegistration', () => {
-  it('with no body, flips the status and writes nothing to Company', async () => {
+  it('with no body, flips the status and moves only the revision on Company', async () => {
     const { service, tx } = makeService();
     const result = await service.resubmitRegistration('u-co');
 
@@ -159,7 +159,8 @@ describe('AuthService.resubmitRegistration', () => {
       where: { id: 'u-co', status: 'COMPLEMENTS_REQUESTED' },
       data: { status: 'PENDING_APPROVAL' },
     });
-    expect(tx.company.update).not.toHaveBeenCalled();
+    expect(tx.company.update).toHaveBeenCalledTimes(1);
+    expect(tx.company.update).toHaveBeenCalledWith({ where: { id: 'c1' }, data: { updatedAt: expect.any(Date) } });
     expect(auditDetails(tx)).toMatchObject({ companyId: 'c1', changes: {} });
     expect(result).toMatchObject({ status: 'PENDING_APPROVAL' });
   });
@@ -325,8 +326,10 @@ describe('AuthService.resubmitRegistration — entity phone and email', () => {
       where: { id: 'u-co' },
       data: { email: 'nouveau@example.cm' },
     });
-    // Email-only correction: nothing for Company.
-    expect(tx.company.update).not.toHaveBeenCalled();
+    // Email-only correction: no Company column changes, but the file's
+    // revision does, so a reviewer's open page cannot approve the old address.
+    expect(tx.company.update).toHaveBeenCalledTimes(1);
+    expect(tx.company.update).toHaveBeenCalledWith({ where: { id: 'c1' }, data: { updatedAt: expect.any(Date) } });
     expect(auditDetails(tx).changes).toEqual({
       email: { before: 'co@example.cm', after: 'nouveau@example.cm' },
     });

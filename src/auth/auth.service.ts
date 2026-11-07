@@ -1324,33 +1324,25 @@ export class AuthService {
     if (user.role === 'COMPANY') {
       const company = await this.requireCompanyForReview(user.id);
       assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
-      if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
-        throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
-      }
-      if (expectedRevision) {
-        const expected = new Date(expectedRevision);
-        if (!Number.isNaN(expected.getTime()) && company.updatedAt.getTime() !== expected.getTime()) {
-          throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
-        }
-      }
-      const updated = await this.prisma.user.update({
-        where: { id },
-        data: {
+      this.assertRegistrationDecidable(user, company, expectedRevision);
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const written = await this.writeRegistrationDecision(tx, user, company, {
           status: 'REJECTED',
           isActive: false,
           rejectionReason: trimmed,
           rejectedAt: new Date(),
           rejectedBy: actorId,
-        },
-      });
-      await this.prisma.auditLog.create({
-        data: {
-          userId: actorId,
-          action: 'COMPANY_REGISTRATION_REJECTED',
-          resourceType: 'User',
-          resourceId: id,
-          details: { companyId: company.id, reason: trimmed },
-        },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            action: 'COMPANY_REGISTRATION_REJECTED',
+            resourceType: 'User',
+            resourceId: id,
+            details: { companyId: company.id, reason: trimmed },
+          },
+        });
+        return written;
       });
       // Fire-and-forget: SMTP is unreliable from the host, and a rejection
       // that is already committed must not surface as a 500.
@@ -1405,27 +1397,23 @@ export class AuthService {
     }
     const company = await this.requireCompanyForReview(user.id);
     assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
-    if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
-      throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
-    }
-    if (expectedRevision) {
-      const expected = new Date(expectedRevision);
-      if (!Number.isNaN(expected.getTime()) && company.updatedAt.getTime() !== expected.getTime()) {
-        throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
-      }
-    }
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: { status: 'COMPLEMENTS_REQUESTED', isActive: true, approvalComment: trimmed },
-    });
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actorId,
-        action: 'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED',
-        resourceType: 'User',
-        resourceId: id,
-        details: { companyId: company.id, message: trimmed },
-      },
+    this.assertRegistrationDecidable(user, company, expectedRevision);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const written = await this.writeRegistrationDecision(tx, user, company, {
+        status: 'COMPLEMENTS_REQUESTED',
+        isActive: true,
+        approvalComment: trimmed,
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'COMPANY_REGISTRATION_COMPLEMENTS_REQUESTED',
+          resourceType: 'User',
+          resourceId: id,
+          details: { companyId: company.id, message: trimmed },
+        },
+      });
+      return written;
     });
     this.notificationService
       .sendRegistrationComplementsEmail(updated.email, company.name, trimmed)
@@ -1571,6 +1559,11 @@ export class AuthService {
           }
           throw error;
         }
+      } else {
+        // A resubmission is a new version of the file even when no Company
+        // column moved (an email-only correction, or none at all): a reviewer
+        // still holding the previous version must get a 409.
+        await tx.company.update({ where: { id: company.id }, data: { updatedAt: new Date() } });
       }
 
       // Its own P2002 handler: the one above is worded for the NIU, and would
@@ -2166,16 +2159,7 @@ export class AuthService {
   ) {
     const company = await this.requireCompanyForReview(user.id);
     assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
-    if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
-      throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
-    }
-    const expectedRevision = (options as any)?.expectedRevision;
-    if (expectedRevision) {
-      const expected = new Date(expectedRevision);
-      if (!Number.isNaN(expected.getTime()) && company.updatedAt.getTime() !== expected.getTime()) {
-        throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
-      }
-    }
+    this.assertRegistrationDecidable(user, company, (options as any)?.expectedRevision);
     if (!company.entityType) {
       throw new BadRequestException("Le type d'entité est obligatoire pour générer l'identifiant d'établissement.");
     }
@@ -2226,6 +2210,14 @@ export class AuthService {
             throw new BadRequestException("Code d'arrondissement introuvable pour cet établissement.");
           }
           const subdivisionCode = subdivision.code.slice(-2);
+          // Before the ID and the Establishment: the reviewer who loses a race
+          // leaves no gap in the serial and no second -01 attempt.
+          const updated = await this.writeRegistrationDecision(tx, user, company, {
+            status: 'ACTIVE',
+            isActive: true,
+            approvedAt: new Date(),
+            approvedBy: actorId,
+          });
           // New files carry the ID generated at registration. Only a legacy
           // file (registered before IDs moved to registration) has none and
           // gets one here, with YY = the approval year.
@@ -2254,10 +2246,6 @@ export class AuthService {
               phone: company.phone || null,
               email: (company as any).email || user.email,
             },
-          });
-          const updated = await tx.user.update({
-            where: { id: user.id },
-            data: { status: 'ACTIVE', isActive: true, approvedAt: new Date(), approvedBy: actorId },
           });
           await tx.auditLog.create({
             data: {
@@ -2296,6 +2284,66 @@ export class AuthService {
       }
     }
     throw new ConflictException("Un identifiant d'établissement existe déjà pour ce territoire.");
+  }
+
+  /**
+   * Whether a reviewer may still decide this file. A request that names a
+   * revision comes from a page that believed the file was open, so a file
+   * already decided is a stale page (409, which offers a reload), not a bad
+   * request.
+   */
+  private assertRegistrationDecidable(
+    user: { status: string },
+    company: { updatedAt: Date },
+    expectedRevision?: string,
+  ) {
+    if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
+      if (expectedRevision) {
+        throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
+      }
+      throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
+    }
+    if (expectedRevision) {
+      const expected = new Date(expectedRevision);
+      if (!Number.isNaN(expected.getTime()) && company.updatedAt.getTime() !== expected.getTime()) {
+        throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
+      }
+    }
+  }
+
+  /**
+   * Writes a reviewer's decision, only if the file is still as it was read.
+   *
+   * Company.updatedAt is the file's revision, and a decision changes the
+   * account, not the company, so it is moved here by hand: otherwise a second
+   * reviewer's page would still match after the first has decided.
+   * User.updatedAt cannot serve instead, because a claim writes that row and
+   * would make every open page stale.
+   *
+   * Both writes are conditional, so of two concurrent decisions one gets a
+   * 409. User before Company, the order resubmitRegistration locks them in,
+   * so a reviewer and a declarant cannot deadlock.
+   */
+  private async writeRegistrationDecision(
+    tx: Prisma.TransactionClient,
+    user: { id: string; status: string },
+    company: { id: string; updatedAt: Date },
+    data: Prisma.UserUncheckedUpdateManyInput,
+  ) {
+    const decided = await tx.user.updateMany({
+      where: { id: user.id, status: user.status as UserStatus },
+      data,
+    });
+    const revised = decided.count === 1
+      ? await tx.company.updateMany({
+          where: { id: company.id, updatedAt: company.updatedAt },
+          data: { updatedAt: new Date() },
+        })
+      : decided;
+    if (revised.count !== 1) {
+      throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
+    }
+    return (await tx.user.findUnique({ where: { id: user.id } }))!;
   }
 
   private async requireCompanyForReview(userId: string) {

@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { AuthService } from './auth.service';
 import { registrationDuplicateIds, type RegistrationDuplicateRow } from './registration-duplicates';
@@ -48,6 +48,7 @@ describe('AuthService company registration approval', () => {
     subdivisionId: 's-dla1',
     establishmentId: null,
     createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-02-01T10:00:00.000Z'),
   };
   const subdivision = { id: 's-dla1', code: '12' };
 
@@ -88,6 +89,7 @@ describe('AuthService company registration approval', () => {
         findUnique: jest.fn(async () => ({ ...company })),
         findMany: jest.fn(async () => []),
         update: jest.fn(async ({ data }: any) => ({ ...company, ...data })),
+        updateMany: jest.fn(async () => ({ count: 1 })),
         count: jest.fn(async () => 0),
         findFirst: jest.fn(async () => null),
       },
@@ -128,8 +130,8 @@ describe('AuthService company registration approval', () => {
     }));
     // Who approved is stored beside approvedAt, so the approval stays
     // attributable after the fact.
-    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'u-co' },
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u-co', status: 'PENDING_APPROVAL' },
       data: expect.objectContaining({
         status: 'ACTIVE',
         approvedAt: expect.any(Date),
@@ -282,8 +284,8 @@ describe('AuthService company registration approval', () => {
     );
     const result = await service.rejectUser('u-co', 'actor-1', 'SUPER_ADMIN', undefined, 'Dossier incomplet');
     expect(result).toMatchObject({ status: 'REJECTED', isActive: false });
-    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'u-co' },
+    expect(prisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u-co', status: 'PENDING_APPROVAL' },
       data: expect.objectContaining({
         status: 'REJECTED',
         rejectedAt: expect.any(Date),
@@ -325,6 +327,121 @@ describe('AuthService company registration approval', () => {
         userId: 'u-co',
         action: 'COMPANY_REGISTRATION_RESUBMITTED',
       }),
+    });
+  });
+
+  // Company.updatedAt is the file's revision. These walk the real sequences a
+  // second reviewer can be caught in, on a row whose revision moves when the
+  // service moves it, and pin that a lost race leaves nothing behind.
+  describe('a decision lands only on the file as it was read', () => {
+    let revision: Date;
+    const opened = company.updatedAt.toISOString();
+
+    beforeEach(() => {
+      revision = company.updatedAt;
+      prisma.company.findUnique.mockImplementation(async () => ({ ...company, updatedAt: revision }));
+      prisma.company.updateMany.mockImplementation(async ({ where, data }: any) => {
+        if (where.updatedAt.getTime() !== revision.getTime()) return { count: 0 };
+        revision = data.updatedAt;
+        return { count: 1 };
+      });
+      prisma.company.update.mockImplementation(async ({ data }: any) => {
+        revision = data.updatedAt ?? new Date(revision.getTime() + 1);
+        return { ...company, ...data };
+      });
+      prisma.user.findFirst = jest.fn(async () => null);
+    });
+
+    function expectNothingIssued() {
+      expect(prisma.establishment.create).not.toHaveBeenCalled();
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(notifications.sendRegistrationApprovedEmail).not.toHaveBeenCalled();
+    }
+
+    it('refuses an approval from a page opened before a colleague requested complements', async () => {
+      await service.requestComplements('u-co', 'actor-a', 'SUPER_ADMIN', undefined, 'Joindre le NIU');
+
+      await expect(
+        service.approveUser('u-co', 'actor-b', 'SUPER_ADMIN', {}, { ...VERIFIED, expectedRevision: opened } as any),
+      ).rejects.toThrow(ConflictException);
+      expect(userRow.status).toBe('COMPLEMENTS_REQUESTED');
+      expectNothingIssued();
+    });
+
+    it.each([
+      ['an email-only correction', { email: 'nouveau@example.cm' }],
+      ['a resubmission with no correction', undefined],
+    ])('refuses an approval from a page opened before %s', async (_label, body) => {
+      userRow.status = 'COMPLEMENTS_REQUESTED';
+      await service.resubmitRegistration('u-co', body as any);
+
+      await expect(
+        service.approveUser('u-co', 'actor-b', 'SUPER_ADMIN', {}, { ...VERIFIED, expectedRevision: opened } as any),
+      ).rejects.toThrow(ConflictException);
+      expect(userRow.status).toBe('PENDING_APPROVAL');
+      expectNothingIssued();
+    });
+
+    it('accepts the decision once the reviewer has reloaded the new revision', async () => {
+      await service.requestComplements('u-co', 'actor-a', 'SUPER_ADMIN', undefined, 'Joindre le NIU');
+
+      await expect(
+        service.rejectUser('u-co', 'actor-b', 'SUPER_ADMIN', undefined, 'Dossier faux', revision.toISOString()),
+      ).resolves.toMatchObject({ status: 'REJECTED' });
+    });
+
+    it('answers 409, not 400, to a page still open on a file already decided', async () => {
+      userRow.status = 'REJECTED';
+      const stale = { ...VERIFIED, expectedRevision: opened } as any;
+
+      await expect(service.approveUser('u-co', 'b', 'SUPER_ADMIN', {}, stale)).rejects.toThrow(ConflictException);
+      await expect(service.rejectUser('u-co', 'b', 'SUPER_ADMIN', undefined, 'motif', opened)).rejects.toThrow(ConflictException);
+      await expect(service.requestComplements('u-co', 'b', 'SUPER_ADMIN', undefined, 'message', opened)).rejects.toThrow(ConflictException);
+    });
+
+    it('keeps the 400 for a caller that names no revision', async () => {
+      userRow.status = 'REJECTED';
+      await expect(service.rejectUser('u-co', 'b', 'SUPER_ADMIN', undefined, 'motif')).rejects.toThrow(BadRequestException);
+    });
+
+    // Both reviewers passed the read; the other one committed first.
+    it('leaves no ID, establishment or audit row when an approval loses the race on the status', async () => {
+      prisma.user.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.approveUser('u-co', 'b', 'SUPER_ADMIN', {}, VERIFIED)).rejects.toThrow(ConflictException);
+      expectNothingIssued();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('sends no email when a rejection loses the race on the status', async () => {
+      prisma.user.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.rejectUser('u-co', 'b', 'SUPER_ADMIN', undefined, 'motif')).rejects.toThrow(ConflictException);
+      expect(notifications.sendRegistrationRejectedEmail).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    // Two complements requests leave the status where it was, so only the
+    // revision can tell them apart.
+    it('refuses a decision when the status still matches but the revision has moved', async () => {
+      prisma.company.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        service.requestComplements('u-co', 'b', 'SUPER_ADMIN', undefined, 'message'),
+      ).rejects.toThrow(ConflictException);
+      expect(notifications.sendRegistrationComplementsEmail).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['rejection', () => service.rejectUser('u-co', 'b', 'SUPER_ADMIN', undefined, 'motif'), 'sendRegistrationRejectedEmail'],
+      ['complements request', () => service.requestComplements('u-co', 'b', 'SUPER_ADMIN', undefined, 'message'), 'sendRegistrationComplementsEmail'],
+    ])('runs a %s and its audit row in one transaction', async (_label, decide, email) => {
+      prisma.auditLog.create.mockRejectedValueOnce(new Error('audit down'));
+
+      await expect(decide()).rejects.toThrow('audit down');
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(notifications[email]).not.toHaveBeenCalled();
     });
   });
 
@@ -633,15 +750,21 @@ describe('AuthService registration review — approver role boundaries', () => {
   };
 
   function makeService(target: Record<string, unknown>) {
+    const row = { ...target };
     const prisma: any = {
       user: {
-        findUnique: jest.fn(async () => ({ ...target })),
-        update: jest.fn(async ({ data }: any) => ({ ...target, ...data })),
+        findUnique: jest.fn(async () => ({ ...row })),
+        update: jest.fn(async ({ data }: any) => Object.assign(row, data)),
+        updateMany: jest.fn(async ({ data }: any) => {
+          Object.assign(row, data);
+          return { count: 1 };
+        }),
       },
       company: {
         findUnique: jest.fn(async () => ({ ...company })),
         findMany: jest.fn(async () => []),
         update: jest.fn(async ({ data }: any) => ({ ...company, ...data })),
+        updateMany: jest.fn(async () => ({ count: 1 })),
         count: jest.fn(async () => 0),
         findFirst: jest.fn(async () => null),
       },

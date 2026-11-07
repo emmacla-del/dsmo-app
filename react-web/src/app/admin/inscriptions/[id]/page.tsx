@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
+import { usePinnedRevision } from "@/lib/use-pinned-revision";
 import {
   approveUser,
   assignRegistrationUser,
@@ -129,6 +130,7 @@ function RegistrationReview({ id }: { id: string }) {
     staleTime: 15_000,
   });
   const item = registrationQuery.data;
+  const [revision, pinRevision] = usePinnedRevision(registrationQuery.isFetching ? undefined : item?.updatedAt);
   const historyQuery = useQuery({
     queryKey: ["auth", "company-registration", id, "history"],
     queryFn: () => getCompanyRegistrationHistory(id),
@@ -278,7 +280,7 @@ function RegistrationReview({ id }: { id: string }) {
     setNotice(null);
     setMarks({});
     setCentralChecked(false);
-    void registrationQuery.refetch();
+    void registrationQuery.refetch().then(({ data }) => { if (data) pinRevision(data.updatedAt); });
   };
 
   const breadcrumb = [
@@ -345,6 +347,7 @@ function RegistrationReview({ id }: { id: string }) {
   const hasCreationEvent = (historyQuery.data ?? []).some((entry) => entry.action === "COMPANY_REGISTRATION_ASSISTED");
   const historyLabel = (action: string) => (t.has(`historyAction.${action}`) ? t(`historyAction.${action}`) : action);
   const niu = hasRealNiu(item.taxNumber) ? item.taxNumber : null;
+  const expectedRevision = revision ?? item.updatedAt;
 
   const submitChoice = () => {
     const text = comment.trim();
@@ -353,12 +356,12 @@ function RegistrationReview({ id }: { id: string }) {
       return;
     }
     setCommentError(null);
-    if (choice === "REJECT") rejectMutation.mutate({ reason: text, expectedRevision: item.updatedAt });
-    else complementsMutation.mutate({ message: text, expectedRevision: item.updatedAt });
+    if (choice === "REJECT") rejectMutation.mutate({ reason: text, expectedRevision });
+    else complementsMutation.mutate({ message: text, expectedRevision });
   };
   const approve = () => {
     if (approveBlocked) return;
-    approveMutation.mutate({ centralStructureConfirmed: centralChecked, ...verificationFlags(rows, marks), expectedRevision: item.updatedAt });
+    approveMutation.mutate({ centralStructureConfirmed: centralChecked, ...verificationFlags(rows, marks), expectedRevision });
   };
 
   const sections = [
