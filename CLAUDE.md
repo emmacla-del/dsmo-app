@@ -1494,6 +1494,23 @@ Approved changes on record:
   rewrite an ID on correction. Owner's decision in chat, 2026-11-07, with the
   alternative (reissuing before approval) put to them.
 
+- 2026-11-07 — an "include archived" read now reaches archived records
+  (`hasExplicitArchiveState` in `src/common/archive-predicate.ts`). Issue: the
+  middleware saw `archivedAt` only at the top of a filter, so every filter that
+  states it inside AND or OR also received `archivedAt: null`: the completed
+  tab's archived files, the organisations toggle and the registrations export
+  never showed one, and `findSubmissionForArchive` could never find an archived
+  file, so a file once archived could not be opened or restored. Fix: the
+  archive state is read through AND, and through an OR only when every branch
+  states it; NOT and relations are not followed, so a doubtful filter still
+  hides archived records. A Company's state is its owner's. Consequence: the
+  completed tab, which defaults to including archived files, shows them to
+  DOSSIER_READ_ROLES inside their territory, and the completed export follows
+  the same toggle. Roles, territory checks and the statistical exports are
+  unchanged. Approved by the owner in chat, 2026-11-07, after being told that
+  archived files would appear in those lists. Not exercised on an archived row:
+  the live database holds none.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
