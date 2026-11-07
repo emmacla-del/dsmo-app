@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
-import { getPilotageQueues } from "@/lib/api-client";
+import { pilotageQueuesOptions } from "@/lib/pilotage-queues-query";
 import { formatCampaignDate, formatCampaignDisplayName } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -435,8 +435,7 @@ function PilotageDashboard() {
   }
 
   const queuesQuery = useQuery({
-    queryKey: ["admin", "pilotage", "queues"],
-    queryFn: getPilotageQueues,
+    ...pilotageQueuesOptions(),
     enabled: isAuthenticated && canReadSurveySubmissions,
     refetchInterval: 120000,
   });

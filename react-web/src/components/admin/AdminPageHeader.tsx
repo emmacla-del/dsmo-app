@@ -5,7 +5,7 @@ import { Suspense, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { getPilotageQueues } from "@/lib/api-client";
+import { pilotageQueuesOptions } from "@/lib/pilotage-queues-query";
 import { useAuthStore } from "@/lib/auth-store";
 import { getActiveHub, isRoleAllowed, isSubRouteActive } from "@/app/admin/_routes";
 
@@ -75,9 +75,7 @@ function AdminSubNav({ customTabs }: { customTabs?: AdminHeaderTab[] }) {
   const tNav = useTranslations("adminNav");
 
   const queuesQuery = useQuery({
-    queryKey: ["admin", "pilotage", "queues"],
-    queryFn: getPilotageQueues,
-    staleTime: 30000,
+    ...pilotageQueuesOptions(),
     enabled: !customTabs || customTabs.length === 0,
   });
 

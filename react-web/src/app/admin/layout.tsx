@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Menu } from "lucide-react";
 import { useAdminScreenGuard } from "@/lib/use-admin-screen-guard";
 import { useAuthStore } from "@/lib/auth-store";
-import { getPilotageQueues } from "@/lib/api-client";
+import { pilotageQueuesOptions } from "@/lib/pilotage-queues-query";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
@@ -57,8 +57,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const wasDrawerOpen = useRef(false);
 
   const queuesQuery = useQuery({
-    queryKey: ["admin", "pilotage", "queues"],
-    queryFn: getPilotageQueues,
+    ...pilotageQueuesOptions(),
     enabled: !isLoading && !forbidden && isAuthenticated && canReadPilotage,
     refetchInterval: 120000,
   });

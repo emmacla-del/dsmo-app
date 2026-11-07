@@ -28,7 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DossierClaimPanel, dossierReviewProgressKey } from "@/components/admin/DossierClaimPanel";
 import { mergeDossierHistory, type DossierHistoryEntry } from "@/lib/dossier-history";
 import { findingKeysApply, groupDossierFindings, mergeSameRule } from "@/lib/dossier-findings";
-import { reviewerExplainedCount } from "@/lib/dossier-explain";
+import { fileRowIdFromUrl, reviewerExplainedCount } from "@/lib/dossier-explain";
 import { findingTargets, placeFindings, sectionFlagCount } from "@/lib/finding-targets";
 import { PlacedFlagNotice } from "@/components/admin/DossierAnswerSections";
 import { ExplainFindingAction, ExplainedFindings, RecheckCoherenceAction, explainedFindingsKey, useExplainedFindings } from "@/components/admin/DossierExplainFinding";
@@ -732,7 +732,8 @@ function SubmissionDetailContent() {
   const [approveComment, setApproveComment] = useState("");
   const hasOpenWarnings = (diag?.warningAnomalies.length ?? 0) > 0;
   const approvalChecksReady = diagnosticState === "ready" && (diag?.blockingAnomalies.length ?? 0) === 0;
-  const explained = useExplainedFindings(dossier?.id);
+  // A URL holding the row id starts this with the file, not after it.
+  const explained = useExplainedFindings(dossier?.id ?? fileRowIdFromUrl(id));
   const explainedByReviewer = reviewerExplainedCount(explained.items);
   // The cells behind each open finding, recomputed from the figures as filed,
   // so the tables mark what disagrees and say what it is compared with.

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ExplainFindingError, explainFindingAnomalies, explainNoteValid, reviewerExplainedCount } from "./dossier-explain";
+import { ExplainFindingError, explainFindingAnomalies, explainNoteValid, fileRowIdFromUrl, reviewerExplainedCount } from "./dossier-explain";
 
 test("only a reviewer's explanation counts as handled by a person", () => {
   assert.equal(reviewerExplainedCount([
@@ -40,4 +40,10 @@ test("the note follows the server's bounds", () => {
   assert.equal(explainNoteValid("trop court"), true);
   assert.equal(explainNoteValid("   court  "), false);
   assert.equal(explainNoteValid("x".repeat(2001)), false);
+});
+
+test("only a row id in the URL starts the explained findings early", () => {
+  assert.equal(fileRowIdFromUrl("41d6ef04-80fb-4f9b-a4ea-6a133f529a7d"), "41d6ef04-80fb-4f9b-a4ea-6a133f529a7d");
+  assert.equal(fileRowIdFromUrl("VT26001002"), undefined);
+  assert.equal(fileRowIdFromUrl(""), undefined);
 });

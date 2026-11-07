@@ -843,10 +843,6 @@ export interface ReviewDelay {
   decidedCount: number;
 }
 
-export function getPilotageQueues() {
-  return apiFetch<PilotageQueues>("/admin/questionnaires/pilotage/queues");
-}
-
 export function getPilotageQueuesForView(view: "queue" | "completed" | "all", includeArchived?: boolean) {
   const params = new URLSearchParams();
   if (view) params.set("view", view);

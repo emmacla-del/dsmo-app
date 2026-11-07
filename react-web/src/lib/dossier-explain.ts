@@ -56,3 +56,11 @@ export async function explainFindingAnomalies(
   }
   return done;
 }
+
+/**
+ * The file's row id when the URL holds it. A URL can also hold the receipt
+ * reference, which no row-id query accepts: that one waits for the file.
+ */
+export function fileRowIdFromUrl(urlId: string): string | undefined {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(urlId) ? urlId : undefined;
+}

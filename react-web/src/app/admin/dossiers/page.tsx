@@ -7,7 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, MoreHorizontal, Search, SlidersHorizontal, TriangleAlert } from "lucide-react";
-import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getPilotageQueuesForView, getAdminListFacets, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
+import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getAdminListFacets, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -15,6 +15,7 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { resolveEntityName, type NamedSubmission } from "@/lib/onefop-entity-name";
 import { assessBulkEligibility, claimFilesInTurn } from "@/lib/dossier-bulk-eligibility";
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
+import { pilotageQueuesOptions } from "@/lib/pilotage-queues-query";
 import { adminResultRange, displayedResultOffset, isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildDossierReturnTo } from "@/lib/admin-return";
 import { dossierWorkspaceHref, withoutDrawerParams } from "@/lib/dossier-workspace-link";
@@ -626,11 +627,11 @@ function DossiersContent({
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   // The list's filters, shared by the list request and the pill counts (facets).
-  const listFilterParams = {
-    status: vue === "completed" || !statusFilter ? undefined : statusFilter,
+  const listParamsFor = (status: DossierStatus | "", assignment: typeof assignmentParam) => ({
+    status: vue === "completed" || !status ? undefined : status,
     statuses: vue === "completed"
-      ? (statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED")
-      : !statusFilter ? "PENDING_REVIEW,CORRECTION_REQUESTED" : undefined,
+      ? (status === "APPROVED" || status === "REJECTED" || status === "SUPERSEDED" ? status : "APPROVED,REJECTED,SUPERSEDED")
+      : !status ? "PENDING_REVIEW,CORRECTION_REQUESTED" : undefined,
     view: vue === "completed" ? "completed" as const : "queue" as const,
     includeArchived,
     formType: typeFilter || undefined,
@@ -642,15 +643,16 @@ function DossiersContent({
     late: lateFilter || undefined,
     overdue: vue === "completed" ? undefined : overdueFilter || undefined,
     quality: qualityParam,
-    assignment: assignmentParam,
+    assignment,
     search: search || undefined,
     companyId: companyIdFilter || undefined,
-  };
-  const questionnairesQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter, typeFilter, regionFilter, departmentFilter, campaignId: listCampaignId ?? "", quarterCode: listQuarterCode ?? "", quality: qualityParam ?? "", assignment: assignmentParam ?? "", lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
+  });
+  const listFilterParams = listParamsFor(statusFilter, assignmentParam);
+  const listQueryFor = (status: DossierStatus | "", assignment: typeof assignmentParam) => ({
+    queryKey: ["admin", "questionnaires", "list", vue, { statusFilter: status, typeFilter, regionFilter, departmentFilter, campaignId: listCampaignId ?? "", quarterCode: listQuarterCode ?? "", quality: qualityParam ?? "", assignment: assignment ?? "", lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: async () => {
       const result = await listAdminQuestionnaires({
-        ...listFilterParams,
+        ...listParamsFor(status, assignment),
         sort: sortOrder || undefined,
         limit: PAGE_SIZE,
         offset,
@@ -660,19 +662,46 @@ function DossiersContent({
       // those rows until the replacement page is committed.
       return { ...result, requestedOffset: offset };
     },
+    // Long enough that a list read ahead of the view choice below is not read twice.
+    staleTime: 5_000,
+  });
+  const facetsQueryFor = (status: DossierStatus | "", assignment: typeof assignmentParam) => {
+    const params = listParamsFor(status, assignment);
+    return {
+      queryKey: ["admin", "questionnaires", "facets", params],
+      queryFn: () => getAdminListFacets(params),
+      staleTime: 30_000,
+    };
+  };
+  const questionnairesQuery = useQuery({
+    ...listQueryFor(statusFilter, assignmentParam),
     enabled: (vue === "submissions" || vue === "completed") && territoryFiltersValid && !statusRedirectPending && !queueViewPending,
     placeholderData: keepPreviousData,
     refetchInterval: vue === "submissions" ? 60_000 : false,
   });
   // Counts next to each pill option; same filters as the list.
   const facetsQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "facets", listFilterParams],
-    queryFn: () => getAdminListFacets(listFilterParams),
+    ...facetsQueryFor(statusFilter, assignmentParam),
     enabled: vue === "submissions" && territoryFiltersValid && !statusRedirectPending && !queueViewPending,
     placeholderData: keepPreviousData,
-    staleTime: 30_000,
   });
   const facets = facetsQuery.data;
+  // While the claim count decides the view of a bare URL, read « Non attribués »
+  // ahead of it: that is the view of everyone holding no file, and the page
+  // would otherwise wait for one request before starting the next. Nothing
+  // shows until the count answers; a reviewer with claims wastes these two reads.
+  const readAheadFilters = dossierQueueViewFilters("unassigned");
+  const readAhead = queueViewPending && territoryFiltersValid && !readOnly && Boolean(user?.id);
+  useQuery({
+    ...listQueryFor(readAheadFilters.status, readAheadFilters.assignment),
+    enabled: readAhead,
+    notifyOnChangeProps: [],
+  });
+  useQuery({
+    ...facetsQueryFor(readAheadFilters.status, readAheadFilters.assignment),
+    enabled: readAhead,
+    notifyOnChangeProps: [],
+  });
 
   const archiveMutation = useMutation({
     mutationFn: (target: { item: DossierItem; reason: string }) => archiveDossier(target.item.id, target.reason),
@@ -690,8 +719,7 @@ function DossiersContent({
   });
 
   const queuesQuery = useQuery({
-    queryKey: ["admin", "pilotage", "queues", vue === "completed" ? "completed" : "queue", vue === "completed" ? includeArchived : false],
-    queryFn: () => getPilotageQueuesForView(vue === "completed" ? "completed" : "queue", vue === "completed" ? includeArchived : undefined),
+    ...pilotageQueuesOptions(vue === "completed" ? "completed" : "queue", includeArchived),
     enabled: vue === "submissions" || vue === "completed",
   });
   const queues = queuesQuery.data ?? null;
