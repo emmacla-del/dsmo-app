@@ -456,18 +456,16 @@ describe('Phase 5 team workflow', () => {
         archivedAt: null,
         archivedBy: null,
         archiveReason: null,
-        archivedByUser: null,
         approvalComment: null,
         rejectionReason: null,
         registrationNumber: null,
         registrationMethod: 'SELF_REGISTRATION',
         createdBy: null,
         assigneeId: 'agent-1',
-        assignee: { id: 'agent-1', firstName: 'Ada', lastName: 'Ngo', email: 'agent@onefop.cm' },
-        createdByUser: null,
       },
     };
     const listPrisma: any = {
+      $queryRaw: jest.fn(async () => [{ id: 'agent-1', firstName: 'Ada', lastName: 'Ngo', email: 'agent@onefop.cm' }]),
       company: {
         count: jest.fn(async () => 1),
         findMany: jest.fn()

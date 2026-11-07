@@ -21,6 +21,7 @@ import { SystemSettingsService } from '../system-settings/system-settings.servic
 import { computeOnefopFeatures } from '../common/onefop-features.util';
 import { REGISTRATION_REJECTED_LOGIN_MESSAGE } from '../common/registration-messages';
 import { ARCHIVED_ONLY, ANY_ARCHIVE_STATE, NOT_ARCHIVED } from '../common/archive-predicate';
+import { loadRegistrationPeople } from './registration-people';
 import { buildUserListWhere, type UserListFilterParams } from './user-list-filter';
 import { TERRITORIAL_APPROVER_ROLES, REGISTRATION_ADMIN_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor, staffApprovalScope } from './staff-scope';
 import { assertTerritorialAuthority, companyInTerritory, territoryWhere, type Territory } from './territory';
@@ -1901,18 +1902,14 @@ export class AuthService {
               archivedAt: true,
               archivedBy: true,
               archiveReason: true,
-              archivedByUser: { select: { id: true, firstName: true, lastName: true } },
               approvalComment: true,
               rejectionReason: true,
               registrationNumber: true,
-              // Phase 2: who registered this file and how. createdByUser is
-              // joined rather than resolved client-side so the queue renders
-              // a name without a second round trip per row.
+              // Phase 2: who registered this file and how. The names behind
+              // these ids are read once for the page, below.
               registrationMethod: true,
               createdBy: true,
               assigneeId: true,
-              assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
-              createdByUser: { select: { id: true, firstName: true, lastName: true, email: true } },
             },
           },
           // Whether the entity has already filed a declaration: the
@@ -1930,13 +1927,29 @@ export class AuthService {
       }),
     ]);
 
-    const items = await this.withDuplicateHints(companies, actor);
-    const resubmissions = await this.lastResubmissionByUser(companies.map((row) => row.user.id));
+    // Two at a time, like the pair above: each query costs several round trips
+    // to the pooler, so the wait is how many run one after another.
+    const [items, [resubmissions, people]] = await Promise.all([
+      this.withDuplicateHints(companies, actor),
+      (async () => {
+        const resubmitted = await this.lastResubmissionByUser(companies.map((row) => row.user.id));
+        const named = await loadRegistrationPeople(
+          this.prisma,
+          companies.flatMap(({ user }) => [user.archivedBy, user.createdBy, user.assigneeId]),
+        );
+        return [resubmitted, named] as const;
+      })(),
+    ]);
+    const personOf = (id: string | null) => (id ? people.get(id) ?? null : null);
     const itemsWithResubmission = items.map((item) => {
       const lastResubmission = resubmissions.get(item.id) ?? null;
       const since = waitingSince(item.status, item.submittedAt, lastResubmission?.at ?? null);
+      const archiver = personOf(item.archivedBy);
       return {
         ...item,
+        archivedByUser: archiver && { id: archiver.id, firstName: archiver.firstName, lastName: archiver.lastName },
+        createdByName: displayNameOf(personOf(item.createdBy)),
+        assigneeName: displayNameOf(personOf(item.assigneeId)),
         lastResubmission,
         // When the reviewers' wait began, and whether it is past
         // REGISTRATION_OVERDUE_DAYS. null / false when it is not their move.
@@ -2567,15 +2580,12 @@ export class AuthService {
         archivedAt: Date | null;
         archivedBy: string | null;
         archiveReason: string | null;
-        archivedByUser: { id: string; firstName: string | null; lastName: string | null } | null;
         approvalComment: string | null;
         rejectionReason: string | null;
         registrationNumber: string | null;
         registrationMethod: string | null;
         createdBy: string | null;
         assigneeId: string | null;
-        assignee: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
-        createdByUser: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
       };
     }>,
     actor: Territory,
@@ -2666,7 +2676,6 @@ export class AuthService {
         archivedAt: row.user.archivedAt?.toISOString() ?? null,
         archivedBy: row.user.archivedBy ?? null,
         archiveReason: row.user.archiveReason ?? null,
-        archivedByUser: row.user.archivedByUser,
         taxNumber: row.taxNumber,
         cnpsNumber: row.cnpsNumber,
         phone: row.phone,
@@ -2685,9 +2694,7 @@ export class AuthService {
         requiresCentralStructureCheck: row.entityType === 'ADMINISTRATION',
         registrationMethod: row.user.registrationMethod,
         createdBy: row.user.createdBy,
-        createdByName: displayNameOf(row.user.createdByUser),
         assigneeId: row.user.assigneeId ?? null,
-        assigneeName: displayNameOf(row.user.assignee),
         hasSubmitted: (row._count?.onefopSubmissions ?? 0) > 0,
         updatedAt: row.updatedAt,
       };
