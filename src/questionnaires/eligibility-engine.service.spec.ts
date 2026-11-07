@@ -1010,29 +1010,22 @@ describe('QuestionnairesService.reject — companion fixes', () => {
   });
 });
 
+/** The two statements of getPilotageQueues, told apart by what they select. */
+function queueReads(rows: any[], pace: any = { oldestPending: null, overdue: 0, decidedDays: null }) {
+  return jest.fn(async (query: any) => (query.sql.includes('"blockingAnomalies"') ? rows : [pace]));
+}
+const countRow = (status: string, region: string | null, files: number, blockingAnomalies = 0, statisticallyReady = 0) =>
+  ({ status, region, files, blockingAnomalies, statisticallyReady });
+
 describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', () => {
   it('computes status and region counts server-side over the whole territory', async () => {
-    const prisma: any = {
-      onefopSubmission: {
-        count: jest.fn(async () => 650),
-        groupBy: jest.fn(async ({ by }: any) =>
-          by[0] === 'status'
-            ? [
-                { status: 'APPROVED', _count: { _all: 700 } },
-                { status: 'PENDING_REVIEW', _count: { _all: 400 } },
-                { status: 'REJECTED', _count: { _all: 100 } },
-              ]
-            : [
-                { region: 'Littoral', _count: { _all: 800 } },
-                { region: null, _count: { _all: 400 } },
-              ],
-        ),
-      },
-      onefopAnomaly: { count: jest.fn(async () => 3) },
-      auditLog: reviewDelayMocks().auditLog,
-    };
-    Object.assign(prisma.onefopSubmission, reviewDelayMocks().onefopSubmission);
-    const engine = new EligibilityEngineService(prisma);
+    const $queryRaw = queueReads([
+      countRow('APPROVED', 'Littoral', 700),
+      countRow('PENDING_REVIEW', 'Littoral', 100),
+      countRow('PENDING_REVIEW', null, 300),
+      countRow('REJECTED', null, 100),
+    ]);
+    const engine = new EligibilityEngineService({ $queryRaw } as any);
 
     const queues = await engine.getPilotageQueues({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
 
@@ -1041,63 +1034,38 @@ describe('EligibilityEngineService.getPilotageQueues — dashboard aggregates', 
     expect(queues.regionCounts).toEqual([{ region: 'Littoral', count: 800 }, { region: null, count: 400 }]);
     // Aggregates use the same territory filter as the other queue counts,
     // and never count drafts (unsubmitted work).
-    const scoped = { AND: [{ region: { equals: 'Littoral', mode: 'insensitive' } }, { status: { notIn: ['DRAFT', 'SUPERSEDED'] } }, { archivedAt: null }] };
-    for (const call of prisma.onefopSubmission.groupBy.mock.calls) {
-      expect(call[0]).toMatchObject({ where: scoped, _count: { _all: true } });
-    }
+    const [counts] = $queryRaw.mock.calls[0];
+    expect(counts.sql).toContain('LOWER(s.region) = LOWER(');
+    expect(counts.values).toEqual(['Littoral']);
+    expect(counts.sql).toContain(`NOT IN ('DRAFT', 'SUPERSEDED')`);
+    expect(counts.sql).toContain('s."archivedAt" IS NULL');
   });
 
-  // The per-status queue counts are derived from the status groupBy rather than
-  // issued as their own queries, to keep the endpoint's connection high-water
-  // mark low against Supabase's session-mode pool. These assertions pin both
-  // halves of that: the figures stay correct, and the extra queries stay gone.
-  it('derives the total and per-status queue counts from the status groupBy', async () => {
-    const prisma: any = {
-      onefopSubmission: {
-        count: jest.fn(async () => 650),
-        aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
-        // The only rows read are the two dates of each recent decision.
-        findMany: jest.fn(async (args: any) => {
-          if (JSON.stringify(args.select) !== JSON.stringify({ id: true, submissionDate: true, reviewedAt: true })) {
-            throw new Error('getPilotageQueues must not fetch whole submission rows');
-          }
-          return [];
-        }),
-        groupBy: jest.fn(async ({ by }: any) =>
-          by[0] === 'status'
-            ? [
-                { status: 'APPROVED', _count: { _all: 700 } },
-                { status: 'PENDING_REVIEW', _count: { _all: 400 } },
-                { status: 'CORRECTION_REQUESTED', _count: { _all: 80 } },
-                { status: 'REJECTED', _count: { _all: 100 } },
-              ]
-            : [{ region: 'Littoral', _count: { _all: 1280 } }],
-        ),
-      },
-      onefopAnomaly: { count: jest.fn(async () => 3) },
-      auditLog: { findMany: jest.fn(async () => []) },
-    };
-    const engine = new EligibilityEngineService(prisma);
+  it('derives the total, per-status and quality counts from the same rows', async () => {
+    const engine = new EligibilityEngineService({
+      $queryRaw: queueReads([
+        countRow('APPROVED', 'Littoral', 700, 2, 650),
+        countRow('PENDING_REVIEW', 'Littoral', 400, 1),
+        countRow('CORRECTION_REQUESTED', 'Littoral', 80),
+        countRow('REJECTED', 'Littoral', 100),
+      ]),
+    } as any);
 
     const queues = await engine.getPilotageQueues();
 
-    // DRAFT and SUPERSEDED are excluded, so the four
-    // remaining buckets partition the result set and the total is their sum.
     expect(queues.totalSubmissionsCount).toBe(1280);
     expect(queues.pendingNationalVisasCount).toBe(400);
     expect(queues.correctionsUnderReviewCount).toBe(80);
-    expect(prisma.onefopSubmission.groupBy).toHaveBeenCalledTimes(2);
-    expect(prisma.onefopSubmission.findMany).toHaveBeenCalledTimes(1);
-    // Two submission counts: the statistically-ready figure, computed in the
-    // database with a `none` anomaly filter, and the overdue review count.
-    expect(prisma.onefopSubmission.count).toHaveBeenCalledTimes(2);
-    expect(prisma.onefopSubmission.count).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        status: 'APPROVED',
-        anomalies: { none: { status: 'OPEN', isBlocking: true } },
-      }),
-    });
+    expect(queues.blockingAnomaliesCount).toBe(3);
     expect(queues.statisticallyReadyCount).toBe(650);
+  });
+
+  it('counts as ready only approved files with no open blocking anomaly', async () => {
+    const $queryRaw = queueReads([]);
+    await new EligibilityEngineService({ $queryRaw } as any).getPilotageQueues();
+    const [counts] = $queryRaw.mock.calls[0];
+    expect(counts.sql).toContain(`s.status::text = 'APPROVED' AND open.blocking = 0`);
+    expect(counts.sql).toContain(`a.status::text = 'OPEN' AND a."isBlocking"`);
   });
 });
 
@@ -1128,29 +1096,24 @@ function trackConcurrency(prisma: any) {
 
 describe('EligibilityEngineService.getPilotageQueues — bounded concurrency', () => {
   it('keeps at most two queries in flight and returns the same figures', async () => {
-    const prisma: any = {
-      onefopSubmission: {
-        count: jest.fn(async () => 650),
-        groupBy: jest.fn(async ({ by }: any) =>
-          by[0] === 'status'
-            ? [
-                { status: 'APPROVED', _count: { _all: 700 } },
-                { status: 'PENDING_REVIEW', _count: { _all: 400 } },
-              ]
-            : [{ region: 'Littoral', _count: { _all: 1100 } }],
-        ),
-        aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
-        findMany: jest.fn(async () => []),
-      },
-      onefopAnomaly: { count: jest.fn(async () => 3) },
-      auditLog: { findMany: jest.fn(async () => []) },
+    const reads = queueReads(
+      [countRow('APPROVED', 'Littoral', 700, 3, 650), countRow('PENDING_REVIEW', 'Littoral', 400)],
+      { oldestPending: null, overdue: 650, decidedDays: null },
+    );
+    const state = { inFlight: 0, peak: 0, calls: 0 };
+    const $queryRaw = async (query: any) => {
+      state.calls += 1;
+      state.inFlight += 1;
+      state.peak = Math.max(state.peak, state.inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      state.inFlight -= 1;
+      return reads(query);
     };
-    const state = trackConcurrency(prisma);
-    const engine = new EligibilityEngineService(prisma);
+    const engine = new EligibilityEngineService({ $queryRaw } as any);
 
     const queues = await engine.getPilotageQueues({ role: 'SUPER_ADMIN' });
 
-    expect(state.calls).toBe(8);
+    expect(state.calls).toBe(2);
     expect(state.peak).toBeLessThanOrEqual(2);
     expect(queues).toEqual({
       totalSubmissionsCount: 1100,
@@ -1174,46 +1137,18 @@ describe('EligibilityEngineService.getPilotageQueues — bounded concurrency', (
   });
 });
 
-/** Review-delay queries returning nothing: no file waits, none was decided. */
-function reviewDelayMocks() {
-  return {
-    onefopSubmission: {
-      aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
-      findMany: jest.fn(async () => []),
-    },
-    auditLog: { findMany: jest.fn(async () => []) },
-  };
-}
-
 describe('EligibilityEngineService.getPilotageQueues — review delay', () => {
   const DAY = 24 * 60 * 60 * 1000;
   const now = Date.now();
   const daysAgo = (d: number) => new Date(now - d * DAY);
-
-  function makePrisma(decided: Array<{ id: string; submittedDaysAgo: number; decidedDaysAgo: number }>, reopenedIds: string[] = []) {
-    return {
-      onefopSubmission: {
-        groupBy: jest.fn(async () => []),
-        count: jest.fn(async ({ where }: any) => (where.AND?.some((c: any) => c.submissionDate) ? 3 : 0)),
-        aggregate: jest.fn(async () => ({ _min: { submissionDate: daysAgo(12) } })),
-        findMany: jest.fn(async () =>
-          decided.map((d) => ({ id: d.id, submissionDate: daysAgo(d.submittedDaysAgo), reviewedAt: daysAgo(d.decidedDaysAgo) })),
-        ),
-      },
-      onefopAnomaly: { count: jest.fn(async () => 0) },
-      auditLog: { findMany: jest.fn(async () => reopenedIds.map((resourceId) => ({ resourceId }))) },
-    };
-  }
+  const paceQuery = ($queryRaw: jest.Mock) => $queryRaw.mock.calls[1][0];
+  /** The parameter of a `::text::timestamp`, as a time. */
+  const times = (query: any) => query.values.filter((v: unknown) => typeof v === 'string' && /^\d{4}-/.test(v as string)).map((v: string) => new Date(v).getTime());
 
   it('reports the oldest waiting file, the overdue count and the decision median', async () => {
     // Waits of 1, 3, 4 and 10 days: median 3.5.
-    const prisma: any = makePrisma([
-      { id: 'a', submittedDaysAgo: 2, decidedDaysAgo: 1 },
-      { id: 'b', submittedDaysAgo: 5, decidedDaysAgo: 2 },
-      { id: 'c', submittedDaysAgo: 6, decidedDaysAgo: 2 },
-      { id: 'd', submittedDaysAgo: 20, decidedDaysAgo: 10 },
-    ]);
-    const { reviewDelay } = await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'SUPER_ADMIN' });
+    const $queryRaw = queueReads([], { oldestPending: daysAgo(12), overdue: 3, decidedDays: [1, 3, 4, 10] });
+    const { reviewDelay } = await new EligibilityEngineService({ $queryRaw } as any).getPilotageQueues({ role: 'SUPER_ADMIN' });
 
     expect(reviewDelay.thresholdDays).toBe(7);
     expect(reviewDelay.windowDays).toBe(90);
@@ -1224,53 +1159,39 @@ describe('EligibilityEngineService.getPilotageQueues — review delay', () => {
   });
 
   it('measures PENDING_REVIEW only, scoped like the queue counts, with a 7-day threshold', async () => {
-    const prisma: any = makePrisma([]);
-    await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
+    const $queryRaw = queueReads([]);
+    await new EligibilityEngineService({ $queryRaw } as any).getPilotageQueues({ role: 'REGIONAL_ADMIN', region: 'Littoral' });
 
-    const territory = { region: { equals: 'Littoral', mode: 'insensitive' } };
-    const [{ where: oldestWhere }] = prisma.onefopSubmission.aggregate.mock.calls[0];
-    expect(oldestWhere).toEqual({ AND: [territory, { status: 'PENDING_REVIEW' }, { archivedAt: null }] });
-
-    const overdue = prisma.onefopSubmission.count.mock.calls
-      .map(([args]: any) => args.where)
-      .find((w: any) => w.AND?.some((c: any) => c.submissionDate));
-    expect(overdue.AND.slice(0, 3)).toEqual([territory, { status: 'PENDING_REVIEW' }, { archivedAt: null }]);
-    const cutoff = overdue.AND[3].submissionDate.lt.getTime();
-    expect(Math.abs(cutoff - daysAgo(7).getTime())).toBeLessThan(5000);
-
-    const [{ where: decidedWhere, select }] = prisma.onefopSubmission.findMany.mock.calls[0];
-    expect(select).toEqual({ id: true, submissionDate: true, reviewedAt: true });
-    expect(decidedWhere.AND[0]).toEqual(territory);
-    expect(decidedWhere.AND[1]).toEqual({ status: { in: ['APPROVED', 'REJECTED', 'CORRECTION_REQUESTED', 'SUPERSEDED'] } });
-    expect(decidedWhere.AND.some((c: any) => c.archivedAt === null)).toBe(true);
-    expect(Math.abs(decidedWhere.AND[2].reviewedAt.gte.getTime() - daysAgo(90).getTime())).toBeLessThan(5000);
+    const query = paceQuery($queryRaw);
+    expect(query.sql).toContain(`s.status::text = 'PENDING_REVIEW' AND s."archivedAt" IS NULL`);
+    expect(query.sql).toContain(`IN ('APPROVED', 'REJECTED', 'CORRECTION_REQUESTED', 'SUPERSEDED')`);
+    // Both halves are scoped: a territory in each of the two subqueries.
+    expect(query.sql.match(/LOWER\(s\.region\) = LOWER\(/g)).toHaveLength(2);
+    expect(query.values.filter((v: unknown) => v === 'Littoral')).toHaveLength(2);
+    const [overdue, windowStart] = times(query);
+    expect(Math.abs(overdue - daysAgo(7).getTime())).toBeLessThan(5000);
+    expect(Math.abs(windowStart - daysAgo(90).getTime())).toBeLessThan(5000);
   });
 
   it('fails closed for a territorial account without a territory', async () => {
-    const prisma: any = makePrisma([]);
-    await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'REGIONAL_ADMIN' });
-    expect(prisma.onefopSubmission.aggregate.mock.calls[0][0].where.AND[0]).toEqual({ id: { in: [] } });
-    expect(prisma.onefopSubmission.findMany.mock.calls[0][0].where.AND[0]).toEqual({ id: { in: [] } });
+    const $queryRaw = queueReads([]);
+    await new EligibilityEngineService({ $queryRaw } as any).getPilotageQueues({ role: 'REGIONAL_ADMIN' });
+    expect($queryRaw.mock.calls[0][0].sql).toMatch(/WHERE FALSE AND/);
+    expect(paceQuery($queryRaw).sql.split('WHERE FALSE')).toHaveLength(3);
   });
 
   it('leaves reopened files out of the median: their reviewedAt is the reopening', async () => {
-    const prisma: any = makePrisma(
-      [
-        { id: 'a', submittedDaysAgo: 3, decidedDaysAgo: 1 },
-        { id: 'reopened', submittedDaysAgo: 80, decidedDaysAgo: 1 },
-      ],
-      ['reopened'],
-    );
-    const { reviewDelay } = await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'SUPER_ADMIN' });
-    expect(reviewDelay.decidedMedianDays).toBe(2);
-    expect(reviewDelay.decidedCount).toBe(1);
-    expect(prisma.auditLog.findMany.mock.calls[0][0].where).toMatchObject({ action: 'AUDIT_REOPEN', resourceType: 'OnefopSubmission' });
+    const $queryRaw = queueReads([]);
+    await new EligibilityEngineService({ $queryRaw } as any).getPilotageQueues({ role: 'SUPER_ADMIN' });
+    const query = paceQuery($queryRaw);
+    expect(query.sql).toContain('NOT EXISTS');
+    expect(query.sql).toContain(`reopening.action = 'AUDIT_REOPEN'`);
+    expect(query.sql).toContain(`reopening."resourceType" = 'OnefopSubmission'`);
   });
 
   it('returns null, not zero, when nothing waits and nothing was decided', async () => {
-    const prisma: any = makePrisma([]);
-    prisma.onefopSubmission.aggregate = jest.fn(async () => ({ _min: { submissionDate: null } }));
-    const { reviewDelay } = await new EligibilityEngineService(prisma).getPilotageQueues({ role: 'SUPER_ADMIN' });
+    const $queryRaw = queueReads([]);
+    const { reviewDelay } = await new EligibilityEngineService({ $queryRaw } as any).getPilotageQueues({ role: 'SUPER_ADMIN' });
     expect(reviewDelay.oldestPendingSubmittedAt).toBeNull();
     expect(reviewDelay.decidedMedianDays).toBeNull();
     expect(reviewDelay.decidedCount).toBe(0);

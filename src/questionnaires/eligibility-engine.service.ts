@@ -23,6 +23,7 @@ import {
 } from '../types/eligibility.types';
 import { BulkVisaDto, BulkRejectDto, BulkRequestCorrectionDto, ResolveAnomalyDto } from '../dto/admin-dossier.dto';
 import { assertTerritorialAuthority, Territory, territoryWhere } from '../auth/territory';
+import { loadQueueCounts, loadReviewPace } from './pilotage-queue-counts';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { CLAIM_EXPIRED_AUDIT_ACTION, getEffectiveClaimState } from './review-claim-policy';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
@@ -347,14 +348,8 @@ export class EligibilityEngineService {
     // Drafts are respondents' unsubmitted work. Queue/all preserve the
     // current status set; completed deliberately counts terminal decisions,
     // including replaced records (SUPERSEDED).
-    const statusFilter = countsView === 'completed'
-      ? { status: { in: [OnefopStatus.APPROVED, OnefopStatus.REJECTED, OnefopStatus.SUPERSEDED] } }
-      : { status: { notIn: [OnefopStatus.DRAFT, OnefopStatus.SUPERSEDED] } };
-    const baseWhere: any = {
-      AND: [territoryWhere(territory), statusFilter, archiveState(includeArchived)],
-    };
-
-    // Kept deliberately narrow: four round trips, never more than two at once.
+    //
+    // Two statements, never more than two in flight.
     //
     // DATABASE_URL points at Supabase's pooler in *session* mode, where each
     // client connection pins a backend for its whole life and the tenant pool
@@ -363,46 +358,13 @@ export class EligibilityEngineService {
     // once. The admin dashboard refetches this endpoint plus the quality
     // summary every 30s from every open tab, which drove the pool to its
     // ceiling and surfaced as `EMAXCONNSESSION ... max clients reached in
-    // session mode`. The four queries therefore run as two pairs.
-    //
-    // The three per-status counts that used to be separate `count()` calls are
-    // derived from the status groupBy instead. OnefopStatus has exactly five
-    // members and `baseWhere` excludes DRAFT, so the four remaining buckets
-    // partition the result set exactly and the total is their sum — identical
-    // figures, no extra connections. Do not reintroduce the separate counts
-    // without re-checking that invariant against the enum.
-    const [statusGroups, regionGroups] = await Promise.all([
+    // session mode`.
+    const scope = territoryWhere(territory);
+    const [rows, reviewDelay] = await Promise.all([
       // Dashboard aggregates are computed here, over the whole territory, so
       // the client never derives national figures from a paginated list.
-      this.prisma.onefopSubmission.groupBy({
-        by: ['status'],
-        where: baseWhere,
-        _count: { _all: true },
-      }),
-      this.prisma.onefopSubmission.groupBy({
-        by: ['region'],
-        where: baseWhere,
-        _count: { _all: true },
-      }),
-    ]);
-    const [blockingAnomaliesCount, statisticallyReadyCount] = await Promise.all([
-      this.prisma.onefopAnomaly.count({
-        where: {
-          status: AnomalyStatus.OPEN,
-          isBlocking: true,
-          submission: baseWhere,
-        },
-      }),
-      // Statistically ready = APPROVED and ZERO open blocking anomalies.
-      // Counted in the database rather than by fetching every approved row
-      // and filtering in process.
-      this.prisma.onefopSubmission.count({
-        where: {
-          ...baseWhere,
-          status: OnefopStatus.APPROVED,
-          anomalies: { none: { status: AnomalyStatus.OPEN, isBlocking: true } },
-        },
-      }),
+      loadQueueCounts(this.prisma, scope, countsView, includeArchived),
+      this.getReviewDelay(scope),
     ]);
 
     const statusCounts: PilotageQueues['statusCounts'] = {
@@ -413,13 +375,17 @@ export class EligibilityEngineService {
       SUPERSEDED: 0,
     };
     let totalSubmissionsCount = 0;
-    for (const g of statusGroups) {
-      totalSubmissionsCount += g._count._all;
-      if (g.status in statusCounts) statusCounts[g.status as keyof typeof statusCounts] = g._count._all;
+    let blockingAnomaliesCount = 0;
+    let statisticallyReadyCount = 0;
+    const byRegion = new Map<string | null, number>();
+    for (const row of rows) {
+      totalSubmissionsCount += row.files;
+      blockingAnomaliesCount += row.blockingAnomalies;
+      statisticallyReadyCount += row.statisticallyReady;
+      if (row.status in statusCounts) statusCounts[row.status as keyof typeof statusCounts] += row.files;
+      byRegion.set(row.region, (byRegion.get(row.region) ?? 0) + row.files);
     }
-    const regionCounts = regionGroups.map((g) => ({ region: g.region, count: g._count._all }));
-
-    const reviewDelay = await this.getReviewDelay(territory);
+    const regionCounts = [...byRegion].map(([region, count]) => ({ region, count }));
 
     return {
       countsView,
@@ -438,65 +404,17 @@ export class EligibilityEngineService {
   /**
    * Review pace for getPilotageQueues: the age of the oldest file awaiting a
    * decision, how many have waited past the threshold, and the median time
-   * from submission to decision. Two pairs of queries, never more than two in
-   * flight (see the pool note in getPilotageQueues).
+   * from submission to decision.
    */
-  private async getReviewDelay(territory?: Territory, now: Date = new Date()): Promise<ReviewDelay> {
-    const pendingWhere = { AND: [territoryWhere(territory), { status: OnefopStatus.PENDING_REVIEW }, NOT_ARCHIVED] };
-    const overdueBefore = reviewOverdueBefore(now);
+  private async getReviewDelay(scope: Record<string, unknown>, now: Date = new Date()): Promise<ReviewDelay> {
     const windowStart = new Date(now.getTime() - REVIEW_DELAY_WINDOW_DAYS * DAY_MS);
-
-    const [oldest, pendingOverThresholdCount] = await Promise.all([
-      this.prisma.onefopSubmission.aggregate({
-        where: pendingWhere,
-        _min: { submissionDate: true },
-      }),
-      this.prisma.onefopSubmission.count({
-        where: { AND: [...pendingWhere.AND, { submissionDate: { lt: overdueBefore } }] },
-      }),
-    ]);
-
-    // A decision sets reviewedAt. A replaced file (SUPERSEDED) keeps the
-    // reviewedAt of the correction request that preceded it, so it counts.
-    // Reopening an endorsed file also rewrites reviewedAt, to the reopening:
-    // those files are left out, as their reviewedAt is no longer a decision.
-    // Only two dates per file are read, over a bounded window.
-    const [decided, reopenings] = await Promise.all([
-      this.prisma.onefopSubmission.findMany({
-        where: {
-          AND: [
-            territoryWhere(territory),
-            {
-              status: {
-                in: [
-                  OnefopStatus.APPROVED,
-                  OnefopStatus.REJECTED,
-                  OnefopStatus.CORRECTION_REQUESTED,
-                  OnefopStatus.SUPERSEDED,
-                ],
-              },
-            },
-            { reviewedAt: { gte: windowStart } },
-            NOT_ARCHIVED,
-          ],
-        },
-        select: { id: true, submissionDate: true, reviewedAt: true },
-      }),
-      this.prisma.auditLog.findMany({
-        where: { action: 'AUDIT_REOPEN', resourceType: 'OnefopSubmission', timestamp: { gte: windowStart } },
-        select: { resourceId: true },
-      }),
-    ]);
-
-    const reopened = new Set(reopenings.map((r) => r.resourceId));
-    const durations = decided
-      .filter((d) => d.reviewedAt && !reopened.has(d.id))
-      .map((d) => Math.max(0, d.reviewedAt!.getTime() - d.submissionDate.getTime()) / DAY_MS);
+    const pace = await loadReviewPace(this.prisma, scope, reviewOverdueBefore(now), windowStart);
+    const durations = pace.decidedDays ?? [];
 
     return {
       thresholdDays: REVIEW_DELAY_THRESHOLD_DAYS,
-      oldestPendingSubmittedAt: oldest._min.submissionDate ? oldest._min.submissionDate.toISOString() : null,
-      pendingOverThresholdCount,
+      oldestPendingSubmittedAt: pace.oldestPending ? new Date(pace.oldestPending).toISOString() : null,
+      pendingOverThresholdCount: pace.overdue,
       windowDays: REVIEW_DELAY_WINDOW_DAYS,
       decidedMedianDays: durations.length ? Math.round(median(durations) * 10) / 10 : null,
       decidedCount: durations.length,

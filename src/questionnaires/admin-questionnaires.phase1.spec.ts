@@ -25,17 +25,13 @@ function callList(controller: AdminQuestionnairesController, user: any, args: Re
 }
 
 function queueEngine(statusGroups: Array<{ status: string; _count: { _all: number } }>) {
+  const rows = statusGroups.map((row) => ({
+    status: row.status, region: 'Territory A', files: row._count._all, blockingAnomalies: 0, statisticallyReady: 0,
+  }));
   const prisma: any = {
-    onefopSubmission: {
-      groupBy: jest.fn(async ({ by }: any) => by[0] === 'status'
-        ? statusGroups
-        : [{ region: 'Territory A', _count: { _all: statusGroups.reduce((n, row) => n + row._count._all, 0) } }]),
-      count: jest.fn(async () => 0),
-      aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
-      findMany: jest.fn(async () => []),
-    },
-    onefopAnomaly: { count: jest.fn(async () => 0) },
-    auditLog: { findMany: jest.fn(async () => []) },
+    $queryRaw: jest.fn(async (query: any) => (query.sql.includes('"blockingAnomalies"')
+      ? rows
+      : [{ oldestPending: null, overdue: 0, decidedDays: null }])),
   };
   return { engine: new EligibilityEngineService(prisma), prisma };
 }
@@ -116,9 +112,7 @@ describe('Phase 1b dossier contract', () => {
     expect(counts.countsView).toBe('completed');
     expect(counts.totalSubmissionsCount).toBe(5);
     expect(counts.statusCounts.SUPERSEDED).toBe(2);
-    expect(prisma.onefopSubmission.groupBy.mock.calls[0][0].where.AND).toContainEqual({
-      status: { in: ['APPROVED', 'REJECTED', 'SUPERSEDED'] },
-    });
+    expect(prisma.$queryRaw.mock.calls[0][0].sql).toContain(`IN ('APPROVED', 'REJECTED', 'SUPERSEDED')`);
     const listPrisma: any = {
       onefopSubmission: {
         findMany: jest.fn(async () => []),
@@ -148,8 +142,12 @@ describe('Phase 1b dossier contract', () => {
     const listWhere = buildAdminListWhere({}, { role: 'REGIONAL_ADMIN', region: 'Territory A' });
     expect(counts.countsView).toBe('queue');
     expect(counts.totalSubmissionsCount).toBe(5);
-    expect(prisma.onefopSubmission.groupBy.mock.calls[0][0].where.AND).toEqual(listWhere.AND);
+    const counted = prisma.$queryRaw.mock.calls[0][0];
+    expect(counted.sql).toContain(`NOT IN ('DRAFT', 'SUPERSEDED')`);
+    expect(counted.sql).toContain('LOWER(s.region) = LOWER(');
+    expect(counted.values).toEqual(['Territory A']);
     expect(listWhere.AND).toContainEqual({ status: { notIn: ['DRAFT', 'SUPERSEDED'] } });
+    expect(listWhere.AND).toContainEqual({ region: { equals: 'Territory A', mode: 'insensitive' } });
     const listPrisma: any = {
       onefopSubmission: {
         findMany: jest.fn(async () => []),

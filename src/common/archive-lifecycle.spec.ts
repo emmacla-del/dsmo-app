@@ -160,24 +160,16 @@ describe('Phase 4 archive lifecycle', () => {
   });
 
   it('P4-18 through P4-20 and P4-26: submission queues/counts exclude archived while completed follows its toggle', async () => {
-    const groupBy = jest.fn(async (_args: any) => []);
-    const prisma: any = {
-      onefopSubmission: {
-        groupBy,
-        count: jest.fn(async () => 0),
-        aggregate: jest.fn(async () => ({ _min: { submissionDate: null } })),
-        findMany: jest.fn(async () => []),
-      },
-      onefopAnomaly: { count: jest.fn(async () => 0) },
-      auditLog: { findMany: jest.fn(async () => []) },
-    };
-    const engine = new EligibilityEngineService(prisma);
+    const $queryRaw = jest.fn(async (query: any) => (query.sql.includes('"blockingAnomalies"')
+      ? []
+      : [{ oldestPending: null, overdue: 0, decidedDays: null }]));
+    const engine = new EligibilityEngineService({ $queryRaw } as any);
     await engine.getPilotageQueues(undefined, 'queue');
-    expect((groupBy.mock.calls as any)[0][0].where.AND).toContainEqual({ archivedAt: null });
+    expect(($queryRaw.mock.calls as any)[0][0].sql).toContain('s."archivedAt" IS NULL');
     await engine.getPilotageQueues(undefined, 'completed', false);
-    expect((groupBy.mock.calls as any)[2][0].where.AND).toContainEqual({ archivedAt: null });
+    expect(($queryRaw.mock.calls as any)[2][0].sql).toContain('s."archivedAt" IS NULL');
     await engine.getPilotageQueues(undefined, 'completed', true);
-    expect((groupBy.mock.calls as any)[4][0].where.AND).toContainEqual({ OR: [{ archivedAt: null }, { archivedAt: { not: null } }] });
+    expect(($queryRaw.mock.calls as any)[4][0].sql).not.toContain('s."archivedAt" IS NULL');
   });
 
   it('P4-26 registration status counts exclude archived by default and include them only when requested', async () => {
