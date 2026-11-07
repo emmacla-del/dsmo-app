@@ -224,15 +224,18 @@ function EtablissementsContent() {
     return () => clearTimeout(timer);
   }, [searchInput, urlSearch, router, pathname, currentQuery]);
 
-  const statsQuery = useQuery({
-    queryKey: ["admin", "data-management", "stats"],
-    queryFn: getDataManagementStats,
-  });
-
   const companyStatsQuery = useQuery({
     queryKey: ["dsmo", "companies", "stats"],
     queryFn: getCompanyStats,
     enabled: canRead,
+  });
+
+  // Only the fallback for the total, and far slower than GET /companies/stats:
+  // read when that request has failed, not on every load of the register.
+  const statsQuery = useQuery({
+    queryKey: ["admin", "data-management", "stats"],
+    queryFn: getDataManagementStats,
+    enabled: companyStatsQuery.isError,
   });
 
   // Sent to GET /companies, which filters and counts over the whole

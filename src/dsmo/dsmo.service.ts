@@ -197,41 +197,32 @@ export class DsmoService {
    * up to the total.
    */
   async getCompanyStats(territory?: Territory) {
-    const where: any = { ...territoryWhere(territory), user: { is: { archivedAt: null } } };
-    const pendingStatuses = [
+    const pendingStatuses: UserStatus[] = [
       UserStatus.PENDING_APPROVAL,
       UserStatus.UNDER_REVIEW,
       UserStatus.COMPLEMENTS_REQUESTED,
       UserStatus.DOCUMENTS_INCOMPLETE,
       UserStatus.DRAFT,
     ];
-    const [total, active, suspended, pendingValidation, rejected] = await Promise.all([
-      this.prisma.company.count({ where }),
-      this.prisma.company.count({
-        where: {
-          ...where,
-          user: { status: UserStatus.ACTIVE, isActive: true },
-        },
-      }),
-      this.prisma.company.count({
-        where: {
-          ...where,
-          user: { status: UserStatus.ACTIVE, isActive: false },
-        },
-      }),
-      this.prisma.company.count({
-        where: {
-          ...where,
-          user: { status: { in: pendingStatuses } },
-        },
-      }),
-      this.prisma.company.count({
-        where: {
-          ...where,
-          user: { status: UserStatus.REJECTED },
-        },
-      }),
-    ]);
+    // One groupBy, not five counts. Grouped from the User side because a
+    // Company groupBy cannot group on a relation column; Company.userId is
+    // required and unique, so each company is one user. Archived accounts are
+    // out of every figure, as they are out of the register (listCompanies).
+    const groups = await this.prisma.user.groupBy({
+      by: ['status', 'isActive'],
+      where: {
+        archivedAt: null,
+        company: { is: territoryWhere(territory) as Prisma.CompanyWhereInput },
+      },
+      _count: { _all: true },
+    });
+    const sum = (match: (group: (typeof groups)[number]) => boolean) =>
+      groups.filter(match).reduce((count, group) => count + group._count._all, 0);
+    const total = sum(() => true);
+    const active = sum((g) => g.status === UserStatus.ACTIVE && g.isActive);
+    const suspended = sum((g) => g.status === UserStatus.ACTIVE && !g.isActive);
+    const pendingValidation = sum((g) => pendingStatuses.includes(g.status));
+    const rejected = sum((g) => g.status === UserStatus.REJECTED);
     return {
       total,
       active,
