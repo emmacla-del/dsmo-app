@@ -59,7 +59,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const queuesQuery = useQuery({
     ...pilotageQueuesOptions(),
     enabled: !isLoading && !forbidden && isAuthenticated && canReadPilotage,
-    refetchInterval: 120000,
+    refetchInterval: 300000,
   });
 
   // Blocking anomalies are counted once, on the data-quality destination,

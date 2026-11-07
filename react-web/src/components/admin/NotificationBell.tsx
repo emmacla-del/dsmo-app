@@ -59,7 +59,7 @@ export function NotificationBell({ placement = "header" }: { placement?: "header
     queryKey: [...NOTIFICATIONS_QUERY_KEY, "unread-count"],
     queryFn: unreadNotificationCount,
     enabled: status === "authenticated",
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   const panelQuery = useQuery({
