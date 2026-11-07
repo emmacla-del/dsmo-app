@@ -105,6 +105,7 @@ test("the search ends when no file is left", async () => {
 test("the return destination is the registration queue only", () => {
   assert.equal(resolveRegistrationReturnTo("/admin/inscriptions?vue=queue&region=Centre"), "/admin/inscriptions?vue=queue&region=Centre");
   assert.equal(resolveRegistrationReturnTo("/admin/inscriptions?vue=queue&decisionNotice=approved"), "/admin/inscriptions?vue=queue");
+  assert.equal(resolveRegistrationReturnTo("/admin/inscriptions?vue=queue&decisionNotice=approved&decidedFile=r1"), "/admin/inscriptions?vue=queue");
   assert.equal(resolveRegistrationReturnTo("/admin/inscriptions"), "/admin/inscriptions");
   assert.equal(resolveRegistrationReturnTo("https://evil.example/admin/inscriptions"), REGISTRATION_QUEUE_HREF);
   assert.equal(resolveRegistrationReturnTo("//evil.example"), REGISTRATION_QUEUE_HREF);

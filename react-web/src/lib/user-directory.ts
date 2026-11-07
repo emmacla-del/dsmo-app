@@ -8,6 +8,7 @@
 // and deleteUser is a hard, irreversible delete (the backend itself refuses
 // it with a 409 when the account has linked declarations/submissions/
 // notifications, but otherwise it is permanent).
+import type { QueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./api-client";
 import type { UiLocale } from "./register-i18n";
 
@@ -338,6 +339,16 @@ export function assignRegistrationUser(id: string, assigneeId: string | null, ex
       body: JSON.stringify({ assigneeId, expectedAssigneeId }),
     },
   );
+}
+
+/**
+ * The name of the file a decision was just taken on, for the notice on the
+ * next screen. Read from the review page's cache, so only the id travels in
+ * the URL; null when it is not there, and the notice stays unnamed.
+ */
+export function decidedOrganisation(queryClient: Pick<QueryClient, "getQueryData">, id: string | null): string | null {
+  if (!id) return null;
+  return queryClient.getQueryData<CompanyRegistrationItem>(["auth", "company-registration", id])?.organisation || null;
 }
 
 /**

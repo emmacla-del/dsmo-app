@@ -10,6 +10,7 @@ import { usePinnedRevision } from "@/lib/use-pinned-revision";
 import {
   approveUser,
   assignRegistrationUser,
+  decidedOrganisation,
   getCompanyRegistration,
   getCompanyRegistrationHistory,
   listCompanyRegistrations,
@@ -188,9 +189,15 @@ function RegistrationReview({ id }: { id: string }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const arrivedNotice = searchParams.get("decisionNotice");
-  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string; stale?: boolean } | null>(() =>
-    arrivedNotice && arrivedNotice in NOTICE_KEYS ? { tone: "success", text: tq(NOTICE_KEYS[arrivedNotice as DecisionKind]) } : null,
-  );
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string; stale?: boolean; movedOn?: boolean } | null>(() => {
+    if (!arrivedNotice || !(arrivedNotice in NOTICE_KEYS)) return null;
+    const organisation = decidedOrganisation(queryClient, searchParams.get("decidedFile"));
+    return {
+      tone: "success",
+      movedOn: true,
+      text: organisation ? t(`decidedNotice.${arrivedNotice}`, { organisation }) : tq(NOTICE_KEYS[arrivedNotice as DecisionKind]),
+    };
+  });
   const answersRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
 
@@ -249,12 +256,12 @@ function RegistrationReview({ id }: { id: string }) {
     void queryClient.invalidateQueries({ queryKey: ["auth", "company-registration"] });
     void queryClient.invalidateQueries({ queryKey: ["registration-trail"] });
     if (nextId && nextId !== id) {
-      moveTo(nextId, "next", { decisionNotice: kind }, kind);
+      moveTo(nextId, "next", { decisionNotice: kind, decidedFile: id }, kind);
       return;
     }
     const remaining = trailAfter(kind);
     if (remaining) saveRegistrationTrail(remaining);
-    router.replace(`${returnTo}${returnTo.includes("?") ? "&" : "?"}decisionNotice=${kind}`, { scroll: false });
+    router.replace(`${returnTo}${returnTo.includes("?") ? "&" : "?"}decisionNotice=${kind}&decidedFile=${encodeURIComponent(id)}`, { scroll: false });
   };
   const failed = (error: Error & { status?: number }) => {
     if (error?.status === 409) {
@@ -418,7 +425,7 @@ function RegistrationReview({ id }: { id: string }) {
 
       {notice && (
         <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="cam-registration-notice">
-          <span>{notice.text}</span>
+          <span>{notice.text}{notice.movedOn && <> {t("nextFileNotice", { organisation: item.organisation || NOT_PROVIDED })}</>}</span>
           {notice.stale && <Button type="button" size="sm" variant="outline" onClick={reload}>{t("reloadButton")}</Button>}
         </Alert>
       )}

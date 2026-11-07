@@ -4454,6 +4454,12 @@
     "duplicatesTitle": "Doublon possible",
     "duplicatesIntro": "D'autres inscriptions partagent un identifiant avec celle-ci. Comparez avant de décider.",
     "duplicatesOpenFile": "Ouvrir l'inscription de {organisation}",
+    "decidedNotice": {
+      "approved": "{organisation} : inscription validée et compte activé.",
+      "rejected": "{organisation} : inscription rejetée.",
+      "complements": "{organisation} : demande de compléments transmise."
+    },
+    "nextFileNotice": "Inscription suivante : {organisation}.",
     "missingEntityTypeBlock": "Impossible d'approuver : le type d'entité n'est pas renseigné. Demandez une correction.",
     "missingSubdivisionBlock": "Impossible d'approuver : l'arrondissement n'est pas renseigné. Demandez une correction.",
     "changesTitle": "Modifié par le déclarant",

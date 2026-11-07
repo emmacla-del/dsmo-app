@@ -90,6 +90,7 @@ export function resolveRegistrationReturnTo(value: string | null | undefined): s
     const vue = parsed.searchParams.get("vue");
     if (vue !== null && vue !== "queue") return REGISTRATION_QUEUE_HREF;
     parsed.searchParams.delete("decisionNotice");
+    parsed.searchParams.delete("decidedFile");
     const qs = parsed.searchParams.toString();
     return `/admin/inscriptions${qs ? `?${qs}` : ""}`;
   } catch {

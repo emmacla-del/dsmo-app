@@ -16,6 +16,7 @@ import {
   suspendUser,
   activateUser,
   assignRegistrationUser,
+  decidedOrganisation,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
 import { clampAdminListPage, parseAdminListPage, parseRegistrationVue } from "@/lib/admin-url";
@@ -293,11 +294,16 @@ function InscriptionsContent() {
   // The review page (/admin/inscriptions/[id]) comes back with the decision it
   // recorded, when it had no next file to move to.
   const arrivedDecision = searchParams.get("decisionNotice");
-  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(() =>
-    arrivedDecision === "approved" || arrivedDecision === "rejected" || arrivedDecision === "complements"
-      ? { tone: "success", text: t(arrivedDecision === "approved" ? "approvedNotice" : arrivedDecision === "rejected" ? "rejectedNotice" : "complementsNotice") }
-      : null,
-  );
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(() => {
+    if (arrivedDecision !== "approved" && arrivedDecision !== "rejected" && arrivedDecision !== "complements") return null;
+    const organisation = decidedOrganisation(queryClient, searchParams.get("decidedFile"));
+    return {
+      tone: "success",
+      text: organisation
+        ? tRoot(`adminRegistrationReview.decidedNotice.${arrivedDecision}`, { organisation })
+        : t(arrivedDecision === "approved" ? "approvedNotice" : arrivedDecision === "rejected" ? "rejectedNotice" : "complementsNotice"),
+    };
+  });
 
   const applyStatus = (value: string) => { setStatusFilter(value); setUrlFilters({ status: value || null }); };
   const applyType = (value: string) => { setTypeFilter(value); setUrlFilters({ type: value || null }); };
@@ -338,7 +344,7 @@ function InscriptionsContent() {
   // The decision notice was read into state above; a reload must not repeat it.
   useEffect(() => {
     if (!arrivedDecision) return;
-    router.replace(inscriptionsHref(currentQuery, vue, { decisionNotice: null }), { scroll: false });
+    router.replace(inscriptionsHref(currentQuery, vue, { decisionNotice: null, decidedFile: null }), { scroll: false });
   }, [arrivedDecision, currentQuery, router, vue]);
 
   const normalizedViewHref = normalizeInscriptionsHref(currentQuery, vue);

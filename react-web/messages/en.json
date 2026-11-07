@@ -4454,6 +4454,12 @@
     "duplicatesTitle": "Possible duplicate",
     "duplicatesIntro": "Other registrations share an identifier with this one. Compare them before deciding.",
     "duplicatesOpenFile": "Open the registration of {organisation}",
+    "decidedNotice": {
+      "approved": "{organisation}: registration approved and account activated.",
+      "rejected": "{organisation}: registration rejected.",
+      "complements": "{organisation}: request for further information sent."
+    },
+    "nextFileNotice": "Next registration: {organisation}.",
     "missingEntityTypeBlock": "Cannot approve: the entity type is missing. Request a correction.",
     "missingSubdivisionBlock": "Cannot approve: the subdivision is missing. Request a correction.",
     "changesTitle": "Changed by the declarant",

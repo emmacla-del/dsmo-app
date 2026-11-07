@@ -12,7 +12,7 @@ export interface AdminSavedView {
 }
 
 /** URL keys that describe where the reader is, not what the list shows. */
-const TRANSIENT_KEYS = ["page", "preview", "decisionNotice", "endOfQueue", "reviewMove"];
+const TRANSIENT_KEYS = ["page", "preview", "decisionNotice", "decidedFile", "endOfQueue", "reviewMove"];
 
 /** The list's own state, as saved in a view. */
 export function savedViewQuery(search: string): string {
