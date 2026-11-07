@@ -98,6 +98,11 @@ export function resolveRegistrationReturnTo(value: string | null | undefined): s
   }
 }
 
+/** One file's review page: /admin/inscriptions/<id>, not /nouvelle and not the queue. */
+export function isRegistrationReviewPath(pathname: string): boolean {
+  return /^\/admin\/inscriptions\/(?!nouvelle(?:\/|$))[^/]+/.test(pathname);
+}
+
 export function registrationReviewHref(id: string, returnTo: string, extra: Record<string, string> = {}): string {
   const params = new URLSearchParams({ returnTo, ...extra });
   return `/admin/inscriptions/${encodeURIComponent(id)}?${params.toString()}`;

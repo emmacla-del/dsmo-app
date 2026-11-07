@@ -5,6 +5,7 @@ import {
   REGISTRATION_QUEUE_HREF,
   decisionStaysListed,
   findNextInQueue,
+  isRegistrationReviewPath,
   parseRegistrationTrail,
   registrationReviewHref,
   resolveRegistrationReturnTo,
@@ -119,6 +120,15 @@ test("the review link carries the queue to return to", () => {
     registrationReviewHref("user 1", "/admin/inscriptions?vue=queue"),
     "/admin/inscriptions/user%201?returnTo=%2Fadmin%2Finscriptions%3Fvue%3Dqueue",
   );
+});
+
+test("a review path is one file, not the queue or the assisted-registration form", () => {
+  assert.equal(isRegistrationReviewPath("/admin/inscriptions/user-1"), true);
+  assert.equal(isRegistrationReviewPath("/admin/inscriptions/nouvelle-entreprise"), true);
+  assert.equal(isRegistrationReviewPath("/admin/inscriptions"), false);
+  assert.equal(isRegistrationReviewPath("/admin/inscriptions/"), false);
+  assert.equal(isRegistrationReviewPath("/admin/inscriptions/nouvelle"), false);
+  assert.equal(isRegistrationReviewPath("/admin/dossiers/user-1"), false);
 });
 
 test("a stored trail is read back only when well formed", () => {

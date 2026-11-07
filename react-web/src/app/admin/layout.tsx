@@ -13,6 +13,7 @@ import { pilotageQueuesOptions } from "@/lib/pilotage-queues-query";
 import { directoryRoleLabel } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
+import { isRegistrationReviewPath } from "@/lib/registration-trail";
 import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { NotificationBell } from "@/components/admin/NotificationBell";
@@ -47,7 +48,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // A single dossier: fixed frame, only the answers scroll.
   const isDossierDetail = /^\/admin\/dossiers\/[^/]+/.test(pathname);
   // One registration under review: the same fixed frame, only its centre column scrolls.
-  const isRegistrationReview = /^\/admin\/inscriptions\/(?!nouvelle(?:\/|$))[^/]+/.test(pathname);
+  const isRegistrationReview = isRegistrationReviewPath(pathname);
   const router = useRouter();
   const { isLoading, forbidden, user, isAuthenticated } = useAdminScreenGuard(ADMIN_ROLES);
   const canReadPilotage = hasRole(user?.role, PILOTAGE_READ_ROLES);
