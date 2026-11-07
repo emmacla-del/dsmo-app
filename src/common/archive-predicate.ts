@@ -38,12 +38,32 @@ const READ_ACTIONS = new Set([
   'groupBy',
 ]);
 
-function hasExplicitArchiveState(value: unknown): boolean {
+type Filter = Record<string, unknown>;
+
+const namesArchivedAt = (filter: Filter) => Object.prototype.hasOwnProperty.call(filter, 'archivedAt');
+
+/** A Company has no archive state of its own: it is its owner's. */
+function ownerNamesArchiveState(filter: Filter): boolean {
+  const owner = filter.user as Filter | null | undefined;
+  return hasExplicitArchiveState((owner?.is as Filter | undefined) ?? owner, namesArchivedAt);
+}
+
+/**
+ * Whether a filter settles the archive state itself. It may do so inside AND,
+ * as buildAdminListWhere does, or as an OR all of whose branches do, as
+ * ANY_ARCHIVE_STATE does. An OR with a branch that says nothing leaves that
+ * branch open, and NOT is not read: both keep the default filter, so a doubtful
+ * query hides archived records rather than showing them. Relations are not
+ * followed either: another model's archivedAt says nothing about this one.
+ */
+function hasExplicitArchiveState(value: unknown, names: (filter: Filter) => boolean): boolean {
   if (!value || typeof value !== 'object') return false;
-  if (Array.isArray(value)) return value.some(hasExplicitArchiveState);
-  const obj = value as Record<string, unknown>;
-  if (Object.prototype.hasOwnProperty.call(obj, 'archivedAt')) return true;
-  return false;
+  if (Array.isArray(value)) return value.some((item) => hasExplicitArchiveState(item, names));
+  const filter = value as Filter;
+  if (names(filter)) return true;
+  if (hasExplicitArchiveState(filter.AND, names)) return true;
+  return Array.isArray(filter.OR) && filter.OR.length > 0
+    && filter.OR.every((branch) => hasExplicitArchiveState(branch, names));
 }
 
 /**
@@ -65,7 +85,8 @@ export function archiveReadPredicate<P extends ArchiveReadParams>(
   }
 
   const where = params.args?.where ?? {};
-  if (hasExplicitArchiveState(where)) return next(params);
+  const names = params.model === 'Company' ? ownerNamesArchiveState : namesArchivedAt;
+  if (hasExplicitArchiveState(where, names)) return next(params);
 
   if (params.model === 'Company') {
     // Company rows are the registration-facing projection of a User. Filter

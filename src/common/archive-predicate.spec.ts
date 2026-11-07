@@ -45,10 +45,47 @@ describe('archiveReadPredicate', () => {
         args: { where: { AND: [{ status: 'APPROVED' }, state] } },
       };
       const result = await archiveReadPredicate(params, async (nextParams) => nextParams.args?.where);
-      expect(result).toEqual({
-        AND: [{ AND: [{ status: 'APPROVED' }, state] }, NOT_ARCHIVED],
-      });
+      expect(result).toEqual({ AND: [{ status: 'APPROVED' }, state] });
     }
+  });
+
+  it('honors an include-all read at the top level, as the registration counts write it', async () => {
+    const where = { role: 'COMPANY', ...ANY_ARCHIVE_STATE };
+    const params: any = { model: 'User', action: 'groupBy', args: { where } };
+    expect(await archiveReadPredicate(params, async (nextParams) => nextParams.args?.where)).toEqual(where);
+  });
+
+  it('honors a Company read that settles its owner\'s archive state', async () => {
+    for (const where of [
+      { name: 'x', user: { role: 'COMPANY', ...ANY_ARCHIVE_STATE } },
+      { name: 'x', user: { is: { archivedAt: null } } },
+      { AND: [{ user: { is: ARCHIVED_ONLY } }] },
+    ]) {
+      const params: any = { model: 'Company', action: 'findMany', args: { where } };
+      expect(await archiveReadPredicate(params, async (nextParams) => nextParams.args?.where)).toEqual(where);
+    }
+  });
+
+  it('keeps hiding archived records when a filter leaves any path open', async () => {
+    for (const where of [
+      { OR: [{ archivedAt: null }, { status: 'APPROVED' }] },
+      { OR: [] },
+      { NOT: { archivedAt: null } },
+      { AND: [{ OR: [{ status: 'APPROVED', archivedAt: null }, { status: 'REJECTED' }] }] },
+    ]) {
+      const params: any = { model: 'OnefopSubmission', action: 'findMany', args: { where } };
+      expect(await archiveReadPredicate(params, async (nextParams) => nextParams.args?.where)).toEqual({ AND: [where, NOT_ARCHIVED] });
+    }
+  });
+
+  it('does not take another model\'s archive state for this one', async () => {
+    const where = { assignee: { archivedAt: null } };
+    const params: any = { model: 'OnefopSubmission', action: 'findMany', args: { where } };
+    expect(await archiveReadPredicate(params, async (nextParams) => nextParams.args?.where)).toEqual({ AND: [where, NOT_ARCHIVED] });
+    const company: any = { model: 'Company', action: 'findMany', args: { where: { name: 'x', user: { role: 'COMPANY' } } } };
+    expect(await archiveReadPredicate(company, async (nextParams) => nextParams.args?.where)).toEqual({
+      name: 'x', user: { role: 'COMPANY' }, AND: [{ user: { is: NOT_ARCHIVED } }],
+    });
   });
 
   it('recognizes a top-level archivedAt selector as an explicit archive state', async () => {
