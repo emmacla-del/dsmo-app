@@ -588,10 +588,12 @@ function InscriptionsContent() {
   const exportQueue = () => exportRegistrations("queue");
 
   const assignMutation = useMutation({
-    mutationFn: (target: { id: string; assigneeId: string | null }) => assignRegistrationUser(target.id, target.assigneeId),
+    mutationFn: (target: { id: string; assigneeId: string | null; expectedAssigneeId: string | null }) =>
+      assignRegistrationUser(target.id, target.assigneeId, target.expectedAssigneeId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
     onError: (error) => {
       setNotice({ tone: "error", text: `${tRoot("adminDossiersPage.assignFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
     },
   });
 
@@ -628,7 +630,7 @@ function InscriptionsContent() {
     if (claim && userId) {
       setOpening(item.id);
       try {
-        await assignMutation.mutateAsync({ id: item.id, assigneeId: userId });
+        await assignMutation.mutateAsync({ id: item.id, assigneeId: userId, expectedAssigneeId: item.assigneeId });
       } catch {
         setOpening(null);
         return;
@@ -1114,7 +1116,7 @@ function InscriptionsContent() {
                   <TableCell className="align-top whitespace-normal py-3"><span className="block truncate" title={[item.region, item.department].filter(Boolean).join(" / ")}>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span></TableCell>
                   <TableCell className="align-top whitespace-normal py-3"><span className="block truncate" title={entityLabel(item.entityType)}>{entityLabel(item.entityType)}</span></TableCell>
                   <TableCell className="align-top whitespace-normal py-3"><span className="whitespace-nowrap">{stamp(item.submittedAt, true, locale)}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal py-3"><div className="flex flex-col items-start gap-1"><span className="truncate" title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? tRoot("adminDossiersPage.assignedTo", { name: item.assigneeName ?? NOT_PROVIDED }) : tRoot("adminDossiersPage.unassigned")}</span>{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}</div></TableCell>
+                  <TableCell className="align-top whitespace-normal py-3"><div className="flex flex-col items-start gap-1"><span className="truncate" title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? tRoot("adminDossiersPage.assignedTo", { name: item.assigneeName ?? NOT_PROVIDED }) : tRoot("adminDossiersPage.unassigned")}</span>{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null, expectedAssigneeId: item.assigneeId })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}</div></TableCell>
                   <TableCell className="align-top whitespace-normal py-3"><div className="cam-registration-row-actions">
                     {/* Unclaimed: the main action claims, then opens the review page. The
                         dialog stays reachable from the menu until the page is approved. */}

@@ -167,6 +167,13 @@ export interface CompanyRegistrationItem {
   entityType: string | null;
   region: string;
   department: string;
+  subdivision: string;
+  /** The server refuses an approval without it: the establishment ID needs its code. */
+  subdivisionId: string | null;
+  address: string;
+  mainActivity: string;
+  secondaryActivity: string | null;
+  parentCompany: string | null;
   status: string;
   isActive: boolean;
   approvedAt: string | null;
@@ -192,6 +199,8 @@ export interface CompanyRegistrationItem {
   approvalComment: string | null;
   rejectionReason: string | null;
   duplicateHints: string[];
+  /** The matches this reader may open; a hint outside their territory has none. */
+  duplicateFiles: { id: string; organisation: string }[];
   requiresCentralStructureCheck: boolean;
   // Phase 2 attribution — see DirectoryUser above for the same three fields.
   registrationMethod: string | null;
@@ -318,13 +327,15 @@ export function getCompanyRegistrationHistory(id: string) {
 /**
  * Claims (assigneeId) or releases (null) a registration file's review.
  * `id` is the registration row's user id (CompanyRegistrationItem.id).
+ * `expectedAssigneeId` is who the screen shows holding the file: the server
+ * answers 409 if that is no longer true.
  */
-export function assignRegistrationUser(id: string, assigneeId: string | null) {
+export function assignRegistrationUser(id: string, assigneeId: string | null, expectedAssigneeId: string | null) {
   return apiFetch<{ id: string; companyId: string; assigneeId: string | null; assigneeName: string | null }>(
     `/auth/users/${encodeURIComponent(id)}/assign`,
     {
       method: "PATCH",
-      body: JSON.stringify({ assigneeId }),
+      body: JSON.stringify({ assigneeId, expectedAssigneeId }),
     },
   );
 }

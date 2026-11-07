@@ -379,6 +379,27 @@ describe('Phase 5 team workflow', () => {
     expect(page.items[0].assigneeName).toBe('Ada Ngo');
   });
 
+  it('P5-5b refuses a claim when the file is no longer held by who the screen showed', async () => {
+    const prisma = transactionalPrisma() as any;
+    prisma.company.findFirst.mockResolvedValue({
+      id: 'company-1',
+      region: 'Centre',
+      department: 'Mfoundi',
+      regionId: null,
+      departmentId: null,
+      user: { id: 'user-1', assigneeId: 'first-agent' },
+    });
+    prisma.user.updateMany = jest.fn(async () => ({ count: 0 }));
+    const auth = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
+
+    await expect(auth.assignRegistration('user-1', 'agent-1', 'actor-a', regionalA, null)).rejects.toThrow(ConflictException);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: 'user-1', assigneeId: null },
+      data: { assigneeId: 'agent-1' },
+    });
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it('P5-5 assigns a registration, filters registration rows by assignee and reports whether the entity has filed', async () => {
     const prisma = transactionalPrisma() as any;
     prisma.company.findFirst.mockResolvedValue({
@@ -389,10 +410,11 @@ describe('Phase 5 team workflow', () => {
       departmentId: null,
       user: { id: 'user-1', assigneeId: 'previous-agent' },
     });
+    prisma.user.updateMany = jest.fn(async () => ({ count: 1 }));
     const auth = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
 
     const assigned = await auth.assignRegistration('user-1', 'agent-1', 'actor-a', regionalA);
-    expect(prisma.user.update).toHaveBeenCalledWith({
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { assigneeId: 'agent-1' },
     });

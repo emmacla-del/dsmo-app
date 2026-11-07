@@ -1234,12 +1234,53 @@ export class AuthService {
 
   /** Re-signs the stored attestation PDF so it can be re-downloaded anytime. */
   async getAttestation(userId: string) {
-    const company = await this.prisma.company.findUnique({ where: { userId } });
-    if (!company?.attestationUrl) {
+    const company = await this.prisma.company.findUnique({
+      where: { userId },
+      include: { user: { select: { status: true, email: true } } },
+    });
+    const storagePath = company?.attestationUrl ?? (company ? await this.recoverAttestation(company) : null);
+    if (!storagePath) {
       throw new BadRequestException("Aucune attestation n'est disponible pour ce compte.");
     }
-    const url = await this.pdfService.getSignedUrlForPath(company.attestationUrl);
+    const url = await this.pdfService.getSignedUrlForPath(storagePath);
     return { url };
+  }
+
+  /**
+   * Issues the attestation an approval failed to produce: it is generated
+   * after COMMIT and the failure is only logged, so without this a file a
+   * reviewer approved would have none for good.
+   *
+   * Only a reviewer's approval counts, not any ACTIVE account: auto-approved
+   * files have never been issued one, and whether an official document should
+   * go to a file nobody reviewed is the owner's decision, not a side effect
+   * of this retry.
+   */
+  private async recoverAttestation(company: {
+    id: string;
+    userId: string;
+    establishmentId: string | null;
+    name: string;
+    entityType: string | null;
+    taxNumber: string;
+    region: string;
+    department: string;
+    subdivision: string;
+    createdAt: Date;
+    user: { status: string; email: string };
+  }): Promise<string | null> {
+    if (!company.establishmentId || company.user.status !== 'ACTIVE') return null;
+    const approval = await this.prisma.auditLog.findFirst({
+      where: { action: 'COMPANY_REGISTRATION_APPROVED', resourceType: 'User', resourceId: company.userId },
+      select: { id: true },
+    });
+    if (!approval) return null;
+    try {
+      return await this.issueAttestation(company.id, company.establishmentId, company, company.user.email);
+    } catch (error) {
+      this.logger.error(`Failed to recover attestation: ${(error as Error).message}`);
+      return null;
+    }
   }
 
   async getPendingMinefopUsers() {
@@ -1972,9 +2013,18 @@ export class AuthService {
    * Claims, reassigns or releases a registration file (phase 5, team
    * workflow). The assignee must be an active agent of the registrations
    * module with jurisdiction over the file; null releases it. The previous
-   * holder is recorded, so a reassignment leaves a trace.
+   * holder is recorded, so a reassignment leaves a trace. expectedAssigneeId
+   * is who the caller's screen showed holding the file: when given, the write
+   * lands only if that still holds, so two reviewers claiming at once cannot
+   * both believe they have it.
    */
-  async assignRegistration(registrationId: string, assigneeId: string | null, actorId: string, actor: Territory) {
+  async assignRegistration(
+    registrationId: string,
+    assigneeId: string | null,
+    actorId: string,
+    actor: Territory,
+    expectedAssigneeId?: string | null,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const company = await tx.company.findFirst({
         where: {
@@ -1996,10 +2046,16 @@ export class AuthService {
       assertTerritorialAuthority(actor, company);
 
       const assignee = await resolveAssignee(tx, assigneeId, company as Territory, REGISTRATION_ADMIN_ROLES);
-      await tx.user.update({
-        where: { id: company.user.id },
+      const assigned = await tx.user.updateMany({
+        where: {
+          id: company.user.id,
+          ...(expectedAssigneeId === undefined ? {} : { assigneeId: expectedAssigneeId }),
+        },
         data: { assigneeId: assignee?.id ?? null },
       });
+      if (assigned.count !== 1) {
+        throw new ConflictException("L'attribution de cette inscription a changé. Rechargez la page.");
+      }
       await tx.auditLog.create({
         data: {
           userId: actorId,
@@ -2373,6 +2429,7 @@ export class AuthService {
       where: { id: companyId },
       data: { attestationUrl: attestation.storagePath, attestationGeneratedAt: new Date() },
     });
+    return attestation.storagePath;
   }
 
   // ADR-0001 / Phase 1: companyRegistrationCounts is view-aware via view
@@ -2483,6 +2540,11 @@ export class AuthService {
       entityType: string | null;
       region: string;
       department: string;
+      subdivision: string;
+      address: string;
+      mainActivity: string;
+      secondaryActivity: string | null;
+      parentCompany: string | null;
       createdAt: Date;
       updatedAt: Date;
       phone: string | null;
@@ -2519,7 +2581,6 @@ export class AuthService {
     actor: Territory,
   ) {
     if (companies.length === 0) return [];
-    const ids = companies.map((row) => row.id);
     const taxNumbers = companies.map((row) => row.taxNumber).filter((value) => value && !value.startsWith('NA-'));
     const cnpsNumbers = companies.map((row) => row.cnpsNumber).filter((value): value is string => !!value);
     const or: Record<string, unknown>[] = [];
@@ -2532,9 +2593,13 @@ export class AuthService {
     }
     const others = or.length
       ? await this.prisma.company.findMany({
-          where: { id: { notIn: ids }, OR: or },
+          // This page's own rows stay in: two files on one page can be each
+          // other's duplicate. A row is skipped against itself below.
+          where: { OR: or },
           select: {
             id: true,
+            userId: true,
+            user: { select: { archivedAt: true } },
             name: true,
             taxNumber: true,
             cnpsNumber: true,
@@ -2549,8 +2614,13 @@ export class AuthService {
 
     return companies.map((row) => {
       const hints: string[] = [];
+      // The matches a reviewer may open: inside their territory, and not
+      // archived, since the review page answers 404 for an archived file.
+      const files = new Map<string, { id: string; organisation: string }>();
       for (const other of others) {
+        if (other.id === row.id) continue;
         const inScope = companyInTerritory(actor, other);
+        const hintsBefore = hints.length;
         if (row.taxNumber && !row.taxNumber.startsWith('NA-') && other.taxNumber === row.taxNumber) {
           hints.push(inScope ? `Même NIU que « ${other.name} »` : 'Même NIU');
         }
@@ -2568,6 +2638,9 @@ export class AuthService {
               : 'Nom similaire dans le même arrondissement',
           );
         }
+        if (hints.length > hintsBefore && inScope && !other.user.archivedAt) {
+          files.set(other.userId, { id: other.userId, organisation: other.name });
+        }
       }
       return {
         id: row.user.id,
@@ -2578,6 +2651,12 @@ export class AuthService {
         entityType: row.entityType,
         region: row.region,
         department: row.department,
+        subdivision: row.subdivision,
+        subdivisionId: row.subdivisionId,
+        address: row.address,
+        mainActivity: row.mainActivity,
+        secondaryActivity: row.secondaryActivity,
+        parentCompany: row.parentCompany,
         status: row.user.status,
         isActive: row.user.isActive,
         approvedAt: row.user.approvedAt?.toISOString() ?? null,
@@ -2602,6 +2681,7 @@ export class AuthService {
         approvalComment: row.user.approvalComment,
         rejectionReason: row.user.rejectionReason,
         duplicateHints: [...new Set(hints)],
+        duplicateFiles: [...files.values()],
         requiresCentralStructureCheck: row.entityType === 'ADMINISTRATION',
         registrationMethod: row.user.registrationMethod,
         createdBy: row.user.createdBy,

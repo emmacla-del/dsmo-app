@@ -520,6 +520,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: 'Ce compte n’est pas habilité à instruire ce type de dossier.', en: 'This account is not authorised to review this type of file.' },
   { fr: 'Le destinataire de l’affectation doit être un compte actif.', en: 'The assignee must be an active account.' },
   { fr: 'Inscription introuvable.', en: 'Registration not found.' },
+  {
+    fr: "L'attribution de cette inscription a changé. Rechargez la page.",
+    en: 'The assignment of this registration changed. Reload the page.',
+  },
   { fr: 'La justification doit comporter au moins 10 caractères.', en: 'The justification must be at least 10 characters long.' },
   { fr: 'La justification de résolution doit comporter au moins 10 caractères.', en: 'The resolution justification must be at least 10 characters long.' },
   { fr: 'La justification du rejet doit comporter au moins 10 caractères.', en: 'The rejection justification must be at least 10 characters long.' },

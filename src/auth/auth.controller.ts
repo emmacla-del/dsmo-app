@@ -18,7 +18,7 @@ import { ActiveCompanyGuard } from './active-company.guard';
 import { AllowInactiveCompany } from './allow-inactive-company.decorator';
 import { UserStatus } from '../types/prisma.types';
 import { ArchiveRecordDto, RestoreRecordDto } from '../common/archive.dto';
-import { AssignRecordDto } from '../common/assign.dto';
+import { AssignRegistrationDto } from '../common/assign.dto';
 
 // The app-wide default (60 req/60s per IP, app.module.ts) is too loose for
 // credential/account-recovery endpoints — it doesn't stop someone rotating
@@ -626,10 +626,16 @@ export class AuthController {
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   async assignRegistration(
     @Param('id') id: string,
-    @Body() body: AssignRecordDto,
+    @Body() body: AssignRegistrationDto,
     @Request() req: any,
   ) {
-    return this.authService.assignRegistration(id, body.assigneeId ?? null, req.user.id, territoryFromUser(req.user));
+    return this.authService.assignRegistration(
+      id,
+      body.assigneeId ?? null,
+      req.user.id,
+      territoryFromUser(req.user),
+      body.expectedAssigneeId,
+    );
   }
 
   @Patch('users/:id/role')

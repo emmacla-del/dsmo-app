@@ -18,6 +18,7 @@ import {
   type ApproveUserOptions,
 } from "@/lib/user-directory";
 import {
+  approvalDataBlocker,
   approvalGate,
   daysWaiting,
   registrationMethodBadgeClass,
@@ -231,12 +232,15 @@ function RegistrationReview({ id }: { id: string }) {
 
   // ── Claim ──
   const claimMutation = useMutation({
-    mutationFn: (assigneeId: string | null) => assignRegistrationUser(id, assigneeId),
+    mutationFn: (assigneeId: string | null) => assignRegistrationUser(id, assigneeId, item?.assigneeId ?? null),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["auth", "company-registration", id] });
       void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
     },
-    onError: (error) => setNotice({ tone: "error", text: `${t("claimFailed")} ${error instanceof Error ? error.message : ""}`.trim() }),
+    onError: (error) => {
+      setNotice({ tone: "error", text: `${t("claimFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registration", id] });
+    },
   });
 
   // ── Decisions ──
@@ -318,7 +322,10 @@ function RegistrationReview({ id }: { id: string }) {
   const decidable = DECIDABLE_STATUSES.has(item.status);
   const rows = verificationRows(item, locale);
   const gate = approvalGate(rows, marks, locale);
-  const approveBlocked = gate.message ?? (item.requiresCentralStructureCheck && !centralChecked ? tq("centralCheckRequired") : null);
+  const dataBlocker = approvalDataBlocker(item);
+  const approveBlocked = (dataBlocker && t(dataBlocker === "entityType" ? "missingEntityTypeBlock" : "missingSubdivisionBlock"))
+    ?? gate.message
+    ?? (item.requiresCentralStructureCheck && !centralChecked ? tq("centralCheckRequired") : null);
   const answered = rows.filter((row) => marks[row.key] !== undefined).length;
   const anyRejected = rows.some((row) => marks[row.key] === "ko");
   const waitingDays = decidable ? daysWaiting(item.waitingSince) : null;
@@ -440,11 +447,13 @@ function RegistrationReview({ id }: { id: string }) {
               <ul className="cam-registration-hints">
                 {item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}
               </ul>
-              {item.organisation && (
-                <Link className="cam-registration-link" href={`/admin/inscriptions?vue=organisations&search=${encodeURIComponent(item.organisation)}`}>
-                  {t("duplicatesSearch", { organisation: item.organisation })}
-                </Link>
-              )}
+              {item.duplicateFiles.map((file) => (
+                <p key={file.id}>
+                  <Link className="cam-registration-link" href={registrationReviewHref(file.id, returnTo)}>
+                    {t("duplicatesOpenFile", { organisation: file.organisation })}
+                  </Link>
+                </p>
+              ))}
             </section>
           )}
 
@@ -541,6 +550,11 @@ function RegistrationReview({ id }: { id: string }) {
               <div><dt>{tq("establishmentTypeColumn")}</dt><dd>{entityLabel(item.entityType)}</dd></div>
               <div><dt>{tq("regionColumn")}</dt><dd>{item.region || NOT_PROVIDED}</dd></div>
               <div><dt>{tq("departmentColumn")}</dt><dd>{item.department || NOT_PROVIDED}</dd></div>
+              <div><dt>{tq("field.subdivision")}</dt><dd>{item.subdivision || NOT_PROVIDED}</dd></div>
+              <div><dt>{tq("field.address")}</dt><dd>{item.address || NOT_PROVIDED}</dd></div>
+              <div><dt>{tq("field.mainActivity")}</dt><dd>{item.mainActivity || NOT_PROVIDED}</dd></div>
+              {item.secondaryActivity && <div><dt>{tq("field.secondaryActivity")}</dt><dd>{item.secondaryActivity}</dd></div>}
+              {item.parentCompany && <div><dt>{tq("field.parentCompany")}</dt><dd>{item.parentCompany}</dd></div>}
               <div><dt>{t("taxNumberLabel")}</dt><dd className="cam-registration-ref">{niu ?? NOT_PROVIDED}</dd></div>
               <div><dt>{t("cnpsLabel")}</dt><dd className="cam-registration-ref">{item.cnpsNumber || NOT_PROVIDED}</dd></div>
               {item.registrationNumber && <div><dt>{t("registrationNumberLabel")}</dt><dd className="cam-registration-ref">{item.registrationNumber}</dd></div>}

@@ -609,6 +609,19 @@ export function approvalGate(
   return { canApprove: true, message: null };
 }
 
+/**
+ * What the file lacks for an approval, whatever the marks say. The server
+ * refuses both: the establishment ID is built from the type and the
+ * subdivision. Only a correction from the declarant can supply them.
+ */
+export function approvalDataBlocker(
+  item: Pick<CompanyRegistrationItem, "entityType" | "subdivisionId">,
+): "entityType" | "subdivision" | null {
+  if (!item.entityType) return "entityType";
+  if (!item.subdivisionId) return "subdivision";
+  return null;
+}
+
 /** The approve body's flags: true only for a row marked ✓. */
 export function verificationFlags(rows: VerificationRow[], marks: VerificationMarks): Partial<Record<VerificationKey, boolean>> {
   return Object.fromEntries(rows.map((row) => [row.key, marks[row.key] === "ok"]));

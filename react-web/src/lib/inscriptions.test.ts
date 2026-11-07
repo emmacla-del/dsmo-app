@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  approvalDataBlocker,
   approvalGate,
   buildAssistedRegistrationPayload,
   daysWaiting,
@@ -315,4 +316,10 @@ test("assisted VT registration drops hidden accreditation details", () => {
   assert.equal(payload.authorizationYear, undefined);
   assert.equal(payload.authorizationOrderNumber, undefined);
   assert.equal(payload.authorizationOrderDate, undefined);
+});
+
+test("a file without an entity type or a subdivision cannot be approved, whatever the marks", () => {
+  assert.equal(approvalDataBlocker({ entityType: null, subdivisionId: "s1" }), "entityType");
+  assert.equal(approvalDataBlocker({ entityType: "ONG", subdivisionId: null }), "subdivision");
+  assert.equal(approvalDataBlocker({ entityType: "ONG", subdivisionId: "s1" }), null);
 });

@@ -330,6 +330,51 @@ describe('AuthService company registration approval', () => {
     });
   });
 
+  // The attestation is generated after COMMIT and a failure is only logged, so
+  // the download is what recovers one.
+  describe('attestation recovery', () => {
+    const approved = { ...company, establishmentId: 'EN26000712', attestationUrl: null, user: { status: 'ACTIVE', email: 'co@example.cm' } };
+
+    beforeEach(() => {
+      pdf.getSignedUrlForPath = jest.fn(async (path: string) => `signed:${path}`);
+      prisma.auditLog.findFirst = jest.fn(async () => ({ id: 'audit-1' }));
+      prisma.company.findUnique.mockResolvedValue(approved);
+    });
+
+    it('issues the attestation a reviewer-approved file is missing, then serves it', async () => {
+      await expect(service.getAttestation('u-co')).resolves.toEqual({ url: 'signed:p' });
+      expect(prisma.auditLog.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: { action: 'COMPANY_REGISTRATION_APPROVED', resourceType: 'User', resourceId: 'u-co' },
+      }));
+      expect(prisma.company.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ attestationUrl: 'p' }),
+      }));
+    });
+
+    it('serves a stored attestation without generating anything', async () => {
+      prisma.company.findUnique.mockResolvedValue({ ...approved, attestationUrl: 'stored' });
+      await expect(service.getAttestation('u-co')).resolves.toEqual({ url: 'signed:stored' });
+      expect(pdf.generateRegistrationAttestation).not.toHaveBeenCalled();
+    });
+
+    it('issues nothing for a file no reviewer approved', async () => {
+      prisma.auditLog.findFirst.mockResolvedValue(null);
+      await expect(service.getAttestation('u-co')).rejects.toThrow("Aucune attestation n'est disponible");
+      expect(pdf.generateRegistrationAttestation).not.toHaveBeenCalled();
+    });
+
+    it('issues nothing for an account that is not active', async () => {
+      prisma.company.findUnique.mockResolvedValue({ ...approved, user: { status: 'REJECTED', email: 'co@example.cm' } });
+      await expect(service.getAttestation('u-co')).rejects.toThrow("Aucune attestation n'est disponible");
+      expect(pdf.generateRegistrationAttestation).not.toHaveBeenCalled();
+    });
+
+    it('answers the usual refusal when the recovery itself fails', async () => {
+      pdf.generateRegistrationAttestation.mockRejectedValue(new Error('storage down'));
+      await expect(service.getAttestation('u-co')).rejects.toThrow("Aucune attestation n'est disponible");
+    });
+  });
+
   // Company.updatedAt is the file's revision. These walk the real sequences a
   // second reviewer can be caught in, on a row whose revision moves when the
   // service moves it, and pin that a lost race leaves nothing behind.
@@ -1345,7 +1390,7 @@ describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
         count: jest.fn(async () => 1),
         findMany: jest.fn(async (args: { where?: any; include?: unknown; select?: unknown }) => {
           if (!args?.where) return [];
-          if (args.where.id?.notIn) return [outside];
+          if (args.where.OR) return [outside];
           return [local];
         }),
       },
@@ -1361,6 +1406,7 @@ describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
     );
     expect(result.items[0].duplicateHints).toEqual(['Même numéro CNPS']);
     expect(result.items[0].duplicateHints.join(' ')).not.toContain('Centre SA');
+    expect(result.items[0].duplicateFiles).toEqual([]);
   });
 
   it('names an in-territory match', async () => {
@@ -1376,6 +1422,8 @@ describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
     });
     const peer = {
       id: 'littoral-b',
+      userId: 'u-beta',
+      user: { archivedAt: null },
       name: 'Beta SA',
       taxNumber: 'M-B',
       cnpsNumber: 'CNPS-1',
@@ -1390,7 +1438,7 @@ describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
         count: jest.fn(async () => 1),
         findMany: jest.fn(async (args: { where?: any }) => {
           if (!args?.where) return [];
-          if (args.where.id?.notIn) return [peer];
+          if (args.where.OR) return [peer];
           return [local];
         }),
       },
@@ -1405,6 +1453,49 @@ describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
       {},
     );
     expect(result.items[0].duplicateHints).toEqual(['Même numéro CNPS que « Beta SA »']);
+    expect(result.items[0].duplicateFiles).toEqual([{ id: 'u-beta', organisation: 'Beta SA' }]);
+  });
+
+  describe('files that match', () => {
+    const base = {
+      id: 'c-a', userId: 'u-a', name: 'Alpha', taxNumber: 'NA-1', cnpsNumber: 'CNPS-9', subdivisionId: null,
+      entityType: 'ENTREPRISE', region: 'Littoral', department: 'Wouri', regionId: 'reg-lt', departmentId: 'dep-wouri',
+      createdAt: new Date('2026-10-01'), updatedAt: new Date('2026-10-01'),
+      user: { id: 'u-a', archivedAt: null, status: 'PENDING_APPROVAL', email: 'a@x.cm', createdAt: new Date('2026-10-01') },
+    };
+    const twin = { ...base, id: 'c-b', userId: 'u-b', name: 'Bravo', user: { ...base.user, id: 'u-b', email: 'b@x.cm' } };
+
+    function list(rows: any[], matches: any[]) {
+      const prisma: any = {
+        company: {
+          count: jest.fn(async () => rows.length),
+          findMany: jest.fn(async (args: { where?: any }) => {
+            if (!args?.where) return [];
+            return args.where.OR ? matches : rows;
+          }),
+        },
+        auditLog: { findMany: jest.fn(async () => []) },
+        user: { groupBy: jest.fn(async () => []) },
+      };
+      const service = new AuthService(prisma, {} as any, {} as any, {} as any, {
+        getSettings: async () => ({ registrationOverdueDays: 7 }),
+      } as any);
+      return service.listCompanyRegistrations({ role: 'SUPER_ADMIN' }, {});
+    }
+
+    it('flags two duplicates that sit on the same page, and not a row against itself', async () => {
+      const { items } = await list([base, twin], [base, twin]);
+      expect(items[0].duplicateHints).toEqual(['Même numéro CNPS que « Bravo »']);
+      expect(items[1].duplicateHints).toEqual(['Même numéro CNPS que « Alpha »']);
+      expect(items[0].duplicateFiles).toEqual([{ id: 'u-b', organisation: 'Bravo' }]);
+    });
+
+    it('offers no link to an archived match, which the review page cannot open', async () => {
+      const archived = { ...twin, user: { ...twin.user, archivedAt: new Date('2026-10-02') } };
+      const { items } = await list([base], [base, archived]);
+      expect(items[0].duplicateHints).toEqual(['Même numéro CNPS que « Bravo »']);
+      expect(items[0].duplicateFiles).toEqual([]);
+    });
   });
 });
 
