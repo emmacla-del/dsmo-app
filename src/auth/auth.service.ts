@@ -2470,23 +2470,25 @@ export class AuthService {
       : view === 'organisations'
         ? [UserStatus.ACTIVE, UserStatus.REJECTED]
         : [UserStatus.PENDING_APPROVAL, UserStatus.COMPLEMENTS_REQUESTED, UserStatus.ACTIVE, UserStatus.REJECTED];
-    const statusGroups = await this.prisma.user.groupBy({
-      by: ['status'],
-      where: {
-        role: 'COMPANY',
-        status: { in: viewStatuses },
-        ...(includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED),
-        company: { is: scope as Prisma.CompanyWhereInput },
-      },
-      _count: { _all: true },
-    });
+    // At most two queries in flight: this one and the resubmission read.
+    const [statusGroups, recentlyResubmitted] = await Promise.all([
+      this.prisma.user.groupBy({
+        by: ['status'],
+        where: {
+          role: 'COMPANY',
+          status: { in: viewStatuses },
+          ...(includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED),
+          company: { is: scope as Prisma.CompanyWhereInput },
+        },
+        _count: { _all: true },
+      }),
+      view === 'organisations' ? Promise.resolve<string[]>([]) : this.usersResubmittedSince(cutoff),
+    ]);
     const byStatus = new Map<string, number>(statusGroups.map((g) => [g.status, g._count._all]));
     const pending = byStatus.get('PENDING_APPROVAL') ?? 0;
     const complements = byStatus.get('COMPLEMENTS_REQUESTED') ?? 0;
     const approved = byStatus.get('ACTIVE') ?? 0;
     const rejected = byStatus.get('REJECTED') ?? 0;
-    // Sequential, after the groupBy, for the same reason.
-    const recentlyResubmitted = view === 'organisations' ? [] : await this.usersResubmittedSince(cutoff);
     const overdue = view === 'organisations' ? 0 : await this.prisma.company.count({
       where: {
         ...scope,
