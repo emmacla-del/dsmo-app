@@ -1475,6 +1475,25 @@ Approved changes on record:
   unchanged: warnings still never block, they ask for a reason. No schema,
   statistical variable, export, PDF or dataset version change.
 
+- 2026-11-07 — a registration claim can fail (`expectedAssigneeId` on
+  `PATCH /auth/users/:id/assign`, `AuthService.assignRegistration`). Issue: the
+  2026-10-27 entry made reassignment last-write-wins, so two reviewers pressing
+  « Réclamer et ouvrir » both believed they held the file and the first lost it
+  silently. Decision: the queue and the review page send who they showed holding
+  the file, and the server answers 409 if that has changed. A caller that omits
+  the field is still last-write-wins, so reassignment as recorded above is
+  unchanged. No schema change. Approved by the owner in chat, 2026-11-07.
+
+- 2026-11-07 — the establishment ID stays as issued after a correction
+  (`AuthService.resubmitRegistration`, `CORRECTABLE_COMPANY_FIELDS`). Issue: the
+  ID is generated at registration and carries the entity-type prefix and the
+  subdivision code, while a declarant may correct both, so a file corrected from
+  enterprise to administration keeps its `EN…` ID. Decision: this is accepted.
+  The ID is a stable identifier, not a description of the file: read the type
+  and territory from the Company row, never from the ID. Do not reissue or
+  rewrite an ID on correction. Owner's decision in chat, 2026-11-07, with the
+  alternative (reissuing before approval) put to them.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE
