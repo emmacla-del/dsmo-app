@@ -11,8 +11,8 @@ describe('admin dossier lookup by id or receipt reference', () => {
   const REGIONAL = { role: 'REGIONAL_ADMIN', region: 'Littoral', department: null, regionId: null, departmentId: null } as any;
 
   it('getById matches the id or the submissionId, and keeps the territory filter', async () => {
-    const findFirst = jest.fn().mockResolvedValue({ id: 'db-1', submissionId: 'ref-1', establishment: null });
-    const service = new QuestionnairesService({ onefopSubmission: { findFirst } } as any);
+    const findFirst = jest.fn().mockResolvedValue({ id: 'db-1', submissionId: 'ref-1' });
+    const service = new QuestionnairesService({ onefopSubmission: { findFirst }, onefopRespondent: { findUnique: jest.fn().mockResolvedValue(null) }, $queryRaw: jest.fn().mockResolvedValue([]) } as any);
 
     const found = await service.getById('ref-1', REGIONAL);
 

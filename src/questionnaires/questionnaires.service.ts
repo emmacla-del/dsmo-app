@@ -38,6 +38,8 @@ import {
   getEffectiveClaimStatesBatch,
 } from './review-claim-policy';
 import { AdminListFilters, AdminListSort, buildAdminListWhere } from './admin-list-filter';
+import { loadFileContext, loadFileDetail } from './admin-file-read';
+import { ADMIN_LIST_ROW_SELECT, loadAdminListDisplay } from './admin-list-rows';
 import { syncCampaignSubmissionOnReview } from './campaign-review-sync';
 import { coherenceFlagToAnomaly } from './coherence-anomaly';
 import { withoutStaffNames } from './staff-names';
@@ -3609,48 +3611,39 @@ export class QuestionnairesService {
 
     // limit=0 is a count-only request (the admin questionnaires page shows
     // seven totals): the row query is skipped rather than asked to return
-    // nothing, since each row carries a whole declaration including rawData.
-    const [items, total] = await Promise.all([
+    // nothing.
+    const [rows, total] = await Promise.all([
       filters.limit === 0 ? Promise.resolve([] as any[]) : (this.prisma as any).onefopSubmission.findMany({
         where,
         // Match the receipt date shown in the queue; id breaks submissionDate ties.
         orderBy: [{ submissionDate: direction }, { id: direction }],
         take: filters.limit,
         skip: filters.offset,
-        include: {
-          respondent: true,
-          enterpriseDetail: true,
-          cooperativeDetail: true,
-          ctdDetail: true,
-          ongDetail: true,
-          administrationDetail: true,
-          projectProgramDetail: true,
-          vocationalTrainingDetail: true,
-          campaign: { select: { name: true } },
-          company: { select: { establishmentId: true, user: { select: { status: true } } } },
-          archivedByUser: { select: { id: true, firstName: true, lastName: true } },
-          assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
-          anomalies: true,
-          // One resubmission can close several correction requests; name the latest.
-          supersedes: { select: { id: true, submissionId: true }, orderBy: { submissionDate: 'desc' }, take: 1 },
-        },
+        select: ADMIN_LIST_ROW_SELECT,
       }),
       (this.prisma as any).onefopSubmission.count({ where }),
     ]);
-    const claimStates = getEffectiveClaimStatesBatch(items, asOf);
-    const projectedItems = items.map(({ campaign, assignee, company, supersedes, claimActivityAt: _claimActivityAt, ...item }: any) => {
+    const display = await loadAdminListDisplay(this.prisma as any, rows.map((row: any) => row.id));
+    const claimStates = getEffectiveClaimStatesBatch(rows, asOf);
+    const projectedItems = rows.map(({ claimActivityAt: _claimActivityAt, ...item }: any) => {
+      const shown = display.get(item.id);
       const claimState = claimStates.get(item.id);
       const isExpired = claimState?.expired ?? false;
       const effectiveAssigneeId = claimState ? claimState.assigneeId : (item.assigneeId ?? null);
-      const effectiveAssigneeName = effectiveAssigneeId ? assigneeName(assignee) : null;
+      const effectiveAssigneeName = effectiveAssigneeId && shown?.assigneeUserId
+        ? assigneeName({ firstName: shown.assigneeFirstName, lastName: shown.assigneeLastName, email: shown.assigneeEmail })
+        : null;
       return {
         ...item,
-        supersedes: supersedes?.[0] ? { id: supersedes[0].id, submissionId: supersedes[0].submissionId } : null,
-        campaignName: campaign?.name ?? null,
+        companyName: shown?.entityName ?? null,
+        respondent: shown?.respondentName != null ? { respondentName: shown.respondentName } : null,
+        anomalies: shown?.anomalies ?? [],
+        supersedes: shown?.supersedesId ? { id: shown.supersedesId, submissionId: shown.supersedesSubmissionId } : null,
+        campaignName: shown?.campaignName ?? null,
         // The submission's establishmentId is a database FK. Expose the
         // company's public identifier separately for admin tables.
-        companyEstablishmentId: company?.establishmentId ?? null,
-        companyRegistrationStatus: company?.user?.status ?? null,
+        companyEstablishmentId: shown?.companyEstablishmentId ?? null,
+        companyRegistrationStatus: shown?.companyRegistrationStatus ?? null,
         assigneeId: effectiveAssigneeId,
         assigneeName: effectiveAssigneeName,
         claimExpired: isExpired,
@@ -3660,7 +3653,9 @@ export class QuestionnairesService {
         archivedAt: item.archivedAt?.toISOString?.() ?? null,
         archivedBy: item.archivedBy ?? null,
         archiveReason: item.archiveReason ?? null,
-        archivedByUser: item.archivedByUser ?? null,
+        archivedByUser: shown?.archivedByUserId
+          ? { id: shown.archivedByUserId, firstName: shown.archivedByFirstName, lastName: shown.archivedByLastName }
+          : null,
       };
     });
     return { items: projectedItems, total };
@@ -3806,59 +3801,70 @@ export class QuestionnairesService {
     // form data, keyed by the schema's own ids; the official PDF is built
     // from it too), so the 23 statistical child tables are not loaded. No
     // client read them, and Prisma ran one query per relation, which made
-    // the page take ~25 s through the session-mode pooler.
+    // the page take ~25 s through the session-mode pooler. The same reason
+    // keeps relations out of this read: admin-file-read.ts says what replaces them.
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory), includeArchived ? { OR: [NOT_ARCHIVED, ARCHIVED_ONLY] } : NOT_ARCHIVED] },
-      include: { respondent: true, enterpriseDetail: true, cooperativeDetail: true, ctdDetail: true, ongDetail: true, administrationDetail: true, projectProgramDetail: true, vocationalTrainingDetail: true, establishment: { include: { company: { select: { yearOfCreation: true } } } }, assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
-        // The file this one corrects, if any: the queue named it until
-        // 2026-11-02; the file view now does (same select as the list).
-        supersedes: { select: { id: true, submissionId: true }, orderBy: { submissionDate: 'desc' }, take: 1 } },
     });
     if (!submission) throw new NotFoundException(`Questionnaire with id ${id} not found`);
-    // The establishment is loaded only for the registered founding year, which
-    // the review panel falls back to when the questionnaire collects none.
-    // It is flattened rather than returned, so the response gains one field
-    // and not the establishment row.
-    // The same establishment's last endorsed file for an earlier round, so the
-    // reviewer can compare figures. Same territory and archive rules as the file.
-    // Chosen by the round each file covers, not by filing date: a correction of
-    // T3 is filed after T4, and T4 is not its previous period.
-    const previousCandidates = submission.establishmentId && submission.submissionDate
-      ? await (this.prisma as any).onefopSubmission.findMany({
-        where: { AND: [
-          { establishmentId: submission.establishmentId },
-          { formType: submission.formType },
-          { id: { not: submission.id } },
-          { status: 'APPROVED' },
-          territoryWhere(territory),
-          NOT_ARCHIVED,
-        ] },
-        orderBy: [{ submissionDate: 'desc' }, { id: 'desc' }],
-        select: { id: true, quarterCode: true, submissionDate: true },
-      })
-      : [];
-    const previousId = pickPreviousPeriod(submission, previousCandidates);
-    const previousPeriod = previousId
-      ? await (this.prisma as any).onefopSubmission.findFirst({
-        where: { id: previousId },
-        select: { id: true, submissionId: true, quarterCode: true, rawData: true },
-      })
-      : null;
-    const { establishment, assignee, supersedes, claimActivityAt: _claimActivityAt, ...rest } = submission;
+    // Everything below depends only on the file, so it is read together.
+    const [details, respondent, context, previousPeriod] = await Promise.all([
+      loadFileDetail(this.prisma, submission),
+      (this.prisma as any).onefopRespondent.findUnique({ where: { submissionId: submission.id } }),
+      loadFileContext(this.prisma as any, submission.id),
+      this.findPreviousPeriod(submission, territory),
+    ]);
+    const { claimActivityAt: _claimActivityAt, ...rest } = submission;
     const claimState = getEffectiveClaimState(submission);
 
     return {
       ...rest,
+      ...details,
+      respondent,
       rawData: withoutStaffNames(rest.rawData, territory?.role),
-      yearOfCreation: establishment?.company?.yearOfCreation ?? null,
-      supersedes: supersedes?.[0] ? { id: supersedes[0].id, submissionId: supersedes[0].submissionId } : null,
+      // The registered founding year, which the review panel falls back to
+      // when the questionnaire collects none.
+      yearOfCreation: context?.yearOfCreation ?? null,
+      // The file this one corrects, if any: the queue named it until
+      // 2026-11-02; the file view now does.
+      supersedes: context?.supersedesId ? { id: context.supersedesId, submissionId: context.supersedesSubmissionId } : null,
       previousPeriod: previousPeriod
         ? { id: previousPeriod.id, submissionId: previousPeriod.submissionId, quarterCode: previousPeriod.quarterCode ?? null, rawData: withoutStaffNames(previousPeriod.rawData, territory?.role) }
         : null,
       assigneeId: claimState.assigneeId,
-      assigneeName: claimState.assigneeId ? assigneeName(assignee) : null,
+      assigneeName: claimState.assigneeId && context?.assigneeUserId
+        ? assigneeName({ firstName: context.assigneeFirstName, lastName: context.assigneeLastName, email: context.assigneeEmail })
+        : null,
       claimExpired: claimState.expired,
     };
+  }
+
+  /**
+   * The same establishment's last endorsed file for an earlier round, so the
+   * reviewer can compare figures. Same territory and archive rules as the file.
+   * Chosen by the round each file covers, not by filing date: a correction of
+   * T3 is filed after T4, and T4 is not its previous period.
+   */
+  private async findPreviousPeriod(submission: any, territory?: Territory) {
+    if (!submission.establishmentId || !submission.submissionDate) return null;
+    const candidates = await (this.prisma as any).onefopSubmission.findMany({
+      where: { AND: [
+        { establishmentId: submission.establishmentId },
+        { formType: submission.formType },
+        { id: { not: submission.id } },
+        { status: 'APPROVED' },
+        territoryWhere(territory),
+        NOT_ARCHIVED,
+      ] },
+      orderBy: [{ submissionDate: 'desc' }, { id: 'desc' }],
+      select: { id: true, quarterCode: true, submissionDate: true },
+    });
+    const previousId = pickPreviousPeriod(submission, candidates);
+    if (!previousId) return null;
+    return (this.prisma as any).onefopSubmission.findFirst({
+      where: { id: previousId },
+      select: { id: true, submissionId: true, quarterCode: true, rawData: true },
+    });
   }
 
   private async findSubmissionForArchive(tx: any, id: string) {

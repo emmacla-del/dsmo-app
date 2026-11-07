@@ -1,9 +1,11 @@
 // src/lib/onefop-entity-name.ts
 //
-// GET /admin/questionnaires does NOT return a flat `companyName`. The name
-// lives on whichever per-entity detail relation the submission has — see the
-// `include` in listForAdmin (src/questionnaires/questionnaires.service.ts),
-// and the column names on each Onefop*Detail model in prisma/schema.prisma:
+// GET /admin/questionnaires returns the resolved name as a flat `companyName`,
+// worked out in the same order as below by loadAdminListDisplay
+// (src/questionnaires/admin-list-rows.ts): keep the two in step. The other
+// sources are for payloads that carry the detail relations or rawData. The
+// name lives on whichever per-entity detail relation the submission has; see
+// the column names on each Onefop*Detail model in prisma/schema.prisma:
 //
 //   OnefopEnterpriseDetail         companyName
 //   OnefopCooperativeDetail        cooperativeName

@@ -1567,10 +1567,12 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
             status: OnefopStatus.PENDING_REVIEW,
             assigneeId: 'actor-1',
             claimActivityAt: activityAt,
-            assignee: { id: 'actor-1', firstName: 'A', lastName: 'Reviewer', email: 'a@example.test' },
           }]),
           count: jest.fn().mockResolvedValue(4),
         },
+        $queryRaw: jest.fn().mockResolvedValue([{
+          id: 'expired-1', assigneeUserId: 'actor-1', assigneeFirstName: 'A', assigneeLastName: 'Reviewer', assigneeEmail: 'a@example.test',
+        }]),
       };
       const service = new QuestionnairesService(prisma);
 
@@ -1590,17 +1592,47 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       expect(result.items[0]).not.toHaveProperty('claimActivityAt');
     });
 
-    it('projects the prior file reference for a resubmission from the supersedes relation', async () => {
+    it('projects the prior file reference for a resubmission', async () => {
       const prior = { id: 'prior-id', submissionId: 'ONEFOP-PRIOR' };
       const prisma: any = {
         onefopSubmission: {
-          findMany: jest.fn().mockResolvedValue([{ id: 'new-id', submissionId: 'ONEFOP-NEW', status: OnefopStatus.PENDING_REVIEW, supersedes: [prior] }]),
+          findMany: jest.fn().mockResolvedValue([{ id: 'new-id', submissionId: 'ONEFOP-NEW', status: OnefopStatus.PENDING_REVIEW }]),
           count: jest.fn().mockResolvedValue(1),
         },
+        $queryRaw: jest.fn().mockResolvedValue([{ id: 'new-id', supersedesId: prior.id, supersedesSubmissionId: prior.submissionId }]),
       };
       const result = await new QuestionnairesService(prisma).listForAdmin({ limit: 10, offset: 0 });
-      expect(prisma.onefopSubmission.findMany.mock.calls[0][0].include.supersedes).toEqual({ select: { id: true, submissionId: true }, orderBy: { submissionDate: 'desc' }, take: 1 });
       expect(result.items[0]).toMatchObject({ id: 'new-id', status: OnefopStatus.PENDING_REVIEW, supersedes: prior });
+    });
+
+    it('reads a row without the declaration, and shows its name, respondent and findings', async () => {
+      const findings = [{ isBlocking: false, status: 'OPEN', ruleCode: 'R1' }];
+      const prisma: any = {
+        onefopSubmission: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'file-1', status: OnefopStatus.PENDING_REVIEW }]),
+          count: jest.fn().mockResolvedValue(1),
+        },
+        $queryRaw: jest.fn().mockResolvedValue([{ id: 'file-1', entityName: 'Commune de Test', respondentName: 'R. Test', anomalies: findings }]),
+      };
+      const result = await new QuestionnairesService(prisma).listForAdmin({ limit: 10, offset: 0 });
+      const { select, include } = prisma.onefopSubmission.findMany.mock.calls[0][0];
+      expect(include).toBeUndefined();
+      for (const declaration of ['rawData', 'flags', 'metaJson']) expect(select).not.toHaveProperty(declaration);
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(result.items[0]).toMatchObject({ companyName: 'Commune de Test', respondent: { respondentName: 'R. Test' }, anomalies: findings });
+      expect(result.items[0]).not.toHaveProperty('rawData');
+    });
+
+    it('gives a row with nothing joined the empty values the screens expect', async () => {
+      const prisma: any = {
+        onefopSubmission: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'file-1', status: OnefopStatus.APPROVED }]),
+          count: jest.fn().mockResolvedValue(1),
+        },
+        $queryRaw: jest.fn().mockResolvedValue([{ id: 'file-1', entityName: null, respondentName: null, anomalies: null }]),
+      };
+      const result = await new QuestionnairesService(prisma).listForAdmin({ limit: 10, offset: 0 });
+      expect(result.items[0]).toMatchObject({ companyName: null, respondent: null, anomalies: [], supersedes: null, archivedByUser: null });
     });
 
     it('skips the page query for count-only requests while keeping the same assignment filter', async () => {
@@ -2635,36 +2667,28 @@ describe('QuestionnairesService — Phase E.1 Establishment Resolution', () => {
 // to the registered founding year when the questionnaire collects none, so
 // GET /admin/questionnaires/:id carries it as a top-level yearOfCreation.
 describe('QuestionnairesService.getById — registered founding year', () => {
-  function buildService(row: unknown) {
-    const prisma: any = { onefopSubmission: { findFirst: jest.fn().mockResolvedValue(row) } };
+  function buildService(row: unknown, yearOfCreation: string | null = null) {
+    const prisma: any = {
+      onefopSubmission: { findFirst: jest.fn().mockResolvedValue(row) },
+      onefopEnterpriseDetail: { findUnique: jest.fn().mockResolvedValue({ companyName: 'ACME', locality: 'Akwa', legalStatus: 'SARL/ LLC' }) },
+      onefopRespondent: { findUnique: jest.fn().mockResolvedValue(null) },
+      $queryRaw: jest.fn().mockResolvedValue([{ yearOfCreation }]),
+    };
     return { prisma, service: new QuestionnairesService(prisma) };
   }
 
-  it('returns the company yearOfCreation reached through the establishment', async () => {
-    const { prisma, service } = buildService({
-      id: 'sub-1',
-      enterpriseDetail: { companyName: 'ACME', locality: 'Akwa', legalStatus: 'SARL/ LLC' },
-      establishment: { id: 'est-1', address: 'Rue 1', company: { yearOfCreation: '1998' } },
-    });
+  it('returns the company yearOfCreation and the detail of the file\'s form', async () => {
+    const { prisma, service } = buildService({ id: 'sub-1', formType: 'ENTREPRISE' }, '1998');
 
     const result: any = await service.getById('sub-1');
 
     expect(result.yearOfCreation).toBe('1998');
     expect(result.enterpriseDetail).toEqual({ companyName: 'ACME', locality: 'Akwa', legalStatus: 'SARL/ LLC' });
-    expect(prisma.onefopSubmission.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        include: expect.objectContaining({
-          establishment: { include: { company: { select: { yearOfCreation: true } } } },
-        }),
-      }),
-    );
+    expect(prisma.onefopEnterpriseDetail.findUnique).toHaveBeenCalledWith({ where: { submissionId: 'sub-1' } });
   });
 
   it('does not expose the establishment row itself', async () => {
-    const { service } = buildService({
-      id: 'sub-1',
-      establishment: { id: 'est-1', address: 'Rue 1', company: { yearOfCreation: '1998' } },
-    });
+    const { service } = buildService({ id: 'sub-1' }, '1998');
 
     const result: any = await service.getById('sub-1');
 
@@ -2672,16 +2696,25 @@ describe('QuestionnairesService.getById — registered founding year', () => {
   });
 
   it('returns null, not "" or a placeholder, when the company has no yearOfCreation', async () => {
-    const { service } = buildService({
-      id: 'sub-1',
-      establishment: { id: 'est-1', address: 'Rue 1', company: { yearOfCreation: null } },
-    });
+    const { service } = buildService({ id: 'sub-1' }, null);
 
     const result: any = await service.getById('sub-1');
 
     expect(result.yearOfCreation).toBeNull();
   });
 
+  it('names the assignee only while the claim holds, and the file this one corrects', async () => {
+    const { prisma, service } = buildService({ id: 'sub-1', status: 'PENDING_REVIEW', assigneeId: 'a1' });
+    prisma.$queryRaw.mockResolvedValue([{
+      assigneeUserId: 'a1', assigneeFirstName: 'Ada', assigneeLastName: 'Ngo', assigneeEmail: 'a@example.test',
+      supersedesId: 'old', supersedesSubmissionId: 'ONF-OLD',
+    }]);
+
+    const result: any = await service.getById('sub-1');
+
+    expect(result).toMatchObject({ assigneeId: 'a1', assigneeName: 'Ada Ngo', supersedes: { id: 'old', submissionId: 'ONF-OLD' } });
+    expect(result).not.toHaveProperty('claimActivityAt');
+  });
   it('still reports an unknown or out-of-territory id as not found', async () => {
     const { service } = buildService(null);
     await expect(service.getById('missing')).rejects.toThrow(NotFoundException);

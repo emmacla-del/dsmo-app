@@ -285,6 +285,7 @@ describe('QuestionnairesService.listForAdmin', () => {
         findMany: jest.fn(async ({ take }: any) => rows(Math.min(take, 250))),
         count: jest.fn(async () => 250),
       },
+      $queryRaw: jest.fn(async () => []),
     };
     service = new QuestionnairesService(prisma);
   });

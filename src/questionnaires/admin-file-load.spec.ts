@@ -44,18 +44,26 @@ describe('staff names (8.8)', () => {
 
 describe('getById for the admin file page', () => {
   const load = async (role: string) => {
-    const findFirst = jest.fn().mockResolvedValue({ id: 'db-1', submissionId: 'ref-1', rawData: { ...RAW }, establishment: null });
-    const service = new QuestionnairesService({ onefopSubmission: { findFirst } } as any);
+    const findFirst = jest.fn().mockResolvedValue({ id: 'db-1', submissionId: 'ref-1', formType: 'VOCATIONAL_TRAINING', rawData: { ...RAW } });
+    const detail = { findUnique: jest.fn().mockResolvedValue({ name: 'CFP Test' }) };
+    const respondent = { findUnique: jest.fn().mockResolvedValue({ respondentName: 'R. Test' }) };
+    const prisma = { onefopSubmission: { findFirst }, onefopVocationalTrainingDetail: detail, onefopRespondent: respondent, $queryRaw: jest.fn().mockResolvedValue([]) };
+    const service = new QuestionnairesService(prisma as any);
     const found: any = await service.getById('ref-1', territory(role));
-    return { found, include: findFirst.mock.calls[0][0].include };
+    return { found, args: findFirst.mock.calls[0][0], detail };
   };
 
-  it('loads the respondent and the detail records, not the statistical tables', async () => {
-    const { include } = await load('SUPER_ADMIN');
-    expect(include.respondent).toBe(true);
-    expect(include.vocationalTrainingDetail).toBe(true);
+  it('loads the respondent and the detail of the file\'s form, not the statistical tables', async () => {
+    const { found, args, detail } = await load('SUPER_ADMIN');
+    expect(args.include).toBeUndefined();
+    expect(detail.findUnique).toHaveBeenCalledWith({ where: { submissionId: 'db-1' } });
+    expect(found.vocationalTrainingDetail).toEqual({ name: 'CFP Test' });
+    expect(found.respondent).toEqual({ respondentName: 'R. Test' });
+    for (const key of ['enterpriseDetail', 'cooperativeDetail', 'ctdDetail', 'ongDetail', 'administrationDetail', 'projectProgramDetail']) {
+      expect(found[key]).toBeNull();
+    }
     for (const table of ['vtDiplomaData', 'vtSpecialtyRows', 'vtTrainerRoster', 'cspGenderAge', 'trainingNeeds', 'projectProgramActivities']) {
-      expect(include[table]).toBeUndefined();
+      expect(found).not.toHaveProperty(table);
     }
   });
 

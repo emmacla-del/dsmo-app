@@ -340,8 +340,7 @@ export class AdminQuestionnairesController {
       {
         ...filters,
         sort: sortOrder as AdminListSort | undefined,
-        // limit=0 asks for the count alone: the caller wants `total` and no
-        // rows, and a listed row is a whole declaration with its rawData.
+        // limit=0 asks for the count alone: the caller wants `total` and no rows.
         limit: parseIntParam(limit, LIST_MAX_LIMIT, 0, LIST_MAX_LIMIT,
           `Le paramètre « limit » doit être un entier entre 0 et ${LIST_MAX_LIMIT}.`),
         offset: parseIntParam(offset, 0, 0, Number.MAX_SAFE_INTEGER,

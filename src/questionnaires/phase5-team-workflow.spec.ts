@@ -364,11 +364,10 @@ describe('Phase 5 team workflow', () => {
           status: 'PENDING_REVIEW',
           archivedAt: null,
           assigneeId: 'agent-1',
-          assignee: { id: 'agent-1', firstName: 'Ada', lastName: 'Ngo', email: 'agent@onefop.cm' },
-          campaign: null,
         }]),
         count: jest.fn(async () => 1),
       },
+      $queryRaw: jest.fn(async () => [{ id: 'sub-1', assigneeUserId: 'agent-1', assigneeFirstName: 'Ada', assigneeLastName: 'Ngo', assigneeEmail: 'agent@onefop.cm' }]),
       auditLog: {
         findMany: jest.fn(async () => []),
       },
@@ -509,22 +508,17 @@ describe('Phase 5 team workflow', () => {
             submissionId: 'SUB-1',
             status: 'PENDING_REVIEW',
             createdAt: new Date(),
-            campaign: null,
-            assignee: null,
-            company: { user: { status: 'ACTIVE' } },
           },
           {
             id: 'sub-2',
             submissionId: 'SUB-2',
             status: 'PENDING_REVIEW',
             createdAt: new Date(),
-            campaign: null,
-            assignee: null,
-            company: null,
           },
         ]),
         count: jest.fn(async () => 2),
       },
+      $queryRaw: jest.fn(async () => [{ id: 'sub-1', companyRegistrationStatus: 'ACTIVE' }, { id: 'sub-2', companyRegistrationStatus: null }]),
     };
     const service = new QuestionnairesService(prisma);
 

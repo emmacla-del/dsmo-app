@@ -118,8 +118,8 @@ describe('Phase 4 archive lifecycle', () => {
   });
 
   it('P4-9 default detail excludes archived and completed detail can explicitly include archived', async () => {
-    const findFirst = jest.fn(async () => ({ id: 'd1', rawData: {}, establishment: null }));
-    const service = new QuestionnairesService({ onefopSubmission: { findFirst } } as any);
+    const findFirst = jest.fn(async () => ({ id: 'd1', rawData: {} }));
+    const service = new QuestionnairesService({ onefopSubmission: { findFirst }, onefopRespondent: { findUnique: jest.fn().mockResolvedValue(null) }, $queryRaw: jest.fn().mockResolvedValue([]) } as any);
     await service.getById('d1');
     expect((findFirst.mock.calls as any)[0][0].where.AND).toContainEqual({ archivedAt: null });
     await service.getById('d1', undefined, true);

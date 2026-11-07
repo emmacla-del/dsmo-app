@@ -44,9 +44,10 @@ describe('Phase 1b dossier contract', () => {
   it('D-1 scopes the explicit three-status set to territory A and shares the page/count where', async () => {
     const prisma: any = {
       onefopSubmission: {
-        findMany: jest.fn(async () => [{ id: 'a-approved', campaign: null }]),
+        findMany: jest.fn(async () => [{ id: 'a-approved' }]),
         count: jest.fn(async () => 3),
       },
+      $queryRaw: jest.fn(async () => []),
     };
     const service = new QuestionnairesService(prisma);
     const controller = controllerFor(service);
@@ -202,14 +203,14 @@ describe('Phase 1b dossier contract', () => {
     const prisma: any = {
       onefopSubmission: {
         findMany: jest.fn(async () => [
-          { id: 'with-campaign', campaign: { name: 'Cycle A' }, reviewedBy: 'reviewer-1', reviewedAt: new Date('2026-01-02T00:00:00Z'), rejectionReason: null },
-          { id: 'without-campaign', campaign: null },
+          { id: 'with-campaign', reviewedBy: 'reviewer-1', reviewedAt: new Date('2026-01-02T00:00:00Z'), rejectionReason: null },
+          { id: 'without-campaign' },
         ]),
         count: jest.fn(async () => 2),
       },
+      $queryRaw: jest.fn(async () => [{ id: 'with-campaign', campaignName: 'Cycle A' }, { id: 'without-campaign', campaignName: null }]),
     };
     const result = await new QuestionnairesService(prisma).listForAdmin({ limit: 10, offset: 0 });
-    expect(prisma.onefopSubmission.findMany.mock.calls[0][0].include.campaign).toEqual({ select: { name: true } });
     expect(result.items[0]).toMatchObject({ campaignName: 'Cycle A', reviewedBy: 'reviewer-1', reviewedAt: '2026-01-02T00:00:00.000Z', rejectionReason: null });
     expect(result.items[1]).toMatchObject({ campaignName: null, reviewedBy: null, reviewedAt: null, rejectionReason: null });
     expect(Object.keys(result.items[1])).toEqual(expect.arrayContaining(['campaignName', 'reviewedBy', 'reviewedAt', 'rejectionReason']));

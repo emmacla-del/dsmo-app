@@ -56,7 +56,6 @@ describe('QuestionnairesService.getById — previous period', () => {
     quarterCode: '2026-T3',
     submissionDate: new Date('2026-10-19T00:00:00Z'),
     rawData: {},
-    establishment: null,
   };
   const earlier = { id: 'sub-1', submissionId: 'ONF-T2', quarterCode: '2026-T2', rawData: { S1Q01: 12 } };
   const candidate = { id: 'sub-1', quarterCode: '2026-T2', submissionDate: new Date('2026-07-19T00:00:00Z') };
@@ -65,7 +64,7 @@ describe('QuestionnairesService.getById — previous period', () => {
   it('returns the last endorsed earlier file of the same establishment and form', async () => {
     const findFirst = jest.fn().mockResolvedValueOnce(file).mockResolvedValueOnce(earlier);
     const findMany = jest.fn().mockResolvedValueOnce([candidate]);
-    const service = new QuestionnairesService({ onefopSubmission: { findFirst, findMany } } as any);
+    const service = new QuestionnairesService({ onefopSubmission: { findFirst, findMany }, onefopEnterpriseDetail: { findUnique: jest.fn().mockResolvedValue(null) }, onefopRespondent: { findUnique: jest.fn().mockResolvedValue(null) }, $queryRaw: jest.fn().mockResolvedValue([]) } as any);
 
     const result: any = await service.getById('sub-2', territory);
 
@@ -84,7 +83,7 @@ describe('QuestionnairesService.getById — previous period', () => {
   it('returns null when there is no earlier endorsed file', async () => {
     const findFirst = jest.fn().mockResolvedValueOnce(file);
     const findMany = jest.fn().mockResolvedValueOnce([]);
-    const service = new QuestionnairesService({ onefopSubmission: { findFirst, findMany } } as any);
+    const service = new QuestionnairesService({ onefopSubmission: { findFirst, findMany }, onefopEnterpriseDetail: { findUnique: jest.fn().mockResolvedValue(null) }, onefopRespondent: { findUnique: jest.fn().mockResolvedValue(null) }, $queryRaw: jest.fn().mockResolvedValue([]) } as any);
     const result: any = await service.getById('sub-2', territory);
     expect(result.previousPeriod).toBeNull();
     expect(findFirst).toHaveBeenCalledTimes(1);
