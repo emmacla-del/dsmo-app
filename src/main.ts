@@ -63,6 +63,10 @@ async function bootstrap() {
     // LocalizedHttpExceptionFilter). Must be listed, or a browser's preflight
     // refuses every request that carries it.
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Locale'],
+    // Let the browser reuse a preflight answer for two hours (Chromium's
+    // ceiling). Without it the answer is cached for 5 s, so most API calls
+    // paid a second round trip — 0.5–1 s each from Cameroon to Render.
+    maxAge: 7200,
   });
 
   app.useGlobalPipes(
