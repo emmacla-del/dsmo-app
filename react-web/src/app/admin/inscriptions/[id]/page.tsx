@@ -474,6 +474,7 @@ function RegistrationReview({ id }: { id: string }) {
   return (
     <div className="cam-admin-page cam-dossier-workspace-page cam-registration-review-page">
       <AdminPageHeader
+        record
         breadcrumb={breadcrumb}
         backHref={returnTo}
         title={<span className="cam-dossier-title-line">
@@ -754,9 +755,14 @@ function RegistrationReview({ id }: { id: string }) {
 
           {decidable && (
             <div className="cam-dossier-review-card cam-dossier-decision-state cam-registration-claim">
-              <span className="cam-admin-meta">
-                {ownsClaim ? t("claimYou") : claimedByOther ? t("claimOther", { name: item.assigneeName ?? NOT_PROVIDED }) : t("claimFree")}
-              </span>
+              {/* Board: « Réclamation » with who holds the file on the right. */}
+              <div className="cam-dossier-review-card-head">
+                <h2>{t("claimTitle")}</h2>
+                <AdminStatusBadge
+                  label={ownsClaim ? t("claimYou") : claimedByOther ? t("claimOther", { name: item.assigneeName ?? NOT_PROVIDED }) : t("claimFree")}
+                  variant={ownsClaim ? "active" : claimedByOther ? "correction" : "neutral"}
+                />
+              </div>
               {(ownsClaim || !item.assigneeId) && userId && (
                 <button
                   type="button"
@@ -837,9 +843,17 @@ function RegistrationReview({ id }: { id: string }) {
             <section className="cam-dossier-review-card cam-dossier-review-decisions" aria-labelledby="registration-decision-title">
               <h2 id="registration-decision-title">{t("decisionTitle")}</h2>
               {!canDecide ? (
-                <p className="cam-dossier-review-prompt">
-                  {claimedByOther ? t("claimOtherDecide", { name: item.assigneeName ?? NOT_PROVIDED }) : t("claimToDecide")}
-                </p>
+                // Board: the reason in a note, then the three decisions shown
+                // but unavailable, so the officer sees what claiming opens.
+                <>
+                  <p className="cam-admin-notice cam-admin-notice--info" role="note">
+                    {claimedByOther ? t("claimOtherDecide", { name: item.assigneeName ?? NOT_PROVIDED }) : t("claimToDecide")}
+                  </p>
+                  <Button type="button" disabled>{tq("approveAccount")}</Button>
+                  <Button type="button" variant="outline" disabled>{tq("requestComplements")}</Button>
+                  <Button type="button" variant="outline" className="cam-registration-reject" disabled>{tq("rejectAccount")}</Button>
+                  <p className="cam-registration-claim-hint">{t("reasonSent")}</p>
+                </>
               ) : <>
               {approveBlocked && <p id="registration-approve-blocked" className="cam-dossier-review-blocked">{approveBlocked}</p>}
               {complementsFirst && complementsButton("default")}

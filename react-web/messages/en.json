@@ -1586,6 +1586,11 @@
     }
   },
   "adminLayout": {
+    "mastheadSearchPlaceholder": "Search an establishment, a NIU, an identifier…",
+    "mastheadSearchLabel": "Search the establishment register",
+    "footerOwner": "© {year} ONEFOP — National Observatory of Employment and Vocational Training",
+    "footerPrivacy": "Personal data",
+    "footerHelp": "Help",
     "figuresUnavailable": "Figures unavailable for now.",
     "keyFigures": "Key figures",
     "loadingFigures": "Loading figures…",
@@ -1606,6 +1611,15 @@
     "coatOfArmsAlt": "Coat of arms of the Republic of Cameroon"
   },
   "adminSidebar": {
+    "group": {
+      "instruction": "Review",
+      "collecte": "Collection",
+      "donnees": "Data",
+      "systeme": "System"
+    },
+    "footPlatform": "ONEFOP platform · MINEFOP",
+    "footAssistance": "Support: {phone}",
+    "footAssistancePhone": "+237 6 51 96 59 05",
     "navAriaLabel": "Main navigation",
     "brandSubtitle": "National Observatory",
     "badgeAriaLabel": "{count, plural, one {# item} other {# items}}",
@@ -2103,6 +2117,17 @@
     "unsavedChanges": "Unsaved changes"
   },
   "adminDossiersPage": {
+    "queueFiguresLabel": "Review queue figures",
+    "kpiToReview": "To review",
+    "kpiToReviewHint": "Awaiting an officer’s decision",
+    "kpiBlocking": "With a blocking issue",
+    "kpiBlockingHint": "Cannot be endorsed as it stands",
+    "kpiOverdue": "Waiting more than {days} days",
+    "kpiOverdueHint": "Handle first",
+    "kpiCorrections": "Corrections requested",
+    "kpiCorrectionsHint": "Awaiting the respondent",
+    "kpiFilterHint": "Show these files in the list",
+    "queueFiguresNote": "The figures above cover your whole territory; filters change the list only.",
     "archiveDone": "The file was archived.",
     "restoreDone": "The file was restored.",
     "restoreFailed": "Restoring failed.",
@@ -4506,6 +4531,7 @@
     "filterCount": "{count, plural, =0 {No filter} one {# filter} other {# filters}}"
   },
   "adminRegistrationReview": {
+    "claimTitle": "Claim",
     "claimToDecide": "Claim this registration to decide: approve, request more information or reject.",
     "overdueSuffix": "overdue",
     "reasonTooShort": "The text needs at least {min} characters ({length}/{min}).",

@@ -169,6 +169,12 @@ export interface AdminPageHeaderProps {
   tabs?: AdminHeaderTab[];
   /** Hide horizontal sub-navigation tabs (useful on deep detail pages) */
   hideTabs?: boolean;
+  /**
+   * A record's header (a file under review): the breadcrumb above, then the
+   * title, facts and navigation in one card, as on the canvas boards
+   * (« Revue d'une inscription », « Revue d'un dossier »).
+   */
+  record?: boolean;
 }
 
 /**
@@ -189,15 +195,16 @@ export function AdminPageHeader({
   tabsAction,
   tabs,
   hideTabs = false,
+  record = false,
 }: AdminPageHeaderProps) {
   const t = useTranslations("adminPageHeader");
   const shouldHideTabs = hideTabs || (backHref !== undefined && tabs === undefined);
 
-  return (
-    <header className={`cam-admin-page-header${shouldHideTabs ? " cam-admin-page-header--no-tabs" : ""}`}>
+  const header = (
+    <header className={`cam-admin-page-header${shouldHideTabs ? " cam-admin-page-header--no-tabs" : ""}${record ? " is-record" : ""}`}>
       {/* ── Left: breadcrumb + title row + subtitle ── */}
       <div className="cam-admin-page-header-main">
-        {breadcrumb && breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} />}
+        {!record && breadcrumb && breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} />}
         {beforeTitle && <div className="cam-admin-page-header-before">{beforeTitle}</div>}
 
         <div className="cam-admin-page-title-row">
@@ -242,5 +249,12 @@ export function AdminPageHeader({
         )
       )}
     </header>
+  );
+  if (!record) return header;
+  return (
+    <>
+      {breadcrumb && breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} />}
+      {header}
+    </>
   );
 }

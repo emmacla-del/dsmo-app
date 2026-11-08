@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -631,12 +631,13 @@ function SubmissionDetailContent() {
     onError: refreshAfterRevisionConflict,
   });
 
-  const openCorrectionModal = () => {
+  const resetCorrection = correctionMutation.reset;
+  const openCorrectionModal = useCallback(() => {
     setCorrectionSuccess(false);
-    correctionMutation.reset();
+    resetCorrection();
     setCertifiedCorrection(false);
     setIsCorrectionOpen(true);
-  };
+  }, [resetCorrection, setCorrectionSuccess, setCertifiedCorrection, setIsCorrectionOpen]);
 
   // ── Reject State & Mutation (Retained) ──
   const [isRejectOpen, setIsRejectOpen] = useState(false);
@@ -697,13 +698,14 @@ function SubmissionDetailContent() {
     setIsReopenOpen(true);
   };
 
-  const openRejectModal = () => {
+  const resetReject = rejectMutation.reset;
+  const openRejectModal = useCallback(() => {
     setRejectSuccess(false);
-    rejectMutation.reset();
+    resetReject();
     setCertifiedReject(false);
     setRejectReason("");
     setIsRejectOpen(true);
-  };
+  }, [resetReject, setRejectSuccess, setCertifiedReject, setRejectReason, setIsRejectOpen]);
 
   const handledOpenCorrectionRef = useRef(false);
   useEffect(() => {
@@ -841,58 +843,25 @@ function SubmissionDetailContent() {
       if (latestDiagnostic.warningAnomalies.length > 0 && !approveComment.trim()) throw new Error(t("warningJustificationRequired"));
       return approveDossier(id, dossier.revision, approveComment);
     },
-    onSuccess: (approvedData: any) => {
-      preserveDossierRevision(approvedData);
+    onSuccess: (result: unknown) => {
+      preserveDossierRevision(result);
       setApproveSuccess(true);
-      // Defect 9: cancel any in-flight refetches for the dossier and diagnostic queries,
-      // and write the authoritative server update directly into query cache so the header,
-      // decision actions, and diagnostic state update immediately without a stale race.
-      queryClient.cancelQueries({ queryKey: ["admin", "dossier", id] });
-      queryClient.cancelQueries({ queryKey: ["admin", "diagnostic", id] });
-      if (canonicalId && canonicalId !== id) {
-        queryClient.cancelQueries({ queryKey: ["admin", "dossier", canonicalId] });
-        queryClient.cancelQueries({ queryKey: ["admin", "diagnostic", canonicalId] });
-      }
-
-      queryClient.setQueryData(["admin", "dossier", id], (old: any) => {
-        if (!old) return old;
-        return {
+      // Defect 9: cancel in-flight refetches of the dossier and its diagnostic,
+      // then write the confirmed decision into every cached copy of the
+      // dossier (with and without archived files) so the header and decision
+      // actions change at once; invalidateDossier() below reloads both from
+      // the server.
+      const approved = (result && typeof result === "object" ? result : {}) as Partial<Pick<AdminDossier, "revision" | "reviewedAt">>;
+      const ids = canonicalId && canonicalId !== id ? [id, canonicalId] : [id];
+      for (const dossierId of ids) {
+        queryClient.cancelQueries({ queryKey: ["admin", "dossier", dossierId] });
+        queryClient.cancelQueries({ queryKey: ["admin", "diagnostic", dossierId] });
+        // Prefix match: the page's own query key ends with includeArchived.
+        queryClient.setQueriesData<AdminDossier>({ queryKey: ["admin", "dossier", dossierId] }, (old) => old && {
           ...old,
           status: "APPROVED",
-          revision: approvedData?.revision ?? old.revision,
-          reviewedAt: approvedData?.reviewedAt ?? new Date().toISOString(),
-          reviewedBy: approvedData?.reviewedBy ?? old.reviewedBy,
-        };
-      });
-      if (canonicalId && canonicalId !== id) {
-        queryClient.setQueryData(["admin", "dossier", canonicalId], (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            status: "APPROVED",
-            revision: approvedData?.revision ?? old.revision,
-            reviewedAt: approvedData?.reviewedAt ?? new Date().toISOString(),
-            reviewedBy: approvedData?.reviewedBy ?? old.reviewedBy,
-          };
-        });
-      }
-
-      queryClient.setQueryData(["admin", "diagnostic", id], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          axis1Endorsed: true,
-          axis3Eligible: true,
-        };
-      });
-      if (canonicalId && canonicalId !== id) {
-        queryClient.setQueryData(["admin", "diagnostic", canonicalId], (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            axis1Endorsed: true,
-            axis3Eligible: true,
-          };
+          revision: typeof approved.revision === "number" ? approved.revision : old.revision,
+          reviewedAt: approved.reviewedAt ?? new Date().toISOString(),
         });
       }
 
@@ -902,12 +871,13 @@ function SubmissionDetailContent() {
     onError: refreshAfterRevisionConflict,
   });
 
-  const openApproveModal = () => {
+  const resetApprove = approveMutation.reset;
+  const openApproveModal = useCallback(() => {
     setApproveSuccess(false);
     setApproveComment("");
-    approveMutation.reset();
+    resetApprove();
     setIsApproveOpen(true);
-  };
+  }, [resetApprove, setApproveSuccess, setApproveComment, setIsApproveOpen]);
 
   const handledOpenApproveRef = useRef(false);
   useEffect(() => {
@@ -988,6 +958,7 @@ function SubmissionDetailContent() {
     return (
       <div className="cam-admin-page">
         <AdminPageHeader
+        record
           breadcrumb={breadcrumb}
           backHref={returnTo}
           // No number while loading: the URL may hold the database id or the
@@ -1027,6 +998,7 @@ function SubmissionDetailContent() {
           admin/layout.tsx already excludes this route from its own fallback
           header, so none of that needed re-adding. */}
       <AdminPageHeader
+        record
         breadcrumb={breadcrumb}
         backHref={returnTo}
         title={<span className="cam-dossier-title-line">

@@ -151,9 +151,18 @@ body:has(.cam-admin) {
   white-space: nowrap;
 }
 
-/* The old dossier-only top bar is gone; its offsets are reset here. */
-.cam-admin.cam-admin.is-dossier-workflow { grid-template-rows: none; background: var(--cam-bg); }
-.cam-admin.cam-admin.is-dossier-workflow .cam-admin-body { grid-row: auto; }
+/* The masthead spans the window above the rail (canvas boards,
+   2026-11-08): row 1 is the masthead, row 2 the rail and the page. */
+.cam-admin.cam-admin,
+.cam-admin.cam-admin.is-dossier-workflow { grid-template-rows: auto minmax(0, 1fr); background: var(--cam-bg); }
+.cam-admin-top { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+.cam-admin.cam-admin .cam-admin-rail { grid-row: 2; grid-column: 1; top: var(--cam-admin-flag-height); height: calc(100vh - var(--cam-admin-flag-height)); height: calc(100dvh - var(--cam-admin-flag-height)); }
+.cam-admin.cam-admin .cam-admin-body,
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-body { grid-row: 2; grid-column: 2; }
+@media (max-width: 1023px) {
+  .cam-admin.cam-admin .cam-admin-body,
+  .cam-admin.cam-admin.is-dossier-workflow .cam-admin-body { grid-column: 1; }
+}
 .cam-admin.cam-admin .cam-admin-main {
   padding-top: var(--cam-space-6);
 }
@@ -166,13 +175,24 @@ body:has(.cam-admin) {
     height: auto;
     min-height: 0;
   }
+  /* The window is the frame: masthead on top, the page fills the rest. */
+  .cam-admin.cam-admin.is-dossier-detail,
+  .cam-admin.cam-admin.is-review-detail {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+  }
   .cam-admin.cam-admin.is-dossier-detail .cam-admin-body,
   .cam-admin.cam-admin.is-review-detail .cam-admin-body {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - var(--cam-admin-flag-height));
-    height: calc(100dvh - var(--cam-admin-flag-height));
+    min-height: 0;
+    height: auto;
   }
+  .cam-admin.cam-admin.is-dossier-detail .cam-admin-rail,
+  .cam-admin.cam-admin.is-review-detail .cam-admin-rail { position: relative; top: 0; height: auto; }
+  .cam-admin.cam-admin.is-dossier-detail .cam-admin-footer,
+  .cam-admin.cam-admin.is-review-detail .cam-admin-footer { display: none; }
 }
 
 @media (max-width: 1023px) {
@@ -940,12 +960,14 @@ button.cam-kpi[aria-pressed="true"] {
 /* ── 13. Quick views on the registration queue (audit R-8) ──────────────
    Same look as the dossier queue's « Ma file / Non attribués » buttons,
    which are styled only under .is-dossier-workflow. */
+.cam-admin.cam-admin .cam-panel-quick-views,
 .cam-admin.cam-admin .cam-registration-filters > .cam-dossier-quick-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin: 0 0 var(--cam-space-3);
 }
+.cam-admin.cam-admin .cam-panel-quick-views .cam-dossier-quick-filter,
 .cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter {
   display: inline-flex;
   min-height: var(--cam-button-height);
@@ -960,6 +982,203 @@ button.cam-kpi[aria-pressed="true"] {
   font-weight: 600;
   cursor: pointer;
 }
+.cam-admin.cam-admin .cam-panel-quick-views .cam-dossier-quick-filter:hover,
 .cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter:hover { border-color: var(--cam-console-navy-42); background: var(--cam-console-navy-02); }
+.cam-admin.cam-admin .cam-panel-quick-views .cam-dossier-quick-filter[aria-pressed="true"],
 .cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter[aria-pressed="true"] { border-color: var(--cam-console-navy-44); background: var(--cam-console-navy-10); color: var(--cam-console-navy-50); }
+.cam-admin.cam-admin .cam-panel-quick-views .cam-dossier-quick-filter:focus-visible,
 .cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: 2px; }
+
+
+/* ── 14. Masthead bar: search, language, account (canvas boards) ─────── */
+.cam-admin-masthead-search {
+  display: flex;
+  flex: 1 1 280px;
+  align-items: center;
+  gap: var(--cam-space-2);
+  max-width: 520px;
+  height: 38px;
+  padding: 0 var(--cam-space-3);
+  border: var(--cam-border-width) solid var(--cam-slate-300);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-bg);
+  color: var(--cam-slate-500);
+}
+.cam-admin-masthead-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--cam-text);
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+}
+.cam-admin-masthead-search:focus-within { outline: 2px solid var(--cam-focus); outline-offset: 1px; background: var(--cam-surface); }
+.cam-admin-masthead-actions .cam-language-link { font-size: var(--cam-font-size-xs); }
+.cam-admin-account { position: relative; }
+.cam-admin-masthead .cam-admin-account-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-2-5, 10px);
+  width: auto;
+  min-height: 0;
+  padding: var(--cam-space-1) var(--cam-space-2) var(--cam-space-1) var(--cam-space-1);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  text-align: left;
+  cursor: pointer;
+}
+.cam-admin-masthead .cam-admin-account-trigger:hover { background: var(--cam-bg); }
+.cam-admin-masthead .cam-admin-account-trigger:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: 2px; }
+.cam-admin-masthead .cam-admin-rail-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-primary-dark);
+  color: var(--cam-white);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-bold);
+}
+.cam-admin-masthead .cam-admin-account-trigger-copy { display: flex; flex-direction: column; line-height: 1.15; }
+.cam-admin-masthead .cam-admin-rail-user-name { font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); color: var(--cam-text); }
+.cam-admin-masthead .cam-admin-rail-user-role { font-size: var(--cam-font-size-2xs); color: var(--cam-slate-500); }
+.cam-admin-masthead .cam-admin-account-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  min-width: 260px;
+  z-index: var(--cam-z-dialog);
+}
+@media (max-width: 1199px) {
+  .cam-admin-masthead .cam-admin-account-trigger-copy { display: none; }
+}
+@media (max-width: 767px) {
+  .cam-admin-masthead-search { display: none; }
+  .cam-admin-masthead-actions .cam-language-link { display: none; }
+}
+
+/* ── 15. Rail sections and foot (canvas boards) ─────────────────────────── */
+.cam-admin.cam-admin .cam-admin-rail-nav { gap: var(--cam-space-4); }
+.cam-admin-rail-group { display: flex; flex-direction: column; gap: 2px; }
+.cam-admin-rail-group-title {
+  padding: 0 10px 6px;
+  color: var(--cam-slate-500);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cam-admin-rail-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: auto;
+  padding: var(--cam-space-3) 10px 0;
+  border-top: var(--cam-border-width) solid var(--cam-border-soft);
+  color: var(--cam-slate-500);
+  font-size: var(--cam-font-size-2xs);
+}
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin.is-rail-compact .cam-admin-rail-group-title { visibility: hidden; height: 0; padding: 0; }
+  .cam-admin.cam-admin.is-rail-compact .cam-admin-rail-foot { display: none; }
+}
+
+/* ── 16. Console footer ─────────────────────────────────────────────────── */
+.cam-admin-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--cam-space-2);
+  margin-top: auto;
+  padding: var(--cam-space-3-5, 14px) var(--cam-space-6);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-slate-500);
+  font-size: var(--cam-font-size-2xs);
+}
+.cam-admin-footer a { color: var(--cam-primary); }
+.cam-admin.cam-admin .cam-admin-body { min-height: calc(100vh - var(--cam-admin-flag-height)); }
+
+/* ── 17. Page rhythm (canvas boards: one 20px step between blocks) ─────── */
+.cam-admin.cam-admin .cam-admin-page { gap: 20px; }
+.cam-admin.cam-admin .cam-admin-page > .cam-admin-page-header,
+.cam-admin.cam-admin .cam-admin-page > .cam-admin-tabs,
+.cam-admin.cam-admin .cam-admin-page > div:has(> .cam-kpi-strip) { margin-top: 0; margin-bottom: 0; }
+.cam-admin.cam-admin .cam-admin-page > .cam-admin-page-header { padding-bottom: 0; }
+/* Board order: search, pills, Filtres, Tout effacer, then (pushed right)
+   the order control and saved views. */
+.cam-admin.cam-admin .cam-filter-bar .cam-filter-bar-more { margin-inline-start: 0; }
+.cam-admin.cam-admin .cam-filter-bar .cam-sort-control { margin-left: auto; }
+.cam-admin.cam-admin .cam-panel-quick-views { margin: 0; }
+.cam-admin.cam-admin .cam-panel-quick-views .cam-dossier-quick-filter { min-height: 32px; padding: 4px 12px; }
+/* The language link in the masthead shows the language's name only. */
+.cam-admin-masthead .cam-language-link-code { display: none; }
+/* Logo and coat of arms sit over the rail column (owner, 2026-11-08). */
+@media (min-width: 1024px) {
+  .cam-admin-masthead-gov,
+  .cam-admin-masthead-bar { padding-left: var(--cam-space-4); }
+  .cam-admin-masthead-state,
+  .cam-admin-masthead-brand { min-width: calc(var(--cam-side-rail-width) - var(--cam-space-4)); }
+  .cam-admin.is-rail-compact .cam-admin-masthead-state,
+  .cam-admin.is-rail-compact .cam-admin-masthead-brand { min-width: 0; }
+  /* The rail reads as one white column down the page, as on the boards. */
+  .cam-admin.cam-admin { background: linear-gradient(to right, var(--cam-surface) var(--cam-side-rail-width), var(--cam-bg) var(--cam-side-rail-width)); }
+  .cam-admin.cam-admin .cam-admin-body { border-left: var(--cam-border-width) solid var(--cam-border); }
+  .cam-admin.cam-admin .cam-admin-rail { border-right: 0; }
+}
+
+/* ── 18. Dossier queue as on the board ─────────────────────────────────── */
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-queue-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--cam-space-3); }
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-queue-heading p { margin: 2px 0 0; color: var(--cam-slate-500); font-size: var(--cam-font-size-xs); }
+/* The table fits its card: actions are never cut off at the right edge. */
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-standard-table { width: 100%; min-width: 0; table-layout: auto; }
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-standard-table td:last-child,
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-standard-table th:last-child { padding-right: var(--cam-space-4); }
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-standard-table .cam-dossier-record-column { min-width: 14rem; }
+/* Figures span the page width in the dossier views too. */
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view > div:has(> .cam-kpi-strip) { width: 100%; align-self: stretch; margin: 0; }
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view { gap: 20px; }
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header,
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-tabs { margin-top: 0; margin-bottom: 0; }
+/* Phones: the CAMLEAP logo always shows; the console name gives way. */
+.cam-admin-masthead-brand img { flex-shrink: 0; }
+@media (max-width: 639px) {
+  .cam-admin-masthead-brand { flex-shrink: 0; }
+  .cam-admin-masthead-console { display: none; }
+  .cam-admin-masthead-bar { gap: var(--cam-space-2); }
+}
+@media (max-width: 639px) {
+  /* The territory is also in the account menu; the bar keeps bell and account. */
+  .cam-admin-masthead-scope { display: none; }
+}
+.cam-admin.cam-admin .cam-filter-bar .cam-sort-control ~ .cam-saved-views-trigger, .cam-admin.cam-admin .cam-filter-bar .cam-sort-control ~ * .cam-saved-views-trigger { margin-inline-start: 0; }
+
+/* ── 19. Review workspaces as on the boards ────────────────────────────── */
+/* The record's header is a card: title, status, facts, navigation. */
+.cam-admin.cam-admin .cam-admin-page-header.is-record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3) var(--cam-space-5);
+  margin: 0;
+  padding: 18px 20px;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+}
+.cam-admin.cam-admin .cam-admin-page-header.is-record .cam-admin-page-title { font-size: 24px; }
+.cam-admin.cam-admin .cam-registration-claim .cam-dossier-review-card-head h2 { margin: 0; font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); }
+.cam-admin.cam-admin .cam-dossier-review-decisions .cam-admin-notice { margin: 0; }
+/* The claim card says who holds the file in its badge; no extra dot. */
+.cam-admin.cam-admin .cam-dossier-review-card.cam-dossier-decision-state.cam-registration-claim { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; }
+.cam-admin.cam-admin .cam-dossier-review-card.cam-dossier-decision-state.cam-registration-claim::before { display: none; }
+.cam-admin.cam-admin .cam-registration-claim .cam-dossier-review-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--cam-space-2); }
