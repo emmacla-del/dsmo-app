@@ -4,12 +4,11 @@ import {
   APPROVAL_ROLES,
   AUDIT_ROLES,
   CAMPAIGN_ROLES,
+  COVERAGE_READ_ROLES,
   DIRECTORY_READ_ROLES,
   DIRECTORY_ROLES,
   MONITORING_ROLES,
   NATIONAL_ROLES,
-  PILOTAGE_READ_ROLES,
-  REGISTRATION_ROLES,
   SURVEY_READ_ROLES,
   SURVEY_ROLES,
   SETTINGS_ROLES,
@@ -23,7 +22,6 @@ import {
 // allowedRoles undefined = accessible to all console staff roles.
 
 export type HubKey =
-  | "supervision"
   | "equipe"
   | "inscriptions"
   | "teledeclarations"
@@ -67,30 +65,10 @@ export interface AdminHub {
 // ── Primary 6 Hubs Definition ────────────────────────────────────────────────
 
 export const ADMIN_HUBS: AdminHub[] = [
-  // Regrouped by the object the work is about (2026-10-23). A declaration used
-  // to cross four hubs -- its dashboard and visa queue under "supervision",
-  // its returns under "collecte", its anomalies under "qualite", its export
-  // under "donnees" -- so a reviewer's loop (queue, anomaly, back to queue)
-  // spanned two rail rows. Now "supervision" holds only the screens that
-  // decide nothing, and each decision queue sits with the object it decides
-  // on. The dashboard is one overview destination; territorial team activity
-  // has its own role-gated management destination.
-  {
-    key: "supervision",
-    label: "Tableau de bord",
-    href: "/admin/pilotage",
-    iconName: "dashboard",
-    allowedRoles: [...PILOTAGE_READ_ROLES, ...DIRECTORY_READ_ROLES],
-    matchPrefixes: ["/admin/pilotage"],
-    subRoutes: [
-      {
-        label: "Tableau de bord",
-        labelKey: "pilotage",
-        href: "/admin/pilotage",
-        allowedRoles: [...PILOTAGE_READ_ROLES, ...DIRECTORY_READ_ROLES],
-      },
-    ],
-  },
+  // Regrouped by the object the work is about (2026-10-23): each decision queue
+  // sits with the object it decides on. The dashboard hub was withdrawn on
+  // 2026-11-07 until the dashboard is rebuilt; territorial team activity has
+  // its own role-gated management destination.
   {
     key: "equipe",
     label: "Équipe territoriale",
@@ -111,6 +89,9 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
       { label: "Examen des inscriptions", labelKey: "inscriptions", href: "/admin/inscriptions", allowedRoles: APPROVAL_ROLES },
+      // A view of the same page, listed in the rail rather than as a tab row
+      // over the page (owner, 2026-11-08: « release the space »).
+      { label: "Organisations enregistrées", labelKey: "organisations", href: "/admin/inscriptions?vue=organisations", allowedRoles: APPROVAL_ROLES },
       // The register is what an approved registration becomes, so it sits in
       // the same hub instead of the one-page "declarants" hub it had.
       { label: "Registre des établissements", labelKey: "etablissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_READ_ROLES },
@@ -138,6 +119,9 @@ export const ADMIN_HUBS: AdminHub[] = [
     matchPrefixes: ["/admin/dossiers", "/admin/centre-qualite"],
     subRoutes: [
       { label: "Examen des télédéclarations", labelKey: "dossiers", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: SURVEY_READ_ROLES },
+      // Views of the same page, in the rail rather than a tab row (owner, 2026-11-08).
+      { label: "Dossiers terminés", labelKey: "dossiersTermines", href: "/admin/dossiers?vue=completed", allowedRoles: SURVEY_READ_ROLES },
+      { label: "Relances", labelKey: "relances", href: "/admin/dossiers?vue=followup", allowedRoles: SURVEY_READ_ROLES },
       // Moved here from the former "qualite" hub: an anomaly is a reason to
       // send a file back, so it belongs beside the queue that sends it.
       // Consequence to know: CENTRAL_AGENT's profile hid that hub, while
@@ -164,14 +148,14 @@ export const ADMIN_HUBS: AdminHub[] = [
     label: "Gestion des campagnes",
     href: "/admin/campagnes",
     iconName: "collecte",
-    allowedRoles: [...SURVEY_ROLES, ...REGISTRATION_ROLES],
+    allowedRoles: [...SURVEY_ROLES, ...COVERAGE_READ_ROLES],
     matchPrefixes: ["/admin/campagnes", "/admin/cibles", "/admin/questionnaires"],
     subRoutes: [
       { label: "Campagnes", labelKey: "campagnes", href: "/admin/campagnes", allowedRoles: CAMPAIGN_ROLES },
       // Submission quotas/returns and registration coverage stay under one
       // campaign-targets route. Their view-level role gates keep the two
       // specialist workflows separate while shared admins can see both.
-      { label: "Quotas et rapports de campagne", labelKey: "cibles", href: "/admin/cibles", allowedRoles: [...SURVEY_ROLES, ...REGISTRATION_ROLES] },
+      { label: "Quotas et rapports de campagne", labelKey: "cibles", href: "/admin/cibles", allowedRoles: [...SURVEY_ROLES, ...COVERAGE_READ_ROLES] },
       { label: "Formulaires d’enquête", labelKey: "questionnaires", href: "/admin/questionnaires", allowedRoles: SURVEY_ROLES },
     ],
   },

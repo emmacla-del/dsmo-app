@@ -1566,6 +1566,9 @@
       "administration": "Administration"
     },
     "routes": {
+      "dossiersTermines": "Dossiers terminés",
+      "relances": "Relances",
+      "organisations": "Organisations enregistrées",
       "dossiers": "Examen des télédéclarations",
       "equipe": "Équipe territoriale",
       "campagnes": "Campagnes",

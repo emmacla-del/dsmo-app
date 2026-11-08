@@ -1566,6 +1566,9 @@
       "administration": "Administration"
     },
     "routes": {
+      "dossiersTermines": "Completed files",
+      "relances": "Follow-ups",
+      "organisations": "Registered organisations",
       "dossiers": "Submission review",
       "equipe": "Territorial team",
       "campagnes": "Campaigns",

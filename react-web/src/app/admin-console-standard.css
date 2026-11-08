@@ -1182,3 +1182,33 @@ button.cam-kpi[aria-pressed="true"] {
 .cam-admin.cam-admin .cam-dossier-review-card.cam-dossier-decision-state.cam-registration-claim { display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; }
 .cam-admin.cam-admin .cam-dossier-review-card.cam-dossier-decision-state.cam-registration-claim::before { display: none; }
 .cam-admin.cam-admin .cam-registration-claim .cam-dossier-review-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--cam-space-2); }
+
+/* ── 20. Column proportions in every console list ─────────────────────────
+   Older rules pinned each column to a width written for an earlier column
+   set (percentages and !important pixels), and the record column took
+   width:100%, so spare width piled up after one column. Every width is
+   reset here; the record column takes one fixed share, the actions column
+   shrinks to its buttons and the others share the rest by content.
+   Tripled classes and !important: the old rules use both. */
+/* Phones keep the stacked records (section 7). */
+@media (min-width: 640px) {
+  .cam-admin.cam-admin.cam-admin :is(.cam-register-table, .cam-registration-queue-table, .cam-registration-organisations-table, .cam-dossier-standard-table, .cam-dossier-completed-table, .cam-dossier-submissions-table, .cam-dossier-review-queue-table) :is(th, td) {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .cam-admin.cam-admin.cam-admin .cam-register-table thead th:first-child { width: 34% !important; }
+  .cam-admin.cam-admin.cam-admin .cam-registration-organisations-table thead th:first-child { width: 46% !important; }
+  .cam-admin.cam-admin.cam-admin .cam-registration-organisations-table thead th:nth-child(2) { width: 20% !important; }
+  .cam-admin.cam-admin.cam-admin .cam-registration-queue-table thead th:first-child { width: 28% !important; }
+  .cam-admin.cam-admin.cam-admin :is(.cam-dossier-standard-table, .cam-dossier-completed-table) thead th.cam-dossier-record-column,
+  .cam-admin.cam-admin.cam-admin .cam-dossier-completed-table thead th:first-child { width: 28% !important; }
+  .cam-admin.cam-admin.cam-admin :is(.cam-dossier-standard-table, .cam-dossier-completed-table) thead th.cam-dossier-select-column { width: 44px !important; }
+  .cam-admin.cam-admin.cam-admin :is(.cam-register-table, .cam-registration-queue-table, .cam-registration-organisations-table, .cam-dossier-standard-table, .cam-dossier-completed-table) thead th:last-child { width: 1% !important; white-space: nowrap; }
+}
+/* The table spans the whole card: the container's negative side margins
+   only widen it when its width is not pinned to 100%. */
+.cam-admin.cam-admin .cam-admin-table-panel-body > [data-slot="table-container"] { width: auto; }
+/* Control badges stack, one per line, so the column stays as narrow as its
+   widest badge and the table fits its card. */
+.cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-validation-summary { flex-direction: column; align-items: flex-start; }

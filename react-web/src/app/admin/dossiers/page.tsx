@@ -1341,14 +1341,6 @@ function DossiersContent({
     ]);
   }
 
-  const legacyFilterClear = {
-    status: null, sort: null, companyId: null, region: null, department: null,
-    quarterCode: null, late: null, overdue: null, assignedToMe: null,
-    formType: null, period: null, search: null, q: null, includeArchived: null,
-  };
-  const viewHref = (target: "submissions" | "completed" | "followup") =>
-    hrefWith(pathname, searchParams.toString(), { ...legacyFilterClear, preview: null, vue: target, queueView: target === "submissions" ? requestedQueueView || null : null });
-
   const submissionFilterSidebar = vue === "submissions" ? <aside
     id="cam-dossier-filter-panel"
     className={`cam-dossier-filter-sidebar${filterPanelOpen ? " is-open" : ""}`}
@@ -1476,26 +1468,9 @@ function DossiersContent({
           <AdminHeaderActions showCampaignPill={false} />
         </div>
       )}
-      tabs={[
-        {
-          label: t("viewSubmissions"),
-          href: viewHref("submissions"),
-          isActive: activeView === "submissions",
-          // What the reviewers can act on: files awaiting review. Files sent
-          // back for correction wait on the respondent and keep their own view.
-          badge: queueStatusCounts?.PENDING_REVIEW,
-        },
-        {
-          label: t("viewCompleted"),
-          href: viewHref("completed"),
-          isActive: activeView === "completed",
-        },
-        {
-          label: t("viewFollowUp"),
-          href: viewHref("followup"),
-          isActive: activeView === "followup",
-        },
-      ]}
+      // The three views are listed in the rail (owner, 2026-11-08: « release
+      // the space »); the page keeps its title, which names the view.
+      hideTabs
     />
   );
 
@@ -1607,6 +1582,25 @@ function DossiersContent({
         />
       )}
 
+      {/* Review queue: four figures from the server's queue counts over the
+          reader's territory, each a filter on the list (canvas board
+          « Examen des télédéclarations »). The board's response rate needs
+          the campaign's expected establishments, which this page does not
+          read, so it is not shown rather than estimated. */}
+      {vue === "submissions" && queues && (
+        <AdminKpiStrip
+          label={t("queueFiguresLabel")}
+          loadingLabel={tRoot("adminLayout.loadingFigures")}
+          errorLabel={tRoot("adminLayout.figuresUnavailable")}
+          items={[
+            { key: "pending", label: t("kpiToReview"), value: count(queues.statusCounts.PENDING_REVIEW ?? 0, locale), hint: t("kpiToReviewHint"), tone: "warning", pressed: filterParam("status") === "PENDING_REVIEW" && !qualityFilter && !overdueFilter, onSelect: () => setUrlFilter({ status: filterParam("status") === "PENDING_REVIEW" ? null : "PENDING_REVIEW", quality: null, overdue: null }), selectHint: t("kpiFilterHint") },
+            { key: "blocking", label: t("kpiBlocking"), value: count(queues.blockingAnomaliesCount ?? 0, locale), hint: t("kpiBlockingHint"), tone: "danger", pressed: qualityFilter === "blocking", onSelect: () => setUrlFilter({ quality: qualityFilter === "blocking" ? null : "blocking" }), selectHint: t("kpiFilterHint") },
+            { key: "overdue", label: overdueDays !== undefined ? t("kpiOverdue", { days: overdueDays }) : t("overdueBadge"), value: count(queues.reviewDelay.pendingOverThresholdCount ?? 0, locale), hint: t("kpiOverdueHint"), tone: "info", pressed: overdueFilter, onSelect: () => setOverdue(!overdueFilter), selectHint: t("kpiFilterHint") },
+            { key: "corrections", label: t("kpiCorrections"), value: count(queues.statusCounts.CORRECTION_REQUESTED ?? 0, locale), hint: t("kpiCorrectionsHint"), tone: "info", pressed: statusFilter === "CORRECTION_REQUESTED", onSelect: () => setStatus(statusFilter === "CORRECTION_REQUESTED" ? "" : "CORRECTION_REQUESTED"), selectHint: t("kpiFilterHint") },
+          ]}
+        />
+      )}
+
       {/* ── Filters, toolbar and table share one card. ── */}
       <AdminTablePanel
         headingId={`dossiers-${vue}-heading`}
@@ -1639,7 +1633,13 @@ function DossiersContent({
           />
         )}
       >
-        {vue === "submissions" && <h2 id={`dossiers-${vue}-heading`} className="cam-sr-only">{t("queueHeading")}</h2>}
+        {/* Card heading as on the board: the list's name and what the figures cover. */}
+        {vue === "submissions" && <CardContent className="cam-dossier-completed-heading cam-dossier-queue-heading">
+          <div>
+            <h2 id={`dossiers-${vue}-heading`}>{t("queueHeading")}</h2>
+            <p>{t("queueFiguresNote")}</p>
+          </div>
+        </CardContent>}
         {vue === "completed" && <CardContent className="cam-dossier-completed-heading">
           <h2 id={`dossiers-${vue}-heading`}>{t("completedHeading")}</h2>
           {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
@@ -1932,7 +1932,9 @@ function DossiersContent({
                         read in the file itself; the queue says what to pick up. */}
                     <div className="cam-dossier-record-stack">
                       <Link className="cam-dossier-record-name cam-dossier-record-link" href={detailHref} title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</Link>
+                      {/* Board row: the file number in mono, then the form. */}
                       <span className="cam-dossier-cell-secondary" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>
+                        {d.submissionId && <><span className="cam-record-cell-ref">{d.submissionId}</span> · </>}
                         {d.formType ? queueTypeLabel(d.formType) : NOT_PROVIDED}
                         {d.supersedes && <> · {t("correctionMarker")}</>}
                       </span>

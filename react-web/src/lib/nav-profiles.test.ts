@@ -18,11 +18,18 @@ test("every staff role starts on a page it may open, so the role gate cannot red
   }
 });
 
-test("AUDITOR starts on the audit journal; every other staff role keeps the dashboard", () => {
+test("each staff role starts on the first page its rail offers", () => {
   assert.equal(adminHomeFor("AUDITOR"), "/admin/journal-audit");
-  for (const role of ALL_ROLES.filter((r) => r !== "COMPANY" && r !== "AUDITOR")) {
-    assert.equal(adminHomeFor(role), "/admin/pilotage", role);
+  assert.equal(adminHomeFor("CENTRAL_AGENT"), "/admin/etablissements");
+  assert.equal(adminHomeFor("ADMIN_ONEFOP_SUBMISSIONS"), "/admin/dossiers");
+  for (const role of ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_REGISTRATIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN"] as const) {
+    assert.equal(adminHomeFor(role), "/admin/inscriptions", role);
   }
+});
+
+test("a role with no rail starts outside the console", () => {
+  assert.equal(adminHomeFor("COMPANY"), "/home");
+  assert.equal(adminHomeFor(null), "/home");
 });
 
 test("NAV_PROFILES covers every role exactly once", () => {
@@ -40,14 +47,14 @@ test("every hub named in every profile resolves to a hub in ADMIN_HUBS", () => {
 
 test("each role's rail is exactly its profile, in declared order", () => {
   const expected: Record<UserRole, string[]> = {
-    SUPER_ADMIN: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
-    ADMIN_ONEFOP: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
-    ADMIN_ONEFOP_REGISTRATIONS: ["supervision", "inscriptions", "collecte"],
-    ADMIN_ONEFOP_SUBMISSIONS: ["supervision", "teledeclarations", "collecte", "donnees"],
-    REGIONAL_ADMIN: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe"],
-    DIVISIONAL_ADMIN: ["supervision", "inscriptions", "teledeclarations", "collecte"],
+    SUPER_ADMIN: ["inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
+    ADMIN_ONEFOP: ["inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
+    ADMIN_ONEFOP_REGISTRATIONS: ["inscriptions", "collecte"],
+    ADMIN_ONEFOP_SUBMISSIONS: ["teledeclarations", "collecte", "donnees"],
+    REGIONAL_ADMIN: ["inscriptions", "teledeclarations", "collecte", "equipe"],
+    DIVISIONAL_ADMIN: ["inscriptions", "teledeclarations", "collecte"],
     AUDITOR: ["administration"],
-    CENTRAL_AGENT: ["supervision", "inscriptions", "teledeclarations"],
+    CENTRAL_AGENT: ["inscriptions", "teledeclarations", "collecte"],
     COMPANY: [],
   };
 
@@ -77,17 +84,13 @@ test("a shared hub resolves to a different landing route per role", () => {
   const onefopAdmin = navHubsFor("ADMIN_ONEFOP").find((h) => h.key === "administration");
   assert.deepEqual(onefopAdmin?.subRoutes.map((r) => r.href), ["/admin/utilisateurs", "/admin/annuaire?tab=users"]);
 
-  // Dashboard is a single overview destination. Team monitoring is its own
-  // role-gated hub, separate from the dashboard page.
+  // Team monitoring is its own role-gated hub.
   const subs = (role: UserRole, key: string) =>
     navHubsFor(role).find((h) => h.key === key)?.subRoutes.map((r) => r.href);
-  assert.deepEqual(subs("REGIONAL_ADMIN", "supervision"), ["/admin/pilotage"]);
-  assert.deepEqual(subs("ADMIN_ONEFOP", "supervision"), ["/admin/pilotage"]);
-  assert.deepEqual(subs("DIVISIONAL_ADMIN", "supervision"), ["/admin/pilotage"]);
-  assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "inscriptions"), ["/admin/inscriptions", "/admin/etablissements"]);
+  assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "inscriptions"), ["/admin/inscriptions", "/admin/inscriptions?vue=organisations", "/admin/etablissements"]);
   assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "collecte"), ["/admin/cibles"]);
   assert.equal(landing("ADMIN_ONEFOP_REGISTRATIONS", "collecte"), "/admin/cibles");
-  assert.deepEqual(subs("ADMIN_ONEFOP_SUBMISSIONS", "teledeclarations"), ["/admin/dossiers", "/admin/centre-qualite"]);
+  assert.deepEqual(subs("ADMIN_ONEFOP_SUBMISSIONS", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=completed", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
   assert.equal(subs("ADMIN_ONEFOP_REGISTRATIONS", "teledeclarations"), undefined);
   assert.equal(subs("ADMIN_ONEFOP_SUBMISSIONS", "inscriptions"), undefined);
   assert.deepEqual(subs("REGIONAL_ADMIN", "equipe"), ["/admin/equipe"]);
@@ -96,15 +99,17 @@ test("a shared hub resolves to a different landing route per role", () => {
 
   // Each decision queue sits with the object it decides on, and the hidden
   // entries (the registration form, the establishment detail page) stay out.
-  assert.deepEqual(subs("DIVISIONAL_ADMIN", "inscriptions"), ["/admin/inscriptions", "/admin/etablissements"]);
-  assert.deepEqual(subs("DIVISIONAL_ADMIN", "teledeclarations"), ["/admin/dossiers", "/admin/centre-qualite"]);
+  assert.deepEqual(subs("DIVISIONAL_ADMIN", "inscriptions"), ["/admin/inscriptions", "/admin/inscriptions?vue=organisations", "/admin/etablissements"]);
+  assert.deepEqual(subs("DIVISIONAL_ADMIN", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=completed", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
 
   // CENTRAL_AGENT may look and never act. Outside APPROVAL_ROLES it gets the
   // register without the registration queue, so "inscriptions" lands on the
   // register; inside ADMIN_ROLES it reaches both declaration pages.
   assert.equal(landing("CENTRAL_AGENT", "inscriptions"), "/admin/etablissements");
   assert.deepEqual(subs("CENTRAL_AGENT", "inscriptions"), ["/admin/etablissements"]);
-  assert.deepEqual(subs("CENTRAL_AGENT", "teledeclarations"), ["/admin/dossiers", "/admin/centre-qualite"]);
+  assert.deepEqual(subs("CENTRAL_AGENT", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=completed", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
+  assert.deepEqual(subs("CENTRAL_AGENT", "collecte"), ["/admin/cibles"]);
+  assert.equal(landing("CENTRAL_AGENT", "collecte"), "/admin/cibles");
 
   // "collecte" splits the two territorial roles: DIVISIONAL_ADMIN is outside
   // CAMPAIGN_ROLES, so campagnes is hidden and the hub lands on the quotas.
