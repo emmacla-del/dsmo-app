@@ -28,6 +28,7 @@ import { formatApiError } from "@/lib/pilotage-targets";
 import {
   NOT_PROVIDED,
   count,
+  elapsedSince,
   fact,
   resolveDataState,
   stamp,
@@ -298,7 +299,7 @@ function EtablissementDetail() {
         subtitle={<span className="cam-dossier-header-facts">
           {company.entityType && <span>{typeDisplay(company.entityType)}</span>}
           <span>{t("idLabel")} <span className="cam-registration-ref">{fact(company.establishmentId)}</span></span>
-          <span>{[company.region, company.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span>
+          <span>{[company.region, company.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</span>
           {company.mainActivity && <span>{company.mainActivity}</span>}
         </span>}
         statusBadge={
@@ -394,7 +395,7 @@ function EtablissementDetail() {
             headingId="etab-submissions-title"
             actions={<Button asChild variant="link" size="sm"><Link href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}>{t("allFilesLink")}</Link></Button>}
           >
-            <Table>
+            <Table className="cam-table-stack cam-register-table cam-etab-submissions-table">
                 <TableHeader><TableRow>
                     <TableHead scope="col">{t("submissionColumn.reference")}</TableHead>
                     <TableHead scope="col">{t("submissionColumn.type")}</TableHead>
@@ -415,15 +416,21 @@ function EtablissementDetail() {
                   {submissionsState === "ready" &&
                     submissionsQuery.data?.items.map((sub) => (
                       <TableRow key={sub.id}>
-                        <TableCell className="font-mono font-medium" title={sub.submissionId || sub.id}>{shortRecordId(sub.submissionId || sub.id)}</TableCell>
-                        <TableCell>{typeDisplay(sub.formType)}</TableCell>
-                        <TableCell>{stamp(sub.submissionDate || sub.createdAt, true, locale)}</TableCell>
-                        <TableCell>
+                        <TableCell className="cam-cell-nowrap"><span className="cam-record-cell-ref" title={sub.submissionId || sub.id}>{shortRecordId(sub.submissionId || sub.id)}</span></TableCell>
+                        <TableCell data-label={t("submissionColumn.type")}>
+                          {sub.formType && <span className="cam-tag" title={typeDisplay(sub.formType)}>
+                            {tRoot.has(`adminInscriptionsPage.entityShort.${sub.formType}`) ? tRoot(`adminInscriptionsPage.entityShort.${sub.formType}`) : typeDisplay(sub.formType)}
+                          </span>}
+                        </TableCell>
+                        <TableCell data-label={t("submissionColumn.received")} className="cam-cell-nowrap">
+                          <span title={stamp(sub.submissionDate || sub.createdAt, true, locale)}>{elapsedSince(sub.submissionDate || sub.createdAt, locale)}</span>
+                        </TableCell>
+                        <TableCell data-label={t("submissionColumn.status")}>
                           <Badge variant={sub.status ? SUBMISSION_STATUS_BADGE[sub.status] ?? "neutral" : "neutral"}>
                             {sub.status ? SUBMISSION_STATUS_KEYS[sub.status] ? tRoot(SUBMISSION_STATUS_KEYS[sub.status]) : sub.status : ""}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="cam-cell-action text-right">
                           <Button asChild variant="outline" size="sm"><Link href={`/admin/dossiers/${encodeURIComponent(sub.id)}`}>
                             {t("openLink")}
                           </Link></Button>

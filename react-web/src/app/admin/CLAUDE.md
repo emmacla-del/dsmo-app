@@ -1,7 +1,7 @@
 # Admin console — UI/UX rules
 
 Applies to everything under `src/app/admin/**` and `src/components/admin/**`.
-Layout map: `docs/standards/admin-layout-spec.md` (revision 2). Classes and components: `docs/standards/ui-grammar.md` (G1–G17). Values: `src/app/tokens.css`.
+Layout map: `docs/standards/admin-layout-spec.md` (revision 3; §11 lists what changed). Shared revision-3 rules: `src/app/admin-console-standard.css`, loaded after `admin-console.css`. Classes and components: `docs/standards/ui-grammar.md` (G1–G17). Values: `src/app/tokens.css`.
 When this file and the spec disagree, the spec wins; fix this file.
 
 ## Before you change a screen
@@ -13,13 +13,14 @@ When this file and the spec disagree, the spec wins; fix this file.
 
 ## Console rail
 
-- One rail on every page (`layout.tsx`, `AdminSidebar`): from 1024px an icon strip by default; a hub's flyout shows its name and pages; « Afficher les libellés du menu » expands it, remembered per browser (`lib/admin-rail-preference.ts`). Don't add page-specific rail rules; the shell classes are `is-rail-compact` / `is-rail-expanded`.
+- Every console page opens with the institutional masthead (`AdminMasthead`): tricolour line, coat of arms and « République du Cameroun », then CAMLEAP, « Console des agents », the locked scope and notifications. Don't build page-level brand bars.
+- One rail on every page (`layout.tsx`, `AdminSidebar`): light, **labelled by default** from 1024px; the open hub lists its pages under it. « Réduire le menu » turns it into an icon strip, remembered per browser (`lib/admin-rail-preference.ts`, stored only as `"0"`). Don't add page-specific rail rules; the shell classes are `is-rail-compact` / `is-rail-expanded`.
 - Below 1024px the rail is the drawer; flyouts and the expand control are hidden there.
 
 ## Page frame
 
 - Root `.cam-admin-page`; header `AdminPageHeader` only, never a hand-built `<h1>` (G2, G3).
-- Page title = its nav label. Breadcrumb on every page below a hub.
+- Page title = its nav label, or the view's label when the route has views (« Relances », « Dossiers terminés »), with a one-line purpose under it. Breadcrumb on every page below a hub. The console face is IBM Plex Sans, titles included.
 - The header holds route actions (create, export of the route). **Search and filters never go in the header**; they sit with the results they change.
 - One primary button per view (G5).
 
@@ -29,13 +30,16 @@ When this file and the spec disagree, the spec wins; fix this file.
 
 ## Lists and queues
 
-- Order: views/tabs → filter bar → result count + chips → table → pagination / selection toolbar.
+- Order: views/tabs → key figures (`AdminKpiStrip`) → filter bar → result count + chips → table → pagination / selection toolbar.
+- Key figures: one strip, at most four, each a filter on the list, with a one-line note saying what they cover. While loading or after a failure the strip is a status line, never a placeholder figure.
 - Filter bar (spec §4F): search, then at most four `AdminFilterPill`s chosen for the role's daily task, then « Filtres » (a panel holding every filter), then « Tout effacer » when something is active.
 - Pills are single-choice and apply at once. A filter shown as a pill is never repeated as a chip. The « Filtres » count covers only filters without a pill.
 - Territorial roles get an `AdminLockedFilterPill` with their scope instead of a region filter they can't really use.
 - Every filter, view and page lives in the URL through `hrefWith` (G15).
 - Tabs decide *whose* items are listed; filters narrow them. Don't mix the two.
-- Wide tables scroll inside their own region (labelled, focusable); the first column may be sticky.
+- Table conventions (spec §11): a record cell first (name, then reference and short type tag); « Région · Département » in one column; relative age with the full stamp as `title`; the order control always visible at the end of the filter bar; `AdminNumberedPager` in the panel footer; 14px text; **no sticky first column**.
+- Mark list tables `.cam-table-stack` and give every cell but the first and the action a `data-label`: below 640px they become stacked records with a full-width action. A cell holding several lines wraps them in one `.cam-cell-stack` so the stacked grid keeps them together.
+- Wide tables that remain scroll inside their own region (labelled, focusable).
 
 ## Colour meaning
 
@@ -61,7 +65,8 @@ When this file and the spec disagree, the spec wins; fix this file.
 - Rejecting or requesting complements opens an inline reason under the buttons; the text is sent to the declarant, so it is required.
 - Every decision sends `expectedRevision` (`updatedAt`); a 409 shows « Recharger l'inscription », which reloads and clears the marks.
 - Previous / next come from `lib/registration-trail.ts` (the queue page saved for the tab). Without it the page shows no position, which is correct.
-- The queue's dialog stays until this page is approved (menu « Revue rapide (fenêtre) »). Change decision rules in both places until then.
+- Only the officer who holds the file decides (owner, 2026-11-08; the server refuses it too). A free file is claimed by the decision itself. On a colleague's file the decision buttons are replaced by « Reprendre le dossier », a confirmed, logged takeover. The rules live in `lib/registration-decision.ts`.
+- « Demander des compléments » is the primary action when the file cannot be approved as it stands (a value marked non-compliant, a value left empty, data the ID needs). Rows only not yet checked keep « Approuver » first.
 
 ## Lists without the dossier side panel
 

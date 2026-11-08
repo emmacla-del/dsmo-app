@@ -609,7 +609,7 @@ function EtablissementsContent() {
               {filteredRows.map((item) => {
                 const detailIdentifier = item.identifier || item.registrationNumber;
                 const detailHref = detailIdentifier ? `/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}` : null;
-                const territory = [item.region, item.department, item.subdivision].filter(Boolean).join(" / ") || NOT_PROVIDED;
+                const territory = [item.region, item.department, item.subdivision].filter(Boolean).join(" · ") || NOT_PROVIDED;
                 const contactDisplay = item.responsable ?? item.contactEmail ?? item.contactPhone ?? NOT_PROVIDED;
                 const contactTitle = Array.from(new Set(
                   [item.responsable, item.contactEmail, item.contactPhone].filter((value): value is string => Boolean(value)),

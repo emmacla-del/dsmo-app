@@ -1039,7 +1039,7 @@ function SubmissionDetailContent() {
             {/* The short reference the queue shows; the full one stays in the tooltip. */}
             <span title={ref}>{t("submissionReference", { ref: shortRecordId(ref) })}</span>
             <span>{formType ? (ENTITY_TYPE_OPTION_KEYS[formType] ? tRoot(ENTITY_TYPE_OPTION_KEYS[formType]) : entityTypeLabel(formType)) : NOT_PROVIDED}</span>
-            <span>{[region, dossier.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span>
+            <span>{[region, dossier.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</span>
             <span>{t("receivedOn", { date: submittedOn })}</span>
             {/* Moved from the queue (2026-11-02): read here, with the file. */}
             {dossier.isLate && <span>{t("filedLate")}</span>}

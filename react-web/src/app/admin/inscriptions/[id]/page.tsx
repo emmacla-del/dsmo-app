@@ -8,6 +8,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAuthStore } from "@/lib/auth-store";
 import { usePinnedRevision } from "@/lib/use-pinned-revision";
 import {
+  applyRegistrationClaim,
   approveUser,
   assignRegistrationUser,
   decidedOrganisation,
@@ -25,8 +26,12 @@ import {
   registrationMethodBadgeClass,
   registrationMethodLabel,
   verificationFlags,
+  verificationIssues,
   verificationRows,
+  type VerificationIssue,
+  type VerificationKey,
   type VerificationMarks,
+  type VerificationRow,
 } from "@/lib/inscriptions";
 import {
   decisionStaysListed,
@@ -46,6 +51,8 @@ import { asUiLocale } from "@/lib/register-i18n";
 import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
 import { NOT_PROVIDED, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
+import { registrationDecisionModel } from "@/lib/registration-decision";
+import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState } from "@/components/admin/DataState";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -187,7 +194,11 @@ function RegistrationReview({ id }: { id: string }) {
   const [comment, setComment] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // « Reprendre le dossier »: the confirmation before taking over a colleague's claim.
+  const [takeOverOpen, setTakeOverOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  // A fresh object per click, so the same row can be jumped to twice.
+  const [checkTarget, setCheckTarget] = useState<{ key: VerificationKey } | null>(null);
   const arrivedNotice = searchParams.get("decisionNotice");
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string; stale?: boolean; movedOn?: boolean } | null>(() => {
     if (!arrivedNotice || !(arrivedNotice in NOTICE_KEYS)) return null;
@@ -209,6 +220,16 @@ function RegistrationReview({ id }: { id: string }) {
   useEffect(() => {
     document.title = `${item?.organisation || t("documentTitle")} | CAMLEAP`;
   }, [item?.organisation, t]);
+
+  // Runs after the phone sheet has closed and the row's explanation is on screen.
+  useEffect(() => {
+    if (!checkTarget) return;
+    const row = document.getElementById(`verify-${checkTarget.key}`);
+    if (!row) return;
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    row.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+    row.focus({ preventScroll: true });
+  }, [checkTarget]);
 
   // The section index follows the reading position in the centre column.
   useEffect(() => {
@@ -240,11 +261,13 @@ function RegistrationReview({ id }: { id: string }) {
   // ── Claim ──
   const claimMutation = useMutation({
     mutationFn: (assigneeId: string | null) => assignRegistrationUser(id, assigneeId, item?.assigneeId ?? null),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registration", id] });
+    onSuccess: (claim) => {
+      setTakeOverOpen(false);
+      applyRegistrationClaim(queryClient, id, claim);
       void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
     },
     onError: (error) => {
+      setTakeOverOpen(false);
       setNotice({ tone: "error", text: `${t("claimFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
       void queryClient.invalidateQueries({ queryKey: ["auth", "company-registration", id] });
     },
@@ -339,6 +362,14 @@ function RegistrationReview({ id }: { id: string }) {
   const status = STATUS_BADGE[item.status];
   const ownsClaim = !!userId && item.assigneeId === userId;
   const claimedByOther = !!item.assigneeId && !ownsClaim;
+  // The claim and the main action: see registration-decision.ts.
+  const { canDecide, complementsFirst } = registrationDecisionModel({
+    userId,
+    assigneeId: item.assigneeId,
+    dataBlocked: !!dataBlocker,
+    anyRejected,
+    anyEmpty: rows.some((row) => row.value === null),
+  });
 
   const entityLabel = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? NOT_PROVIDED;
@@ -363,6 +394,19 @@ function RegistrationReview({ id }: { id: string }) {
   const niu = hasRealNiu(item.taxNumber) ? item.taxNumber : null;
   const expectedRevision = revision ?? item.updatedAt;
 
+  const complementsButton = (variant: "default" | "outline") => (
+    <Button
+      type="button"
+      variant={variant}
+      aria-expanded={choice === "REQUEST_COMPLEMENTS"}
+      aria-controls="registration-decision-reason"
+      disabled={pending}
+      onClick={() => { setChoice(choice === "REQUEST_COMPLEMENTS" ? null : "REQUEST_COMPLEMENTS"); setCommentError(null); }}
+    >
+      {tq("requestComplements")}
+    </Button>
+  );
+
   const submitChoice = () => {
     const text = comment.trim();
     if (!text) {
@@ -381,14 +425,29 @@ function RegistrationReview({ id }: { id: string }) {
   const sections = [
     item.duplicateHints.length > 0 && { id: "registration-duplicates", label: t("duplicatesTitle"), flag: String(item.duplicateHints.length), blocking: false },
     item.lastResubmission && { id: "registration-changes", label: t("changesNavLabel"), flag: null, blocking: false },
-    { id: "registration-verify", label: t("verifyNavLabel"), flag: decidable && answered < rows.length ? String(rows.length - answered) : null, blocking: anyRejected },
+    { id: "registration-verify", label: t("verifyNavLabel"), flag: decidable && answered < rows.length ? String(rows.length - answered) : null, blocking: anyRejected || rows.some((row) => row.value === null) },
     { id: "registration-respondent", label: tq("respondentTitle"), flag: null, blocking: false },
     { id: "registration-identity", label: t("identityNavLabel"), flag: null, blocking: false },
     { id: "registration-history", label: t("historyTitle"), flag: null, blocking: false },
   ].filter(Boolean) as { id: string; label: string; flag: string | null; blocking: boolean }[];
 
-  const stateLabel = (key: (typeof rows)[number]["key"], empty: boolean) =>
-    marks[key] === "ok" ? t("stateOk") : marks[key] === "ko" ? t("stateKo") : empty ? t("stateEmpty") : t("stateTodo");
+  const issuesOf = (row: VerificationRow) => (decidable ? verificationIssues(row, marks[row.key], item) : []);
+  const stateLabel = (row: VerificationRow) => {
+    if (marks[row.key] === "ok") return t("stateOk");
+    if (marks[row.key] === "ko") return t("stateKo");
+    const kind = issuesOf(row)[0]?.kind;
+    if (kind === "empty") return t("stateEmpty");
+    if (kind === "duplicate") return t("verifyIssue.duplicateTitle");
+    if (kind === "changed") return t("verifyIssue.changedState");
+    return t("stateTodo");
+  };
+  const issueText = (issue: VerificationIssue) => {
+    if (issue.kind === "changed") return t("verifyIssue.changedText", { before: diffValue(issue.before) });
+    if (issue.kind !== "duplicate") return t(`verifyIssue.${issue.kind}Text`);
+    return issue.organisation
+      ? t(`verifyIssue.duplicate.${issue.field}`, { organisation: issue.organisation })
+      : t(`verifyIssue.duplicate.${issue.field}Outside`);
+  };
 
   return (
     <div className="cam-admin-page cam-dossier-workspace-page cam-registration-review-page">
@@ -399,12 +458,12 @@ function RegistrationReview({ id }: { id: string }) {
           <span title={item.organisation}>{item.organisation || NOT_PROVIDED}</span>
           {status ? <AdminStatusBadge label={tq(status.textKey)} variant={status.variant} /> : <AdminStatusBadge label={item.status} variant="neutral" />}
           {waitingDays !== null && <span className="cam-dossier-waiting-badge">{t("waitingSince", { count: waitingDays })}</span>}
-          {item.overdue && <Badge variant="danger">{tq("overdueBadge", { days: waitingDays ?? registrationQuery.data?.overdueDays ?? 0 })}</Badge>}
+          {item.overdue && <Badge variant="info">{tq("overdueBadge", { days: waitingDays ?? registrationQuery.data?.overdueDays ?? 0 })}</Badge>}
         </span>}
         subtitle={<span className="cam-dossier-header-facts">
           {item.establishmentId && <span className="cam-registration-ref">{t("reference", { ref: item.establishmentId })}</span>}
           <span>{entityLabel(item.entityType)}</span>
-          <span>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span>
+          <span>{[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</span>
           <span>{t("submittedOn", { date: stamp(item.submittedAt, false, locale) })}</span>
           {niu && <span className="cam-registration-ref">{t("niu", { niu })}</span>}
         </span>}
@@ -451,16 +510,18 @@ function RegistrationReview({ id }: { id: string }) {
                 <Badge variant="warning">{tq("possibleMatches", { count: item.duplicateHints.length })}</Badge>
               </div>
               <p className="cam-registration-lead">{t("duplicatesIntro")}</p>
-              <ul className="cam-registration-hints">
-                {item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}
-              </ul>
-              {item.duplicateFiles.map((file) => (
-                <p key={file.id}>
-                  <Link className="cam-registration-link" href={registrationReviewHref(file.id, returnTo)}>
-                    {t("duplicatesOpenFile", { organisation: file.organisation })}
-                  </Link>
-                </p>
-              ))}
+              <div className="cam-dossier-field-flag is-warning cam-registration-hints" role="note">
+                <ul>
+                  {item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}
+                </ul>
+                {item.duplicateFiles?.map((file) => (
+                  <p key={file.id}>
+                    <Link href={registrationReviewHref(file.id, returnTo)}>
+                      {t("duplicatesOpenFile", { organisation: file.organisation })}
+                    </Link>
+                  </p>
+                ))}
+              </div>
             </section>
           )}
 
@@ -501,8 +562,16 @@ function RegistrationReview({ id }: { id: string }) {
               {decidable && <span className="cam-admin-meta">{t("verifyHint")}</span>}
             </div>
             <div className="cam-registration-verify">
-              {rows.map((row) => (
-                <div key={row.key} id={`verify-${row.key}`} className="cam-registration-verify-row" tabIndex={-1}>
+              {rows.map((row) => {
+                const issues = issuesOf(row);
+                const active = checkTarget?.key === row.key;
+                return (
+                <div
+                  key={row.key}
+                  id={`verify-${row.key}`}
+                  className={`cam-registration-verify-row${active ? " is-active" : ""}${issues[0] ? ` is-${issues[0].severity}` : ""}`}
+                  tabIndex={-1}
+                >
                   <span className="cam-registration-verify-label">{row.label}</span>
                   <span className={`cam-registration-verify-value${row.value === null ? " is-empty" : ""}`}>{row.value ?? tq("notRecorded")}</span>
                   {decidable ? (
@@ -531,8 +600,25 @@ function RegistrationReview({ id }: { id: string }) {
                       </label>
                     </div>
                   ) : <span aria-hidden="true" />}
+                  {(issues.length > 0 || active) && (
+                    <div className="cam-registration-verify-notes">
+                      {issues.map((issue, index) => (
+                        <div key={index} className={`cam-dossier-field-flag is-${issue.severity}`} role="note">
+                          <strong>{t(`verifyIssue.${issue.kind}Title`)}</strong>
+                          <p>{issueText(issue)}</p>
+                          {issue.kind === "duplicate" && issue.fileId && issue.organisation && (
+                            <Link href={registrationReviewHref(issue.fileId, returnTo)}>
+                              {t("duplicatesOpenFile", { organisation: issue.organisation })}
+                            </Link>
+                          )}
+                        </div>
+                      ))}
+                      {issues.length === 0 && <p className="cam-admin-meta">{t("verifyIssue.noneText")}</p>}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
@@ -622,7 +708,7 @@ function RegistrationReview({ id }: { id: string }) {
         {/* Phone: the panel is a sheet behind this bar (spec §4C). */}
         <div className="cam-dossier-review-summary">
           <div>
-            <strong>{decidable ? (approveBlocked ? t("summaryToCheck", { done: answered, total: rows.length }) : t("summaryReady")) : t("decidedTitle")}</strong>
+            <strong>{!decidable ? t("decidedTitle") : !canDecide ? t("claimOther", { name: item.assigneeName ?? NOT_PROVIDED }) : approveBlocked ? t("summaryToCheck", { done: answered, total: rows.length }) : t("summaryReady")}</strong>
             {decidable && anyRejected && <span className="cam-dossier-review-summary-blocking">{t("stateKo")}</span>}
           </div>
           <Button ref={summaryButtonRef} type="button" aria-expanded={panelOpen} aria-controls="registration-review-panel" onClick={() => setPanelOpen(true)}>
@@ -658,6 +744,18 @@ function RegistrationReview({ id }: { id: string }) {
                   {ownsClaim ? t("releaseButton") : t("claimButton")}
                 </button>
               )}
+              {claimedByOther && userId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  data-claim-action="take-over"
+                  disabled={claimMutation.isPending || pending}
+                  onClick={() => setTakeOverOpen(true)}
+                >
+                  {t("takeOverButton")}
+                </Button>
+              )}
               <p className="cam-registration-claim-hint">{ownsClaim ? t("claimYouHint") : claimedByOther ? t("claimOtherHint") : t("claimFreeHint")}</p>
             </div>
           )}
@@ -670,14 +768,34 @@ function RegistrationReview({ id }: { id: string }) {
               </div>
               <progress className="cam-dossier-review-progress" value={answered} max={rows.length} aria-hidden="true" />
               <ul className="cam-registration-checklist">
-                {rows.map((row) => (
-                  <li key={row.key} className={marks[row.key] === "ok" ? "is-ok" : marks[row.key] === "ko" ? "is-ko" : undefined}>
-                    <a href={`#verify-${row.key}`} onClick={() => setPanelOpen(false)}>
-                      <span className="cam-registration-checklist-label">{row.label}</span>
-                      <span className="cam-registration-checklist-state">{stateLabel(row.key, row.value === null)}</span>
+                {rows.map((row) => {
+                  const severity = issuesOf(row)[0]?.severity;
+                  const tone = marks[row.key] === "ok" ? "is-ok" : marks[row.key] === "ko" ? "is-ko" : severity ? `is-${severity}` : undefined;
+                  return (
+                    <li key={row.key} className={tone}>
+                      <a
+                        href={`#verify-${row.key}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setPanelOpen(false);
+                          setCheckTarget({ key: row.key });
+                        }}
+                      >
+                        <span className="cam-registration-checklist-label">{row.label}</span>
+                        <span className="cam-registration-checklist-state">{stateLabel(row)}</span>
+                      </a>
+                    </li>
+                  );
+                })}
+                {/* Not a verification: the NIU has no row to mark, so this leads to the duplicates section. */}
+                {item.duplicateMatches?.some((match) => match.field === "taxNumber") && (
+                  <li className="is-warning">
+                    <a href="#registration-duplicates" onClick={() => setPanelOpen(false)}>
+                      <span className="cam-registration-checklist-label">{t("taxNumberLabel")}</span>
+                      <span className="cam-registration-checklist-state">{t("verifyIssue.duplicateTitle")}</span>
                     </a>
                   </li>
-                ))}
+                )}
               </ul>
               {item.requiresCentralStructureCheck && (
                 <div className="cam-registration-central">
@@ -694,25 +812,21 @@ function RegistrationReview({ id }: { id: string }) {
           {decidable ? (
             <section className="cam-dossier-review-card cam-dossier-review-decisions" aria-labelledby="registration-decision-title">
               <h2 id="registration-decision-title">{t("decisionTitle")}</h2>
+              {!canDecide ? (
+                <p className="cam-dossier-review-prompt">{t("claimOtherDecide", { name: item.assigneeName ?? NOT_PROVIDED })}</p>
+              ) : <>
               {approveBlocked && <p id="registration-approve-blocked" className="cam-dossier-review-blocked">{approveBlocked}</p>}
+              {complementsFirst && complementsButton("default")}
               <Button
                 type="button"
+                variant={complementsFirst ? "outline" : "default"}
                 onClick={approve}
                 disabled={pending || !!approveBlocked}
                 aria-describedby={approveBlocked ? "registration-approve-blocked" : undefined}
               >
                 {approveMutation.isPending ? tq("decisionSubmitting") : tq("approveAccount")}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                aria-expanded={choice === "REQUEST_COMPLEMENTS"}
-                aria-controls="registration-decision-reason"
-                disabled={pending}
-                onClick={() => { setChoice(choice === "REQUEST_COMPLEMENTS" ? null : "REQUEST_COMPLEMENTS"); setCommentError(null); }}
-              >
-                {tq("requestComplements")}
-              </Button>
+              {!complementsFirst && complementsButton("outline")}
               <Button
                 type="button"
                 variant="outline"
@@ -752,6 +866,7 @@ function RegistrationReview({ id }: { id: string }) {
                   </div>
                 </div>
               )}
+              </>}
             </section>
           ) : (
             <section className="cam-dossier-review-card" aria-labelledby="registration-decided-title">
@@ -767,6 +882,25 @@ function RegistrationReview({ id }: { id: string }) {
           )}
         </aside>
       </div>
+
+      <AdminDialog
+        open={takeOverOpen}
+        onClose={() => setTakeOverOpen(false)}
+        title={t("takeOverTitle")}
+        eyebrow={item.organisation || NOT_PROVIDED}
+        footer={
+          <>
+            <Button type="button" variant="outline" size="sm" disabled={claimMutation.isPending} onClick={() => setTakeOverOpen(false)}>
+              {t("cancelChoice")}
+            </Button>
+            <Button type="button" size="sm" disabled={claimMutation.isPending || !userId} onClick={() => userId && claimMutation.mutate(userId)}>
+              {t("takeOverConfirm")}
+            </Button>
+          </>
+        }
+      >
+        <p>{t("takeOverBody", { name: item.assigneeName ?? NOT_PROVIDED })}</p>
+      </AdminDialog>
     </div>
   );
 }

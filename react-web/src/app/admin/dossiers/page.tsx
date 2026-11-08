@@ -33,7 +33,7 @@ import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
-import { CampaignNonRespondentsTable } from "@/components/admin/CampaignNonRespondentsTable";
+import { CampaignNonRespondentsTable, FollowUpKpiStrip } from "@/components/admin/CampaignNonRespondentsTable";
 import { departmentInRegion, regionInTree, useTerritoryDepartments, useTerritoryRegions, useTerritoryStructure } from "@/hooks/useTerritoryStructure";
 import { formatCampaignDisplayName, isRegistrationCampaign, listCampaigns } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
@@ -1447,8 +1447,8 @@ function DossiersContent({
   const pageHeader = (
     <AdminPageHeader
       breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations"), href: "/admin/dossiers" }, { label: activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers") }]}
-      title={t("pageTitle")}
-      subtitle={t("pageSubtitle")}
+      title={activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers")}
+      subtitle={activeView === "completed" ? t("completedSubtitle") : activeView === "followup" ? t("followUpSubtitle") : t("pageSubtitle")}
       actions={(
         <div className="cam-dossier-header-actions">
           {vue !== "submissions" && <label className="cam-dossier-campaign">
@@ -1497,9 +1497,11 @@ function DossiersContent({
     return (
       <section id="dossier-view-followup" className="cam-dossier-view cam-dossier-view--followup">
         {showPageHeader && pageHeader}
+        {nonRespondentsQuery.data && (
+          <FollowUpKpiStrip data={nonRespondentsQuery.data} canShowContacts={hasRole(user?.role, SURVEY_ROLES)} />
+        )}
         <AdminTablePanel
           title={t("followUpHeading")}
-          description={t("followUpScopeNote")}
           headingId="dossiers-followup-heading"
           className="cam-dossier-followup-table"
         >
@@ -1859,7 +1861,7 @@ function DossiersContent({
                         : d.adminStatus === "SUPERSEDED" ? "superseded" : "neutral";
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
-                const territoryTitle = [d.region, d.department].filter(Boolean).join(" / ") || NOT_PROVIDED;
+                const territoryTitle = [d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED;
                 const waiting = d.adminStatus === "PENDING_REVIEW" && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
                 const isReviewOverdue = d.adminStatus === "PENDING_REVIEW" && nowMs !== null && elapsedMoreThanDays(d.submittedAt, nowMs, 7);
                 const canManageArchive = hasRole(user?.role, DOSSIER_ARCHIVE_ROLES);

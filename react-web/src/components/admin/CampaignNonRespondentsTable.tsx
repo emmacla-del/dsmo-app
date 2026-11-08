@@ -4,11 +4,15 @@ import { useState, useMemo, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AdminDialog } from "@/components/admin/AdminDialog";
-import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
+import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
+import { AdminScopePill, territoryPillFor } from "@/components/admin/AdminFilterBarParts";
+import { AdminKpiStrip, type KpiItem } from "@/components/admin/AdminKpiStrip";
+import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { count } from "@/lib/admin-data-state";
 import { formatCampaignDate } from "@/lib/campaigns";
 import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
@@ -296,13 +300,6 @@ export function CampaignNonRespondentsTable({
     if (value === "CONTACTED") return t("nonRespOutcomeContacted");
     return t(OUTCOME_KEYS[value as CampaignFollowUpOutcome]);
   };
-  const activeFilters = [
-    ...(filters.search ? [{ key: "search", label: `${t("nonRespSearchLabel")}: ${filters.search}`, onClear: () => { setSearchInput(""); updateFilters({ search: null }); } }] : []),
-    ...(selectedRegion ? [{ key: "region", label: `${t("nonRespFilterRegion")}: ${selectedRegion}`, onClear: () => updateFilters({ region: null }) }] : []),
-    ...(selectedDepartment ? [{ key: "department", label: `${t("nonRespFilterDepartment")}: ${selectedDepartment}`, onClear: () => updateFilters({ department: null }) }] : []),
-    ...(selectedType ? [{ key: "type", label: `${t("nonRespFilterType")}: ${typeLabel(selectedType)}`, onClear: () => updateFilters({ type: null }) }] : []),
-    ...(selectedOutcome ? [{ key: "outcome", label: `${t("nonRespFilterOutcome")}: ${outcomeFilterLabel(selectedOutcome)}`, onClear: () => updateFilters({ outcome: null }) }] : []),
-  ];
   const clearAllFilters = () => {
     setSearchInput("");
     const nextQuery = clearFollowUpQuery(currentQuery);
@@ -310,9 +307,14 @@ export function CampaignNonRespondentsTable({
     if (href !== followUpHref(pathname, currentQuery)) router.push(href, { scroll: false });
   };
 
+  const territoryPill = territoryPillFor(user?.role);
+  const removeLabel = (label: string) => t("nonRespRemoveFilter", { label });
+  const columnCount = canShowContacts ? 6 : 3;
+
   return (
     <>
-      <p className="cam-admin-lede">
+    <div className="cam-admin-table-panel-body cam-followup-body">
+      <p className="cam-admin-lede" aria-live="polite">
         {data.registered === 0
           ? t("nonRespNoRegistered")
           : filtersActive
@@ -326,172 +328,162 @@ export function CampaignNonRespondentsTable({
       )}
       {data.establishments.length > 0 && (
         <>
-          <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="md:col-span-2">
-              <Label htmlFor="follow-up-search">{t("nonRespSearchLabel")}</Label>
+          {/* Filter bar (spec §4F): search, scope, at most four pills, clear. */}
+          <div className="cam-filter-bar" role="group" aria-label={t("nonRespFiltersLabel")}>
+            <div className="cam-filter-bar-search">
+              <Label className="cam-sr-only" htmlFor="follow-up-search">{t("nonRespSearchLabel")}</Label>
+              <Search aria-hidden="true" className="cam-filter-bar-search-icon" />
               <Input
                 id="follow-up-search"
                 type="search"
                 placeholder={t("nonRespSearchPlaceholder")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="h-10 w-full"
               />
             </div>
-            <div>
-              <Label htmlFor="follow-up-region">{t("nonRespFilterRegion")}</Label>
-              <select
-                id="follow-up-region"
-                className="cam-admin-input w-full"
+            <AdminScopePill />
+            {territoryPill === "region" && (
+              <AdminFilterPill
+                label={t("nonRespRegionColumn")}
                 value={selectedRegion}
-                onChange={(e) => {
-                  const next = e.target.value;
+                allLabel={t("nonRespAllRegions")}
+                clearLabel={removeLabel(t("nonRespRegionColumn"))}
+                onChange={(next) => {
                   const departmentStillValid = !selectedDepartment || allDepartments.some((item) =>
                     item.name === selectedDepartment && (!next || item.region === next),
                   );
                   updateFilters({ region: next || null, department: departmentStillValid ? selectedDepartment || null : null });
                 }}
-              >
-                <option value="">{t("nonRespAllRegions")}</option>
-                {regions.map((value) => (
-                  <option key={value} value={value}>{value}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="follow-up-department">{t("nonRespFilterDepartment")}</Label>
-              <select
-                id="follow-up-department"
-                className="cam-admin-input w-full"
+                options={regions.map((value) => ({ value, label: value }))}
+              />
+            )}
+            {territoryPill !== null && (territoryPill === "department" || selectedRegion) && (
+              <AdminFilterPill
+                label={t("nonRespDepartmentColumn")}
                 value={selectedDepartment}
-                onChange={(e) => updateFilters({ department: e.target.value || null })}
-              >
-                <option value="">{t("nonRespAllDepartments")}</option>
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="follow-up-type">{t("nonRespFilterType")}</Label>
-              <select
-                id="follow-up-type"
-                className="cam-admin-input w-full"
-                value={selectedType}
-                onChange={(e) => updateFilters({ type: e.target.value || null })}
-              >
-                <option value="">{t("nonRespAllTypes")}</option>
-                {types.map((value) => (
-                  <option key={value} value={value}>{typeLabel(value)}</option>
-                ))}
-              </select>
-            </div>
+                allLabel={t("nonRespAllDepartments")}
+                clearLabel={removeLabel(t("nonRespDepartmentColumn"))}
+                onChange={(next) => updateFilters({ department: next || null })}
+                options={departments.map((value) => ({ value, label: value }))}
+              />
+            )}
+            <AdminFilterPill
+              label={t("nonRespTypeColumn")}
+              value={selectedType}
+              allLabel={t("nonRespAllTypes")}
+              clearLabel={removeLabel(t("nonRespTypeColumn"))}
+              onChange={(next) => updateFilters({ type: next || null })}
+              options={types.map((value) => ({ value, label: typeLabel(value) }))}
+            />
             {canShowContacts && (
-            <div>
-              <Label htmlFor="follow-up-outcome">{t("nonRespFilterOutcome")}</Label>
-              <select
-                id="follow-up-outcome"
-                className="cam-admin-input w-full"
+              <AdminFilterPill
+                label={t("nonRespFilterOutcome")}
                 value={selectedOutcome}
-                onChange={(e) => updateFilters({ outcome: e.target.value || null })}
-              >
-                <option value="">{t("nonRespAllOutcomes")}</option>
-                <option value="NONE">{t("nonRespOutcomeNone")}</option>
-                <option value="CONTACTED">{t("nonRespOutcomeContacted")}</option>
-                <option value="SENT_CONFIRMED">{t("nonRespOutcomeSent")}</option>
-                <option value="CALLBACK_REQUESTED">{t("nonRespOutcomeCallback")}</option>
-                <option value="DO_NOT_CONTACT">{t("nonRespOutcomeDoNotContact")}</option>
-                <option value="NO_ANSWER">{t("nonRespOutcomeNoAnswer")}</option>
-                <option value="WRONG_NUMBER">{t("nonRespOutcomeWrongNumber")}</option>
-                <option value="ALREADY_SUBMITTED">{t("nonRespOutcomeSubmitted")}</option>
-              </select>
-            </div>
+                allLabel={t("nonRespAllOutcomes")}
+                clearLabel={removeLabel(t("nonRespFilterOutcome"))}
+                onChange={(next) => updateFilters({ outcome: next || null })}
+                options={["NONE", "CONTACTED", "SENT_CONFIRMED", "CALLBACK_REQUESTED", "DO_NOT_CONTACT", "NO_ANSWER", "WRONG_NUMBER", "ALREADY_SUBMITTED"]
+                  .map((value) => ({ value, label: outcomeFilterLabel(value) }))}
+              />
+            )}
+            {filtersActive && (
+              <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("nonRespClearAllFilters")}</Button>
             )}
           </div>
-          <AdminActiveFilterChips
-            filters={activeFilters}
-            label={t("nonRespActiveFilters")}
-            clearAllLabel={t("nonRespClearAllFilters")}
-            onClearAll={clearAllFilters}
-            removeFilterLabel={(label) => t("nonRespRemoveFilter", { label })}
-          />
           <div className="cam-dash-table-wrap">
-          <table className="cam-dash-table cam-target-table">
+          <table className="cam-dash-table cam-target-table cam-followup-table cam-table-stack">
             <thead>
               <tr>
                 <th scope="col">{t("nonRespEstablishmentColumn")}</th>
-                <th scope="col">{t("nonRespIdColumn")}</th>
-                <th scope="col">{t("nonRespTypeColumn")}</th>
-                <th scope="col">{t("nonRespRegionColumn")}</th>
-                <th scope="col">{t("nonRespDepartmentColumn")}</th>
-                {canShowContacts && <th scope="col">{t("nonRespEmailColumn")}</th>}
-                {canShowContacts && <th scope="col">{t("nonRespWhatsAppColumn")}</th>}
+                <th scope="col">{t("nonRespTerritoryColumn")}</th>
+                {canShowContacts && <th scope="col">{t("nonRespContactColumn")}</th>}
                 <th scope="col">{t("nonRespFileColumn")}</th>
                 {canShowContacts && <th scope="col">{t("nonRespFollowUpColumn")}</th>}
-                {canShowContacts && <th scope="col">{t("nonRespPrepareFollowUp")}</th>}
+                {canShowContacts && <th scope="col" className="text-right"><span className="cam-sr-only">{t("nonRespActionsColumn")}</span></th>}
               </tr>
             </thead>
             <tbody>
               {pagedEstablishments.length === 0 ? (
                 <tr>
-                  <td colSpan={canShowContacts ? 10 : 6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={columnCount} className="py-8 text-center text-muted-foreground">
                     {t("nonRespNoMatch")}
                   </td>
                 </tr>
               ) : pagedEstablishments.map((row) => {
                 const optedOut = row.latestFollowUp?.outcome === "DO_NOT_CONTACT";
+                const shortType = row.entityType && tRoot.has(`adminInscriptionsPage.entityShort.${row.entityType}`)
+                  ? tRoot(`adminInscriptionsPage.entityShort.${row.entityType}`)
+                  : typeLabel(row.entityType);
                 return (
                   <tr key={row.companyId}>
-                    <th scope="row">{row.name}</th>
-                    <td className="cam-admin-code">{row.establishmentId}</td>
-                    <td>{typeLabel(row.entityType)}</td>
-                    <td>{row.regionName ?? "—"}</td>
-                    <td>{row.departmentName ?? "—"}</td>
+                    <th scope="row">
+                      <span className="cam-record-cell">
+                        <span className="cam-record-cell-name" title={row.name}>{row.name}</span>
+                        <span className="cam-record-cell-meta">
+                          <span className="cam-record-cell-ref">{row.establishmentId}</span>
+                          {row.entityType && <span className="cam-tag" title={typeLabel(row.entityType)}>{shortType}</span>}
+                        </span>
+                      </span>
+                    </th>
+                    <td data-label={t("nonRespTerritoryColumn")} className="cam-cell-nowrap">
+                      {[row.regionName, row.departmentName].filter(Boolean).join(" · ") || "—"}
+                    </td>
                     {canShowContacts && (
-                      <td className="cam-followup-email">{row.contactEmail ?? t("nonRespNoEmail")}</td>
-                    )}
-                    {canShowContacts && (
-                      <td>
+                      <td data-label={t("nonRespContactColumn")}>
+                        {/* One block, so the stacked phone layout keeps it in the value column. */}
+                        <span className="cam-cell-stack">
                         {row.contactPhone ? (
-                          <>
-                            <span>{row.contactPhone}</span>
+                          <span className="cam-cell-nowrap">
+                            {row.contactPhone}
                             {!isValidCameroonPhone(row.contactPhone) && (
-                              <span className="cam-admin-quiet-note">{t("nonRespInvalidPhone")}</span>
+                              <> <span className="cam-tag" title={t("nonRespInvalidPhoneDetail")}>{t("nonRespInvalidPhone")}</span></>
                             )}
-                          </>
-                        ) : (
-                          t("nonRespNoPhone")
-                        )}
-                        {(row.contactName || row.contactFunction) && (
-                          <span className="cam-admin-quiet-note">
-                            {t("nonRespContactLabel")}: {[row.contactName, row.contactFunction].filter(Boolean).join(" · ")}
                           </span>
+                        ) : (
+                          <span className="cam-cell-muted">{t("nonRespNoPhone")}</span>
                         )}
+                        <span className="cam-cell-sub cam-followup-email">{row.contactEmail ?? t("nonRespNoEmail")}</span>
+                        {(row.contactName || row.contactFunction) && (
+                          <span className="cam-cell-sub">{[row.contactName, row.contactFunction].filter(Boolean).join(" · ")}</span>
+                        )}
+                        </span>
                       </td>
                     )}
-                    <td>
+                    <td data-label={t("nonRespFileColumn")}>
                       {row.fileState === "NONE" ? (
-                        t("nonRespFileNONE")
+                        <span className="cam-cell-muted">{t("nonRespFileNONE")}</span>
                       ) : (
                         <span className="cam-badge cam-badge-warning">{t(`nonRespFile${row.fileState}`)}</span>
                       )}
                     </td>
                     {canShowContacts && (
-                      <td>
-                        <span>{followUpLabel(row)}</span>
-                        {optedOut && <span className="cam-admin-quiet-note">{t("nonRespDoNotContactNotice")}</span>}
+                      <td data-label={t("nonRespFollowUpColumn")}>
+                        {row.latestFollowUp ? (
+                          <span className="cam-cell-stack">
+                            <span title={optedOut ? t("nonRespDoNotContactNotice") : undefined}>{t(OUTCOME_KEYS[row.latestFollowUp.outcome])}</span>
+                            <span className="cam-cell-sub" title={followUpLabel(row)}>
+                              {t("nonRespFollowUpMeta", {
+                                channel: t(CHANNEL_KEYS[row.latestFollowUp.channel]),
+                                date: formatFollowUpTimestamp(row.latestFollowUp.createdAt, appLocale),
+                                agent: row.latestFollowUp.actorName,
+                              })}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="cam-cell-muted">{followUpLabel(row)}</span>
+                        )}
                       </td>
                     )}
                     {canShowContacts && (
-                      <td>
+                      <td className="cam-cell-action">
                         <button
                           type="button"
-                          className="cam-text-button"
+                          className="cam-button cam-button-secondary cam-button-sm"
                           onClick={() => openFollowUp(row)}
                           disabled={optedOut}
                           aria-label={t("nonRespFollowUpAria", { name: row.name })}
                         >
-                          {t("nonRespPrepareFollowUp")}
+                          {t("nonRespFollowUpShort")}
                         </button>
                       </td>
                     )}
@@ -502,39 +494,24 @@ export function CampaignNonRespondentsTable({
           </table>
         </div>
         {totalFiltered > FOLLOW_UP_PAGE_SIZE && (
-          <div className="flex flex-wrap items-center justify-end gap-3 py-4 text-sm text-muted-foreground">
-            <span>
-              {t("nonRespShowingRange", {
-                start: count(startIdx + 1, appLocale),
-                end: count(Math.min(startIdx + FOLLOW_UP_PAGE_SIZE, totalFiltered), appLocale),
-                total: totalFiltered,
-              })}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={currentPage <= 1}
-              onClick={() => updateFilters({ page: Math.max(1, currentPage - 1) }, "push", false)}
-            >
-              {t("nonRespPreviousButton")}
-            </Button>
-            <span>
-              {t("nonRespPageOf", { page: currentPage, pages: totalPages })}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= totalPages}
-              onClick={() => updateFilters({ page: Math.min(totalPages, currentPage + 1) }, "push", false)}
-            >
-              {t("nonRespNextButton")}
-            </Button>
-          </div>
+          <AdminNumberedPager
+            page={currentPage}
+            pageCount={totalPages}
+            range={t("nonRespShowingRange", {
+              start: count(startIdx + 1, appLocale),
+              end: count(Math.min(startIdx + FOLLOW_UP_PAGE_SIZE, totalFiltered), appLocale),
+              total: totalFiltered,
+            })}
+            previousLabel={t("nonRespPreviousButton")}
+            nextLabel={t("nonRespNextButton")}
+            label={t("nonRespPagerAriaLabel")}
+            pageLabel={(n) => t("nonRespPageButtonAriaLabel", { page: n })}
+            onPage={(n) => updateFilters({ page: n }, "push", false)}
+          />
         )}
       </>
     )}
+    </div>
 
       <AdminDialog
         open={Boolean(dialogRow)}
@@ -648,5 +625,51 @@ export function CampaignNonRespondentsTable({
         )}
       </AdminDialog>
     </>
+  );
+}
+
+/**
+ * Key figures of the follow-up list (canvas board 0 §1), shown between the
+ * views and the list like the other hubs. They count the whole campaign list
+ * in the reader's territory; each figure filters the list by follow-up state.
+ * Only for roles that may see contacts and record follow-ups.
+ */
+export function FollowUpKpiStrip({ data, canShowContacts }: { data: CampaignNonRespondentsResponse; canShowContacts: boolean }) {
+  const t = useTranslations("adminCiblesPage");
+  const tRoot = useTranslations();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
+  const appLocale = asUiLocale(useLocale());
+  if (!canShowContacts || data.establishments.length === 0) return null;
+  const selectedOutcome = searchParams.get("followupOutcome") ?? "";
+  const rows = data.establishments;
+  const figure = (key: string, label: string, value: number, hint: string, tone: KpiItem["tone"], filter: string): KpiItem => ({
+    key,
+    label,
+    value: count(value, appLocale),
+    hint,
+    tone,
+    pressed: selectedOutcome === filter,
+    onSelect: () => {
+      const next = updateFollowUpQuery(currentQuery, { outcome: selectedOutcome === filter || !filter ? null : filter });
+      router.push(followUpHref(pathname, next), { scroll: false });
+    },
+    selectHint: t("nonRespKpiFilterHint"),
+  });
+  return (
+    <AdminKpiStrip
+      label={t("nonRespKpiAriaLabel")}
+      loadingLabel={tRoot("adminLayout.loadingFigures")}
+      errorLabel={tRoot("adminLayout.figuresUnavailable")}
+      note={t("nonRespKpiNote")}
+      items={[
+        figure("all", t("nonRespKpiAll"), rows.length, t("nonRespKpiAllHint"), "neutral", ""),
+        figure("none", t("nonRespOutcomeNone"), rows.filter((row) => !row.latestFollowUp).length, t("nonRespKpiNoneHint"), "warning", "NONE"),
+        figure("contacted", t("nonRespOutcomeContacted"), rows.filter((row) => row.latestFollowUp).length, t("nonRespKpiContactedHint"), "info", "CONTACTED"),
+        figure("doNotContact", t("nonRespKpiDoNotContact"), rows.filter((row) => row.latestFollowUp?.outcome === "DO_NOT_CONTACT").length, t("nonRespKpiDoNotContactHint"), "neutral", "DO_NOT_CONTACT"),
+      ]}
+    />
   );
 }

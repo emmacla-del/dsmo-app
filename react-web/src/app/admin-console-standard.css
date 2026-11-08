@@ -816,3 +816,64 @@ button.cam-kpi[aria-pressed="true"] {
 .cam-admin.cam-admin .cam-register-table thead th { white-space: nowrap; color: var(--cam-slate-600); font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); }
 .cam-admin.cam-admin .cam-register-table thead th:first-child { width: 100%; }
 .cam-admin.cam-admin .cam-register-table td { vertical-align: middle; }
+
+/* ── 9. Relances (follow-up list), revision 3 ───────────────────────────
+   The list sits in a panel body like the other hubs; the old 1540px
+   minimum width and 15px text of the dossier-workflow theme no longer
+   apply. Long follow-up notes wrap inside their cell. */
+.cam-admin.cam-admin .cam-followup-body > .cam-filter-bar {
+  margin-bottom: var(--cam-space-3);
+}
+.cam-admin.cam-admin .cam-followup-body > .cam-dash-table-wrap {
+  margin-inline: -12px;
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-followup-table,
+.cam-admin.cam-admin .cam-followup-table {
+  min-width: 0;
+  width: 100%;
+  color: var(--cam-text);
+  font-size: 14px;
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-followup-table thead th,
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-followup-table tbody th,
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-followup-table .cam-followup-table tbody td {
+  padding: var(--cam-space-3) var(--cam-space-4);
+  vertical-align: top;
+}
+.cam-admin.cam-admin .cam-followup-table td:nth-last-child(2) {
+  min-width: 12rem;
+}
+.cam-admin.cam-admin .cam-followup-table .cam-followup-email {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cam-admin.cam-admin .cam-cell-stack { display: block; min-width: 0; }
+.cam-admin.cam-admin .cam-cell-stack > span:not(.cam-tag) { display: block; }
+
+/* Campaign selector on narrow screens: one full-width row. The older rule
+   gave it a 220px flex basis inside a column, i.e. 220px of height. */
+@media (max-width: 800px) {
+  .cam-admin.cam-admin.is-dossier-workflow .cam-dossier-header-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    width: 100%;
+  }
+  .cam-admin.cam-admin.is-dossier-workflow .cam-dossier-campaign {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .cam-admin.cam-admin.is-dossier-workflow .cam-dossier-campaign select { width: 100%; }
+}
+
+/* ── 10. Establishment record (/admin/etablissement-detail) ──────────────
+   Phones: two fields per row instead of one (the identification card was
+   eleven rows of one short value each). Tags keep their own width when a
+   stacked cell is a grid. */
+@media (max-width: 639px) {
+  .cam-admin.cam-admin .cam-record-fields:not(.is-single):not(.cam-record-figures) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cam-table-stack td[data-label] > .cam-tag { justify-self: start; }
+}
+.cam-admin.cam-admin .cam-etab-submissions-table thead th:last-child { text-align: right; }
