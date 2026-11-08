@@ -994,7 +994,6 @@
    margins only where they sit outside a .cam-admin-page. */
 .cam-admin-page > .cam-admin-page-header,
 .cam-admin-page > .cam-admin-views,
-.cam-admin-page > .cam-pagination,
 .cam-admin-page > .cam-admin-lede,
 .cam-admin-page > .cam-target-actions {
   margin-block: 0;
@@ -1384,6 +1383,8 @@
 }
 
 /* A table directly inside a section drops its own frame. */
+.cam-table-wrapper:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+
 .cam-admin-section > .cam-table-wrapper {
   border: none;
   border-radius: 0 0 var(--cam-radius-md) var(--cam-radius-md);

@@ -104,7 +104,7 @@ export function GroupInvitationLinks() {
         </button>}
     >
 
-      <div className="cam-table-wrapper">
+      <div className="cam-table-wrapper" role="region" tabIndex={0} aria-labelledby="group-links-title">
         <table className="cam-table">
           <thead>
             <tr>

@@ -96,7 +96,7 @@ function AnswerField({ field, data, yes, no, notAnswered, tableNote, cellIdLabel
             ) : isMatrix ? (
               <>
                 <p className="cam-admin-meta" style={{ margin: "0 0 var(--cam-space-2)" }}>{tableNote}</p>
-                <div className="cam-table-wrapper">
+                <div className="cam-table-wrapper" role="region" tabIndex={0} aria-label={localized(field.label, locale) || field.id}>
                   <table className="cam-table">
                     <thead>
                       <tr>

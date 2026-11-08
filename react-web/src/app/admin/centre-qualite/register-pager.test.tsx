@@ -35,6 +35,12 @@ test("a register that fits on one page shows no pager", () => {
   assert.equal(screen.queryByRole("button", { name: "Suivant" }), null);
 });
 
+test("the register's table is a named, focusable region, and the header claims no campaign", () => {
+  const { container } = renderRegister("vue=registre", 1, 50);
+  assert.ok(screen.getAllByRole("region", { name: /Registre/ }).some((el) => el.classList.contains("cam-table-wrapper") && el.getAttribute("tabindex") === "0"));
+  assert.equal(container.querySelector(".cam-admin-campaign-pill"), null);
+});
+
 test("a page past the end falls back to the last page", async () => {
   renderRegister("vue=registre&page=4", 4, 120);
   await waitFor(() => assert.deepEqual(navigationMock.replaced, ["/admin/centre-qualite?vue=registre&page=3"]));

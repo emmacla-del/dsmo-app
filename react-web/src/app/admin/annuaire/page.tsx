@@ -84,7 +84,7 @@ function AnnuaireContent() {
             key: tabKey,
             label: tabKey === "companies" ? t("homeAnnuairePage.companiesTabLabel") : t("homeAnnuairePage.usersTabLabel"),
             active: tab === tabKey,
-            href: hrefWith("/admin/annuaire", searchParams.toString(), { tab: tabKey }),
+            href: hrefWith("/admin/annuaire", searchParams.toString(), { tab: tabKey, page: null }),
           }))}
         />
 

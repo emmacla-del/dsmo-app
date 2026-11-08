@@ -952,7 +952,7 @@ function DetailsDialog({ campaign, onClose }: { campaign: Campaign; onClose: () 
           <div>
             <h3 className="cam-admin-label" style={{ margin: "0 0 var(--cam-space-2)" }}>{t("remindersSent")}</h3>
             {d.reminders && d.reminders.length > 0 ? (
-              <div className="cam-table-wrapper">
+              <div className="cam-table-wrapper" role="region" tabIndex={0} aria-label={t("remindersSent")}>
                 <table className="cam-table">
                   <thead>
                     <tr><th scope="col">{t("reminderDate")}</th><th scope="col">{t("reminderTypeColumn")}</th><th scope="col">{t("reminderSentCount")}</th><th scope="col">{t("reminderFailedCount")}</th></tr>

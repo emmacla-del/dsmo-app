@@ -26,6 +26,7 @@ import {
 import { ADMIN_ROLES } from "@/lib/roles";
 import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminPager } from "@/components/admin/AdminPager";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { DataState } from "@/components/admin/DataState";
 import { useAuthStore } from "@/lib/auth-store";
@@ -197,6 +198,18 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
     <AdminTablePanel
       title={t("homeAnnuairePage.usersTabLabel")}
       headingId="users-directory-table-heading"
+      footer={
+        listState === "ready" && totalPages > 1 ? (
+          <AdminPager
+            page={page}
+            pageCount={totalPages}
+            status={t("usersDirectory.pageIndicator", { page, totalPages })}
+            previousLabel={t("usersDirectory.prevPage")}
+            nextLabel={t("usersDirectory.nextPage")}
+            onPage={setPage}
+          />
+        ) : undefined
+      }
       // Only once the list has answered: "0 comptes" while loading or after a
       // failure would state a count nobody has read (G10).
       meta={query.data ? <span role="status">{t("usersDirectory.accountsCount", { count: total })}</span> : undefined}
@@ -301,7 +314,7 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
 
       {listState === "ready" && query.data && (
         <>
-          <div className="cam-table-wrapper">
+          <div className="cam-table-wrapper" role="region" tabIndex={0} aria-labelledby="users-directory-table-heading">
             <table className="cam-table">
               <thead>
                 <tr>
@@ -431,20 +444,6 @@ export function UsersDirectory({ roleScopes, defaultRoleScope, defaultStatus = "
               </tbody>
             </table>
           </div>
-
-          {total > 0 && (
-            <div className="cam-pagination">
-              <button className="cam-pagination-btn" type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                {t("usersDirectory.prevPage")}
-              </button>
-              <span className="cam-pagination-info">
-                {t("usersDirectory.pageIndicator", { page, totalPages })}
-              </span>
-              <button className="cam-pagination-btn" type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
-                {t("usersDirectory.nextPage")}
-              </button>
-            </div>
-          )}
         </>
       )}
 

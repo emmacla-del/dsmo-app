@@ -78,7 +78,7 @@ export function PendingStaffRequests({ roles }: { roles: readonly string[] }) {
         </div>
       )}
 
-      <div className="cam-table-wrapper">
+      <div className="cam-table-wrapper" role="region" tabIndex={0} aria-labelledby="pending-staff-title">
         <table className="cam-table">
           <thead>
             <tr>

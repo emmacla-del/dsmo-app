@@ -2,7 +2,7 @@ import { renderWithProviders, screen } from "@/test/render";
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { useAuthStore } from "@/lib/auth-store";
-import { useActiveCampaign } from "./AdminHeaderActions";
+import { AdminHeaderActions, useActiveCampaign } from "./AdminHeaderActions";
 
 // Defect 24 (2026-10-16 VT run): while the dashboard loaded, the campaign card
 // said "Inactive — No collection campaign is currently active" although one
@@ -30,4 +30,26 @@ test("with the user known, the answer decides: active, or none", () => {
   unmount();
   renderWithProviders(<Probe />, { queryData: [[["campaigns", "ACTIVE"], []]] });
   assert.ok(screen.getByText("none"));
+});
+
+// /admin/dossiers hides the pill: it must not read a campaign it never shows.
+test("a hidden campaign pill sends no request, a shown one does", async () => {
+  useAuthStore.setState({ status: "authenticated", user: { id: "a", email: "a@x.cm", role: "SUPER_ADMIN" } as never });
+  const realFetch = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = (async () => {
+    requests += 1;
+    return new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const hidden = renderWithProviders(<AdminHeaderActions showCampaignPill={false} />);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(requests, 0);
+    hidden.unmount();
+    renderWithProviders(<AdminHeaderActions />);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(requests, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

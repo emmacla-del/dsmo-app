@@ -4583,41 +4583,6 @@ textarea.sovereign-text-input {
   text-align: right;
 }
 
-.cam-pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--cam-space-3);
-  margin-top: var(--cam-space-4);
-}
-
-.cam-pagination-btn {
-  height: 32px;
-  padding: 0 var(--cam-space-3);
-  border: var(--cam-border-width) solid var(--cam-border-strong);
-  border-radius: var(--cam-radius-sm);
-  background: var(--cam-surface);
-  color: var(--cam-text);
-  font-size: var(--cam-font-size-sm);
-  font-weight: var(--cam-font-weight-medium);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.cam-pagination-btn:hover:not(:disabled) {
-  background: var(--cam-bg);
-}
-
-.cam-pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cam-pagination-info {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
-}
-
 /* ── Administrative Badge Styles ── */
 .cam-badge {
   display: inline-flex;

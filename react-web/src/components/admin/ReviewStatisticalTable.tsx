@@ -50,7 +50,7 @@ function ActivitiesTable({ field, data, locale }: { field: OnefopField; data: Fo
     return option ? localized(option.label, locale) : String(value);
   };
   return (
-    <div className="cam-table-wrapper">
+    <div className="cam-table-wrapper" role="region" tabIndex={0} aria-label={localized(field.label, locale) || field.id}>
       <DataTable>
         <thead>
           <tr>
@@ -77,7 +77,7 @@ function OutcomesTable({ field, data, locale, quarterCode }: { field: OnefopFiel
   const prefix = field.table?.id ?? field.id;
   const periods = kpiPeriodLabels({ start: null, end: null, code: quarterCode });
   return (
-    <div className="cam-table-wrapper">
+    <div className="cam-table-wrapper" role="region" tabIndex={0} aria-label={localized(field.label, locale) || field.id}>
       <DataTable>
         <thead>
           <tr>

@@ -27,8 +27,8 @@ import {
   type ResolveAnomalyPayload,
   ruleFamilyLabel,
 } from "@/lib/anomaly-registry";
-import { AdminHeaderActions } from "@/components/admin/AdminHeaderActions";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminPager } from "@/components/admin/AdminPager";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
 import { AdminScopePill } from "@/components/admin/AdminFilterBarParts";
@@ -320,7 +320,6 @@ function CentreQualiteContent() {
       <AdminPageHeader
         breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations") }, { label: tRoot("adminNav.routes.centreQualite") }]}
         title={tRoot("adminNav.routes.centreQualite")}
-        actions={<AdminHeaderActions />}
       />
 
       {/* The page's three views, held in ?vue= so a reload or a shared link
@@ -448,25 +447,14 @@ function CentreQualiteContent() {
           description={t("registerSubtitle")}
           footer={
             registerPageCount !== null && registerPageCount > 1 ? (
-              <div className="cam-audit-pager">
-                <button
-                  type="button"
-                  className="cam-button cam-button-secondary cam-button-sm"
-                  disabled={registerPage <= 1}
-                  onClick={() => setRegisterPage(registerPage - 1)}
-                >
-                  {tRoot("adminJournalAuditPage.previous")}
-                </button>
-                <span>{tRoot("adminJournalAuditPage.pageOf", { page: registerPage, pages: registerPageCount })}</span>
-                <button
-                  type="button"
-                  className="cam-button cam-button-secondary cam-button-sm"
-                  disabled={registerPage >= registerPageCount}
-                  onClick={() => setRegisterPage(registerPage + 1)}
-                >
-                  {tRoot("adminJournalAuditPage.next")}
-                </button>
-              </div>
+              <AdminPager
+                page={registerPage}
+                pageCount={registerPageCount}
+                status={tRoot("adminJournalAuditPage.pageOf", { page: registerPage, pages: registerPageCount })}
+                previousLabel={tRoot("adminJournalAuditPage.previous")}
+                nextLabel={tRoot("adminJournalAuditPage.next")}
+                onPage={setRegisterPage}
+              />
             ) : undefined
           }
           actions={
@@ -512,7 +500,7 @@ function CentreQualiteContent() {
             </div>
           }
         >
-          <div className="cam-table-wrapper">
+          <div className="cam-table-wrapper" role="region" tabIndex={0} aria-labelledby="anomalies-registry-title">
             <table className="cam-table">
               <thead>
                 <tr>

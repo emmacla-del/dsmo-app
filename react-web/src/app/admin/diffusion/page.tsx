@@ -926,7 +926,7 @@ export default function DiffusionPage() {
             />
           </div>
         ) : (
-          <div className="cam-table-wrapper">
+          <div className="cam-table-wrapper" role="region" tabIndex={0} aria-labelledby="recent-exports-heading">
             <table className="cam-table">
               <thead>
                 <tr>

@@ -10,16 +10,20 @@ import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
 import { asUiLocale } from "@/lib/register-i18n";
 import { NotificationBell } from "./NotificationBell";
 
-/** The active campaign, shared with page content through one query key. */
-export function useActiveCampaign() {
+/**
+ * The active campaign, shared with page content through one query key.
+ * enabled: false reads nothing, for a screen that does not show the campaign.
+ */
+export function useActiveCampaign(enabled = true) {
   const user = useAuthStore((s) => s.user);
   const canReadCampaigns = hasRole(user?.role, CAMPAIGN_ROLES);
+  const reads = enabled && canReadCampaigns;
   const query = useQuery({
     queryKey: ["campaigns", "ACTIVE"],
     queryFn: () => listCampaigns("ACTIVE"),
-    enabled: canReadCampaigns,
+    enabled: reads,
   });
-  return { canReadCampaigns, activeCampaign: query.data?.[0], isLoading: !user || (canReadCampaigns && query.isPending) };
+  return { canReadCampaigns, activeCampaign: query.data?.[0], isLoading: !user || (reads && query.isPending) };
 }
 
 export interface AdminHeaderActionsProps {
@@ -31,7 +35,7 @@ export function AdminHeaderActions({ showCampaignPill = true }: AdminHeaderActio
   const t = useTranslations("adminHeaderActions");
   const tCommon = useTranslations("common");
   const locale = asUiLocale(useLocale());
-  const { activeCampaign, isLoading: campaignLoading, canReadCampaigns } = useActiveCampaign();
+  const { activeCampaign, isLoading: campaignLoading, canReadCampaigns } = useActiveCampaign(showCampaignPill);
   const rawCampaignName = activeCampaign?.name || activeCampaign?.code || null;
   const campaignName = (() => {
     if (!rawCampaignName) return null;

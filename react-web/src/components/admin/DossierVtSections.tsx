@@ -128,7 +128,7 @@ function VtTable({ table }: { table: VtTableItem }) {
   }
   if (table.empty) return <p className="cam-admin-meta">{t("tableEmpty")}</p>;
   return (
-    <div className="cam-table-wrapper">
+    <div className="cam-table-wrapper" role="region" tabIndex={0} aria-label={table.title}>
       <table className="cam-table">
         <thead>
           <tr>

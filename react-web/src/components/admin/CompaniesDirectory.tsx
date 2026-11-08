@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RefreshCw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLocale, useTranslations } from "next-intl";
@@ -19,7 +20,9 @@ import { asUiLocale, type UiLocale } from "@/lib/register-i18n";
 import { respondentFunctionLabel, sectorLabel } from "@/lib/display-labels";
 import { formatApiError } from "@/lib/pilotage-targets";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { AdminPager } from "@/components/admin/AdminPager";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { clampAdminListPage, hrefWith, parseAdminListPage } from "@/lib/admin-url";
 import { DataState } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
 
@@ -106,17 +109,32 @@ export function CompaniesDirectory() {
   const COLUMNS = useColumns(t, locale);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  // The page lives in the URL (G15), under the same ?page= as the Utilisateurs
+  // tab; switching tabs clears it. The search is held here (a known gap: ?q=
+  // belongs to that tab), so a reload keeps the page but not the search.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const page = parseAdminListPage(searchParams.get("page"));
+  const setPage = useCallback(
+    (next: number) =>
+      router.replace(hrefWith(pathname, searchParams.toString(), { page: next <= 1 ? null : next }), { scroll: false }),
+    [router, pathname, searchParams],
+  );
   const [sort, setSort] = useState<{ index: number; ascending: boolean } | null>(null);
   const [selected, setSelected] = useState<Company | null>(null);
 
+  // Only a changed search goes back to page 1: on load there is nothing to
+  // apply, and a reloaded ?page= must stand.
   useEffect(() => {
+    const next = searchInput.trim();
+    if (next === search) return;
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
+      setSearch(next);
       setPage(1);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search, setPage]);
 
   const query = useQuery({
     queryKey: ["dsmo", "companies", search, page],
@@ -141,11 +159,31 @@ export function CompaniesDirectory() {
   });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // A ?page= past the end, from an old link or a shorter list, would otherwise
+  // read as an empty directory.
+  useEffect(() => {
+    if (!query.data) return;
+    const validPage = clampAdminListPage(page, query.data.total, PAGE_SIZE);
+    if (validPage !== page) setPage(validPage);
+  }, [query.data, page, setPage]);
+
   return (
     <div>
       <AdminTablePanel
         title={t("homeAnnuairePage.companiesTabLabel")}
         headingId="companies-directory-table-heading"
+        footer={
+          listState === "ready" && totalPages > 1 ? (
+            <AdminPager
+              page={page}
+              pageCount={totalPages}
+              status={t("companiesDirectory.pageIndicator", { page, totalPages })}
+              previousLabel={t("companiesDirectory.prevPage")}
+              nextLabel={t("companiesDirectory.nextPage")}
+              onPage={setPage}
+            />
+          ) : undefined
+        }
         // Only once the list has answered (G10), never "0 résultats" while loading.
         meta={query.data ? <span role="status">{t("companiesDirectory.resultsCount", { count: total })}</span> : undefined}
         actions={
@@ -193,7 +231,7 @@ export function CompaniesDirectory() {
 
       {listState === "ready" && (
         <>
-          <div className="cam-table-wrapper">
+          <div className="cam-table-wrapper" role="region" tabIndex={0} aria-labelledby="companies-directory-table-heading">
             <table className="cam-table">
               <thead>
                 <tr>
@@ -250,18 +288,6 @@ export function CompaniesDirectory() {
                 ))}
               </tbody>
             </table>
-          </div>
-
-          <div className="cam-pagination">
-            <button className="cam-pagination-btn" type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              {t("companiesDirectory.prevPage")}
-            </button>
-            <span className="cam-pagination-info">
-              {t("companiesDirectory.pageIndicator", { page, totalPages })}
-            </span>
-            <button className="cam-pagination-btn" type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              {t("companiesDirectory.nextPage")}
-            </button>
           </div>
         </>
       )}
