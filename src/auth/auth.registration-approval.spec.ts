@@ -81,6 +81,9 @@ describe('AuthService company registration approval', () => {
           if (where?.status !== undefined && userRow.status !== where.status) {
             return { count: 0 };
           }
+          if (where && 'assigneeId' in where && (userRow.assigneeId ?? null) !== where.assigneeId) {
+            return { count: 0 };
+          }
           Object.assign(userRow, data);
           return { count: 1 };
         }),
@@ -110,6 +113,17 @@ describe('AuthService company registration approval', () => {
     };
     pdf = { generateRegistrationAttestation: jest.fn(async () => ({ storagePath: 'p', signedUrl: 'u' })) };
     service = new AuthService(prisma, {} as any, notifications, pdf, {} as any);
+    // Deciding requires holding the claim (owner, 2026-11-08). Most tests are
+    // about what a decision does, not who may make it, so the file is held by
+    // the officer deciding it unless the test set a holder itself (the claim
+    // block below does, null included).
+    for (const method of ['approveUser', 'rejectUser', 'requestComplements'] as const) {
+      const decide = (service[method] as (...args: any[]) => Promise<unknown>).bind(service);
+      (service as any)[method] = (id: string, actor: string, ...rest: unknown[]) => {
+        if (!('assigneeId' in userRow) && actor) userRow.assigneeId = actor;
+        return decide(id, actor, ...rest);
+      };
+    }
   });
 
   it('approves a COMPANY: issues an establishmentId, sets ACTIVE, audits the actor', async () => {
@@ -131,7 +145,7 @@ describe('AuthService company registration approval', () => {
     // Who approved is stored beside approvedAt, so the approval stays
     // attributable after the fact.
     expect(prisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'u-co', status: 'PENDING_APPROVAL' },
+      where: { id: 'u-co', status: 'PENDING_APPROVAL', assigneeId: 'actor-1' },
       data: expect.objectContaining({
         status: 'ACTIVE',
         approvedAt: expect.any(Date),
@@ -285,7 +299,7 @@ describe('AuthService company registration approval', () => {
     const result = await service.rejectUser('u-co', 'actor-1', 'SUPER_ADMIN', undefined, 'Dossier incomplet');
     expect(result).toMatchObject({ status: 'REJECTED', isActive: false });
     expect(prisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'u-co', status: 'PENDING_APPROVAL' },
+      where: { id: 'u-co', status: 'PENDING_APPROVAL', assigneeId: 'actor-1' },
       data: expect.objectContaining({
         status: 'REJECTED',
         rejectedAt: expect.any(Date),
@@ -429,6 +443,9 @@ describe('AuthService company registration approval', () => {
 
     it('accepts the decision once the reviewer has reloaded the new revision', async () => {
       await service.requestComplements('u-co', 'actor-a', 'SUPER_ADMIN', undefined, 'Joindre le NIU');
+      // The complements request left the file held by actor-a; actor-b took it
+      // over before deciding (the claim rule, 2026-11-08).
+      userRow.assigneeId = 'actor-b';
 
       await expect(
         service.rejectUser('u-co', 'actor-b', 'SUPER_ADMIN', undefined, 'Dossier faux', revision.toISOString()),
@@ -487,6 +504,71 @@ describe('AuthService company registration approval', () => {
       await expect(decide()).rejects.toThrow('audit down');
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(notifications[email]).not.toHaveBeenCalled();
+    });
+  });
+
+  // Owner's decisions, 2026-11-08 (CLAUDE.md §21): only the officer holding
+  // the file decides it, as for declarations; a free file is claimed first.
+  describe('the claim', () => {
+    const decisions: [string, (actor: string) => Promise<unknown>][] = [
+      ['approval', (actor) => service.approveUser('u-co', actor, 'SUPER_ADMIN', {}, VERIFIED)],
+      ['rejection', (actor) => service.rejectUser('u-co', actor, 'SUPER_ADMIN', undefined, 'Dossier faux')],
+      ['complements request', (actor) => service.requestComplements('u-co', actor, 'SUPER_ADMIN', undefined, 'Joindre le NIU')],
+    ];
+
+    it.each(decisions)('refuses a %s on a file another officer holds, and writes nothing', async (_label, decide) => {
+      userRow.assigneeId = 'officer-a';
+
+      await expect(decide('officer-b')).rejects.toThrow(
+        new ConflictException('Un autre agent a réclamé cette inscription. Reprenez-la pour décider.'),
+      );
+      expect(userRow.status).toBe('PENDING_APPROVAL');
+      expect(userRow.assigneeId).toBe('officer-a');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(prisma.establishment.create).not.toHaveBeenCalled();
+      expect(notifications.sendRegistrationApprovedEmail).not.toHaveBeenCalled();
+      expect(notifications.sendRegistrationRejectedEmail).not.toHaveBeenCalled();
+      expect(notifications.sendRegistrationComplementsEmail).not.toHaveBeenCalled();
+    });
+
+    it.each(decisions)('lets the holder make a %s', async (_label, decide) => {
+      userRow.assigneeId = 'officer-a';
+
+      await expect(decide('officer-a')).resolves.toBeDefined();
+      expect(userRow.assigneeId).toBe('officer-a');
+    });
+
+    it.each(decisions)('refuses a %s on a free file, and writes nothing', async (_label, decide) => {
+      userRow.assigneeId = null;
+
+      await expect(decide('officer-b')).rejects.toThrow(
+        new ConflictException('Réclamez cette inscription avant de décider.'),
+      );
+      expect(userRow.status).toBe('PENDING_APPROVAL');
+      expect(userRow.assigneeId).toBeNull();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(notifications.sendRegistrationApprovedEmail).not.toHaveBeenCalled();
+      expect(notifications.sendRegistrationRejectedEmail).not.toHaveBeenCalled();
+      expect(notifications.sendRegistrationComplementsEmail).not.toHaveBeenCalled();
+    });
+
+    it('answers 409 when a colleague took the file over after it was read', async () => {
+      userRow.assigneeId = 'officer-b';
+      // Read as held by the decider; taken over by a colleague before the write.
+      prisma.user.findUnique.mockImplementationOnce(async () => {
+        const read = { ...userRow };
+        userRow.assigneeId = 'officer-a';
+        return read;
+      });
+
+      await expect(
+        service.rejectUser('u-co', 'officer-b', 'SUPER_ADMIN', undefined, 'Dossier faux'),
+      ).rejects.toThrow(ConflictException);
+      expect(userRow.status).toBe('PENDING_APPROVAL');
+      expect(userRow.assigneeId).toBe('officer-a');
+      expect(notifications.sendRegistrationRejectedEmail).not.toHaveBeenCalled();
     });
   });
 
@@ -825,11 +907,16 @@ describe('AuthService registration review — approver role boundaries', () => {
       sendRegistrationComplementsEmail: jest.fn(async () => undefined),
     };
     const pdf = { generateRegistrationAttestation: jest.fn(async () => ({ storagePath: 'p', signedUrl: 'u' })) };
-    return {
-      prisma,
-      notifications,
-      service: new AuthService(prisma, {} as any, notifications as any, pdf as any, {} as any),
-    };
+    const service = new AuthService(prisma, {} as any, notifications as any, pdf as any, {} as any);
+    // These tests are about roles, not the claim: the officer deciding holds the file.
+    for (const method of ['approveUser', 'rejectUser', 'requestComplements'] as const) {
+      const decide = (service[method] as (...args: any[]) => Promise<unknown>).bind(service);
+      (service as any)[method] = (id: string, actor: string, ...rest: unknown[]) => {
+        if (!('assigneeId' in row) && actor) row.assigneeId = actor;
+        return decide(id, actor, ...rest);
+      };
+    }
+    return { prisma, notifications, service };
   }
 
   const pendingCompanyUser = {
@@ -1454,6 +1541,9 @@ describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
     );
     expect(result.items[0].duplicateHints).toEqual(['Même numéro CNPS que « Beta SA »']);
     expect(result.items[0].duplicateFiles).toEqual([{ id: 'u-beta', organisation: 'Beta SA' }]);
+    expect(result.items[0].duplicateMatches).toEqual([
+      { field: 'cnpsNumber', fileId: 'u-beta', organisation: 'Beta SA' },
+    ]);
   });
 
   describe('files that match', () => {

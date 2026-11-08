@@ -191,7 +191,7 @@ Decisions by the owner: **R-1** — deciding a registration requires holding the
 
 | # | Status | What changed |
 |---|---|---|
-| R-1 | Done in the page; server part open | The decision area asks to claim first. `dsmo_server` already refuses a decision on a file held by someone else; it must also refuse one on a **free** file (`AuthService.approveUser`, `rejectUser`, `requestComplements`: require `assigneeId === actor`). |
+| R-1 | Done | The decision area asks to claim first, and the server (`src/auth/auth.service.ts`, `assertRegistrationDecidable`) refuses a decision on a free file as it already did on one held by someone else (409). Staff sign-ups are not affected. |
 | R-2 | Done | Précédent / Suivant and every link ask before marks or a reason are lost. « Recharger » after a 409 still clears them: the file changed, so they no longer apply. |
 | R-3 | Already done | « Demander des compléments » becomes primary when approval is impossible. Reasons: one text per choice, 10 characters minimum with the count left. |
 | R-4 | Done | Information tone everywhere; one time signal in the review header. |
@@ -209,4 +209,4 @@ Decisions by the owner: **R-1** — deciding a registration requires holding the
 | D-5 | Done | One closable notice; successes shown. |
 | X-1 | Done earlier today | Sticky-column shadow and its raw rgba removed with the sticky column. |
 
-Still open: the server half of R-1; the signed-in pass at 1280 / 1024 / 820 / 390 px (§8); page size 8 vs 10.
+Still open: the signed-in pass at 1280 / 1024 / 820 / 390 px (§8); page size 8 vs 10.

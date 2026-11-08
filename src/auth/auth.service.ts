@@ -56,6 +56,14 @@ export const REGISTRATION_HISTORY_ACTIONS = [
 ] as const;
 const REGISTRATION_HISTORY_LIMIT = 50;
 
+// A registration decision on a file another officer holds (2026-11-08).
+export const REGISTRATION_CLAIMED_BY_OTHER =
+  'Un autre agent a réclamé cette inscription. Reprenez-la pour décider.';
+// A registration decision on a file nobody holds (owner, 2026-11-08: « same
+// rule as declarations »): the officer claims it first.
+export const REGISTRATION_NOT_CLAIMED =
+  'Réclamez cette inscription avant de décider.';
+
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const TWO_FACTOR_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -1366,9 +1374,9 @@ export class AuthService {
     if (user.role === 'COMPANY') {
       const company = await this.requireCompanyForReview(user.id);
       assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
-      this.assertRegistrationDecidable(user, company, expectedRevision);
+      this.assertRegistrationDecidable(user, company, actorId, expectedRevision);
       const updated = await this.prisma.$transaction(async (tx) => {
-        const written = await this.writeRegistrationDecision(tx, user, company, {
+        const written = await this.writeRegistrationDecision(tx, user, company, actorId, {
           status: 'REJECTED',
           isActive: false,
           rejectionReason: trimmed,
@@ -1439,9 +1447,9 @@ export class AuthService {
     }
     const company = await this.requireCompanyForReview(user.id);
     assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
-    this.assertRegistrationDecidable(user, company, expectedRevision);
+    this.assertRegistrationDecidable(user, company, actorId, expectedRevision);
     const updated = await this.prisma.$transaction(async (tx) => {
-      const written = await this.writeRegistrationDecision(tx, user, company, {
+      const written = await this.writeRegistrationDecision(tx, user, company, actorId, {
         status: 'COMPLEMENTS_REQUESTED',
         isActive: true,
         approvalComment: trimmed,
@@ -2220,7 +2228,7 @@ export class AuthService {
   }
 
   private async approveCompanyRegistration(
-    user: { id: string; email: string; status: string },
+    user: { id: string; email: string; status: string; assigneeId?: string | null },
     actorId: string,
     actorRole: string,
     actorTerritory?: Territory,
@@ -2228,7 +2236,7 @@ export class AuthService {
   ) {
     const company = await this.requireCompanyForReview(user.id);
     assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, company);
-    this.assertRegistrationDecidable(user, company, (options as any)?.expectedRevision);
+    this.assertRegistrationDecidable(user, company, actorId, (options as any)?.expectedRevision);
     if (!company.entityType) {
       throw new BadRequestException("Le type d'entité est obligatoire pour générer l'identifiant d'établissement.");
     }
@@ -2281,7 +2289,7 @@ export class AuthService {
           const subdivisionCode = subdivision.code.slice(-2);
           // Before the ID and the Establishment: the reviewer who loses a race
           // leaves no gap in the serial and no second -01 attempt.
-          const updated = await this.writeRegistrationDecision(tx, user, company, {
+          const updated = await this.writeRegistrationDecision(tx, user, company, actorId, {
             status: 'ACTIVE',
             isActive: true,
             approvedAt: new Date(),
@@ -2362,8 +2370,9 @@ export class AuthService {
    * request.
    */
   private assertRegistrationDecidable(
-    user: { status: string },
+    user: { status: string; assigneeId?: string | null },
     company: { updatedAt: Date },
+    actorId: string,
     expectedRevision?: string,
   ) {
     if (user.status !== 'PENDING_APPROVAL' && user.status !== 'COMPLEMENTS_REQUESTED') {
@@ -2371,6 +2380,17 @@ export class AuthService {
         throw new ConflictException('Ce dossier a été modifié entre-temps. Veuillez recharger la page.');
       }
       throw new BadRequestException("Cet utilisateur n'est pas en attente d'approbation");
+    }
+    // The claim (owner's decisions, 2026-11-08, CLAUDE.md §21): only the
+    // officer holding the file decides it, as for declarations. A file another
+    // officer holds is taken over first, a free file claimed first; both are
+    // separate, logged assignments (assignRegistration). 409, not 403: the
+    // page that sent it is out of date and reloads to show the claim action.
+    if (user.assigneeId && user.assigneeId !== actorId) {
+      throw new ConflictException(REGISTRATION_CLAIMED_BY_OTHER);
+    }
+    if (!user.assigneeId) {
+      throw new ConflictException(REGISTRATION_NOT_CLAIMED);
     }
     if (expectedRevision) {
       const expected = new Date(expectedRevision);
@@ -2395,13 +2415,17 @@ export class AuthService {
    */
   private async writeRegistrationDecision(
     tx: Prisma.TransactionClient,
-    user: { id: string; status: string },
+    user: { id: string; status: string; assigneeId?: string | null },
     company: { id: string; updatedAt: Date },
+    actorId: string,
     data: Prisma.UserUncheckedUpdateManyInput,
   ) {
+    // The holder is part of the condition: a colleague who took the file over
+    // after it was read makes this a 409, not a decision over their claim.
+    // The decision leaves the file held by the officer who made it.
     const decided = await tx.user.updateMany({
-      where: { id: user.id, status: user.status as UserStatus },
-      data,
+      where: { id: user.id, status: user.status as UserStatus, assigneeId: user.assigneeId ?? null },
+      data: { ...data, assigneeId: actorId },
     });
     const revised = decided.count === 1
       ? await tx.company.updateMany({
@@ -2629,15 +2653,25 @@ export class AuthService {
       // The matches a reviewer may open: inside their territory, and not
       // archived, since the review page answers 404 for an archived file.
       const files = new Map<string, { id: string; organisation: string }>();
+      // The same matches as data, so the review page can put each one beside
+      // the value it concerns. Outside the reader's territory the other file
+      // is not named, as in the hints; fileId is null when it cannot be opened.
+      const matches: { field: 'taxNumber' | 'cnpsNumber' | 'name'; fileId: string | null; organisation: string | null }[] = [];
       for (const other of others) {
         if (other.id === row.id) continue;
         const inScope = companyInTerritory(actor, other);
+        const match = {
+          fileId: inScope && !other.user.archivedAt ? other.userId : null,
+          organisation: inScope ? other.name : null,
+        };
         const hintsBefore = hints.length;
         if (row.taxNumber && !row.taxNumber.startsWith('NA-') && other.taxNumber === row.taxNumber) {
           hints.push(inScope ? `Même NIU que « ${other.name} »` : 'Même NIU');
+          matches.push({ field: 'taxNumber', ...match });
         }
         if (row.cnpsNumber && other.cnpsNumber === row.cnpsNumber) {
           hints.push(inScope ? `Même numéro CNPS que « ${other.name} »` : 'Même numéro CNPS');
+          matches.push({ field: 'cnpsNumber', ...match });
         }
         if (
           row.subdivisionId &&
@@ -2649,6 +2683,7 @@ export class AuthService {
               ? `Nom similaire dans le même arrondissement : « ${other.name} »`
               : 'Nom similaire dans le même arrondissement',
           );
+          matches.push({ field: 'name', ...match });
         }
         if (hints.length > hintsBefore && inScope && !other.user.archivedAt) {
           files.set(other.userId, { id: other.userId, organisation: other.name });
@@ -2693,6 +2728,7 @@ export class AuthService {
         rejectionReason: row.user.rejectionReason,
         duplicateHints: [...new Set(hints)],
         duplicateFiles: [...files.values()],
+        duplicateMatches: matches,
         requiresCentralStructureCheck: row.entityType === 'ADMINISTRATION',
         registrationMethod: row.user.registrationMethod,
         createdBy: row.user.createdBy,

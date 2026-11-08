@@ -1,26 +1,36 @@
-/* Home hero visual: the CAMLEAP project journey. Six scenes of 5.5 s in a
-   33 s loop (1 s = 3.03 % of the loop; one scene = 16.67 %).
+/* Home hero visual: the CAMLEAP project journey, in six steps.
 
-   Timing: each scene sets --d, its start in the loop. An element inside it
-   that enters later sets --i, its offset within the scene. Every animation
-   inside a scene starts at calc(var(--d) + var(--i)) and is written as if
-   it began at 0 %; it holds its end state until its next cycle, by which
-   time the scene is hidden again.
+   Sequence (2026-11-08): each step opens on a title card for --title, then
+   plays its scene for --step, once through; JourneyPlayer moves on when the
+   card's animation, then the current bar's fill, ends. Pausing is
+   animation-play-state, so it stops the clock with the picture.
+
+   Timing inside a scene: every animation is written in seconds of the
+   original 5.5 s scene and multiplied by --pace, so the choreography keeps
+   its proportions at the slower pace. An element that enters later sets
+   --i, its offset in those seconds. A scene's animations are switched off
+   (animation: none) while its own title card shows, so they start again
+   from zero when the scene appears.
 
    Colours: a white panel outlined like the portal's other panels
-   (2026-10-21; it was white on the dark green, which made the figure
-   outweigh the hero's one primary button). Ink text, teal for what is
-   current, the same meaning as on the page. Three local variables carry
-   it, so no shared token has to mean something else in here. Nothing is
-   told by colour alone. */
+   (2026-10-21). Ink text, teal for what is current, the same meaning as on
+   the page. Three local variables carry it, so no shared token has to mean
+   something else in here. Nothing is told by colour alone. */
 
-.panel {
-  --loop: 33s;
-  --d: 0s;
+.player {
+  --title: 3s;
+  --step: 7s;
+  --pace: 1.3;
   --i: 0s;
   --journey-fg: var(--cam-portal-ink);
   --journey-ground: var(--cam-white);
   --journey-current: var(--cam-portal-mint-deep);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+}
+
+.panel {
   display: flex;
   flex-direction: column;
   gap: var(--cam-space-4);
@@ -31,13 +41,22 @@
   color: var(--journey-fg);
 }
 
-/* ── Header: title and scene progress ────────────────── */
+/* ── Header: where we are, and the steps ─────────────── */
 
 .head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--cam-space-3);
+  gap: var(--cam-space-2) var(--cam-space-3);
+}
+
+.where {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
 }
 
 .kicker {
@@ -46,46 +65,95 @@
   color: var(--journey-current);
 }
 
-.dots {
+/* The step on screen, once its title card has gone: whoever looks over
+   mid-scene still knows where they are. */
+.now {
+  min-height: 1.4em;
+  font-size: var(--cam-font-size-sm);
+  font-weight: 700;
+  line-height: 1.4;
+  transition: opacity 0.3s ease;
+}
+
+.player[data-phase="title"]:not([data-still]) .now {
+  opacity: 0;
+}
+
+/* Six bars, and each one is a button to that step. The hit area is 24px
+   tall around a 4px bar (WCAG 2.5.8). The current bar is longer and fills
+   as its scene plays; done steps are filled, steps to come are empty, so
+   nothing rests on colour alone. */
+.steps {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* Six segments, not numbered circles: numbered circles read as buttons to
-   press, and these are not controls. The current scene's segment is teal
-   and longer, so it does not rest on colour alone. */
-.dots li {
-  width: 16px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--cam-portal-hairline);
-  animation: dot var(--loop) linear var(--d) infinite both;
+.step {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 24px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: var(--cam-radius-sm);
+  background: none;
+  cursor: pointer;
+  transition: width 0.3s ease;
 }
 
-.d2 { --d: 5.5s; }
-.d3 { --d: 11s; }
-.d4 { --d: 16.5s; }
-.d5 { --d: 22s; }
-.d6 { --d: 27.5s; }
+.step[data-state="current"] {
+  width: 44px;
+}
 
-/* 0 % is the empty state: it is also what a segment shows before its scene. */
-@keyframes dot {
-  0% {
-    width: 16px;
-    background: var(--cam-portal-hairline);
-  }
-  0.1%, 16.6% {
-    width: 32px;
-    background: var(--journey-current);
-  }
-  16.67%, 100% {
-    width: 16px;
-    background: var(--cam-portal-hairline);
-  }
+.track {
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--cam-portal-hairline);
+}
+
+.step:hover .track,
+.step[data-state="current"] .track {
+  background: var(--cam-portal-rule);
+}
+
+.fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--journey-current);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.step[data-state="done"] .fill {
+  transform: scaleX(1);
+  background: var(--cam-portal-muted);
+}
+
+.player[data-phase="play"] .step[data-state="current"] .fill {
+  animation: fill var(--step) linear both;
+}
+
+.player[data-still] .step[data-state="current"] .fill {
+  animation: none;
+  transform: scaleX(1);
+}
+
+@keyframes fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.step:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 1px;
 }
 
 /* ── Stage and scenes ─────────────────────────────────── */
@@ -96,33 +164,52 @@
   container-type: inline-size;
 }
 
+/* A scene shows only while it is the current step and its title card has
+   gone. It fades out under the next card, holding its last frame. */
 .scene {
   position: absolute;
   inset: 0;
   opacity: 0;
-  animation: scene var(--loop) ease-in-out var(--d) infinite both;
+  visibility: hidden;
+  transition: opacity 0.45s ease-in-out, visibility 0s linear 0.45s;
 }
 
-.s2 { --d: 5.5s; }
-.s3 { --d: 11s; }
-.s4 { --d: 16.5s; }
-.s5 { --d: 22s; }
-.s6 { --d: 27.5s; }
+.player[data-phase="play"][data-scene="1"] .s1,
+.player[data-phase="play"][data-scene="2"] .s2,
+.player[data-phase="play"][data-scene="3"] .s3,
+.player[data-phase="play"][data-scene="4"] .s4,
+.player[data-phase="play"][data-scene="5"] .s5,
+.player[data-phase="play"][data-scene="6"] .s6 {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.45s ease-in-out, visibility 0s;
+}
 
-@keyframes scene {
-  0% { opacity: 0; transform: translateX(18px); }
-  1.5%, 15.2% { opacity: 1; transform: none; }
-  16.67%, 100% { opacity: 0; transform: translateX(-18px); }
+/* While a step's card shows, its scene's animations are off, so they run
+   from the start when the scene appears. */
+.player[data-phase="title"][data-scene="1"] .s1 *,
+.player[data-phase="title"][data-scene="1"] .s1 *::after,
+.player[data-phase="title"][data-scene="2"] .s2 *,
+.player[data-phase="title"][data-scene="2"] .s2 *::after,
+.player[data-phase="title"][data-scene="3"] .s3 *,
+.player[data-phase="title"][data-scene="3"] .s3 *::after,
+.player[data-phase="title"][data-scene="4"] .s4 *,
+.player[data-phase="title"][data-scene="4"] .s4 *::after,
+.player[data-phase="title"][data-scene="5"] .s5 *,
+.player[data-phase="title"][data-scene="5"] .s5 *::after,
+.player[data-phase="title"][data-scene="6"] .s6 *,
+.player[data-phase="title"][data-scene="6"] .s6 *::after {
+  animation: none !important;
 }
 
 /* A late entrance inside a scene. */
 .in {
-  animation: in var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+  animation: in calc(0.5s * var(--pace)) ease-out calc(var(--i) * var(--pace)) both;
 }
 
 @keyframes in {
   0% { opacity: 0; transform: translateY(6px); }
-  1.5%, 100% { opacity: 1; transform: none; }
+  100% { opacity: 1; transform: none; }
 }
 
 .card {
@@ -167,7 +254,7 @@
   width: 50cqi;
   font-size: 1.6cqi;
   transform-origin: 0 0;
-  animation: paperZoom var(--loop) ease-in-out var(--d) infinite both;
+  animation: paperZoom calc(5.5s * var(--pace)) ease-in-out both;
 }
 
 /* White behind the scan: until the image arrives, the page shows as a blank
@@ -185,13 +272,13 @@
 /* scale(2.667) shows page x 22–97 % across the stage; the translation puts
    the middle of Section 1 (x 59.5 %, y 54.5 %) at the stage's centre. */
 @keyframes paperZoom {
-  0%, 2.4% { transform: translate(0, 0) rotate(-2deg) scale(1); }
-  5.4%, 100% { transform: translate(-54.3cqi, -66.3cqi) rotate(0) scale(2.667); }
+  0%, 14.4% { transform: translate(0, 0) rotate(-2deg) scale(1); }
+  32.4%, 100% { transform: translate(-54.3cqi, -66.3cqi) rotate(0) scale(2.667); }
 }
 
 @keyframes paperZoomTall {
-  0%, 2.4% { transform: translate(0, 0) rotate(-2deg) scale(1); }
-  5.4%, 100% { transform: translate(-54.3cqi, -58.8cqi) rotate(0) scale(2.667); }
+  0%, 14.4% { transform: translate(0, 0) rotate(-2deg) scale(1); }
+  32.4%, 100% { transform: translate(-54.3cqi, -58.8cqi) rotate(0) scale(2.667); }
 }
 
 .ink {
@@ -199,24 +286,24 @@
   line-height: 1;
   white-space: nowrap;
   color: var(--cam-info);
-  animation: var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+  animation: calc(0.4s * var(--pace)) linear calc(var(--i) * var(--pace)) both;
 }
 
 /* S1Q01 legal status: 2 = SARL. */
 .ink1 { --i: 1.9s; left: 92.9%; top: 46.4%; animation-name: writeShort; }
 /* S1Q02 company name. */
-.ink2 { --i: 2.5s; left: 37%; top: 47.7%; animation-name: writeLong; }
+.ink2 { --i: 2.5s; left: 37%; top: 47.7%; animation-name: writeLong; animation-duration: calc(1.2s * var(--pace)); }
 /* S1Q10 permanent workers: 24, in the last two boxes. */
 .ink3 { --i: 4s; left: 76.8%; top: 61.1%; animation-name: writeShort; }
 
 @keyframes writeShort {
   0% { clip-path: inset(0 100% 0 0); }
-  1.2%, 100% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
 }
 
 @keyframes writeLong {
   0% { clip-path: inset(0 100% 0 0); }
-  3.6%, 100% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
 }
 
 /* The pen's tip sits at (left, top) and follows the writing. */
@@ -225,7 +312,7 @@
   width: 12%;
   transform: translateY(-50%) rotate(-38deg);
   transform-origin: 0 50%;
-  animation: pen var(--loop) ease-in-out var(--d) infinite both;
+  animation: pen calc(5.5s * var(--pace)) ease-in-out both;
 }
 
 .panel .pen svg {
@@ -241,15 +328,15 @@
 .pen rect:nth-of-type(2) { fill: var(--cam-info); }
 
 @keyframes pen {
-  0%, 5.4% { left: 97%; top: 44%; opacity: 0; }
-  5.75% { left: 93%; top: 48.3%; opacity: 1; }
-  6.67% { left: 94.4%; top: 48.3%; opacity: 1; }
-  7.58% { left: 37%; top: 49.7%; opacity: 1; }
-  11.21% { left: 66%; top: 49.7%; opacity: 1; }
-  12.12% { left: 76.9%; top: 63%; opacity: 1; }
-  13.33% { left: 79.6%; top: 63%; opacity: 1; }
-  13.94% { left: 79.6%; top: 63%; opacity: 1; }
-  15.15%, 100% { left: 90%; top: 57%; opacity: 0; }
+  0%, 32.4% { left: 97%; top: 44%; opacity: 0; }
+  34.5% { left: 93%; top: 48.3%; opacity: 1; }
+  40% { left: 94.4%; top: 48.3%; opacity: 1; }
+  45.5% { left: 37%; top: 49.7%; opacity: 1; }
+  67.3% { left: 66%; top: 49.7%; opacity: 1; }
+  72.7% { left: 76.9%; top: 63%; opacity: 1; }
+  80% { left: 79.6%; top: 63%; opacity: 1; }
+  83.6% { left: 79.6%; top: 63%; opacity: 1; }
+  90.9%, 100% { left: 90%; top: 57%; opacity: 0; }
 }
 
 /* ── 2 · …to digital ─────────────────────────────────── */
@@ -357,24 +444,23 @@
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
-  animation: focus var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+  animation: focus calc(1s * var(--pace)) linear calc(var(--i) * var(--pace)) both;
 }
 
 .fieldValue {
   display: inline-block;
-  animation: type var(--loop) steps(16, end) calc(var(--d) + var(--i)) infinite both;
+  animation: type calc(0.8s * var(--pace)) steps(16, end) calc(var(--i) * var(--pace)) both;
 }
 
 @keyframes focus {
   0% { box-shadow: none; }
-  0.3%, 2.7% { box-shadow: 0 0 0 2px var(--cam-portal-ink); }
-  3%, 100% { box-shadow: none; }
+  10%, 89% { box-shadow: 0 0 0 2px var(--cam-portal-ink); }
+  99%, 100% { box-shadow: none; }
 }
 
 @keyframes type {
-  0% { clip-path: inset(0 100% 0 0); }
-  0.3% { clip-path: inset(0 100% 0 0); }
-  2.4%, 100% { clip-path: inset(0 0 0 0); }
+  0%, 12.5% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
 }
 
 .formFoot {
@@ -392,19 +478,19 @@
   color: var(--cam-white);
   font-size: clamp(11px, 2.6cqi, 13px);
   font-weight: 700;
-  animation: press var(--loop) ease-in-out calc(var(--d) + 3.5s) infinite both;
+  animation: press calc(0.33s * var(--pace)) ease-in-out calc(3.5s * var(--pace)) both;
 }
 
 @keyframes press {
   0% { transform: scale(1); }
-  0.5% { transform: scale(0.92); }
-  1%, 100% { transform: scale(1); }
+  50% { transform: scale(0.92); }
+  100% { transform: scale(1); }
 }
 
 .toast {
   font-size: clamp(11px, 2.7cqi, 14px);
   font-weight: 700;
-  animation: in var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+  animation: in calc(0.5s * var(--pace)) ease-out calc(var(--i) * var(--pace)) both;
 }
 
 /* ── 3 · Curated data ────────────────────────────────── */
@@ -460,21 +546,21 @@
 
 .swapBefore {
   opacity: 0;
-  animation: swapOut var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+  animation: swapOut calc(0.4s * var(--pace)) linear calc(var(--i) * var(--pace)) both;
 }
 
 .swapAfter {
-  animation: swapIn var(--loop) linear calc(var(--d) + var(--i)) infinite both;
+  animation: swapIn calc(0.4s * var(--pace)) linear calc(var(--i) * var(--pace)) both;
 }
 
 @keyframes swapOut {
   0% { opacity: 1; }
-  1.2%, 100% { opacity: 0; }
+  100% { opacity: 0; }
 }
 
 @keyframes swapIn {
   0% { opacity: 0; }
-  1.2%, 100% { opacity: 1; }
+  100% { opacity: 1; }
 }
 
 /* The duplicate is struck through and dimmed. */
@@ -491,21 +577,21 @@
   height: 2px;
   background: var(--cam-portal-ink);
   transform-origin: left;
-  animation: strike var(--loop) ease-out calc(var(--d) + 2.8s) infinite both;
+  animation: strike calc(0.5s * var(--pace)) ease-out calc(2.8s * var(--pace)) both;
 }
 
 .dup td {
-  animation: dim var(--loop) ease-out calc(var(--d) + 2.8s) infinite both;
+  animation: dim calc(0.5s * var(--pace)) ease-out calc(2.8s * var(--pace)) both;
 }
 
 @keyframes strike {
   0% { transform: scaleX(0); }
-  1.5%, 100% { transform: scaleX(1); }
+  100% { transform: scaleX(1); }
 }
 
 @keyframes dim {
   0% { opacity: 1; }
-  1.5%, 100% { opacity: 0.7; }
+  100% { opacity: 0.7; }
 }
 
 .checks {
@@ -563,12 +649,12 @@
   border-radius: 3px;
   background: var(--cam-primary-dark);
   transform-origin: left;
-  animation: grow var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+  animation: grow calc(1.2s * var(--pace)) ease-out calc(var(--i) * var(--pace)) both;
 }
 
 @keyframes grow {
   0% { transform: scaleX(0); }
-  3.6%, 100% { transform: scaleX(1); }
+  100% { transform: scaleX(1); }
 }
 
 .barValue {
@@ -614,12 +700,12 @@
   stroke-width: 2;
   stroke-dasharray: 1;
   vector-effect: non-scaling-stroke;
-  animation: draw var(--loop) ease-out calc(var(--d) + var(--i)) infinite both;
+  animation: draw calc(1s * var(--pace)) ease-out calc(var(--i) * var(--pace)) both;
 }
 
 @keyframes draw {
   0% { stroke-dashoffset: 1; }
-  3%, 100% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 0; }
 }
 
 .nodes {
@@ -699,43 +785,45 @@
   font-weight: 700;
 }
 
-/* ── Captions ────────────────────────────────────────── */
+/* ── Title card ──────────────────────────────────────── */
 
-.captions {
-  display: grid;
-}
-
-.caption {
-  grid-area: 1 / 1;
+/* Covers the stage while it names the step; the previous scene fades out
+   beneath it. Its own animation is the clock of the title phase. */
+.titleCard {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  opacity: 0;
-  animation: caption var(--loop) ease-in-out var(--d) infinite both;
+  justify-content: center;
+  gap: var(--cam-space-2);
+  padding: 0 8cqi;
+  background: var(--journey-ground);
+  animation: titleCard var(--title) ease-in-out both;
 }
 
-.caption strong {
-  font-size: 19px;
-  line-height: 1.3;
+@keyframes titleCard {
+  0% { opacity: 0; transform: translateY(8px); }
+  12%, 88% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+
+.titleCounter {
+  font-size: clamp(13px, 3cqi, 15px);
+  font-weight: 600;
+  color: var(--journey-current);
+}
+
+.titleText {
+  font-size: clamp(24px, 7cqi, 36px);
   font-weight: 700;
+  line-height: 1.2;
 }
 
-.caption span {
-  font-size: 16px;
+.titleBody {
+  max-width: 34ch;
+  font-size: clamp(15px, 3.6cqi, 18px);
   line-height: 1.45;
-}
-
-.c2 { --d: 5.5s; }
-.c3 { --d: 11s; }
-.c4 { --d: 16.5s; }
-.c5 { --d: 22s; }
-.c6 { --d: 27.5s; }
-
-@keyframes caption {
-  0% { opacity: 0; }
-  1.5%, 15.2% { opacity: 1; }
-  16.67%, 100% { opacity: 0; }
 }
 
 @media (max-width: 520px) {
@@ -751,58 +839,46 @@
   .paperBig {
     animation-name: paperZoomTall;
   }
-
-  .caption strong {
-    font-size: 17px;
-  }
-
-  .caption span {
-    font-size: 15px;
-  }
 }
 
-/* Without motion: the closing scene, as the original animation did. */
+/* Without motion: no title card and nothing advances. Every animation
+   jumps to its end, so each step shows its finished frame, and the bars
+   choose between them. */
 @media (prefers-reduced-motion: reduce) {
   .panel *,
   .panel *::after {
-    animation: none !important;
+    animation-duration: 1ms !important;
+    animation-delay: 0s !important;
+    transition: none !important;
   }
 
-  .s6,
-  .c6 {
-    opacity: 1;
-  }
-
-  .d6 {
-    width: 32px;
-    background: var(--journey-current);
-  }
-
-  /* Nothing moves, so there is nothing to pause. */
-  .pause {
+  .titleCard {
     display: none;
   }
 }
 
-/* ── Pause ────────────────────────────────────────────── */
+/* ── Controls ─────────────────────────────────────────── */
 
-/* A loop of more than five seconds beside other content needs a way to
-   stop it (WCAG 2.2.2). The button sits outside the role="img" panel,
-   whose children are presentational to assistive technology. */
-.player {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cam-space-2);
-}
-
+/* Off screen, in a hidden tab, or paused by the viewer: everything holds,
+   the clocks included. */
 .player[data-paused] .panel *,
 .player[data-paused] .panel *::before,
-.player[data-paused] .panel *::after {
+.player[data-paused] .panel *::after,
+.player[data-held] .panel *,
+.player[data-held] .panel *::before,
+.player[data-held] .panel *::after {
   animation-play-state: paused !important;
 }
 
-.pause {
-  align-self: flex-end;
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--cam-space-1) var(--cam-space-4);
+}
+
+.control {
   display: inline-flex;
   align-items: center;
   gap: var(--cam-space-2);
@@ -817,20 +893,60 @@
   cursor: pointer;
 }
 
-/* The icon keeps its 12px: the portal's .heroVisual svg rule stretches
+/* The icons keep their 12px: the portal's .heroVisual svg rule stretches
    every svg in the hero to the figure's width. */
-.player .pause svg {
+.player .control svg {
   flex: none;
   width: 12px;
   height: 12px;
 }
 
-.pause:hover {
+.control:hover:not(:disabled) {
   text-decoration: underline;
 }
 
-.pause:focus-visible {
+.control:disabled {
+  color: var(--cam-portal-muted);
+  cursor: default;
+}
+
+.control:focus-visible {
   outline: 2px solid var(--cam-focus);
   outline-offset: 2px;
   border-radius: var(--cam-radius-sm);
+}
+
+/* On a phone the three controls do not fit on one line: previous and next
+   keep their arrow, their words stay as the buttons' names. */
+@media (max-width: 520px) {
+  .controls {
+    justify-content: space-between;
+  }
+
+  .stepControl {
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .stepControl .controlText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
