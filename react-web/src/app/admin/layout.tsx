@@ -2,7 +2,6 @@
 
 import { ReactNode, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
@@ -16,7 +15,7 @@ import { computeUserScopeLabel } from "@/lib/admin-data-state";
 import { isRegistrationReviewPath } from "@/lib/registration-trail";
 import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { NotificationBell } from "@/components/admin/NotificationBell";
+import { AdminMasthead } from "@/components/admin/AdminMasthead";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import {
   getAdminRailExpandedServerSnapshot,
@@ -67,9 +66,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // where they are resolved.
 
   // The drawer (tablet/phone) closes on Escape as well as on navigation.
-  useEffect(() => {
+  // Navigation is caught while rendering (React's "adjust state when a prop
+  // changes" pattern), not in an effect that would paint the open drawer
+  // once more before closing it.
+  const [menuPathname, setMenuPathname] = useState(pathname);
+  if (menuPathname !== pathname) {
+    setMenuPathname(pathname);
     setMenuOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -97,7 +101,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     };
     mq.addEventListener("change", handle);
     return () => mq.removeEventListener("change", handle);
-  }, []);
+    // setMenuOpen is stable; listed so the compiler can keep the memo.
+  }, [setMenuOpen]);
 
   const isDrawer = useSyncExternalStore(
     subscribeToWidth,
@@ -213,7 +218,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           accountRole={accountRole}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
           onLogout={handleLogout}
-          showRailNotifications={!isDossierWorkflow}
+          showRailNotifications={false}
           accountScope={scopeLabel}
           expanded={railExpanded}
           onToggleExpanded={toggleRail}
@@ -228,42 +233,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           the drawer is open — which matches what is on screen, since the
           scrim covers it. Escape and the scrim are the ways back out. */}
         <div className="cam-admin-body" inert={drawerOpen}>
-        {/* On narrow screens, account actions stay in the navigation drawer.
-            The dossier workspace uses the institutional masthead at desktop. */}
-        <div className="cam-admin-topbar">
-          <button
-            ref={menuButtonRef}
-            type="button"
-            className="cam-admin-menu-button"
-            aria-label={menuOpen ? t("adminLayout.closeMenuAriaLabel") : t("adminLayout.openMenuAriaLabel")}
-            aria-expanded={menuOpen}
-            aria-controls="cam-admin-rail"
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <Menu size={20} aria-hidden="true" />
-          </button>
-          {isDossierWorkflow && (
-            <>
-              <div className="cam-admin-institutional-brand">
-                <Image src="/images/camleap-logo.svg" alt="CAMLEAP" width={190} height={27} priority />
-                <span className="cam-admin-institutional-brand-name"><span aria-hidden="true">◉</span> CAMLEAP</span>
-                <span className="cam-admin-institutional-brand-subtitle">{t("adminSidebar.brandSubtitle")}</span>
-              </div>
-              <div className="cam-admin-institutional-account">
-                <span className="cam-admin-scope cam-admin-institutional-scope" title={t("adminHeaderActions.scopeTitle")}>
-                  {t("adminHeaderActions.scopeChip", { scope: scopeLabel })}
-                </span>
-                <NotificationBell />
-              </div>
-              <div className="cam-admin-institutional-mobile-actions">
-                <span className="cam-admin-scope cam-admin-institutional-scope" title={t("adminHeaderActions.scopeTitle")}>
-                  {t("adminHeaderActions.scopeChip", { scope: scopeLabel })}
-                </span>
-                <NotificationBell />
-              </div>
-            </>
-          )}
-        </div>
+        {/* Institutional masthead on every console route (spec §2, rev. 3,
+            owner 2026-11-08). Below 1024px it also holds the drawer toggle. */}
+        <AdminMasthead
+          scopeLabel={t("adminHeaderActions.scopeChip", { scope: scopeLabel })}
+          scopeTitle={t("adminHeaderActions.scopeTitle")}
+          menuButton={
+            <button
+              ref={menuButtonRef}
+              type="button"
+              className="cam-admin-menu-button"
+              aria-label={menuOpen ? t("adminLayout.closeMenuAriaLabel") : t("adminLayout.openMenuAriaLabel")}
+              aria-expanded={menuOpen}
+              aria-controls="cam-admin-rail"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <Menu size={20} aria-hidden="true" />
+            </button>
+          }
+        />
 
         <main className="cam-admin-main">
           {/* D8: per-page gate on top of the console gate above. */}

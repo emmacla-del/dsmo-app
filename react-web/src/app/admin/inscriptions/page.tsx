@@ -15,6 +15,7 @@ import {
   restoreUser,
   suspendUser,
   activateUser,
+  applyRegistrationClaim,
   assignRegistrationUser,
   decidedOrganisation,
   type CompanyRegistrationItem,
@@ -42,6 +43,8 @@ import { departmentInRegion, regionInTree, useTerritoryDepartments, useTerritory
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { AdminKpiStrip, type KpiItem } from "@/components/admin/AdminKpiStrip";
+import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
 import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
@@ -49,7 +52,7 @@ import { AdminFilterField, AdminFilterMore, AdminScopePill, territoryPillFor } f
 import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedViews";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
-import { NOT_PROVIDED, count, resolveDataState, stamp } from "@/lib/admin-data-state";
+import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { coverageHref } from "@/lib/pilotage-targets";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -160,6 +163,23 @@ export default function InscriptionsPage() {
   );
 }
 
+/**
+ * Writes list filters to the URL at once, on top of what the URL says now.
+ *
+ * Through the router the address only changed when the server answered, so a
+ * second filter chosen meanwhile was built on the old query and dropped the
+ * first. The list is read in the browser and has nothing to fetch from the
+ * server, and Next keeps useSearchParams in step with the history API.
+ */
+function writeListUrl(changes: Record<string, string | number | null>, history: "push" | "replace" = "push") {
+  const query = window.location.search.slice(1);
+  const view = parseRegistrationVue(new URLSearchParams(query).get("vue"));
+  const href = inscriptionsHref(query, view, changes);
+  if (href === `/admin/inscriptions${query ? `?${query}` : ""}`) return;
+  if (history === "push") window.history.pushState(null, "", href);
+  else window.history.replaceState(null, "", href);
+}
+
 function InscriptionsLoading() {
   const t = useTranslations("adminInscriptionsPage");
   const tRoot = useTranslations();
@@ -216,9 +236,8 @@ function InscriptionsContent() {
   const page = parseAdminListPage(searchParams.get("page"));
   const setPage = useCallback((nextPage: number) => {
     const clampedPage = Math.max(1, Math.trunc(nextPage));
-    const currentView = parseRegistrationVue(new URLSearchParams(currentQuery).get("vue"));
-    router.push(inscriptionsHref(currentQuery, currentView, { page: clampedPage === 1 ? null : clampedPage }), { scroll: false });
-  }, [currentQuery, router]);
+    writeListUrl({ page: clampedPage === 1 ? null : clampedPage });
+  }, []);
   const role = useAuthStore((s) => s.user?.role);
   const userId = useAuthStore((s) => s.user?.id);
   const includeArchived = vue === "organisations" && searchParams.get("includeArchived") === "true";
@@ -233,6 +252,9 @@ function InscriptionsContent() {
   }, [t, vue]);
   const entityLabel = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? "—";
+  // A table cell shows the short form; the full respondent label is its title.
+  const entityShortLabel = (value: string | null) =>
+    value && ENTITY_TYPE_OPTION_KEYS[value] ? t(`entityShort.${value}`) : value ?? NOT_PROVIDED;
 
   const requestedSearch = searchParams.get("search") ?? searchParams.get("organisation") ?? "";
   const rawRequestedMethod = searchParams.get("registrationMethod") ?? "";
@@ -335,11 +357,8 @@ function InscriptionsContent() {
   };
 
   const setUrlFilters = useCallback((changes: Record<string, string | number | null>, history: "push" | "replace" = "push") => {
-    const currentView = parseRegistrationVue(new URLSearchParams(currentQuery).get("vue"));
-    const href = inscriptionsHref(currentQuery, currentView, { page: null, ...changes });
-    const currentHref = `/admin/inscriptions${currentQuery ? `?${currentQuery}` : ""}`;
-    if (href !== currentHref) router[history](href, { scroll: false });
-  }, [currentQuery, router]);
+    writeListUrl({ page: null, ...changes }, history);
+  }, []);
 
   // The decision notice was read into state above; a reload must not repeat it.
   useEffect(() => {
@@ -379,7 +398,7 @@ function InscriptionsContent() {
       setUrlFilters({ search: next || null, organisation: null }, "replace");
     }, 300);
     return () => clearTimeout(timer);
-  }, [organisationInput, organisation, setUrlFilters]);
+  }, [vue, organisationInput, organisation, setUrlFilters]);
 
   /**
    * The filters the URL carries, re-applied whenever its own values change.
@@ -596,7 +615,10 @@ function InscriptionsContent() {
   const assignMutation = useMutation({
     mutationFn: (target: { id: string; assigneeId: string | null; expectedAssigneeId: string | null }) =>
       assignRegistrationUser(target.id, target.assigneeId, target.expectedAssigneeId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+    onSuccess: (claim, target) => {
+      applyRegistrationClaim(queryClient, target.id, claim);
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+    },
     onError: (error) => {
       setNotice({ tone: "error", text: `${tRoot("adminDossiersPage.assignFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
       void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
@@ -664,17 +686,6 @@ function InscriptionsContent() {
     rowCount: territoryFiltersValid && organisationsResult ? organisationItems.length : null,
   });
 
-  const statusSource = territoryFiltersValid ? (vue === "organisations" ? organisationCounts : counts) : null;
-  const registrationStatusSegments = statusSource ? (vue === "organisations" ? [
-    { key: "approved", label: t("statusApproved"), value: statusSource.approved, tone: "approved" },
-    { key: "rejected", label: t("statusRejected"), value: statusSource.rejected, tone: "rejected" },
-  ] : [
-    { key: "pending", label: t("statusPending"), value: statusSource.pending, tone: "pending" },
-    { key: "complements", label: t("statusComplements"), value: statusSource.complements, tone: "correction" },
-    { key: "approved", label: t("statusApproved"), value: statusSource.approved, tone: "approved" },
-    { key: "rejected", label: t("statusRejected"), value: statusSource.rejected, tone: "rejected" },
-  ]) : [];
-  const registrationStatusTotal = registrationStatusSegments.reduce((total, segment) => total + segment.value, 0);
   const activeQueueFilters: Array<{ key: string; label: string; clear: () => void }> = [];
   if (organisation || organisationInput.trim()) {
     activeQueueFilters.push({ key: "search", label: `${t("searchLabel")}: ${organisation || organisationInput.trim()}`, clear: () => { setOrganisationInput(""); setOrganisation(""); setUrlFilters({ search: null, organisation: null }); } });
@@ -805,13 +816,16 @@ function InscriptionsContent() {
       </select>
     </AdminFilterField>
   );
-  const sortField = (idPrefix: string) => (
-    <AdminFilterField id={`${idPrefix}-sort`} label={tRoot("adminDossiersPage.sortLabel")}>
-      <select id={`${idPrefix}-sort`} className="cam-admin-input w-full" value={sortOrder} onChange={(event) => applySort(event.target.value)}>
+  // Order is a daily control, not a filter: always in view at the end of the
+  // bar (ux-pilot audit 6 Nov: oldest-first was hidden in « Filtres »).
+  const sortControl = (idPrefix: string) => (
+    <label className="cam-sort-control" htmlFor={`${idPrefix}-sort`}>
+      {t("sortControlLabel")}
+      <select id={`${idPrefix}-sort`} value={sortOrder} onChange={(event) => applySort(event.target.value)}>
         <option value="newest">{tRoot("adminDossiersPage.sortNewest")}</option>
         <option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option>
       </select>
-    </AdminFilterField>
+    </label>
   );
 
   const customDateFields = (idPrefix: string) => dateRange !== "custom" ? null : (
@@ -828,33 +842,30 @@ function InscriptionsContent() {
     </div>
   );
 
-  const registrationStatusSummary = canReadQueue && statusSource && registrationStatusTotal > 0 ? (
-    <section className="cam-registration-status-summary" aria-labelledby="registration-status-title">
-      <div className="cam-registration-status-head">
-        <h2 id="registration-status-title">{t("statusDistributionTitle")}</h2>
-        <span>{t("statusDistributionContext")}</span>
-      </div>
-      <ul className="cam-registration-status-list" aria-label={t("statusDistributionAria", {
-        pending: statusSource.pending ?? 0,
-        complements: statusSource.complements ?? 0,
-        approved: statusSource.approved ?? 0,
-        rejected: statusSource.rejected ?? 0,
-      })}>
-        {registrationStatusSegments.map((segment) => (
-          <li key={segment.key}>
-            <span className={`cam-dash-status-swatch is-${segment.tone}`} aria-hidden="true" />
-            <span className="cam-dash-status-label">{segment.label}</span>
-            <strong>{count(segment.value, locale)}</strong>
-          </li>
-        ))}
-      </ul>
-      <p className="cam-admin-help-text" role="note">{t("statusCountsScopeNote")}</p>
-      {vue === "queue" && (
-        <p className="cam-dash-context cam-registration-overdue-summary">
-          {t("overdueSummary", { count: count(statusSource.overdue ?? 0, locale), days: overdueDays })}
-        </p>
-      )}
-    </section>
+
+  // Key figures above the list (canvas board 1): the same territory totals
+  // as before, each one a filter on the list below. They replace the loose
+  // « Statut des inscriptions » summary and the overdue banner.
+  const queueKpis: KpiItem[] = counts ? [
+    { key: "pending", label: t("kpiPending"), value: count(counts.pending ?? 0, locale), hint: t("kpiPendingHint"), tone: "warning", pressed: statusFilter === "PENDING_APPROVAL", onSelect: () => applyStatus(statusFilter === "PENDING_APPROVAL" ? "" : "PENDING_APPROVAL"), selectHint: t("kpiFilterHint") },
+    { key: "complements", label: t("kpiComplements"), value: count(counts.complements ?? 0, locale), hint: t("kpiComplementsHint"), tone: "info", pressed: statusFilter === "COMPLEMENTS_REQUESTED", onSelect: () => applyStatus(statusFilter === "COMPLEMENTS_REQUESTED" ? "" : "COMPLEMENTS_REQUESTED"), selectHint: t("kpiFilterHint") },
+    { key: "overdue", label: t("kpiOverdue", { days: overdueDays }), value: count(counts.overdue ?? 0, locale), hint: t("kpiOverdueHint"), tone: "info", pressed: statusFilter === "OVERDUE", onSelect: () => applyStatus(statusFilter === "OVERDUE" ? "" : "OVERDUE"), selectHint: t("kpiFilterHint") },
+    { key: "approved", label: t("kpiApproved"), value: count(counts.approved ?? 0, locale), hint: t("kpiApprovedHint"), tone: "success", pressed: statusFilter === "ACTIVE", onSelect: () => applyStatus(statusFilter === "ACTIVE" ? "" : "ACTIVE"), selectHint: t("kpiFilterHint") },
+  ] : [];
+  const organisationKpis: KpiItem[] = organisationCounts ? [
+    { key: "approved", label: t("kpiApproved"), value: count(organisationCounts.approved ?? 0, locale), hint: t("kpiApprovedHint"), tone: "success", pressed: statusFilter === "ACTIVE", onSelect: () => applyStatus(statusFilter === "ACTIVE" ? "" : "ACTIVE"), selectHint: t("kpiFilterHint") },
+    { key: "rejected", label: t("kpiRejected"), value: count(organisationCounts.rejected ?? 0, locale), hint: t("kpiRejectedHint"), tone: "danger", pressed: statusFilter === "REJECTED", onSelect: () => applyStatus(statusFilter === "REJECTED" ? "" : "REJECTED"), selectHint: t("kpiFilterHint") },
+  ] : [];
+  const kpiStrip = canReadQueue ? (
+    <AdminKpiStrip
+      items={vue === "organisations" ? organisationKpis : queueKpis}
+      label={t("kpiAriaLabel")}
+      loading={territoryFiltersValid && (vue === "organisations" ? !organisationsResult && !organisationsQuery.isError : !queueQuery.data && !queueQuery.isError)}
+      loadingLabel={tRoot("adminLayout.loadingFigures")}
+      error={vue === "organisations" ? organisationsQuery.isError : queueQuery.isError}
+      errorLabel={tRoot("adminLayout.figuresUnavailable")}
+      note={t("statusCountsScopeNote")}
+    />
   ) : null;
 
   if (vue === "coverage") return null;
@@ -863,7 +874,9 @@ function InscriptionsContent() {
     <div className="cam-admin-page cam-admin-workflow-page cam-registration-hub-page">
       {/* Keep the registration action alongside its destinations, not in the sidebar. */}
       <AdminPageHeader
-        title={tRoot("adminNav.hubs.inscriptions")}
+        breadcrumb={[{ label: tRoot("adminNav.hubs.inscriptions"), href: "/admin/inscriptions" }, { label: vue === "organisations" ? t("viewOrganisations") : tRoot("adminNav.routes.inscriptions") }]}
+        title={vue === "organisations" ? t("viewOrganisations") : tRoot("adminNav.routes.inscriptions")}
+        subtitle={vue === "organisations" ? t("organisationsSubtitle") : t("pageSubtitle")}
         hideTabs
         actions={vue === "queue" && role && DIRECTORY_ROLES.includes(role) ? (
           <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm">
@@ -873,12 +886,12 @@ function InscriptionsContent() {
         ) : undefined}
       />
       <RegistrationsHubTabs activeTab={vue} canReviewRegistrations={canReadQueue} currentQuery={currentQuery} />
+      {kpiStrip}
 
       {vue === "organisations" && <>
         {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="my-4">{notice.text}</Alert>}
         <AdminTablePanel title={t("viewOrganisations")} description={t("organisationsScopeNote")} headingId="registration-organisations-table-title" busy={organisationsUpdating} busyLabel={t("updatingOrganisations")} actions={<Button type="button" size="sm" variant="outline" onClick={exportOrganisations} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>}>
           <div className="cam-admin-table-panel-body">
-            {registrationStatusSummary}
             <div className="cam-registration-filters">
               <div className="cam-filter-bar" role="group" aria-label={filtersLabel}>
                 {searchField("organisations-search")}
@@ -908,36 +921,34 @@ function InscriptionsContent() {
                   {dateRangeField("organisations")}
                   {departmentPanelField("organisations")}
                   {methodField("organisations")}
-                  {sortField("organisations")}
                   <div className="cam-filter-more-field is-wide cam-filter-more-check">
                     <Checkbox id="organisations-include-archived" checked={includeArchived} onCheckedChange={(checked) => setUrlFilters({ includeArchived: checked === true ? "true" : null })} />
                     <Label htmlFor="organisations-include-archived" className="!mb-0 cursor-pointer">{t("showArchived")}</Label>
                   </div>
                 </AdminFilterMore>
                 {hasActiveOrganisationFilters && <Button type="button" variant="ghost" size="sm" onClick={() => clearQueueFilters({ includeArchived: null })}>{t("clearFilters")}</Button>}
+                {sortControl("organisations")}
               </div>
               <AdminActiveFilterChips filters={organisationPanelChips.map(({ key, label, clear }) => ({ key, label, onClear: clear }))} label={t("activeFiltersLabel")} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
             </div>
-            <Table className="cam-registration-organisations-table"><TableHeader><TableRow>
-              <TableHead scope="col" className="whitespace-normal">{t("organisationColumn")}</TableHead>
+            <Table className="cam-registration-organisations-table cam-table-stack"><TableHeader><TableRow>
+              <TableHead scope="col">{t("organisationColumn")}</TableHead>
               <TableHead scope="col">{t("registrationStatusColumn")}</TableHead>
-              <TableHead scope="col">{`${t("regionColumn")} / ${t("departmentColumn")}`}</TableHead>
-              <TableHead scope="col">{t("establishmentTypeColumn")}</TableHead>
-              <TableHead scope="col" className="whitespace-normal">{t("actionsColumn")}</TableHead>
+              <TableHead scope="col">{t("territoryColumn")}</TableHead>
+              <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
             </TableRow></TableHeader><TableBody>
-              <DataStateRow colSpan={5} state={organisationsTableState} resource={t("viewOrganisations")} error={organisationsQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined)} onRetry={() => territoryValidationError ? territoryStructure.refetch() : organisationsQuery.refetch()} title={organisationsTableState === "empty" ? t("emptyTitle") : undefined} />
+              <DataStateRow colSpan={4} state={organisationsTableState} resource={t("viewOrganisations")} error={organisationsQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined)} onRetry={() => territoryValidationError ? territoryStructure.refetch() : organisationsQuery.refetch()} title={organisationsTableState === "empty" ? t("emptyTitle") : undefined} />
               {organisationItems.map((item) => {
                 const badge = STATUS_BADGE[item.status];
                 const detailIdentifier = item.establishmentId || item.registrationNumber;
                 return <TableRow key={item.id}>
-                  <TableHead scope="row" className="sticky left-0 z-10 h-auto whitespace-normal border-r bg-[var(--cam-surface)] font-medium text-foreground shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)]"><span className="block max-w-[250px] truncate font-semibold" title={item.organisation}>{item.organisation}</span><span className="block max-w-[250px] truncate text-xs text-muted-foreground" title={item.establishmentId ?? undefined}>{item.establishmentId || NOT_PROVIDED}</span></TableHead>
-                  <TableCell className="align-top whitespace-normal py-2"><span className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal py-2"><span className="block truncate" title={[item.region, item.department].filter(Boolean).join(" / ")}>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal py-2"><span className="block max-w-[250px] truncate" title={entityLabel(item.entityType)}>{entityLabel(item.entityType)}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal py-2"><div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <TableHead scope="row"><span className="cam-record-cell"><span className="cam-record-cell-name" title={item.organisation}>{item.organisation}</span><span className="cam-record-cell-meta"><span className="cam-record-cell-ref">{item.establishmentId || NOT_PROVIDED}</span><span className="cam-tag" title={entityLabel(item.entityType)}>{entityShortLabel(item.entityType)}</span></span></span></TableHead>
+                  <TableCell data-label={t("registrationStatusColumn")}><span className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</span></TableCell>
+                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
+                  <TableCell className="cam-cell-action"><div className="flex items-center justify-end gap-1">
                     {detailIdentifier
-                      ? <Link className="text-sm underline" href={`/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}&returnTo=${encodeURIComponent(establishmentReturnTo)}`}>{t("openButton")}</Link>
-                      : <span aria-disabled="true" className="cursor-not-allowed text-sm text-muted-foreground">{t("openButton")}</span>}
+                      ? <Link className="cam-button cam-button-secondary cam-button-sm" href={`/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}&returnTo=${encodeURIComponent(establishmentReturnTo)}`}>{t("openButton")}</Link>
+                      : <span aria-disabled="true" className="cam-button cam-button-secondary cam-button-sm" title={NOT_PROVIDED}>{t("openButton")}</span>}
                     {(hasRole(role, USER_ARCHIVE_ROLES) || (!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES))) && <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" className="shrink-0" aria-label={t("actionsColumn")} title={t("actionsColumn")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -951,7 +962,17 @@ function InscriptionsContent() {
                 </TableRow>;
               })}
             </TableBody></Table>
-            {organisationsResult && organisationsResult.total > 0 && <div className="flex justify-end gap-3 py-4"><Button type="button" variant="outline" size="sm" disabled={page <= 1 || organisationsQuery.isFetching} onClick={() => setPage(page - 1)}>{t("previousButton")}</Button><AdminLiveResultCount announce={!organisationsQuery.isPlaceholderData} className="self-center text-sm">{t("showingRange", { start: (page - 1) * PAGE_SIZE + 1, end: Math.min(page * PAGE_SIZE, organisationsResult.total), total: organisationsResult.total })}</AdminLiveResultCount><Button type="button" variant="outline" size="sm" disabled={page * PAGE_SIZE >= organisationsResult.total || organisationsQuery.isFetching} onClick={() => setPage(page + 1)}>{t("nextButton")}</Button></div>}
+            {organisationsResult && organisationsResult.total > 0 && <AdminNumberedPager
+              page={page}
+              pageCount={Math.max(1, Math.ceil(organisationsResult.total / PAGE_SIZE))}
+              range={<AdminLiveResultCount announce={!organisationsQuery.isPlaceholderData}>{t("showingRange", { start: count((page - 1) * PAGE_SIZE + 1, locale), end: count(Math.min(page * PAGE_SIZE, organisationsResult.total), locale), total: count(organisationsResult.total, locale) })}</AdminLiveResultCount>}
+              previousLabel={t("previousButton")}
+              nextLabel={t("nextButton")}
+              label={t("pagerAriaLabel")}
+              pageLabel={(n) => t("pageButtonAriaLabel", { page: n })}
+              disabled={organisationsQuery.isFetching}
+              onPage={setPage}
+            />}
           </div>
         </AdminTablePanel>
         {archiveTarget && <ArchiveActions
@@ -1020,30 +1041,29 @@ function InscriptionsContent() {
         </p>
       )}
 
-      {/* Files the reviewers have not decided in time. The national
-          administration may decide any file; this is where it sees which. */}
-      {!!counts?.overdue && !overdueOnly && (
-        <Alert role="status" variant="warning" className="my-4 flex items-center gap-3">
-          <span>{t("overdueNotice", { count: counts.overdue, days: overdueDays })}</span>
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            className="ms-auto h-auto px-0"
-            onClick={() => applyStatus("OVERDUE")}
-          >
-            {t("overdueShow")}
-          </Button>
-        </Alert>
-      )}
 
       </>)}
 
       {vue === "queue" && (<>
 
-      <AdminTablePanel title={t("viewQueue")} headingId="registration-queue-table-title" busy={queueUpdating} actions={<Button type="button" size="sm" variant="outline" onClick={exportQueue} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>}>
+      <AdminTablePanel title={t("viewQueue")} headingId="registration-queue-table-title" busy={queueUpdating}
+        footer={queueQuery.data && total > 0 ? (
+          // Only once the queue has answered (G10) and has rows: "0–0 sur 0"
+          // read as a count nobody had read while loading.
+          <AdminNumberedPager
+            page={displayedPage}
+            pageCount={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            range={<AdminLiveResultCount announce={!queueQuery.isPlaceholderData}>{t("showingRange", { start: count(start, locale), end: count(end, locale), total: count(total, locale) })}</AdminLiveResultCount>}
+            previousLabel={t("previousButton")}
+            nextLabel={t("nextButton")}
+            label={t("pagerAriaLabel")}
+            pageLabel={(n) => t("pageButtonAriaLabel", { page: n })}
+            disabled={queueUpdating}
+            onPage={setPage}
+          />
+        ) : undefined}
+        actions={<Button type="button" size="sm" variant="outline" onClick={exportQueue} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>}>
         <div className="cam-admin-table-panel-body">
-          {registrationStatusSummary}
           <div className="cam-registration-filters">
             <div className="cam-filter-bar" role="group" aria-label={filtersLabel}>
               {searchField("registrations-search")}
@@ -1094,36 +1114,32 @@ function InscriptionsContent() {
                   </select>
                 </AdminFilterField>
                 {methodField("registrations")}
-                {sortField("registrations")}
               </AdminFilterMore>
               {hasActiveQueueFilters && <Button type="button" variant="ghost" size="sm" onClick={() => clearQueueFilters()}>{t("clearFilters")}</Button>}
+              {sortControl("registrations")}
             </div>
             <AdminActiveFilterChips filters={queuePanelChips.map(({ key, label, clear }) => ({ key, label, onClear: clear }))} label={t("activeFiltersLabel")} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
           </div>
-          <Table className="cam-registration-queue-table">
+          <Table className="cam-registration-queue-table cam-table-stack">
             <TableHeader><TableRow>
-              <TableHead scope="col" className="whitespace-normal sticky left-0 z-20">{t("organisationReferenceColumn")}</TableHead>
+              <TableHead scope="col">{t("organisationReferenceColumn")}</TableHead>
               <TableHead scope="col">{t("registrationStatusColumn")}</TableHead>
-              <TableHead scope="col">{t("duplicatesColumn")}</TableHead>
-              <TableHead scope="col">{`${t("regionColumn")} / ${t("departmentColumn")}`}</TableHead>
-              <TableHead scope="col">{t("establishmentTypeColumn")}</TableHead>
-              <TableHead scope="col">{t("submissionDateColumn")}</TableHead>
+              <TableHead scope="col">{t("territoryColumn")}</TableHead>
+              <TableHead scope="col" aria-sort={sortOrder === "oldest" ? "ascending" : "descending"}>{t("submissionDateColumn")}</TableHead>
               <TableHead scope="col">{t("assignmentColumn")}</TableHead>
-              <TableHead scope="col">{t("actionsColumn")}</TableHead>
+              <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              <DataStateRow colSpan={8} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined)} onRetry={() => territoryValidationError ? territoryStructure.refetch() : queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
+              <DataStateRow colSpan={6} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined)} onRetry={() => territoryValidationError ? territoryStructure.refetch() : queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
               {items.map((item) => {
                 const badge = STATUS_BADGE[item.status];
                 return <TableRow key={item.id}>
-                  <TableHead scope="row" className="sticky left-0 z-10 h-auto whitespace-normal border-r bg-[var(--cam-surface)] font-medium text-foreground shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)]"><span className="block max-w-[250px] truncate font-semibold" title={item.organisation}>{item.organisation}</span><span className="block max-w-[250px] truncate text-xs text-muted-foreground" title={item.establishmentId ?? undefined}>{item.establishmentId || NOT_PROVIDED}</span></TableHead>
-                  <TableCell className="align-top whitespace-normal py-3"><div className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="danger">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}</div></TableCell>
-                  <TableCell className="align-top whitespace-normal py-3">{item.duplicateHints.length > 0 ? <details><summary className="cursor-pointer">{t("possibleMatches", { count: item.duplicateHints.length })}</summary><ul className="mt-1 list-disc break-words ps-5">{item.duplicateHints.map((hint, index) => <li key={`${hint}-${index}`}>{hint}</li>)}</ul></details> : NOT_PROVIDED}</TableCell>
-                  <TableCell className="align-top whitespace-normal py-3"><span className="block truncate" title={[item.region, item.department].filter(Boolean).join(" / ")}>{[item.region, item.department].filter(Boolean).join(" / ") || NOT_PROVIDED}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal py-3"><span className="block truncate" title={entityLabel(item.entityType)}>{entityLabel(item.entityType)}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal py-3"><span className="whitespace-nowrap">{stamp(item.submittedAt, true, locale)}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal py-3"><div className="flex flex-col items-start gap-1"><span className="truncate" title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? tRoot("adminDossiersPage.assignedTo", { name: item.assigneeName ?? NOT_PROVIDED }) : tRoot("adminDossiersPage.unassigned")}</span>{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null, expectedAssigneeId: item.assigneeId })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}</div></TableCell>
-                  <TableCell className="align-top whitespace-normal py-3"><div className="cam-registration-row-actions">
+                  <TableHead scope="row"><span className="cam-record-cell"><span className="cam-record-cell-name" title={item.organisation}>{item.organisation}</span><span className="cam-record-cell-meta"><span className="cam-record-cell-ref">{item.establishmentId || NOT_PROVIDED}</span><span className="cam-tag" title={entityLabel(item.entityType)}>{entityShortLabel(item.entityType)}</span></span></span></TableHead>
+                  <TableCell data-label={t("registrationStatusColumn")}><div className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="info">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}{item.duplicateHints.length > 0 && <Badge variant="warning" title={item.duplicateHints.join("\n")}>{t("possibleMatches", { count: item.duplicateHints.length })}</Badge>}</div></TableCell>
+                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
+                  <TableCell data-label={t("submissionDateColumn")} className="cam-cell-nowrap"><span title={stamp(item.submittedAt, true, locale)}>{elapsedSince(item.submittedAt, locale)}</span></TableCell>
+                  <TableCell data-label={t("assignmentColumn")}><div className="flex flex-col items-start gap-1"><span className={item.assigneeId ? undefined : "cam-cell-muted"} title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? item.assigneeName ?? NOT_PROVIDED : tRoot("adminDossiersPage.unassigned")}</span>{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null, expectedAssigneeId: item.assigneeId })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}</div></TableCell>
+                  <TableCell className="cam-cell-action"><div className="cam-registration-row-actions">
                     {/* Unclaimed: the main action claims, then opens the review page. The
                         dialog stays reachable from the menu until the page is approved. */}
                     {(() => {
@@ -1148,22 +1164,6 @@ function InscriptionsContent() {
         </div>
       </AdminTablePanel>
 
-      {/* Only once the queue has answered (G10) and has rows: "0–0 sur 0"
-          read as a count nobody had read while loading, and repeats the
-          table's own empty state once loaded. */}
-      {queueQuery.data && total > 0 && (
-        <div className="flex flex-wrap items-center justify-end gap-4 py-4 text-sm text-muted-foreground">
-          <span>
-            {t("showingRange", { start: count(start, locale), end: count(end, locale), total: count(total, locale) })}
-          </span>
-          <Button type="button" variant="outline" size="sm" disabled={queueUpdating || page <= 1} onClick={() => setPage(page - 1)}>
-            {t("previousButton")}
-          </Button>
-          <Button type="button" variant="outline" size="sm" disabled={queueUpdating || end >= total} onClick={() => setPage(page + 1)}>
-            {t("nextButton")}
-          </Button>
-        </div>
-      )}
       </>)}
 
     </div>

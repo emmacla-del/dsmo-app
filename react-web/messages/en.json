@@ -228,8 +228,6 @@
     "startDeclarationButton": "Start a declaration",
     "staffConsoleTitle": "MINEFOP · ONEFOP ministry console",
     "staffConsoleBody": "Go straight to the four tools for review, quality arbitration and statistical dissemination.",
-    "staffDashboard": "National dashboard",
-    "staffDashboardHint": "Performance indicators",
     "staffPending": "Pending files",
     "staffPendingHint": "Priority processing queue",
     "staffReview": "Review & endorsement",
@@ -1560,7 +1558,6 @@
   },
   "adminNav": {
     "hubs": {
-      "supervision": "Dashboard",
       "equipe": "Territorial team",
       "inscriptions": "Registrations",
       "teledeclarations": "Survey submissions",
@@ -1569,7 +1566,6 @@
       "administration": "Administration"
     },
     "routes": {
-      "pilotage": "Dashboard",
       "dossiers": "Submission review",
       "equipe": "Territorial team",
       "campagnes": "Campaigns",
@@ -1600,7 +1596,14 @@
     "defaultDisplayName": "Officer account",
     "defaultRoleLabel": "Officer",
     "openMenuAriaLabel": "Open menu",
-    "closeMenuAriaLabel": "Close menu"
+    "closeMenuAriaLabel": "Close menu",
+    "mastheadRepublic": "Republic of Cameroon",
+    "mastheadMotto": "Peace – Work – Fatherland",
+    "mastheadMinistry": "Ministry of Employment and Vocational Training",
+    "mastheadPlatform": "An ONEFOP platform",
+    "mastheadAriaLabel": "Official header",
+    "consoleName": "Staff console",
+    "coatOfArmsAlt": "Coat of arms of the Republic of Cameroon"
   },
   "adminSidebar": {
     "navAriaLabel": "Main navigation",
@@ -2856,7 +2859,31 @@
     "statusOverdue": "Overdue (more than {days} d)",
     "overdueNotice": "{count, plural, one {# file has been awaiting a decision for more than {days} days.} other {# files have been awaiting a decision for more than {days} days.}}",
     "overdueShow": "Show",
-    "overdueBadge": "Overdue · {days} d"
+    "overdueBadge": "Overdue · {days} d",
+    "pageSubtitle": "Check the registration requests in your territory, then approve, request more information or reject.",
+    "organisationsSubtitle": "Establishments whose registration has been decided. Open a record to see its declarations, account and history.",
+    "kpiAriaLabel": "Registration queue figures",
+    "kpiComplements": "Information requested",
+    "kpiComplementsHint": "Waiting for the declarant",
+    "kpiPendingHint": "Waiting for an officer’s decision",
+    "kpiOverdue": "Overdue (more than {days} d)",
+    "kpiOverdueHint": "Handle first",
+    "kpiApproved": "Approved",
+    "kpiApprovedHint": "Accounts opened",
+    "kpiRejectedHint": "Registrations refused",
+    "kpiFilterHint": "Show these registrations in the list",
+    "pagerAriaLabel": "Registration pages",
+    "pageButtonAriaLabel": "Page {page}",
+    "sortControlLabel": "Order",
+    "entityShort": {
+      "ENTREPRISE": "Company",
+      "COOPERATIVE": "Cooperative",
+      "CTD": "Local authority",
+      "ONG": "NGO",
+      "ADMINISTRATION": "Public administration",
+      "PROJECT_PROGRAM": "Project / programme",
+      "VOCATIONAL_TRAINING": "Vocational training"
+    }
   },
   "adminEtablissementsPage": {
     "pageTitle": "Establishment register",
@@ -2902,7 +2929,10 @@
     "showingRange": "Showing {from}–{to} of {total} establishments",
     "previousButton": "Previous",
     "nextButton": "Next",
-    "registerTitle": "Establishment register"
+    "registerTitle": "Establishment register",
+    "registerSubtitle": "Every non-archived declaring entity, whatever its account status. A figure filters the list.",
+    "pagerAriaLabel": "Register pages",
+    "pageButtonAriaLabel": "Page {page}"
   },
   "adminEtablissementPage": {
     "resource": "this establishment",
@@ -3399,7 +3429,7 @@
       },
       "CENTRAL_AGENT": {
         "name": "Central officer",
-        "description": "Staff of the central and attached MINEFOP services. National read access to the dashboard, the dossiers and the establishment register. No write access, no exports."
+        "description": "Staff of the central and attached MINEFOP services. National read access to the dossiers and the establishment register. No write access, no exports."
       },
       "ADMIN_ONEFOP_REGISTRATIONS": {
         "name": "ONEFOP registrations administrator",
@@ -3651,9 +3681,6 @@
       "help": "Help",
       "analytics": "Analytics",
       "settings": "Settings",
-      "territorialDashboard": "Territorial dashboard",
-      "regionalDashboard": "Regional dashboard",
-      "nationalDashboard": "National dashboard",
       "fileReview": "File review",
       "reviewEndorsement": "Review & endorsement",
       "statisticsDissemination": "Statistics & dissemination",
@@ -4467,6 +4494,23 @@
     "changesNavLabel": "Changes",
     "verifyHint": "No default answer: not checked is not \"non-compliant\".",
     "verifyNavLabel": "To check",
+    "verifyIssue": {
+      "emptyTitle": "Missing information",
+      "emptyText": "This value is empty, so it cannot be checked. Ask the declarant for a correction.",
+      "rejectedTitle": "Marked non-compliant",
+      "rejectedText": "This item prevents approval. Reject the file or request further information.",
+      "duplicateTitle": "Possible duplicate",
+      "duplicate": {
+        "cnpsNumber": "Same CNPS No. as {organisation}.",
+        "cnpsNumberOutside": "Same CNPS No. as a file outside your area.",
+        "name": "Name similar to {organisation}, in the same subdivision.",
+        "nameOutside": "Name similar to a file in the same subdivision, outside your area."
+      },
+      "changedTitle": "Changed by the declarant",
+      "changedState": "Changed",
+      "changedText": "Previous value: {before}. Check the new value.",
+      "noneText": "Nothing is flagged on this item. Check it, then mark it compliant or non-compliant."
+    },
     "identityTitle": "Identification and location",
     "identityNavLabel": "Identification",
     "taxNumberLabel": "Tax ID",
@@ -4476,7 +4520,7 @@
     "claimYou": "Claimed by you",
     "claimYouHint": "Other officers see it as taken.",
     "claimOther": "Claimed by {name}",
-    "claimOtherHint": "You can still decide; the decision is recorded under your name.",
+    "claimOtherHint": "Only this officer can decide while they hold it.",
     "claimFree": "Not claimed",
     "claimFreeHint": "Claim it so other officers know you are reviewing it.",
     "claimButton": "Claim",
@@ -4530,6 +4574,11 @@
       "REGISTRATION_RESTORED": "Registration restored",
       "USER_ACTIVATED": "Account reactivated",
       "USER_SUSPENDED": "Account suspended"
-    }
+    },
+    "claimOtherDecide": "{name} has claimed this registration. Take it over to decide.",
+    "takeOverButton": "Take over the file",
+    "takeOverTitle": "Take over this registration?",
+    "takeOverBody": "{name} will no longer hold it and will not be able to decide. The takeover is recorded in the file's history.",
+    "takeOverConfirm": "Take over"
   }
 }

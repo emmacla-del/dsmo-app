@@ -24,8 +24,9 @@ import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
 import { AdminFilterField, AdminFilterMore, AdminScopePill, territoryPillFor } from "@/components/admin/AdminFilterBarParts";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
 import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedViews";
-import { hrefWith, parseAdminListPage } from "@/lib/admin-url";
-import { StatStrip } from "@/components/admin/StatStrip";
+import { clampAdminListPage, hrefWith, parseAdminListPage } from "@/lib/admin-url";
+import { AdminKpiStrip } from "@/components/admin/AdminKpiStrip";
+import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { DataStateRow } from "@/components/admin/DataState";
 import {
   NOT_PROVIDED,
@@ -176,8 +177,11 @@ function EtablissementsContent() {
   // Every filter and the page live in the URL (G15): a reload, a shared link
   // or a saved view reopens the same list. Only the search box keeps a draft,
   // written to the URL after a 300 ms pause.
+  // Written at once and on top of the address as it stands: through the router
+  // it changed only when the server answered, so a second filter chosen
+  // meanwhile dropped the first. Next keeps useSearchParams in step.
   const setFilters = (changes: Record<string, string | number | null>) =>
-    router.replace(hrefWith(pathname, currentQuery, { page: null, ...changes }), { scroll: false });
+    window.history.replaceState(null, "", hrefWith(pathname, window.location.search.slice(1), { page: null, ...changes }));
   const urlSearch = searchParams.get("search")?.trim() ?? "";
   const rawType = searchParams.get("type") ?? "";
   const selectedType = (ENTITY_TYPE_VALUES as readonly string[]).includes(rawType) ? rawType : "ALL";
@@ -219,10 +223,10 @@ function EtablissementsContent() {
     const next = searchInput.trim();
     if (next === urlSearch) return;
     const timer = setTimeout(() => {
-      router.replace(hrefWith(pathname, currentQuery, { page: null, search: next || null }), { scroll: false });
+      window.history.replaceState(null, "", hrefWith(pathname, window.location.search.slice(1), { page: null, search: next || null }));
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchInput, urlSearch, router, pathname, currentQuery]);
+  }, [searchInput, urlSearch, pathname]);
 
   const companyStatsQuery = useQuery({
     queryKey: ["dsmo", "companies", "stats"],
@@ -261,6 +265,16 @@ function EtablissementsContent() {
       }),
     enabled: canRead,
   });
+
+  // A page past the end (an old link, a saved view, a list that has shrunk)
+  // answers no rows with the full total, which read as an empty register.
+  const companiesTotal = companiesQuery.data?.total;
+  useEffect(() => {
+    if (companiesTotal === undefined) return;
+    const validPage = clampAdminListPage(page, companiesTotal, PAGE_SIZE);
+    if (validPage === page) return;
+    window.history.replaceState(null, "", hrefWith(pathname, window.location.search.slice(1), { page: validPage <= 1 ? null : validPage }));
+  }, [companiesTotal, page, pathname]);
 
   const stats = statsQuery.data;
   const companyStats = companyStatsQuery.data;
@@ -320,16 +334,6 @@ function EtablissementsContent() {
   const totalPages = filteredTotal === null ? 1 : Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
   const rangeFrom = rawRows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const rangeTo = rawRows.length === 0 ? 0 : rangeFrom + rawRows.length - 1;
-
-  // A short window around the current page: a register of several thousand
-  // establishments must not render several hundred buttons.
-  const pageWindow: number[] = (() => {
-    const span = 3;
-    let start = Math.max(1, page - Math.floor(span / 2));
-    const end = Math.min(totalPages, start + span - 1);
-    start = Math.max(1, end - span + 1);
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  })();
 
   const filteredRows = displayRows;
 
@@ -415,8 +419,9 @@ function EtablissementsContent() {
           this hub read as one place with three destinations rather than two
           screens each restating where they are. */}
       <AdminPageHeader
-        title={tRoot("adminNav.hubs.inscriptions")}
-        subtitle={t("subtitle")}
+        breadcrumb={[{ label: tRoot("adminNav.hubs.inscriptions"), href: "/admin/inscriptions" }, { label: tRoot("adminNav.routes.etablissements") }]}
+        title={tRoot("adminNav.routes.etablissements")}
+        subtitle={t("registerSubtitle")}
         hideTabs
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -438,16 +443,41 @@ function EtablissementsContent() {
       />
       <RegistrationsHubTabs activeTab="register" canReviewRegistrations={!!role && APPROVAL_ROLES.includes(role)} />
 
-      <StatStrip
+      {/* Key figures (canvas board 1): each one filters the register below. */}
+      <AdminKpiStrip
         label={tStats("keyFigures")}
         loadingLabel={tStats("loadingFigures")}
         loading={volume.some((k) => k.loading)}
         error={companyStatsQuery.isError || statsQuery.isError}
         errorLabel={tStats("figuresUnavailable")}
-        items={volume.map((k) => ({ key: k.key, value: count(k.value, locale), label: k.label, hint: k.hint }))}
+        items={volume.map((k) => {
+          const status = k.key === "active" ? "ACTIVE" : k.key === "pending" ? "PENDING_APPROVAL" : k.key === "suspended" ? "SUSPENDED" : "ALL";
+          return {
+            key: k.key,
+            value: count(k.value, locale),
+            label: k.label,
+            hint: k.hint,
+            tone: k.key === "active" ? "success" : k.key === "pending" ? "warning" : "neutral",
+            pressed: selectedStatus === status,
+            onSelect: () => setFilters({ status: status === "ALL" || selectedStatus === status ? null : status }),
+          };
+        })}
       />
 
       <AdminTablePanel
+        footer={
+          // Pager figures, all from the response GET /companies returned.
+          <AdminNumberedPager
+            page={page}
+            pageCount={totalPages}
+            range={companiesQuery.isLoading || filteredTotal === null ? NOT_PROVIDED : t("showingRange", { from: count(rangeFrom, locale), to: count(rangeTo, locale), total: count(filteredTotal, locale) })}
+            previousLabel={t("previousButton")}
+            nextLabel={t("nextButton")}
+            label={t("pagerAriaLabel")}
+            pageLabel={(n) => t("pageButtonAriaLabel", { page: n })}
+            onPage={(n) => setPage(Math.min(totalPages, Math.max(1, n)))}
+          />
+        }
         title={t("registerTitle")}
         description={t("scopeNote")}
         headingId="establishments-register-title"
@@ -556,16 +586,10 @@ function EtablissementsContent() {
           </div>
         }
       >
-          <Table className="w-full min-w-[880px] table-fixed">
-            <colgroup>
-              {[225, 110, 165, 145, 135, 100].map((width, index) => (
-                <col key={`etab-column-${index}`} style={{ width }} />
-              ))}
-            </colgroup>
+          <Table className="cam-table-stack cam-register-table">
             <TableHeader>
               <TableRow>
                 <TableHead scope="col">{t("establishmentColumn")}</TableHead>
-                <TableHead scope="col">{tRoot("companiesDirectory.typeColumn")}</TableHead>
                 <TableHead scope="col">{t("territoryColumn")}</TableHead>
                 <TableHead scope="col">{t("contactColumn")}</TableHead>
                 <TableHead scope="col">{t("registrationDateColumn")}</TableHead>
@@ -574,7 +598,7 @@ function EtablissementsContent() {
             </TableHeader>
             <TableBody>
               <DataStateRow
-                colSpan={6}
+                colSpan={5}
                 state={tableState}
                 resource={t("registerResource")}
                 error={companiesQuery.error}
@@ -592,35 +616,31 @@ function EtablissementsContent() {
                 )).join(" · ") || NOT_PROVIDED;
                 return (
                   <TableRow key={item.id}>
-                    <TableCell className="align-top whitespace-normal py-3">
-                      <span className="block truncate font-medium text-foreground" title={item.name ?? NOT_PROVIDED}>
-                        {item.name ?? NOT_PROVIDED}
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground" title={item.identifier ?? NOT_PROVIDED}>
-                        {item.identifier ?? NOT_PROVIDED}
-                      </span>
-                    </TableCell>
-                    <TableCell className="align-top whitespace-normal py-3">
-                      <span className="block truncate" title={item.type ? typeDisplay(item.type) : NOT_PROVIDED}>
-                        {item.type ? typeDisplay(item.type) : NOT_PROVIDED}
+                    <TableCell>
+                      <span className="cam-record-cell">
+                        <span className="cam-record-cell-name" title={item.name ?? NOT_PROVIDED}>{item.name ?? NOT_PROVIDED}</span>
+                        <span className="cam-record-cell-meta">
+                          <span className="cam-record-cell-ref">{item.identifier ?? NOT_PROVIDED}</span>
+                          {item.type && <span className="cam-tag" title={typeDisplay(item.type)}>{tRoot.has(`adminInscriptionsPage.entityShort.${item.type}`) ? tRoot(`adminInscriptionsPage.entityShort.${item.type}`) : typeDisplay(item.type)}</span>}
+                        </span>
                       </span>
                     </TableCell>
-                    <TableCell className="align-top whitespace-normal py-3">
-                      <span className="block truncate" title={territory}>{territory}</span>
+                    <TableCell data-label={t("territoryColumn")} title={territory}>
+                      {[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}
+                      {item.subdivision && <span className="cam-cell-sub">{item.subdivision}</span>}
                     </TableCell>
-                    <TableCell className="align-top whitespace-normal py-3">
-                      <span className="block truncate" title={contactTitle}>{contactDisplay}</span>
+                    <TableCell data-label={t("contactColumn")} title={contactTitle}>
+                      <span className="cam-cell-clamp">{contactDisplay}</span>
+                      {item.contactPhone && item.contactPhone !== contactDisplay && <span className="cam-cell-sub">{item.contactPhone}</span>}
                     </TableCell>
-                    <TableCell className="align-top whitespace-normal py-3">
-                      <span className="whitespace-nowrap text-muted-foreground">{stamp(item.dateInscription, true, locale)}</span>
+                    <TableCell data-label={t("registrationDateColumn")} className="cam-cell-nowrap">
+                      <span className="cam-cell-muted">{stamp(item.dateInscription, false, locale)}</span>
                     </TableCell>
-                    <TableCell className="align-top whitespace-normal py-3 text-right">
+                    <TableCell className="cam-cell-action text-right">
                       {detailHref ? (
-                        <Button asChild variant="link" size="sm" className="h-auto px-0">
-                          <Link href={detailHref}>{t("viewDetails")}</Link>
-                        </Button>
+                        <Link className="cam-button cam-button-secondary cam-button-sm" href={detailHref}>{t("viewDetails")}</Link>
                       ) : (
-                        <span aria-disabled="true" className="text-sm text-muted-foreground">{t("viewDetails")}</span>
+                        <span aria-disabled="true" className="cam-button cam-button-secondary cam-button-sm">{t("viewDetails")}</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -630,44 +650,6 @@ function EtablissementsContent() {
           </Table>
       </AdminTablePanel>
 
-      {/* Pager figures, all from the response GET /companies returned. The
-          current page is text, not a button: it is where the reader already is. */}
-      <div className="flex flex-wrap items-center justify-end gap-2 py-4 text-sm text-muted-foreground">
-        <span className="me-2">
-          {companiesQuery.isLoading
-            ? NOT_PROVIDED
-            : filteredTotal === null
-                ? NOT_PROVIDED
-                : t("showingRange", { from: count(rangeFrom, locale), to: count(rangeTo, locale), total: count(filteredTotal, locale) })}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setPage(page - 1)}
-          disabled={page <= 1}
-        >
-          {t("previousButton")}
-        </Button>
-        {pageWindow.map((n) =>
-          n === page ? (
-            <span key={n} aria-current="page" className="px-2 font-medium text-foreground">{count(n, locale)}</span>
-          ) : (
-            <Button key={n} type="button" variant="outline" size="sm" onClick={() => setPage(n)}>
-              {count(n, locale)}
-            </Button>
-          ),
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setPage(Math.min(totalPages, page + 1))}
-          disabled={page >= totalPages}
-        >
-          {t("nextButton")}
-        </Button>
-      </div>
     </div>
   );
 }

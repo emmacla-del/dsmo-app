@@ -22,6 +22,8 @@ import { dossierWorkspaceHref, withoutDrawerParams } from "@/lib/dossier-workspa
 import { dossierQueueScrollKey, readDossierQueueScroll, saveDossierQueueScroll } from "@/lib/dossier-scroll-restore";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
+import { AdminKpiStrip } from "@/components/admin/AdminKpiStrip";
+import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { AdminActiveFilterChips } from "@/components/admin/AdminActiveFilterChips";
 import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
@@ -165,6 +167,9 @@ interface QuestionnaireListItem extends NamedSubmission {
 }
 
 const PAGE_SIZE = 10;
+
+/** One cached page of the dossier list, as listQueryFor stores it. */
+type DossierListPage = Awaited<ReturnType<typeof listAdminQuestionnaires>> & { requestedOffset: number };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -647,7 +652,6 @@ function DossiersContent({
     search: search || undefined,
     companyId: companyIdFilter || undefined,
   });
-  const listFilterParams = listParamsFor(statusFilter, assignmentParam);
   const listQueryFor = (status: DossierStatus | "", assignment: typeof assignmentParam) => ({
     queryKey: ["admin", "questionnaires", "list", vue, { statusFilter: status, typeFilter, regionFilter, departmentFilter, campaignId: listCampaignId ?? "", quarterCode: listQuarterCode ?? "", quality: qualityParam ?? "", assignment: assignment ?? "", lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: async () => {
@@ -836,11 +840,11 @@ function DossiersContent({
       // Reflect the confirmed server claim in cached list rows immediately;
       // background refetches below reconcile filters and any concurrent edits.
       if (assignmentParam !== "unassigned") {
-        queryClient.setQueriesData({ queryKey: ["admin", "questionnaires", "list"] }, (old: any) => {
+        queryClient.setQueriesData<DossierListPage>({ queryKey: ["admin", "questionnaires", "list"] }, (old) => {
           if (!old || !Array.isArray(old.items)) return old;
           return {
             ...old,
-            items: old.items.map((item: any) => item.id === target.id
+            items: old.items.map((item) => item.id === target.id
               ? { ...item, assigneeId: claim.assigneeId, assigneeName: claim.assigneeName, claimExpired: false }
               : item),
           };
@@ -1442,6 +1446,7 @@ function DossiersContent({
 
   const pageHeader = (
     <AdminPageHeader
+      breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations"), href: "/admin/dossiers" }, { label: activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers") }]}
       title={t("pageTitle")}
       subtitle={t("pageSubtitle")}
       actions={(
@@ -1584,6 +1589,27 @@ function DossiersContent({
         </Alert>
       ))}
 
+      {/* Completed files: the decision counts as one strip of figures, each a
+          filter on the list (canvas board 3; replaces the in-card summary). */}
+      {vue === "completed" && dossierStatusBreakdown.some((item) => item.value !== undefined) && (
+        <AdminKpiStrip
+          label={t("statusFilterAriaLabel")}
+          loadingLabel={tRoot("adminLayout.loadingFigures")}
+          errorLabel={tRoot("adminLayout.figuresUnavailable")}
+          items={dossierStatusBreakdown.filter((item) => item.value !== undefined).map((item) => {
+            const status = item.key === "all" ? "" : (item.key as DossierStatus);
+            return {
+              key: item.key,
+              label: item.label,
+              value: count(item.value ?? 0, locale),
+              tone: item.key === "APPROVED" ? "success" : item.key === "REJECTED" ? "danger" : "neutral",
+              pressed: statusFilter === status,
+              onSelect: () => setStatus(status),
+            };
+          })}
+        />
+      )}
+
       {/* ── Filters, toolbar and table share one card. ── */}
       <AdminTablePanel
         headingId={`dossiers-${vue}-heading`}
@@ -1592,10 +1618,10 @@ function DossiersContent({
         busy={isBackgroundRefreshing(questionnairesQuery.isFetching, questionnairesQuery.data)}
         busyLabel={t("updatingResults")}
         footer={(
-          <div className="cam-dossier-pagination">
-            {totalCount === null ? (
-              <span aria-hidden="true">{NOT_PROVIDED}</span>
-            ) : (
+          <AdminNumberedPager
+            page={currentPage}
+            pageCount={pageCount ?? currentPage}
+            range={totalCount === null ? <span aria-hidden="true">{NOT_PROVIDED}</span> : (
               <AdminLiveResultCount announce={!questionnairesQuery.isPlaceholderData}>
                 {totalCount === 0
                   ? t("zeroSubmissions")
@@ -1607,30 +1633,13 @@ function DossiersContent({
                     })}
               </AdminLiveResultCount>
             )}
-            <div className="cam-dossier-pagination-controls">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={offset === 0}
-                onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
-              >
-                {t("previousButton")}
-              </Button>
-              <span className="cam-dossier-page-indicator">
-                {pageCount === null ? t("pageNumber", { page: currentPage }) : t("pageOf", { page: currentPage, pages: pageCount })}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={pageCount === null || currentPage >= pageCount}
-                onClick={() => goToOffset(offset + PAGE_SIZE)}
-              >
-                {t("nextButton")}
-              </Button>
-            </div>
-          </div>
+            previousLabel={t("previousButton")}
+            nextLabel={t("nextButton")}
+            label={t("pageOf", { page: currentPage, pages: pageCount ?? currentPage })}
+            pageLabel={(n) => t("pageNumber", { page: n })}
+            disabled={pageCount === null}
+            onPage={(n) => goToOffset((n - 1) * PAGE_SIZE)}
+          />
         )}
       >
         {vue === "submissions" && <h2 id={`dossiers-${vue}-heading`} className="cam-sr-only">{t("queueHeading")}</h2>}
@@ -1639,18 +1648,6 @@ function DossiersContent({
           {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
         </CardContent>}
         {vue === "completed" && <CardContent className="cam-dossier-completed-archive-filter"><label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
-        {vue !== "submissions" && dossierStatusBreakdown.some((item) => item.value !== undefined) && (
-          <CardContent className="cam-dossier-status-summary" role="group" aria-label={t("statusFilterAriaLabel")}>
-            <ul>
-              {dossierStatusBreakdown.map((item) => item.value === undefined ? null : (
-                <li key={item.key}>
-                  <span>{item.label}</span>
-                  <strong>{new Intl.NumberFormat(locale).format(item.value)}</strong>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        )}
         {vue === "submissions" && !readOnly && selectedIds.size > 0 && (
           <div className="cam-dossier-selection-toolbar" aria-live="polite">
             <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
@@ -1728,9 +1725,12 @@ function DossiersContent({
           </div>
           <AdminActiveFilterChips filters={activeFilterChips.map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} clearAllLabel={t("clearFilters")} onClearAll={clearAllFilters} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
         </CardContent>}
-        {vue === "submissions" && <div className={`cam-dossier-queue-layout${filterPanelOpen ? " is-filter-open" : ""}`}>
+        {/* The completed view shares the table below; its filters are the
+            card above. (Until 2026-11-08 this whole block was submissions
+            only, so « Dossiers terminés » showed its filters but no list.) */}
+        {(vue === "submissions" || vue === "completed") && <div className={`cam-dossier-queue-layout${vue === "submissions" && filterPanelOpen ? " is-filter-open" : ""}`}>
         <div className="cam-dossier-queue-main">
-        <CardContent className="border-b cam-dossier-submissions-filters">
+        {vue === "submissions" && <CardContent className="border-b cam-dossier-submissions-filters">
           <div className="cam-dossier-queue-search-row">
             {!readOnly && <Button type="button" size="sm" variant="outline" className="cam-dossier-queue-export" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
             <div className="cam-dossier-quick-filters" role="group" aria-label={t("queueViewsLabel")}>
@@ -1820,32 +1820,26 @@ function DossiersContent({
             {hasAnyBarFilter && <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("clearFilters")}</Button>}
           </div>
           <AdminActiveFilterChips filters={panelOnlyChips.filter(({ key }) => key !== "status" && key !== "overdue").map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
-        </CardContent>
-        <CardContent className={`overflow-x-auto pt-5${vue === "submissions" ? ` cam-dossier-submissions-table cam-dossier-review-queue-table${readOnly ? " cam-dossier-submissions-table--read-only cam-dossier-review-queue-table--read-only" : ""}` : isCompletedView ? " cam-dossier-completed-table" : ""}`}>
-          <Table>
-            <colgroup>
-              {(isCompletedView
-                ? [210, 130, 145, 175, 160, 210, 135, 105, 110]
-                : readOnly ? [240, 205, 220, 190, 190, 130] : [44, 240, 205, 220, 210, 190, 130]
-              ).map((width, index) => <col key={`${vue}-column-${index}`} style={{ width }} />)}
-            </colgroup>
+        </CardContent>}
+        {/* cam-dossier-table-frame replaces the old per-view classes, whose
+            fixed !important column widths (1380px, 960px) kept actions off
+            the card and squeezed phone rows (2026-11-08, spec §11). */}
+        <CardContent className="overflow-x-auto pt-5 cam-dossier-table-frame">
+          <Table className="cam-table-stack cam-dossier-standard-table">
             <TableHeader>
               <TableRow>
                 {isCompletedView ? <>
-                  <TableHead scope="col" className="sticky left-0 z-20 bg-[var(--cam-surface)] shadow-[2px_0_3px_-3px_rgba(15,23,42,0.45)] border-r">{t("organisationColumn")}</TableHead>
-                  <TableHead scope="col">{t("establishmentIdColumn")}</TableHead>
-                  <TableHead scope="col">{t("typeColumn")}</TableHead>
+                  <TableHead scope="col">{t("organisationColumn")}</TableHead>
                   <TableHead scope="col">{t("territoryColumn")}</TableHead>
                   <TableHead scope="col">{t("campaignPeriodColumn")}</TableHead>
                   <TableHead scope="col">{t("decisionColumn")}</TableHead>
-                  <TableHead scope="col">{t("decisionDateColumn")}</TableHead>
-                  <TableHead scope="col">{t("archiveStatusColumn")}</TableHead>
+                  <TableHead scope="col" aria-sort="descending">{t("decisionDateColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </> : <>
-                  {!readOnly && <TableHead scope="col" className="cam-dossier-select-column sticky left-0 z-20 bg-[var(--cam-surface)]">
+                  {!readOnly && <TableHead scope="col" className="cam-dossier-select-column">
                     <Checkbox checked={pageSelectionState} onCheckedChange={(checked) => toggleSelectPage(checked === true)} disabled={dossiers.length === 0} aria-label={t("selectAllAria")} />
                   </TableHead>}
-                  <TableHead scope="col" className={`cam-dossier-record-column sticky ${readOnly ? "left-0 cam-dossier-record-column--first" : "left-[44px]"} z-20 bg-[var(--cam-surface)]`}>{t("entityColumn")}</TableHead>
+                  <TableHead scope="col" className="cam-dossier-record-column">{t("entityColumn")}</TableHead>
                   <TableHead scope="col">{t("territoryColumn")}</TableHead>
                   <TableHead scope="col" title={t("dataIssuesHelp")}>{t("checksColumn")}</TableHead>
                   <TableHead scope="col">{t("waitingColumn")}</TableHead>
@@ -1855,7 +1849,7 @@ function DossiersContent({
               </TableRow>
             </TableHeader>
             <TableBody>
-              <DataStateRow colSpan={isCompletedView ? 9 : readOnly ? 6 : 7} state={tableState} resource={t("filesResource")} error={tableError} onRetry={retryTable} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
+              <DataStateRow colSpan={isCompletedView ? 6 : readOnly ? 6 : 7} state={tableState} resource={t("filesResource")} error={tableError} onRetry={retryTable} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
               {dossiers.map((d) => {
                  const visaBadge: { label: string; tone: ToneName } = d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } : d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "warning" } : d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } : d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } : d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } : { label: t("badgeNoStatus"), tone: "neutral" };
                 const statusBadgeClass = d.adminStatus === "PENDING_REVIEW" ? "pending"
@@ -1897,29 +1891,29 @@ function DossiersContent({
                 );
 
                 return isCompletedView ? <TableRow key={d.id}>
-                  <TableCell className="sticky left-0 z-10 align-top whitespace-normal bg-[var(--cam-surface)] border-r">
-                    <span className="cam-dossier-record-name" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
+                  <TableCell>
+                    <span className="cam-record-cell">
+                      <span className="cam-record-cell-name" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
+                      <span className="cam-record-cell-meta">
+                        <span className="cam-record-cell-ref">{d.establishmentId ?? NOT_PROVIDED}</span>
+                        {d.formType && <span className="cam-tag" title={typeLabel(d.formType)}>{queueTypeLabel(d.formType)}</span>}
+                      </span>
+                    </span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap"><span className="cam-admin-code" title={d.establishmentId ?? undefined}>{d.establishmentId ?? NOT_PROVIDED}</span></TableCell>
-                  <TableCell className="whitespace-normal"><span className="cam-dossier-type-value" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? typeLabel(d.formType) : NOT_PROVIDED}</span></TableCell>
-                  <TableCell className="align-top whitespace-normal" title={territoryTitle}>
-                    <div className="cam-dossier-cell-stack">
-                      {d.region && <span className="cam-dossier-cell-primary">{d.region}</span>}
-                      {d.department && <span className="cam-dossier-cell-secondary"><span className="cam-dossier-field-label">{t("departmentLabel")}</span><span>{d.department}</span></span>}
-                      {!d.region && !d.department && <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="align-top whitespace-normal">
+                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
+                  <TableCell data-label={t("campaignPeriodColumn")} className="align-top whitespace-normal">
                     <span className="cam-dossier-cell-primary" title={campaignName}>{campaignName}</span>
                     <span className="cam-dossier-cell-secondary">{periodLabel}</span>
                   </TableCell>
-                  <TableCell className="align-top whitespace-normal">
-                    <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
+                  <TableCell data-label={t("decisionColumn")} className="align-top whitespace-normal">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>
+                      {d.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}
+                    </span>
                     {d.rejectionReason && <span className="cam-dossier-cell-secondary" title={d.rejectionReason}>{d.rejectionReason}</span>}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap"><span className="cam-dossier-date-primary">{stamp(d.reviewedAt, true, locale)}</span></TableCell>
-                  <TableCell>{d.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</TableCell>
-                  <TableCell className="cam-dossier-action-cell align-top">
+                  <TableCell data-label={t("decisionDateColumn")} className="whitespace-nowrap"><span className="cam-dossier-date-primary">{stamp(d.reviewedAt, true, locale)}</span></TableCell>
+                  <TableCell className="cam-dossier-action-cell cam-cell-action align-top">
                     <div className="cam-dossier-row-actions">
                       {primaryActionButton}
                       {hasCompletedActions && rowMenu(<>
@@ -1931,10 +1925,10 @@ function DossiersContent({
                     </div>
                   </TableCell>
                 </TableRow> : <TableRow key={d.id}>
-                  {!readOnly && <TableCell className="cam-dossier-select-column sticky left-0 z-10 align-top bg-[var(--cam-surface)]">
+                  {!readOnly && <TableCell className="cam-dossier-select-column cam-cell-hide-phone align-top">
                     <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />
                   </TableCell>}
-                  <TableCell className={`cam-dossier-record-column sticky ${readOnly ? "left-0 cam-dossier-record-column--first" : "left-[44px]"} z-10 align-top whitespace-normal bg-[var(--cam-surface)]`}>
+                  <TableCell className="cam-dossier-record-column align-top whitespace-normal">
                     {/* The respondent, the exact date and the replaced file are
                         read in the file itself; the queue says what to pick up. */}
                     <div className="cam-dossier-record-stack">
@@ -1947,10 +1941,10 @@ function DossiersContent({
                       {d.adminStatus !== "PENDING_REVIEW" && <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>}
                     </div>
                   </TableCell>
-                  <TableCell className="align-top whitespace-normal" title={territoryTitle}>
-                    <span className="cam-dossier-cell-primary">{territoryTitle}</span>
+                  <TableCell data-label={t("territoryColumn")} className="align-top cam-cell-nowrap" title={territoryTitle}>
+                    <span className="cam-dossier-cell-primary">{[d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</span>
                   </TableCell>
-                  <TableCell className="align-top whitespace-normal">
+                  <TableCell data-label={t("checksColumn")} className="align-top whitespace-normal">
                     <div className="cam-dossier-review-stack">
                       <div className="cam-dossier-validation-summary">
                         {d.blockingCount > 0 && <Badge variant="danger">{t("blockingAnomalies", { count: d.blockingCount })}</Badge>}
@@ -1964,20 +1958,20 @@ function DossiersContent({
                     </div>
                   </TableCell>
                   {/* One signal: how long the file has waited, flagged once when overdue. */}
-                  <TableCell className="align-top whitespace-nowrap" title={stamp(d.submittedAt, true, locale)}>
+                  <TableCell data-label={t("waitingColumn")} className="align-top whitespace-nowrap" title={stamp(d.submittedAt, true, locale)}>
                     {waiting === null
                       ? <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>
                       : isReviewOverdue
-                        ? <Badge className="cam-dossier-overdue-badge" variant="warning">{t("waitingOverdue", { count: waiting })}</Badge>
+                        ? <Badge className="cam-dossier-overdue-badge" variant="info">{t("waitingOverdue", { count: waiting })}</Badge>
                         : <span className="cam-dossier-waiting">{t("waitingDays", { count: waiting })}</span>}
                   </TableCell>
-                  <TableCell className="cam-dossier-assignee-cell align-top whitespace-normal">
+                  <TableCell data-label={t("assignedReviewerColumn")} className="cam-dossier-assignee-cell align-top whitespace-normal">
                     <div className="cam-dossier-owner-action">
                       <span className="cam-dossier-assignee-name">{d.assigneeId ? d.assigneeName ?? NOT_PROVIDED : t("noReviewerAssigned")}</span>
                       {d.claimExpired && d.assigneeId && <Badge variant="warning">{t("claimExpiredBadge")}</Badge>}
                     </div>
                   </TableCell>
-                  <TableCell className="cam-dossier-action-cell align-top">
+                  <TableCell className="cam-dossier-action-cell cam-cell-action align-top">
                     <div className="cam-dossier-row-actions">
                       {primaryActionButton}
                       {(canReadAudit || canManageArchive || canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), d.assigneeId, user?.id, user?.role)) && rowMenu(<>
@@ -1995,7 +1989,7 @@ function DossiersContent({
           </Table>
         </CardContent>
         </div>
-        {filterPanelOpen && submissionFilterSidebar}
+        {vue === "submissions" && filterPanelOpen && submissionFilterSidebar}
         </div>}
         {archiveTarget && <ArchiveActions
           archived={false}

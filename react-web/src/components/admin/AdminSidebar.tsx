@@ -121,9 +121,13 @@ export function AdminSidebar({
   const activeHub = getActiveHub(pathname, searchParams);
   const canOpenSettings = hasRole(role, SETTINGS_ROLES);
 
-  useEffect(() => {
+  // The account menu closes on navigation, caught while rendering rather
+  // than in an effect (see the drawer in admin/layout.tsx).
+  const [accountMenuPathname, setAccountMenuPathname] = useState(pathname);
+  if (accountMenuPathname !== pathname) {
+    setAccountMenuPathname(pathname);
     setAccountMenuOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     if (!accountMenuOpen) return;
@@ -199,6 +203,25 @@ export function AdminSidebar({
 
                 {badgeCount > 0 && <Badge count={badgeCount} />}
               </Link>
+
+              {/* Labelled rail and drawer: the open hub lists its pages
+                  under it, so the reader sees where they are without the
+                  page's own tabs (CSS hides this in the icon strip). */}
+              {isActive && pages.length > 1 && (
+                <ul className="cam-admin-rail-subnav" aria-label={hubName}>
+                  {pages.map((sub) => (
+                    <li key={sub.href}>
+                      <Link
+                        href={sub.href}
+                        className="cam-admin-rail-subnav-link"
+                        aria-current={isSubRouteActive(pathname, sub.href) ? "page" : undefined}
+                      >
+                        {tNav(`routes.${sub.labelKey}`)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               {/* Icon strip only (CSS): the hub's name and its pages. The
                   links are out of the tab order until the hub has focus. */}

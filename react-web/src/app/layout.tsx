@@ -40,6 +40,26 @@ const inter = localFont({
   fallback: ["Segoe UI", "Arial", "sans-serif"],
 });
 
+// IBM Plex Sans, self-hosted, for the staff console only (owner, 2026-11-08:
+// "government platform" upgrade). Inter stays the respondent typeface. The
+// files were already in fonts/ (SIL Open Font License 1.1, see
+// Google-Fonts-OFL.txt). Plex ships no 500 file here, so the console's
+// medium weight (buttons, tabs, rail items) draws with the 600 file: a
+// synthesised 500 would fall back to 400 and flatten every label.
+const plex = localFont({
+  src: [
+    { path: "./fonts/IBMPlexSans-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/IBMPlexSans-400Italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/IBMPlexSans-600.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/IBMPlexSans-600.woff2", weight: "600", style: "normal" },
+    { path: "./fonts/IBMPlexSans-600Italic.woff2", weight: "600", style: "italic" },
+    { path: "./fonts/IBMPlexSans-700.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-plex",
+  display: "swap",
+  fallback: ["Segoe UI", "Arial", "sans-serif"],
+});
+
 // The description is the platform's full name in the visitor's language
 // (authShared.subtitle), not a fixed string: the locale comes from the
 // NEXT_LOCALE cookie or the browser's language (src/i18n/request.ts), so it has to be resolved per
@@ -57,7 +77,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`h-full ${inter.variable} ${newsreader.variable}`}>
+    <html lang={locale} className={`h-full ${inter.variable} ${plex.variable} ${newsreader.variable}`}>
       <body className="min-h-full flex flex-col">
         {/* No key={locale}: a key remounts the whole tree on a language
             switch, which emptied every form in progress (the registration

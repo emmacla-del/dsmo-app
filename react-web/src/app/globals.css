@@ -8,6 +8,7 @@
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./admin-console.css";
+@import "./admin-console-standard.css";
 @import "./shadcn.css";
 
 @theme {

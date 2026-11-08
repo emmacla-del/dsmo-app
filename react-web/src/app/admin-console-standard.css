@@ -1,0 +1,818 @@
+/* ════════════════════════════════════════════════════════════════════════
+   Staff console standard — owner decision 2026-11-08
+   ("government platform" upgrade; canvas « CAMLEAP console — Inscriptions &
+   Télédéclarations UI upgrade »).
+
+   Loaded after admin-console.css. It changes the console's frame and shared
+   pieces only:
+     1. IBM Plex Sans in the console (Inter stays on respondent screens)
+     2. the institutional masthead on every route (tricolour, Republic and
+        ministry line, coat of arms, application bar)
+     3. a light, labelled rail in place of the dark green one
+     4. one tab style: underline with a count
+     5. the KPI strip (AdminKpiStrip)
+     6. table conventions: record cell, short tags, sortable header,
+        numbered pager, and a stacked phone layout
+   Colours are tokens only (tokens.css). The doubled `.cam-admin.cam-admin`
+   outranks the older route themes in admin-console.css without editing them.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Typeface ───────────────────────────────────────────────────────── */
+.cam-admin {
+  --cam-font-sans: var(--font-plex), "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --cam-admin-table-font-family: var(--cam-font-sans);
+  font-family: var(--cam-font-sans);
+  font-feature-settings: "tnum" 1;
+}
+/* Menus, popovers and dialogs portal to <body>: they follow the console
+   while it is on screen. */
+body:has(.cam-admin) {
+  font-family: var(--font-plex), "Segoe UI", Arial, sans-serif;
+}
+
+/* ── 2. Institutional masthead ─────────────────────────────────────────── */
+/* The national tricolour, pinned to the top edge of the window on every
+   console page: a 4px line, never a decoration elsewhere (brand.md). */
+.cam-admin::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--cam-admin-flag-height);
+  background: linear-gradient(
+    to right,
+    var(--cam-flag-green) 0 33.333%,
+    var(--cam-flag-red) 33.333% 66.666%,
+    var(--cam-flag-yellow) 66.666% 100%
+  );
+  z-index: calc(var(--cam-z-dialog) + 1);
+  pointer-events: none;
+}
+.cam-admin.cam-admin { padding-top: var(--cam-admin-flag-height); }
+
+.cam-admin-masthead {
+  display: flex;
+  flex-direction: column;
+  background: var(--cam-surface);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-admin-masthead-gov {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-1) var(--cam-space-5);
+  min-height: var(--cam-admin-masthead-gov-height);
+  padding: var(--cam-space-1) var(--cam-space-6);
+  border-bottom: var(--cam-border-width) solid var(--cam-border-soft);
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-slate-600);
+}
+.cam-admin-masthead-state {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+}
+/* Never shown smaller than this: a seal below ~40px is a smudge
+   (brand.md, minimum sizes). On phones it is hidden instead (below). */
+.cam-admin-masthead-arms {
+  display: block;
+  width: auto;
+  height: var(--cam-coat-of-arms-height);
+}
+.cam-admin-masthead-republic {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.cam-admin-masthead-republic strong {
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cam-text);
+}
+.cam-admin-masthead-republic span {
+  font-size: var(--cam-font-size-2xs);
+  color: var(--cam-slate-600);
+}
+.cam-admin-masthead-ministry { text-align: right; }
+
+.cam-admin-masthead-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3) var(--cam-space-5);
+  min-height: var(--cam-admin-masthead-bar-height);
+  padding: var(--cam-space-2) var(--cam-space-6);
+}
+.cam-admin-masthead-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-4);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.cam-admin-masthead-brand img {
+  display: block;
+  width: auto;
+  height: 20px;
+}
+.cam-admin-masthead-console {
+  padding-left: var(--cam-space-4);
+  border-left: var(--cam-border-width) solid var(--cam-border);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+  color: var(--cam-slate-600);
+  white-space: nowrap;
+}
+.cam-admin-masthead-brand:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 4px;
+  border-radius: var(--cam-radius-sm);
+}
+.cam-admin-masthead-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-3);
+  margin-left: auto;
+}
+.cam-admin-masthead-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-1-5);
+  height: 30px;
+  padding: 0 var(--cam-space-3);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary-dark);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  white-space: nowrap;
+}
+
+/* The old dossier-only top bar is gone; its offsets are reset here. */
+.cam-admin.cam-admin.is-dossier-workflow { grid-template-rows: none; background: var(--cam-bg); }
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-body { grid-row: auto; }
+.cam-admin.cam-admin .cam-admin-main {
+  padding-top: var(--cam-space-6);
+}
+/* Fixed-height review pages: the masthead takes its share of the column,
+   the main region the rest (it was 100% under an absolute top bar). */
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin.is-dossier-detail .cam-admin-main,
+  .cam-admin.cam-admin.is-review-detail .cam-admin-main {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+  }
+  .cam-admin.cam-admin.is-dossier-detail .cam-admin-body,
+  .cam-admin.cam-admin.is-review-detail .cam-admin-body {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--cam-admin-flag-height));
+    height: calc(100dvh - var(--cam-admin-flag-height));
+  }
+}
+
+@media (max-width: 1023px) {
+  .cam-admin-masthead-gov,
+  .cam-admin-masthead-bar { padding-inline: var(--cam-space-4); }
+  .cam-admin-masthead-ministry { display: none; }
+}
+@media (max-width: 639px) {
+  /* A phone shows the Republic in words; the seal would fall under its
+     legible size. */
+  .cam-admin-masthead-arms { display: none; }
+  .cam-admin-masthead-console { display: none; }
+  .cam-admin-masthead-gov { min-height: 0; padding-block: var(--cam-space-1-5); }
+  .cam-admin-masthead-republic { flex-direction: row; gap: var(--cam-space-2); }
+  .cam-admin-masthead-scope { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* ── 3. Light, labelled rail ───────────────────────────────────────────── */
+.cam-admin.cam-admin .cam-admin-rail {
+  background: var(--cam-surface);
+  border-right: var(--cam-border-width) solid var(--cam-border);
+  color: var(--cam-text);
+  top: var(--cam-admin-flag-height);
+  height: calc(100vh - var(--cam-admin-flag-height));
+  height: calc(100dvh - var(--cam-admin-flag-height));
+}
+@media (min-width: 1024px) {
+  /* The masthead carries the brand; the rail does not repeat it. */
+  .cam-admin.cam-admin .cam-admin-rail-brand,
+  .cam-admin.cam-admin.is-dossier-workflow .cam-admin-rail-brand { display: none; }
+}
+.cam-admin.cam-admin .cam-admin-rail-brand-name { color: var(--cam-text); }
+.cam-admin.cam-admin .cam-admin-rail-brand-sub { color: var(--cam-slate-600); }
+
+.cam-admin.cam-admin .cam-admin-rail-hub {
+  color: var(--cam-slate-700);
+  font-weight: var(--cam-font-weight-medium);
+}
+.cam-admin.cam-admin .cam-admin-rail-hub:hover:not([aria-current="page"]) {
+  background: var(--cam-surface-subtle);
+  color: var(--cam-text);
+}
+.cam-admin.cam-admin .cam-admin-rail-hub:hover:not([aria-current="page"]) .cam-admin-rail-hub-icon {
+  background: transparent;
+}
+.cam-admin.cam-admin .cam-admin-rail-hub[aria-current="page"],
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-rail-hub[aria-current="page"] {
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-semibold);
+  box-shadow: none;
+}
+.cam-admin.cam-admin .cam-admin-rail-hub:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: -2px;
+}
+.cam-admin.cam-admin .cam-admin-rail-badge {
+  background: var(--cam-slate-100);
+  color: var(--cam-slate-700);
+}
+
+/* The open hub's pages, under it (AdminSidebar). */
+.cam-admin-rail-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: var(--cam-space-1) 0 var(--cam-space-2) var(--cam-space-5);
+  padding: 0 0 0 var(--cam-space-3);
+  border-left: var(--cam-border-width) solid var(--cam-border);
+  list-style: none;
+}
+.cam-admin-rail-subnav-link {
+  display: block;
+  padding: var(--cam-space-1-5) var(--cam-space-2-5);
+  border-radius: var(--cam-radius-md);
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-xs);
+  text-decoration: none;
+}
+.cam-admin-rail-subnav-link:hover { background: var(--cam-surface-subtle); color: var(--cam-text); }
+.cam-admin-rail-subnav-link[aria-current="page"] {
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin-rail-subnav-link:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+@media (min-width: 1024px) {
+  .cam-admin.is-rail-compact .cam-admin-rail-subnav { display: none; }
+}
+
+.cam-admin.cam-admin .cam-admin-rail-toggle { color: var(--cam-slate-600); }
+.cam-admin.cam-admin .cam-admin-rail-toggle:hover { background: var(--cam-surface-subtle); color: var(--cam-text); }
+.cam-admin.cam-admin .cam-admin-rail-toggle:focus-visible { outline-color: var(--cam-focus); }
+.cam-admin.cam-admin .cam-admin-rail-account { border-top-color: var(--cam-border); }
+.cam-admin.cam-admin .cam-admin-account-trigger {
+  border-color: var(--cam-border);
+  color: var(--cam-text);
+}
+.cam-admin.cam-admin .cam-admin-account-trigger:hover,
+.cam-admin.cam-admin .cam-admin-account-trigger[aria-expanded="true"] {
+  border-color: var(--cam-slate-300);
+  background: var(--cam-surface-subtle);
+}
+.cam-admin.cam-admin .cam-admin-account-trigger-chevron { color: var(--cam-slate-500); }
+.cam-admin.cam-admin .cam-admin-account-menu,
+.cam-admin.cam-admin.is-rail-compact .cam-admin-account-menu {
+  border-color: var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+}
+.cam-admin.cam-admin .cam-admin-account-menu-link { color: var(--cam-text); }
+.cam-admin.cam-admin .cam-admin-account-menu-link:hover { background: var(--cam-surface-subtle); color: var(--cam-text); }
+.cam-admin.cam-admin .cam-admin-account-menu-territory > span:first-child,
+.cam-admin.cam-admin .cam-admin-account-menu-language > span:first-child { color: var(--cam-slate-600); }
+.cam-admin.cam-admin .cam-admin-rail-avatar { background: var(--cam-primary-dark); color: var(--cam-surface); }
+.cam-admin.cam-admin .cam-admin-rail-user-name { color: var(--cam-text); }
+.cam-admin.cam-admin .cam-admin-rail-user-role { color: var(--cam-slate-600); }
+.cam-admin.cam-admin .cam-admin-rail-logout {
+  border-color: var(--cam-border);
+  background: var(--cam-surface);
+  color: var(--cam-slate-700);
+}
+.cam-admin.cam-admin .cam-admin-rail-logout:hover { background: var(--cam-surface-subtle); color: var(--cam-text); }
+.cam-admin.cam-admin .cam-admin-rail .cam-language-link { color: var(--cam-slate-600); }
+.cam-admin.cam-admin .cam-admin-rail .cam-language-link:hover { color: var(--cam-text); }
+.cam-admin.cam-admin .cam-admin-rail .cam-admin-scope {
+  border-color: var(--cam-border);
+  background: var(--cam-surface-subtle);
+  color: var(--cam-slate-700);
+}
+.cam-admin.cam-admin .cam-admin-rail .cam-admin-icon-button { color: var(--cam-slate-600); }
+.cam-admin.cam-admin .cam-admin-rail .cam-admin-icon-button:hover { background: var(--cam-surface-subtle); color: var(--cam-text); }
+
+/* ── 4. One tab style: underline, with a count ─────────────────────────── */
+.cam-admin.cam-admin .cam-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--cam-space-6);
+  padding: 0;
+  border: 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  border-radius: 0;
+  background: transparent;
+  min-height: 0;
+}
+.cam-admin.cam-admin .cam-admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  height: auto;
+  margin-bottom: calc(var(--cam-border-width) * -1);
+  padding: var(--cam-space-2-5) var(--cam-space-hairline) var(--cam-space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.cam-admin.cam-admin .cam-admin-tab:hover { color: var(--cam-text); background: transparent; }
+.cam-admin.cam-admin .cam-admin-tab[aria-current="page"] {
+  border-bottom-color: var(--cam-primary);
+  background: transparent;
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-admin-tab:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+.cam-admin.cam-admin .cam-admin-tab-count {
+  padding: 0 var(--cam-space-2);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-slate-100);
+  color: var(--cam-slate-700);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-admin-tab[aria-current="page"] .cam-admin-tab-count {
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary-dark);
+}
+/* Phones: the views wrap onto a second line instead of hiding off-screen
+   (ux-pilot audit, 30 Oct: clipped tab bars). */
+@media (max-width: 639px) {
+  .cam-admin.cam-admin .cam-admin-tabs { gap: 0 var(--cam-space-4); overflow: visible; }
+}
+
+/* ── 5. KPI strip (AdminKpiStrip) ──────────────────────────────────────── */
+.cam-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  margin: 0;
+  padding: 0;
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+  list-style: none;
+  overflow: hidden;
+}
+.cam-kpi-strip > li { display: flex; border-right: var(--cam-border-width) solid var(--cam-border-soft); }
+.cam-kpi-strip > li:last-child { border-right: 0; }
+.cam-kpi {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.cam-kpi { cursor: pointer; }
+button.cam-kpi:hover { background: var(--cam-surface-subtle); }
+button.cam-kpi:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: -2px; }
+button.cam-kpi[aria-pressed="true"] {
+  background: var(--cam-primary-tint);
+  box-shadow: inset 0 -3px 0 var(--cam-primary);
+}
+.cam-kpi-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  color: var(--cam-slate-700);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-medium);
+}
+.cam-kpi-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-slate-400);
+}
+.cam-kpi.is-warning .cam-kpi-swatch { background: var(--cam-warning); }
+.cam-kpi.is-info .cam-kpi-swatch { background: var(--cam-info); }
+.cam-kpi.is-success .cam-kpi-swatch { background: var(--cam-primary); }
+.cam-kpi.is-danger .cam-kpi-swatch { background: var(--cam-danger); }
+.cam-kpi-value {
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-3xl);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.cam-kpi.is-info .cam-kpi-value { color: var(--cam-info); }
+.cam-kpi.is-danger .cam-kpi-value { color: var(--cam-danger); }
+.cam-kpi-hint { color: var(--cam-slate-600); font-size: var(--cam-font-size-2xs); }
+.cam-kpi-strip-note {
+  margin: var(--cam-space-2) 0 0;
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-2xs);
+}
+.cam-kpi-strip-status {
+  margin: 0;
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-lg);
+  background: var(--cam-surface);
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-xs);
+}
+@media (max-width: 639px) {
+  .cam-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cam-kpi-strip > li { border-bottom: var(--cam-border-width) solid var(--cam-border-soft); }
+  .cam-kpi-strip > li:nth-child(2n) { border-right: 0; }
+  .cam-kpi { padding: var(--cam-space-3) var(--cam-space-4); }
+  .cam-kpi-value { font-size: var(--cam-font-size-xl); }
+  .cam-kpi-hint { display: none; }
+}
+
+/* ── 6. Table conventions ──────────────────────────────────────────────── */
+/* Record cell: name above its reference; the reference is never cut. */
+.cam-record-cell { display: flex; flex-direction: column; gap: 2px; min-width: 220px; }
+.cam-record-cell-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--cam-text);
+  font-weight: var(--cam-font-weight-semibold);
+  line-height: 1.3;
+}
+.cam-record-cell-ref {
+  color: var(--cam-slate-600);
+  font-family: var(--cam-font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  font-size: var(--cam-font-size-2xs);
+  white-space: nowrap;
+}
+/* A short label in a quiet frame: entity types and similar categories. */
+.cam-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--cam-space-2);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-md);
+  background: var(--cam-surface);
+  color: var(--cam-slate-700);
+  font-size: var(--cam-font-size-2xs);
+  white-space: nowrap;
+}
+.cam-cell-muted { color: var(--cam-slate-600); }
+.cam-cell-nowrap { white-space: nowrap; }
+
+/* Inline order control at the end of a filter bar. */
+.cam-sort-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+  margin-left: auto;
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-xs);
+  white-space: nowrap;
+}
+.cam-sort-control select {
+  height: 32px;
+  padding: 0 var(--cam-space-2);
+  border: var(--cam-border-width) solid var(--cam-slate-300);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font: inherit;
+}
+.cam-sort-control select:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: 1px; }
+
+/* Numbered pager (AdminNumberedPager). */
+.cam-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-xs);
+}
+.cam-pager-pages { display: flex; align-items: center; gap: var(--cam-space-1); }
+.cam-pager-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--cam-space-2);
+  border: var(--cam-border-width) solid var(--cam-border);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface);
+  color: var(--cam-slate-700);
+  font: inherit;
+  cursor: pointer;
+}
+.cam-pager-button:hover:not(:disabled) { background: var(--cam-surface-subtle); }
+.cam-pager-button:disabled { color: var(--cam-slate-400); cursor: default; }
+.cam-pager-button[aria-current="page"] {
+  border-color: var(--cam-primary);
+  background: var(--cam-primary);
+  color: var(--cam-surface);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-pager-button:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: 1px; }
+.cam-pager-gap { padding: 0 var(--cam-space-1); }
+
+/* Stacked rows on phones: a table marked .cam-table-stack becomes a list of
+   records, each cell labelled from data-label, the action at full width.
+   Answers the ux-pilot HIGH finding (6 Nov): no sticky column, no sideways
+   scroll, the primary action always reachable. */
+@media (max-width: 639px) {
+  .cam-table-stack thead { display: none; }
+  .cam-table-stack,
+  .cam-table-stack tbody,
+  .cam-table-stack tr,
+  .cam-table-stack th,
+  .cam-table-stack td { display: block; width: 100%; }
+  .cam-table-stack tr {
+    padding: var(--cam-space-3) var(--cam-space-4);
+    border-bottom: var(--cam-border-width) solid var(--cam-border-soft);
+  }
+  .cam-table-stack tr > th,
+  .cam-table-stack tr > td {
+    position: static;
+    padding: var(--cam-space-1) 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    white-space: normal;
+  }
+  .cam-table-stack td[data-label] {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: var(--cam-space-2);
+    align-items: start;
+  }
+  .cam-table-stack td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    padding-top: 2px;
+    color: var(--cam-slate-600);
+    font-size: var(--cam-font-size-2xs);
+  }
+  .cam-table-stack td.cam-cell-hide-phone { display: none; }
+  .cam-table-stack td.cam-cell-action { padding-top: var(--cam-space-2); }
+  .cam-table-stack td.cam-cell-action > * { width: 100%; }
+  .cam-table-stack td.cam-cell-action button:first-child { flex: 1; min-height: 40px; }
+  .cam-table-stack .cam-record-cell { min-width: 0; }
+}
+
+/* ── 7. Page header and the registration tables ────────────────────────── */
+/* Title in the console face: one typeface on a working screen (owner,
+   2026-11-08; replaces the Newsreader title of 2026-10). */
+.cam-admin.cam-admin .cam-admin-page-title {
+  font-family: var(--cam-font-sans);
+  font-size: var(--cam-font-size-xl);
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: -0.005em;
+}
+.cam-admin-page-subtitle,
+.cam-admin.cam-admin .cam-admin-page-subtitle { color: var(--cam-slate-600); }
+/* The hub tabs carry the rule under the header: one line, not two. */
+.cam-admin.cam-admin .cam-admin-page-header--no-tabs:has(+ .cam-admin-tabs) {
+  margin-bottom: var(--cam-space-2);
+  padding-bottom: var(--cam-space-2);
+  border-bottom: 0;
+}
+.cam-admin.cam-admin .cam-admin-page-header--no-tabs + .cam-admin-tabs { margin-bottom: var(--cam-space-5); }
+.cam-admin.cam-admin .cam-admin-tabs + div:has(> .cam-kpi-strip),
+.cam-admin.cam-admin .cam-admin-tabs + .cam-kpi-strip-status { margin-bottom: var(--cam-space-5); }
+
+/* Columns size to their content: one line per cell, the record cell takes
+   the rest, the action column never runs off the card. No sticky first
+   column (it covered the row action on phones, ux-pilot 6 Nov). */
+.cam-admin.cam-admin .cam-registration-queue-table,
+.cam-admin.cam-admin .cam-registration-organisations-table {
+  min-width: 0;
+  table-layout: auto;
+}
+.cam-admin.cam-admin .cam-registration-queue-table th,
+.cam-admin.cam-admin .cam-registration-organisations-table th { width: auto; overflow-wrap: normal; }
+.cam-admin.cam-admin .cam-registration-queue-table thead th,
+.cam-admin.cam-admin .cam-registration-organisations-table thead th {
+  white-space: nowrap;
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-slate-600);
+}
+.cam-admin.cam-admin .cam-registration-queue-table td,
+.cam-admin.cam-admin .cam-registration-organisations-table td {
+  vertical-align: middle;
+  overflow-wrap: normal;
+}
+.cam-admin.cam-admin .cam-registration-queue-table tr > th[scope="row"],
+.cam-admin.cam-admin .cam-registration-organisations-table tr > th[scope="row"],
+.cam-admin.cam-admin .cam-registration-queue-table thead th:first-child {
+  position: static;
+  border-right: 0;
+  box-shadow: none;
+  background: transparent;
+  font-weight: inherit;
+  vertical-align: middle;
+}
+.cam-admin.cam-admin .cam-registration-queue-table thead th:first-child { background: var(--cam-admin-table-header-bg); }
+.cam-admin.cam-admin .cam-registration-queue-table tr > th[scope="row"] { width: 100%; }
+.cam-admin.cam-admin .cam-registration-organisations-table tr > th[scope="row"] { width: 100%; }
+.cam-admin.cam-admin .cam-registration-queue-table .cam-record-cell,
+.cam-admin.cam-admin .cam-registration-organisations-table .cam-record-cell { min-width: 220px; }
+.cam-admin.cam-admin .cam-registration-row-actions { justify-content: flex-end; }
+
+/* One body size in console tables (14px, canvas board 0 §6) and the same
+   gutter on both sides of the content (the 80px right gutter is retired). */
+.cam-admin.cam-admin {
+  --cam-admin-table-font-size: var(--cam-font-size-sm);
+  --cam-admin-content-padding-right: var(--cam-space-6);
+  --cam-admin-content-padding-left: var(--cam-space-6);
+}
+.cam-admin.cam-admin .cam-registration-row-actions { flex-wrap: nowrap; }
+.cam-admin.cam-admin .cam-registration-queue-table thead th:last-child,
+.cam-admin.cam-admin .cam-registration-organisations-table thead th:last-child { text-align: right; }
+.cam-admin.cam-admin .cam-registration-queue-table td:nth-child(2) .flex-wrap { flex-direction: column; align-items: flex-start; gap: var(--cam-space-1); }
+.cam-record-cell-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cam-space-1) var(--cam-space-2); }
+
+/* ── 8. Télédéclarations (dossiers) on the standard ────────────────────── */
+/* The dossier route's own navy theme (13px base, navy ink) gives way to the
+   console's: one look across both hubs. */
+.cam-admin.cam-admin.is-dossier-workflow {
+  color: var(--cam-text);
+  font-size: var(--cam-font-size-sm);
+}
+.cam-admin.cam-admin .cam-dossier-standard-table { min-width: 0; table-layout: auto; }
+.cam-admin.cam-admin .cam-dossier-standard-table th,
+.cam-admin.cam-admin .cam-dossier-standard-table td {
+  position: static;
+  left: auto;
+  box-shadow: none;
+}
+.cam-admin.cam-admin .cam-dossier-standard-table thead th {
+  white-space: nowrap;
+  background: var(--cam-admin-table-header-bg);
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-dossier-standard-table td { vertical-align: middle; }
+.cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-record-column { width: 100%; min-width: 240px; }
+.cam-admin.cam-admin .cam-dossier-standard-table thead th:last-child { text-align: right; }
+.cam-admin.cam-admin .cam-dossier-row-actions { justify-content: flex-end; flex-wrap: nowrap; }
+.cam-admin.cam-admin .cam-dossier-view > .cam-kpi-strip-status,
+.cam-admin.cam-admin .cam-dossier-view > div:has(> .cam-kpi-strip) { margin: var(--cam-space-4) 0; }
+
+/* The dossier route hid its title and drew its views as a segmented box.
+   It now has the console header: breadcrumb, title, purpose, actions on the
+   right and the underline views on their own row. */
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cam-space-4);
+  margin: 0 0 var(--cam-space-5);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-page-header-main {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  clip-path: none;
+  white-space: normal;
+  order: 0;
+  flex: 1 1 20rem;
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-page-header-actions { order: 1; margin-left: auto; }
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view > .cam-admin-page-header > .cam-admin-tabs {
+  order: 2;
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0;
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-title { color: var(--cam-text); }
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-subtitle { color: var(--cam-slate-600); font-size: var(--cam-font-size-sm); }
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-header > .cam-admin-tabs {
+  gap: 0 var(--cam-space-6);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab {
+  height: auto;
+  min-height: 0;
+  margin-bottom: calc(var(--cam-border-width) * -1);
+  padding: var(--cam-space-2-5) var(--cam-space-hairline) var(--cam-space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-medium);
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab:hover { background: transparent; color: var(--cam-text); }
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab[aria-current="page"] {
+  border-bottom-color: var(--cam-primary);
+  background: transparent;
+  box-shadow: none;
+  color: var(--cam-primary-dark);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab-count {
+  background: var(--cam-slate-100);
+  color: var(--cam-slate-700);
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-page-header .cam-admin-tab[aria-current="page"] .cam-admin-tab-count {
+  background: var(--cam-primary-tint);
+  color: var(--cam-primary-dark);
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-filter-bar-search input { padding-inline-start: 2.25rem; border-radius: var(--cam-radius-full); }
+.cam-admin.cam-admin .cam-dossier-validation-summary .cam-dossier-checks-clear,
+.cam-admin.cam-admin .cam-dossier-validation-summary [data-slot="badge"] { white-space: nowrap; }
+/* The completed table was pinned to 1380px and fixed column widths with
+   !important, which pushed its actions off the card; only !important undoes
+   it. Columns now size to content like every console table. */
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-completed-table table,
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-submissions-table table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: auto !important;
+  white-space: normal;
+  color: inherit;
+  font-size: var(--cam-admin-table-font-size);
+}
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-completed-table thead th { width: auto !important; }
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-completed-table thead th:first-child { width: 100% !important; }
+.cam-admin.cam-admin .cam-table-stack td.cam-cell-nowrap,
+.cam-admin.cam-admin .cam-table-stack .cam-cell-nowrap { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+@media (max-width: 639px) {
+  /* Stacked records take the full card width whatever column widths an
+     older route rule set. */
+  /* Doubled classes: older dossier rules pin widths with !important at a
+     specificity of up to four classes. */
+  .cam-admin.cam-admin.cam-admin .cam-table-stack.cam-table-stack,
+  .cam-admin.cam-admin.cam-admin .cam-table-stack.cam-table-stack tbody,
+  .cam-admin.cam-admin.cam-admin .cam-table-stack.cam-table-stack tr,
+  .cam-admin.cam-admin.cam-admin .cam-table-stack.cam-table-stack th,
+  .cam-admin.cam-admin.cam-admin .cam-table-stack.cam-table-stack td {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .cam-admin.cam-admin .cam-table-stack td { overflow-wrap: normal; word-break: normal; }
+  .cam-admin.cam-admin .cam-table-stack td.cam-cell-nowrap { white-space: normal; }
+  .cam-admin.cam-admin .cam-table-stack td.cam-dossier-select-column { display: none; }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-record-column { min-width: 0; }
+  .cam-admin.cam-admin .cam-dossier-row-actions { justify-content: stretch; }
+  .cam-admin.cam-admin .cam-dossier-row-actions > :first-child { flex: 1; }
+}
+.cam-admin.cam-admin .cam-dossier-table-frame { padding: 0; }
+.cam-admin.cam-admin .cam-dossier-table-frame .cam-dossier-record-name { font-weight: var(--cam-font-weight-semibold); color: var(--cam-text); }
+.cam-admin.cam-admin .cam-dossier-table-frame .cam-dossier-cell-secondary { display: block; color: var(--cam-slate-600); font-size: var(--cam-font-size-xs); }
+.cam-admin.cam-admin .cam-dossier-table-frame .cam-dossier-validation-summary { display: flex; flex-wrap: wrap; gap: var(--cam-space-1); }
+.cam-admin.cam-admin .cam-dossier-table-frame td,
+.cam-admin.cam-admin .cam-dossier-table-frame th { padding: var(--cam-space-3); }
+.cam-admin.cam-admin .cam-dossier-table-frame td:first-child,
+.cam-admin.cam-admin .cam-dossier-table-frame th:first-child { padding-left: var(--cam-space-4); }
+.cam-admin.cam-admin .cam-dossier-table-frame td:last-child,
+.cam-admin.cam-admin .cam-dossier-table-frame th:last-child { padding-right: var(--cam-space-4); }
+.cam-admin.cam-admin .cam-dossier-table-frame .cam-dossier-assignee-cell { white-space: nowrap; }
+.cam-cell-sub { display: block; color: var(--cam-slate-600); font-size: var(--cam-font-size-xs); }
+.cam-cell-clamp { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+.cam-admin.cam-admin .cam-register-table { min-width: 0; table-layout: auto; }
+.cam-admin.cam-admin .cam-register-table thead th { white-space: nowrap; color: var(--cam-slate-600); font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); }
+.cam-admin.cam-admin .cam-register-table thead th:first-child { width: 100%; }
+.cam-admin.cam-admin .cam-register-table td { vertical-align: middle; }

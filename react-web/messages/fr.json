@@ -228,8 +228,6 @@
     "startDeclarationButton": "Commencer une déclaration",
     "staffConsoleTitle": "Console ministérielle MINEFOP · ONEFOP",
     "staffConsoleBody": "Accédez directement aux quatre outils d'instruction, d'arbitrage de qualité et de diffusion statistique.",
-    "staffDashboard": "Tableau de bord national",
-    "staffDashboardHint": "Indicateurs de performance",
     "staffPending": "Dossiers en instance",
     "staffPendingHint": "File de traitement prioritaire",
     "staffReview": "Instruction & Visas",
@@ -1560,7 +1558,6 @@
   },
   "adminNav": {
     "hubs": {
-      "supervision": "Tableau de bord",
       "equipe": "Équipe territoriale",
       "inscriptions": "Inscriptions",
       "teledeclarations": "Télédéclarations",
@@ -1569,7 +1566,6 @@
       "administration": "Administration"
     },
     "routes": {
-      "pilotage": "Tableau de bord",
       "dossiers": "Examen des télédéclarations",
       "equipe": "Équipe territoriale",
       "campagnes": "Campagnes",
@@ -1600,7 +1596,14 @@
     "defaultDisplayName": "Compte agent",
     "defaultRoleLabel": "Agent",
     "openMenuAriaLabel": "Ouvrir le menu",
-    "closeMenuAriaLabel": "Fermer le menu"
+    "closeMenuAriaLabel": "Fermer le menu",
+    "mastheadRepublic": "République du Cameroun",
+    "mastheadMotto": "Paix – Travail – Patrie",
+    "mastheadMinistry": "Ministère de l’Emploi et de la Formation Professionnelle",
+    "mastheadPlatform": "Plateforme de l’ONEFOP",
+    "mastheadAriaLabel": "En-tête officiel",
+    "consoleName": "Console des agents",
+    "coatOfArmsAlt": "Armoiries de la République du Cameroun"
   },
   "adminSidebar": {
     "navAriaLabel": "Navigation principale",
@@ -2322,7 +2325,7 @@
     "openTerritoryFiles": "Dossiers",
     "openTerritoryFilesAria": "Ouvrir les dossiers de {territory}",
     "sortLabel": "Ordre",
-    "sortNewest": "Plus r�cents d'abord",
+    "sortNewest": "Plus récents d'abord",
     "sortOldest": "Plus anciens d'abord"
   },
   "adminDossierPage": {
@@ -2856,7 +2859,31 @@
     "statusOverdue": "En retard (plus de {days} j)",
     "overdueNotice": "{count, plural, one {# dossier attend une décision depuis plus de {days} jours.} other {# dossiers attendent une décision depuis plus de {days} jours.}}",
     "overdueShow": "Afficher",
-    "overdueBadge": "En retard · {days} j"
+    "overdueBadge": "En retard · {days} j",
+    "pageSubtitle": "Vérifiez les demandes d’inscription de votre ressort, puis approuvez, demandez des compléments ou rejetez.",
+    "organisationsSubtitle": "Établissements dont l’inscription a été décidée. Ouvrez un dossier pour voir ses déclarations, son compte et son historique.",
+    "kpiAriaLabel": "Chiffres de la file d’inscriptions",
+    "kpiComplements": "Compléments demandés",
+    "kpiComplementsHint": "Réponse du déclarant attendue",
+    "kpiPendingHint": "Décision d’un agent attendue",
+    "kpiOverdue": "En retard (plus de {days} j)",
+    "kpiOverdueHint": "À traiter en priorité",
+    "kpiApproved": "Approuvées",
+    "kpiApprovedHint": "Comptes ouverts",
+    "kpiRejectedHint": "Inscriptions refusées",
+    "kpiFilterHint": "Afficher ces inscriptions dans la liste",
+    "pagerAriaLabel": "Pagination des inscriptions",
+    "pageButtonAriaLabel": "Page {page}",
+    "sortControlLabel": "Ordre",
+    "entityShort": {
+      "ENTREPRISE": "Entreprise",
+      "COOPERATIVE": "Coopérative",
+      "CTD": "CTD",
+      "ONG": "ONG",
+      "ADMINISTRATION": "Administration",
+      "PROJECT_PROGRAM": "Projet / programme",
+      "VOCATIONAL_TRAINING": "Formation professionnelle"
+    }
   },
   "adminEtablissementsPage": {
     "pageTitle": "Registre des établissements",
@@ -2902,7 +2929,10 @@
     "showingRange": "Affichage {from}-{to} sur {total} établissement(s)",
     "previousButton": "Précédent",
     "nextButton": "Suivant",
-    "registerTitle": "Répertoire des établissements"
+    "registerTitle": "Répertoire des établissements",
+    "registerSubtitle": "Toutes les entités déclarantes non archivées, quel que soit l’état de leur compte. Un indicateur filtre la liste.",
+    "pagerAriaLabel": "Pagination du registre",
+    "pageButtonAriaLabel": "Page {page}"
   },
   "adminEtablissementPage": {
     "resource": "cet établissement",
@@ -3399,7 +3429,7 @@
       },
       "CENTRAL_AGENT": {
         "name": "Agent central",
-        "description": "Personnel des services centraux et rattachés du MINEFOP. Consultation nationale du tableau de bord, des dossiers et du répertoire des établissements. Aucun droit d'écriture, aucun export."
+        "description": "Personnel des services centraux et rattachés du MINEFOP. Consultation nationale des dossiers et du répertoire des établissements. Aucun droit d'écriture, aucun export."
       },
       "ADMIN_ONEFOP_REGISTRATIONS": {
         "name": "Administrateur ONEFOP des inscriptions",
@@ -3651,9 +3681,6 @@
       "help": "Aide",
       "analytics": "Analytique",
       "settings": "Paramètres",
-      "territorialDashboard": "Tableau de Bord Territorial",
-      "regionalDashboard": "Tableau de Bord Régional",
-      "nationalDashboard": "Tableau de Bord National",
       "fileReview": "Instruction des Dossiers",
       "reviewEndorsement": "Instruction & Visas",
       "statisticsDissemination": "Statistiques & Diffusion",
@@ -4467,6 +4494,23 @@
     "changesNavLabel": "Modifications",
     "verifyHint": "Aucun choix par défaut : non vérifié n'est pas « non conforme ».",
     "verifyNavLabel": "À vérifier",
+    "verifyIssue": {
+      "emptyTitle": "Information manquante",
+      "emptyText": "Cette valeur est vide : elle ne peut pas être vérifiée. Demandez une correction au déclarant.",
+      "rejectedTitle": "Marquée non conforme",
+      "rejectedText": "Cette information empêche l'approbation. Rejetez le dossier ou demandez des compléments.",
+      "duplicateTitle": "Doublon possible",
+      "duplicate": {
+        "cnpsNumber": "Même N° CNPS que {organisation}.",
+        "cnpsNumberOutside": "Même N° CNPS qu'un dossier situé hors de votre ressort.",
+        "name": "Nom similaire à celui de {organisation}, dans le même arrondissement.",
+        "nameOutside": "Nom similaire à celui d'un dossier du même arrondissement, situé hors de votre ressort."
+      },
+      "changedTitle": "Modifié par le déclarant",
+      "changedState": "Modifié",
+      "changedText": "Valeur précédente : {before}. Vérifiez la nouvelle valeur.",
+      "noneText": "Rien n'est signalé sur cette information. Vérifiez-la, puis marquez-la conforme ou non conforme."
+    },
     "identityTitle": "Identification et localisation",
     "identityNavLabel": "Identification",
     "taxNumberLabel": "NIU",
@@ -4476,7 +4520,7 @@
     "claimYou": "Réclamée par vous",
     "claimYouHint": "Les autres agents la voient comme prise.",
     "claimOther": "Réclamée par {name}",
-    "claimOtherHint": "Vous pouvez décider ; la décision est enregistrée à votre nom.",
+    "claimOtherHint": "Seul cet agent peut décider tant qu'il la détient.",
     "claimFree": "Non réclamée",
     "claimFreeHint": "Réclamez-la pour que les autres agents sachent que vous l'examinez.",
     "claimButton": "Réclamer",
@@ -4530,6 +4574,11 @@
       "REGISTRATION_RESTORED": "Inscription restaurée",
       "USER_ACTIVATED": "Compte réactivé",
       "USER_SUSPENDED": "Compte suspendu"
-    }
+    },
+    "claimOtherDecide": "{name} a réclamé cette inscription. Reprenez-la pour décider.",
+    "takeOverButton": "Reprendre le dossier",
+    "takeOverTitle": "Reprendre cette inscription ?",
+    "takeOverBody": "{name} ne la détiendra plus et ne pourra plus décider. La reprise est enregistrée dans l'historique du dossier.",
+    "takeOverConfirm": "Reprendre"
   }
 }
