@@ -14,7 +14,7 @@ import { CampaignReturnsTable } from "@/components/admin/CampaignReturnsTable";
 import { CoveragePanel, type CoverageSelection } from "@/components/admin/CoveragePanel";
 import { TargetGrid } from "@/components/admin/TargetGrid";
 import { useAuthStore } from "@/lib/auth-store";
-import { NATIONAL_ROLES, REGISTRATION_ROLES, SURVEY_ROLES, hasRole } from "@/lib/roles";
+import { NATIONAL_ROLES, SURVEY_ROLES, hasRole } from "@/lib/roles";
 import { formatCampaignDisplayName, isRegistrationCampaign, listCampaigns, type Campaign } from "@/lib/campaigns";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -29,6 +29,8 @@ import {
 } from "@/lib/pilotage-target-payload";
 import {
   canListCampaigns,
+  canReadCampaignReturns,
+  canReadRegistrationCoverage,
   canWritePilotageTargets,
   formatApiError,
   getCampaignQuotas,
@@ -67,11 +69,12 @@ function CiblesContent() {
   const canWrite = canWritePilotageTargets(user?.role);
   const canList = canListCampaigns(user?.role);
   const canReadSubmissionViews = hasRole(user?.role, SURVEY_ROLES);
-  const canReadRegistrationCoverage = hasRole(user?.role, REGISTRATION_ROLES);
+  // CENTRAL_AGENT reads returns and coverage; quotas and follow-ups stay with
+  // the roles that work on them (owner, 2026-11-07).
   const visibleViews = VUES.filter((item) => {
-    if (item.id === "couverture") return canReadRegistrationCoverage;
+    if (item.id === "couverture") return canReadRegistrationCoverage(user?.role);
     if (item.id === "quotas") return canReadSubmissionViews && canList;
-    return canReadSubmissionViews;
+    return canReadCampaignReturns(user?.role);
   });
 
   const rawVue = searchParams.get("vue");
@@ -240,13 +243,17 @@ function TargetsPanel({
     [regions, drafts, originalCentral, centralInput],
   );
 
-  useEffect(() => {
-    if (!query.data) return;
+  // Reseed the form when the server answer (or the field) changes. Done
+  // while rendering rather than in an effect, so the stale drafts are never
+  // painted (React's "adjust state when a prop changes" pattern).
+  const [seededRegions, setSeededRegions] = useState<typeof regions | null>(null);
+  if (query.data && seededRegions !== regions) {
+    setSeededRegions(regions);
     setDrafts(initDrafts(regions));
     setCentralInput(originalCentral == null ? "" : String(originalCentral));
     setClientErrors([]);
     setExpanded(defaultExpanded(regions));
-  }, [query.data, regions, originalCentral]);
+  }
 
   const mutation = useMutation<CampaignQuotasResponse, unknown, void>({
     mutationFn: () => {
@@ -641,10 +648,12 @@ function ReturnsContent({ campaignId, picker }: { campaignId: string; picker: Re
   });
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  useEffect(() => {
-    if (!query.data) return;
+  // Every region opens when a new answer arrives; set while rendering.
+  const [expandedFor, setExpandedFor] = useState<typeof query.data>(undefined);
+  if (query.data && expandedFor !== query.data) {
+    setExpandedFor(query.data);
     setExpanded(new Set(query.data.regions.map((region) => region.regionId)));
-  }, [query.data]);
+  }
 
   return (
     <AdminTablePanel title={t("viewReturns")} headingId="campaign-returns-table-heading" toolbar={picker}>

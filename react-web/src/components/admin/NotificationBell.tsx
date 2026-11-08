@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -41,7 +40,7 @@ const PANEL_LIMIT = 5;
  * (containerRef + Escape + mousedown-outside), with focus returned to the
  * trigger on close, which a popover owes a keyboard user.
  */
-export function NotificationBell({ placement = "header" }: { placement?: "header" | "rail" }) {
+export function NotificationBell() {
   const status = useAuthStore((s) => s.status);
   const router = useRouter();
   const t = useTranslations("notificationBell");
@@ -53,7 +52,6 @@ export function NotificationBell({ placement = "header" }: { placement?: "header
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
-  const [panelPosition, setPanelPosition] = useState<{ top: number; left: number } | null>(null);
 
   const countQuery = useQuery({
     queryKey: [...NOTIFICATIONS_QUERY_KEY, "unread-count"],
@@ -106,25 +104,6 @@ export function NotificationBell({ placement = "header" }: { placement?: "header
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open || placement !== "rail" || !buttonRef.current) return;
-    const placePanel = () => {
-      const rect = buttonRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setPanelPosition({
-        top: Math.max(12, Math.min(rect.top, window.innerHeight - 440)),
-        left: Math.max(12, Math.min(rect.right + 8, window.innerWidth - 352)),
-      });
-    };
-    placePanel();
-    window.addEventListener("resize", placePanel);
-    window.addEventListener("scroll", placePanel, true);
-    return () => {
-      window.removeEventListener("resize", placePanel);
-      window.removeEventListener("scroll", placePanel, true);
-    };
-  }, [open, placement]);
-
   function openNotification(notification: UserNotification) {
     if (!notification.readAt) markRead.mutate(notification.id);
     setOpen(false);
@@ -168,21 +147,13 @@ export function NotificationBell({ placement = "header" }: { placement?: "header
         )}
       </button>
 
-      {open && (() => {
-        const panel = (
+      {open && (
         <div
           ref={panelRef}
           id={panelId}
           role="dialog"
           aria-label={t("title")}
-          className={`cam-admin-bell-panel${placement === "rail" ? " cam-admin-bell-panel--rail" : ""}`}
-          style={placement === "rail" ? {
-            position: "fixed",
-            top: panelPosition?.top ?? 0,
-            left: panelPosition?.left ?? 0,
-            right: "auto",
-            visibility: panelPosition ? "visible" : "hidden",
-          } : undefined}
+          className="cam-admin-bell-panel"
         >
           <div className="cam-admin-bell-head">{t("title")}</div>
 
@@ -244,9 +215,7 @@ export function NotificationBell({ placement = "header" }: { placement?: "header
             </Link>
           </div>
         </div>
-        );
-        return placement === "rail" ? createPortal(panel, document.body) : panel;
-      })()}
+      )}
     </div>
   );
 }

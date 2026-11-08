@@ -218,7 +218,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           accountRole={accountRole}
           anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
           onLogout={handleLogout}
-          showRailNotifications={false}
           accountScope={scopeLabel}
           expanded={railExpanded}
           onToggleExpanded={toggleRail}

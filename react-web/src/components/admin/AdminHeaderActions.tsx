@@ -8,7 +8,6 @@ import { listCampaigns } from "@/lib/campaigns";
 import { referencePeriodPhrases } from "@/lib/onefop-period-label";
 import { CAMPAIGN_ROLES, hasRole } from "@/lib/roles";
 import { asUiLocale } from "@/lib/register-i18n";
-import { NotificationBell } from "./NotificationBell";
 
 /**
  * The active campaign, shared with page content through one query key.
@@ -66,12 +65,11 @@ export function AdminHeaderActions({ showCampaignPill = true }: AdminHeaderActio
 }
 
 /** Persistent scope and utility actions at the bottom of the sidebar. */
-export function AdminRailActions({ showNotifications = true }: { showNotifications?: boolean }) {
+export function AdminRailActions() {
   const t = useTranslations("adminHeaderActions");
 
   return (
     <div className="cam-admin-rail-tools-row">
-      {showNotifications && <NotificationBell placement="rail" />}
       <Link href="/admin/dossiers" className="cam-admin-icon-button" aria-label={t("searchAriaLabel")} title={t("searchTitle")}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="8" />

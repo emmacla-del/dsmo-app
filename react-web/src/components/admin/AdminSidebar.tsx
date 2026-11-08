@@ -43,8 +43,6 @@ export interface AdminSidebarProps {
   anomaliesCount?: number;
   /** Sign-out, kept at the foot of the rail (owner, 2026-10-10). */
   onLogout?: () => void;
-  /** Show the bell in the rail when the route has no institutional masthead. */
-  showRailNotifications?: boolean;
   accountScope?: string;
   /**
    * From 1024px up: full labels (true) or the icon strip (false). In the
@@ -96,7 +94,6 @@ export function AdminSidebar({
   accountRole,
   anomaliesCount = 0,
   onLogout,
-  showRailNotifications = true,
   accountScope,
   expanded = false,
   onToggleExpanded,
@@ -250,7 +247,7 @@ export function AdminSidebar({
         })}
       </nav>
 
-      <AdminRailActions showNotifications={showRailNotifications} />
+      <AdminRailActions />
 
       {onToggleExpanded && (
         <button

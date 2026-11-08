@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
@@ -123,11 +123,14 @@ function CoverageContent({
   const [tab, setTab] = useState<CoverageColumns>("territory");
   const latestAvailableYear = doualaCalendarYear();
 
-  useEffect(() => {
-    if (!query.data) return;
+  // Open the mixed regions (or the only one) when a new answer arrives; set
+  // while rendering rather than in an effect.
+  const [expandedFor, setExpandedFor] = useState<typeof query.data>(undefined);
+  if (query.data && expandedFor !== query.data) {
+    setExpandedFor(query.data);
     const mixed = query.data.regions.filter((region) => region.mode === "MIXED").map((region) => region.regionId);
     setExpanded(new Set(query.data.regions.length === 1 ? query.data.regions.map((region) => region.regionId) : mixed));
-  }, [query.data]);
+  }
 
   // Loading and failure render through DataState (G10); the failure keeps
   // the server's own message and gains a retry.
