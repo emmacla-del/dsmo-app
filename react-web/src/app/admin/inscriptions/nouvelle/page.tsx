@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,14 +37,13 @@ import { AdminDialog } from "@/components/admin/AdminDialog";
 import { UnsavedNavigationGuard } from "@/components/auth/UnsavedNavigationGuard";
 import { DataState } from "@/components/admin/DataState";
 import { formatApiError } from "@/lib/pilotage-targets";
-import { ALL, fromAll, toAll } from "@/lib/select-sentinel";
+import { isValidCameroonPhone, normalizeCameroonPhone } from "@/lib/cameroon-phone";
+import { RESPONDENT_FUNCTION_OTHER, functionFitsEntityType, getRespondentFunctionOptions } from "@/lib/register-options";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select as ShadcnSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Organisation types in the order offered, with the public wizard's labels.
 // Those avoid administrative codes (CTD/ONG/CFP) that ENTITY_CONFIGS titles
@@ -74,7 +73,10 @@ interface Respondent {
   firstName: string;
   lastName: string;
   email: string;
+  /** A value of the public form's list for the chosen type, or « Autre ». */
   function: string;
+  /** The typed title that goes with « Autre ». */
+  functionOther: string;
   phone1: string;
   phone2: string;
 }
@@ -84,9 +86,32 @@ const EMPTY_RESPONDENT: Respondent = {
   lastName: "",
   email: "",
   function: "",
+  functionOther: "",
   phone1: "",
   phone2: "",
 };
+
+/** One unmet requirement: the field it belongs to and what to say under it. */
+interface Problem {
+  id: string;
+  message: string;
+}
+
+/** Ids of the fields, so the error summary can link to each one. */
+const FIELD_ID = {
+  entityType: "assisted-entity-type",
+  firstName: "assisted-first-name",
+  lastName: "assisted-last-name",
+  email: "assisted-email",
+  function: "assisted-function",
+  functionOther: "assisted-function-other",
+  phone1: "assisted-phone1",
+  phone2: "assisted-phone2",
+  region: "assisted-region",
+  department: "assisted-department",
+  subdivision: "assisted-subdivision",
+} as const;
+const entityFieldId = (key: string) => `assisted-entity-${key}`;
 
 export default function NouvelleInscriptionPage() {
   const { isLoading, forbidden, user } = useAdminScreenGuard(DIRECTORY_ROLES);
@@ -128,9 +153,12 @@ export default function NouvelleInscriptionPage() {
   const region = choosesRegion ? chosenRegion : user?.region ?? "";
   const department = choosesDepartment ? chosenDepartment : user?.department ?? "";
   const [subdivision, setSubdivision] = useState("");
+  // A refusal from the server (one message), and whether the officer has
+  // tried to submit: field errors show from then on and follow the input.
   const [error, setError] = useState<string | null>(null);
-  // Bumped on every failed submit, so the same message repeated still moves
-  // focus back to the summary.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  // Bumped on every failed submit, so the same summary repeated still moves
+  // focus back to it.
   const [errorAttempt, setErrorAttempt] = useState(0);
   function reportError(message: string | null) {
     setError(message);
@@ -201,11 +229,13 @@ export default function NouvelleInscriptionPage() {
   // view, so the message is never left off-screen above the submit button.
   const errorRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (error) errorRef.current?.focus();
-  }, [error, errorAttempt]);
+    if (errorAttempt > 0) errorRef.current?.focus();
+  }, [errorAttempt]);
 
   function chooseEntityType(next: EntityType) {
     setEntityType(next);
+    // A function the new type's list does not offer is cleared, as on the public form.
+    setRespondent((current) => functionFitsEntityType(current.function, next) ? current : { ...current, function: "", functionOther: "" });
     // Fields the new type does not declare are dropped, so a half-filled form
     // cannot smuggle another type's answers into the payload.
     setEntityData((current) =>
@@ -228,6 +258,7 @@ export default function NouvelleInscriptionPage() {
     setChosenDepartment("");
     setSubdivision("");
     setError(null);
+    setSubmitAttempted(false);
     setResult(null);
     setCopied(false);
     setCredentialsAcknowledged(false);
@@ -238,43 +269,69 @@ export default function NouvelleInscriptionPage() {
     resetForm();
   }
 
-  /** The first unmet requirement, or null when the form may be sent. */
-  function firstProblem(): string | null {
-    if (!requiredLookupsReady) return null;
-    if (!entityType || !config) return t("adminInscriptionsNouvellePage.errorEntityTypeRequired");
-    if (!respondent.firstName.trim() || !respondent.lastName.trim()) {
-      return t("adminInscriptionsNouvellePage.errorRespondentNameRequired");
-    }
-    if (!respondent.email.trim()) return t("adminInscriptionsNouvellePage.errorEmailRequired");
-    if (emailAvailable === false) return t("adminInscriptionsNouvellePage.errorEmailInUse");
-    if (!region || !department || !subdivision) {
-      return t("adminInscriptionsNouvellePage.errorLocationRequired");
-    }
+  /**
+   * Every unmet requirement, in the order of the form (audit N-1): each one
+   * is said under its field and listed in the summary at the top. The rules
+   * are the public form's (audit N-3): a function from the list, a valid
+   * Cameroonian phone for the respondent.
+   */
+  function problems(): Problem[] {
+    if (!requiredLookupsReady) return [];
+    const list: Problem[] = [];
+    const required = (id: string, label: string, value: string) => {
+      if (!value.trim()) list.push({ id, message: t("adminInscriptionsNouvellePage.errorFieldRequired", { field: label }) });
+    };
+    if (!entityType || !config) list.push({ id: FIELD_ID.entityType, message: t("adminInscriptionsNouvellePage.errorEntityTypeRequired") });
+    required(FIELD_ID.firstName, t("registerPage.firstNameLabel"), respondent.firstName);
+    required(FIELD_ID.lastName, t("registerPage.lastNameLabel"), respondent.lastName);
+    if (!respondent.email.trim()) list.push({ id: FIELD_ID.email, message: t("adminInscriptionsNouvellePage.errorEmailRequired") });
+    else if (emailAvailable === false) list.push({ id: FIELD_ID.email, message: t("adminInscriptionsNouvellePage.errorEmailInUse") });
+    required(FIELD_ID.function, t("registerPage.functionLabel"), respondent.function);
+    if (respondent.function === RESPONDENT_FUNCTION_OTHER) required(FIELD_ID.functionOther, t("registerPage.functionOtherLabel"), respondent.functionOther);
+    if (!respondent.phone1.trim()) list.push({ id: FIELD_ID.phone1, message: t("registerPage.errorPhoneRequired") });
+    else if (!isValidCameroonPhone(respondent.phone1)) list.push({ id: FIELD_ID.phone1, message: t("registerPage.errorPhoneFormat") });
+    if (respondent.phone2.trim() && !isValidCameroonPhone(respondent.phone2)) list.push({ id: FIELD_ID.phone2, message: t("registerPage.errorPhoneFormat") });
     for (const field of visibleFields) {
-      if (field.required && !entityData[field.key]?.trim()) {
-        return t("adminInscriptionsNouvellePage.errorFieldRequired", { field: localized(field.label, locale) });
+      const value = entityData[field.key] ?? "";
+      if (field.required && !value.trim()) {
+        list.push({ id: entityFieldId(field.key), message: t("adminInscriptionsNouvellePage.errorFieldRequired", { field: localized(field.label, locale) }) });
+      } else if (field.kind === "tel" && value.trim() && !isValidCameroonPhone(value)) {
+        list.push({ id: entityFieldId(field.key), message: t("registerPage.errorPhoneFormat") });
       }
     }
-    if (!isValidSocialCapital(entityData.socialCapital)) {
-      return t("adminInscriptionsNouvellePage.errorSocialCapitalInteger");
+    if (config && !isValidSocialCapital(entityData.socialCapital)) {
+      list.push({ id: entityFieldId("socialCapital"), message: t("adminInscriptionsNouvellePage.errorSocialCapitalInteger") });
     }
-    return null;
+    if (choosesRegion) required(FIELD_ID.region, t("registerPage.regionLabel"), region);
+    if (choosesDepartment) required(FIELD_ID.department, t("registerPage.departmentLabel"), department);
+    required(FIELD_ID.subdivision, t("registerPage.subdivisionLabel"), subdivision);
+    return list;
   }
 
   function submit() {
     if (!requiredLookupsReady) return;
-    const problem = firstProblem();
-    if (problem || !entityType) {
-      reportError(problem);
+    const list = problems();
+    setSubmitAttempted(true);
+    if (list.length > 0 || !entityType) {
+      reportError(null);
       return;
     }
     // Hidden dependent fields must not reach the payload — the same gate the
-    // public wizard applies (visibleEntityDataForType).
+    // public wizard applies (visibleEntityDataForType). Phones are stored
+    // normalized, as the public form stores them.
+    const phoneData = Object.fromEntries(visibleFields
+      .filter((field) => field.kind === "tel" && entityData[field.key]?.trim())
+      .map((field) => [field.key, normalizeCameroonPhone(entityData[field.key])]));
     mutation.mutate(
       buildAssistedRegistrationPayload({
         entityType,
-        entityData,
-        respondent,
+        entityData: { ...entityData, ...phoneData },
+        respondent: {
+          ...respondent,
+          function: respondent.function === RESPONDENT_FUNCTION_OTHER ? respondent.functionOther.trim() : respondent.function,
+          phone1: normalizeCameroonPhone(respondent.phone1),
+          phone2: respondent.phone2.trim() ? normalizeCameroonPhone(respondent.phone2) : "",
+        },
         region,
         department,
         subdivision,
@@ -321,17 +378,23 @@ export default function NouvelleInscriptionPage() {
 
   const entityOption = entityType ? ENTITY_OPTIONS.find((option) => option.type === entityType) : undefined;
   const selectPlaceholder = t("adminInscriptionsNouvellePage.selectPlaceholder");
+  const currentProblems = problems();
+  // Field errors show once a submit was tried, and follow the input from then on.
+  const fieldError = (id: string) => (submitAttempted ? currentProblems.find((problem) => problem.id === id)?.message : undefined);
+  const hasProblemIn = (ids: readonly string[]) => currentProblems.some((problem) => ids.includes(problem.id));
+  const respondentIds = [FIELD_ID.firstName, FIELD_ID.lastName, FIELD_ID.email, FIELD_ID.function, FIELD_ID.functionOther, FIELD_ID.phone1, FIELD_ID.phone2];
+  // Same order as the public form (audit N-3): type, respondent, organisation, location.
   const registrationSteps = [
     { id: "registration-step-entity", label: t("adminInscriptionsNouvellePage.stepEntity"), done: !!entityType && !!config },
     {
-      id: "registration-step-identification",
-      label: t("adminInscriptionsNouvellePage.stepIdentification"),
-      done: !!config && visibleFields.every((field) => !field.required || !!entityData[field.key]?.trim()) && isValidSocialCapital(entityData.socialCapital),
-    },
-    {
       id: "registration-step-respondent",
       label: t("adminInscriptionsNouvellePage.stepRespondent"),
-      done: !!respondent.firstName.trim() && !!respondent.lastName.trim() && !!respondent.email.trim() && emailAvailable !== false,
+      done: !!entityType && !hasProblemIn(respondentIds),
+    },
+    {
+      id: "registration-step-identification",
+      label: t("adminInscriptionsNouvellePage.stepIdentification"),
+      done: !!config && !currentProblems.some((problem) => problem.id.startsWith("assisted-entity-") && problem.id !== FIELD_ID.entityType),
     },
     { id: "registration-step-location", label: t("adminInscriptionsNouvellePage.stepLocation"), done: !!region && !!department && !!subdivision },
   ];
@@ -366,34 +429,90 @@ export default function NouvelleInscriptionPage() {
         </ol>
       </nav>
 
-      {error && (
-        <Alert ref={errorRef} tabIndex={-1} variant="destructive" className="mb-6 flex items-center justify-between gap-4">
-          <AlertDescription>{error}</AlertDescription>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("adminInscriptionsNouvellePage.closeAriaLabel")} onClick={() => setError(null)}>×</Button>
-        </Alert>
-      )}
 
+      {/* noValidate: the form's own summary and field messages replace the
+          browser's one-at-a-time bubbles (audit N-1). */}
       <form
+        noValidate
         className="cam-assisted-registration-form"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
         }}
       >
+        {/* Error summary (government-form convention): every problem, each a
+            link to its field; the same text is said under the field. */}
+        {(error || (submitAttempted && currentProblems.length > 0)) && (
+          <Alert ref={errorRef} tabIndex={-1} variant="destructive" className="cam-assisted-error-summary mb-6">
+            <AlertDescription>
+              {error ? <p>{error}</p> : <>
+                <p className="font-semibold">{t("adminInscriptionsNouvellePage.errorSummaryTitle", { count: currentProblems.length })}</p>
+                <ul>
+                  {currentProblems.map((problem) => (
+                    <li key={`${problem.id}-${problem.message}`}>
+                      <a href={`#${problem.id}`} onClick={(event) => { event.preventDefault(); const target = document.getElementById(problem.id); target?.focus(); target?.scrollIntoView({ block: "center" }); }}>{problem.message}</a>
+                    </li>
+                  ))}
+                </ul>
+              </>}
+            </AlertDescription>
+          </Alert>
+        )}
         <Section id="registration-step-entity" step={1} title={t("adminInscriptionsNouvellePage.entityTypeTitle")} description={t("adminInscriptionsNouvellePage.entityTypeDescription")}>
-          <RadioGroup aria-label={t("adminInscriptionsNouvellePage.entityTypeTitle")} value={entityType ?? ""} onValueChange={(value) => chooseEntityType(value as EntityType)} className="cam-entity-type-grid">
-            {ENTITY_OPTIONS.map(({ type, labelKey, hintKey }) => (
-              <Label key={type} htmlFor={`entity-${type}`} data-selected={entityType === type} className="cam-entity-type-option">
-                <RadioGroupItem id={`entity-${type}`} value={type} />
-                <span className="grid gap-1"><span className="font-medium">{t(labelKey)}</span>{hintKey && <span className="text-sm text-muted-foreground">{t(hintKey)}</span>}</span>
-              </Label>
+          {/* A plain list of radios, as on the public form (audit N-2; §9: no boxed options). */}
+          <fieldset className="cam-assisted-choice-list" aria-describedby={fieldError(FIELD_ID.entityType) ? `${FIELD_ID.entityType}-error` : undefined}>
+            <legend className="cam-sr-only">{t("adminInscriptionsNouvellePage.entityTypeTitle")}</legend>
+            {ENTITY_OPTIONS.map(({ type, labelKey, hintKey }, index) => (
+              <label key={type} className="cam-assisted-choice">
+                <input
+                  type="radio"
+                  name="assisted-entity-type"
+                  id={index === 0 ? FIELD_ID.entityType : `entity-${type}`}
+                  value={type}
+                  checked={entityType === type}
+                  onChange={() => chooseEntityType(type)}
+                />
+                <span><span className="cam-assisted-choice-label">{t(labelKey)}</span>{hintKey && <span className="cam-assisted-choice-hint">{t(hintKey)}</span>}</span>
+              </label>
             ))}
-          </RadioGroup>
+            <FieldError id={`${FIELD_ID.entityType}-error`} message={fieldError(FIELD_ID.entityType)} />
+          </fieldset>
+        </Section>
+
+        <Section id="registration-step-respondent" step={2} title={t("registerPage.respondentTitle")} description={t("adminInscriptionsNouvellePage.respondentDescription")}>
+          <FieldGrid>
+            <Text id={FIELD_ID.firstName} error={fieldError(FIELD_ID.firstName)} label={t("registerPage.firstNameLabel")} required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
+            <Text id={FIELD_ID.lastName} error={fieldError(FIELD_ID.lastName)} label={t("registerPage.lastNameLabel")} required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
+            <NativeSelect
+              id={FIELD_ID.function}
+              error={fieldError(FIELD_ID.function)}
+              label={t("registerPage.functionLabel")}
+              placeholder={selectPlaceholder}
+              required
+              value={respondent.function}
+              options={getRespondentFunctionOptions(entityType).map((option) => ({ value: option.value, label: localized(option.label, locale) }))}
+              onChange={(v) => setRespondent((r) => ({ ...r, function: v, functionOther: v === RESPONDENT_FUNCTION_OTHER ? r.functionOther : "" }))}
+            />
+            {respondent.function === RESPONDENT_FUNCTION_OTHER && (
+              <Text id={FIELD_ID.functionOther} error={fieldError(FIELD_ID.functionOther)} label={t("registerPage.functionOtherLabel")} required value={respondent.functionOther} onChange={(v) => setRespondent((r) => ({ ...r, functionOther: v }))} />
+            )}
+            <Text id={FIELD_ID.email} error={fieldError(FIELD_ID.email)} label={t("adminInscriptionsNouvellePage.emailLabel")} required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))}
+              hint={t("adminInscriptionsNouvellePage.emailRoleHint")}
+              after={
+                <span aria-live="polite" aria-atomic="true">
+                  {emailAvailable === false && <span className="field-status is-error">⚠ {t("registerPage.emailUnavailable")}</span>}
+                  {emailAvailable === true && <span className="field-status is-ok">✓ {t("registerPage.emailAvailable")}</span>}
+                </span>
+              }
+            />
+            <Text id={FIELD_ID.phone1} error={fieldError(FIELD_ID.phone1)} label={t("adminInscriptionsNouvellePage.phone1Label")} required type="tel" hint={t("registerPage.phoneHint")} value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
+            <Text id={FIELD_ID.phone2} error={fieldError(FIELD_ID.phone2)} label={t("registerPage.phone2Label")} type="tel" hint={t("registerPage.phoneHint")} value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
+          </FieldGrid>
         </Section>
 
         <Section
           id="registration-step-identification"
-          step={2}
+          step={3}
           title={config
             ? t("adminInscriptionsNouvellePage.identificationTitle", {
                 entityType: entityOption ? t(entityOption.labelKey) : localized(config.title, locale),
@@ -419,6 +538,8 @@ export default function NouvelleInscriptionPage() {
               {visibleFields.map((field) => (
                 <EntityFieldInput
                   key={field.key}
+                  id={entityFieldId(field.key)}
+                  error={fieldError(entityFieldId(field.key))}
                   field={field}
                   locale={locale}
                   selectPlaceholder={selectPlaceholder}
@@ -431,24 +552,6 @@ export default function NouvelleInscriptionPage() {
           </> : null}
         </Section>
 
-        <Section id="registration-step-respondent" step={3} title={t("registerPage.respondentTitle")} description={t("adminInscriptionsNouvellePage.respondentDescription")}>
-          <FieldGrid>
-            <Text label={t("registerPage.firstNameLabel")} required value={respondent.firstName} onChange={(v) => setRespondent((r) => ({ ...r, firstName: v }))} />
-            <Text label={t("registerPage.lastNameLabel")} required value={respondent.lastName} onChange={(v) => setRespondent((r) => ({ ...r, lastName: v }))} />
-            <Text label={t("adminInscriptionsNouvellePage.emailLabel")} required type="email" value={respondent.email} onChange={(v) => setRespondent((r) => ({ ...r, email: v }))}
-              hint={t("adminInscriptionsNouvellePage.emailRoleHint")}
-              after={
-                <span aria-live="polite" aria-atomic="true">
-                  {emailAvailable === false && <span className="field-status is-error">⚠ {t("registerPage.emailUnavailable")}</span>}
-                  {emailAvailable === true && <span className="field-status is-ok">✓ {t("registerPage.emailAvailable")}</span>}
-                </span>
-              }
-            />
-            <Text label={t("registerPage.functionLabel")} value={respondent.function} onChange={(v) => setRespondent((r) => ({ ...r, function: v }))} />
-            <Text label={t("adminInscriptionsNouvellePage.phone1Label")} type="tel" value={respondent.phone1} onChange={(v) => setRespondent((r) => ({ ...r, phone1: v }))} />
-            <Text label={t("registerPage.phone2Label")} type="tel" value={respondent.phone2} onChange={(v) => setRespondent((r) => ({ ...r, phone2: v }))} />
-          </FieldGrid>
-        </Section>
 
         <Section id="registration-step-location" step={4} title={t("registerPage.locationTitle")} description={t("adminInscriptionsNouvellePage.locationDescription")}>
           {territoryLookupState !== "ready" && (
@@ -475,12 +578,14 @@ export default function NouvelleInscriptionPage() {
           )}
           <FieldGrid>
             {choosesRegion ? (
-              <Select
+              <NativeSelect
+                id={FIELD_ID.region}
+                error={fieldError(FIELD_ID.region)}
                 label={t("registerPage.regionLabel")}
                 placeholder={selectPlaceholder}
                 required
                 value={region}
-                options={regions}
+                options={regions.map((value) => ({ value, label: value }))}
                 onChange={(v) => {
                   setChosenRegion(v);
                   setChosenDepartment("");
@@ -491,12 +596,14 @@ export default function NouvelleInscriptionPage() {
               <ReadOnlyLocation label={t("registerPage.regionLabel")} value={region} />
             )}
             {choosesDepartment ? (
-              <Select
+              <NativeSelect
+                id={FIELD_ID.department}
+                error={fieldError(FIELD_ID.department)}
                 label={t("registerPage.departmentLabel")}
                 placeholder={selectPlaceholder}
                 required
                 value={department}
-                options={departments}
+                options={departments.map((value) => ({ value, label: value }))}
                 onChange={(v) => {
                   setChosenDepartment(v);
                   setSubdivision("");
@@ -505,7 +612,7 @@ export default function NouvelleInscriptionPage() {
             ) : (
               <ReadOnlyLocation label={t("registerPage.departmentLabel")} value={department} />
             )}
-            <Select label={t("registerPage.subdivisionLabel")} placeholder={selectPlaceholder} required value={subdivision} options={subdivisions} onChange={setSubdivision} />
+            <NativeSelect id={FIELD_ID.subdivision} error={fieldError(FIELD_ID.subdivision)} label={t("registerPage.subdivisionLabel")} placeholder={selectPlaceholder} required value={subdivision} options={subdivisions.map((value) => ({ value, label: value }))} onChange={setSubdivision} />
           </FieldGrid>
         </Section>
 
@@ -649,7 +756,15 @@ function ReadOnlyLocation({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** The error said under a field; also listed in the summary at the top. */
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return <span id={id} className="cam-assisted-field-error">{message}</span>;
+}
+
 function Text({
+  id,
+  error,
   label,
   value,
   onChange,
@@ -660,6 +775,8 @@ function Text({
   hint,
   after,
 }: {
+  id: string;
+  error?: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -671,58 +788,84 @@ function Text({
   /** Rendered under the input, before the hint (e.g. a live status line). */
   after?: ReactNode;
 }) {
+  const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
   return (
-    <label className="mb-4 grid gap-2 text-sm font-medium">
-      <span>{label}{required && <span aria-hidden="true"> *</span>}</span>
+    <div className="mb-4 grid gap-2 text-sm font-medium">
+      <Label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</Label>
       <Input
+        id={id}
         type={type}
         step={step}
         min={min}
         value={value}
         required={required}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
         onChange={(e) => onChange(e.target.value)}
       />
       {after}
-      {hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
-    </label>
+      {hint && <span id={`${id}-hint`} className="text-xs font-normal text-muted-foreground">{hint}</span>}
+      <FieldError id={`${id}-error`} message={error} />
+    </div>
   );
 }
 
-function Select({
+/**
+ * A native select, as on the public form and in the queue's filters: the
+ * phone's own picker, and typing jumps to an option (audit N-1 notes).
+ */
+function NativeSelect({
+  id,
+  error,
   label,
   placeholder,
   value,
   options,
   onChange,
   required,
+  disabled,
+  hint,
 }: {
+  id: string;
+  error?: string;
   label: string;
   /** Text of the empty first option. */
   placeholder: string;
   value: string;
-  options: readonly string[];
+  options: readonly { value: string; label: string }[];
   onChange: (value: string) => void;
   required?: boolean;
+  disabled?: boolean;
+  hint?: string;
 }) {
-  const id = useId();
+  const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
   return (
     <div className="mb-4 grid gap-2 text-sm font-medium">
       <Label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</Label>
-      <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={required}>
-        <SelectTrigger id={id} className="w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
-        <SelectContent>
-        <SelectItem value={ALL}>{placeholder}</SelectItem>
+      <select
+        id={id}
+        className="cam-admin-input w-full"
+        value={value}
+        required={required}
+        disabled={disabled}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">{placeholder}</option>
         {options.map((option) => (
-          <SelectItem key={option} value={option}>{option}</SelectItem>
+          <option key={option.value} value={option.value}>{option.label}</option>
         ))}
-        </SelectContent>
-      </ShadcnSelect>
+      </select>
+      {hint && <span id={`${id}-hint`} className="text-xs font-normal text-muted-foreground">{hint}</span>}
+      <FieldError id={`${id}-error`} message={error} />
     </div>
   );
 }
 
-/** One EntityConfig field, rendered by its declared `kind`. */
 function EntityFieldInput({
+  id,
+  error,
   field,
   locale,
   selectPlaceholder,
@@ -730,6 +873,8 @@ function EntityFieldInput({
   value,
   onChange,
 }: {
+  id: string;
+  error?: string;
   field: EntityField;
   locale: UiLocale;
   selectPlaceholder: string;
@@ -738,79 +883,72 @@ function EntityFieldInput({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const fieldId = useId();
   const label = localized(field.label, locale);
   const hint = field.hint ? localized(field.hint, locale) : undefined;
 
   if (field.kind === "radio") {
-    const hintId = hint ? `${fieldId}-hint` : undefined;
+    const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
     return (
-      <fieldset className="mb-4 grid gap-2 text-sm font-medium" aria-describedby={hintId}>
+      <fieldset className="mb-4 grid gap-2 text-sm font-medium" aria-describedby={describedBy}>
         <legend>
           {label}
           {field.required && <span aria-hidden="true"> *</span>}
         </legend>
-        <RadioGroup
-          value={value}
-          onValueChange={onChange}
-          required={field.required}
-          aria-required={field.required || undefined}
-          className="gap-2"
-        >
-          {(field.options ?? []).map((option, index) => {
-            const optionId = `${fieldId}-${index}`;
-            return (
-              <div key={option.value} className="flex items-center gap-2">
-                <RadioGroupItem id={optionId} value={option.value} />
-                <Label htmlFor={optionId} className="font-normal">
-                  {localized(option.label, locale)}
-                </Label>
-              </div>
-            );
-          })}
-        </RadioGroup>
-        {hint && (
-          <span id={hintId} className="text-xs font-normal text-muted-foreground">
-            {hint}
-          </span>
-        )}
+        <div className="cam-assisted-choice-list is-inline">
+          {(field.options ?? []).map((option, index) => (
+            <label key={option.value} className="cam-assisted-choice">
+              <input
+                type="radio"
+                name={id}
+                id={index === 0 ? id : `${id}-${index}`}
+                value={option.value}
+                checked={value === option.value}
+                required={field.required}
+                onChange={() => onChange(option.value)}
+              />
+              <span className="cam-assisted-choice-label">{localized(option.label, locale)}</span>
+            </label>
+          ))}
+        </div>
+        {hint && <span id={`${id}-hint`} className="text-xs font-normal text-muted-foreground">{hint}</span>}
+        <FieldError id={`${id}-error`} message={error} />
       </fieldset>
     );
   }
 
   if (field.kind === "date") {
-    const hintId = hint ? `${fieldId}-hint` : undefined;
+    const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
     return (
       <div className="mb-4 grid gap-2 text-sm font-medium">
-        <Label htmlFor={fieldId}>
+        <Label htmlFor={id}>
           {label}
           {field.required && <span aria-hidden="true"> *</span>}
         </Label>
         <Input
-          id={fieldId}
+          id={id}
           type="date"
           value={dateForCalendar(value)}
           required={field.required}
-          aria-describedby={hintId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
           onChange={(event) => onChange(dateFromCalendar(event.target.value))}
         />
-        {hint && (
-          <span id={hintId} className="text-xs font-normal text-muted-foreground">
-            {hint}
-          </span>
-        )}
+        {hint && <span id={`${id}-hint`} className="text-xs font-normal text-muted-foreground">{hint}</span>}
+        <FieldError id={`${id}-error`} message={error} />
       </div>
     );
   }
 
   if (field.kind === "year") {
     return (
-      <Select
+      <NativeSelect
+        id={id}
+        error={error}
         label={label}
         placeholder={selectPlaceholder}
         required={field.required}
         value={value}
-        options={yearOptions(value)}
+        options={yearOptions(value).map((year) => ({ value: year, label: year }))}
         onChange={onChange}
       />
     );
@@ -818,41 +956,40 @@ function EntityFieldInput({
 
   if (field.kind === "branch") {
     return (
-      <div className="mb-4 grid gap-2 text-sm font-medium">
-        <Label htmlFor={fieldId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
-        <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={field.required} disabled={branches.length === 0}>
-          <SelectTrigger id={fieldId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
-          <SelectContent>
-          <SelectItem value={ALL}>{selectPlaceholder}</SelectItem>
-          {branches.map((branch) => (
-            <SelectItem key={branch.id} value={branch.id}>{sectorLabel(branch, locale)}</SelectItem>
-          ))}
-          </SelectContent>
-        </ShadcnSelect>
-      </div>
+      <NativeSelect
+        id={id}
+        error={error}
+        label={label}
+        placeholder={selectPlaceholder}
+        required={field.required}
+        disabled={branches.length === 0}
+        value={value}
+        options={branches.map((branch) => ({ value: branch.id, label: sectorLabel(branch, locale) }))}
+        onChange={onChange}
+      />
     );
   }
 
   if (field.kind === "select") {
     return (
-      <div className="mb-4 grid gap-2 text-sm font-medium">
-        <Label htmlFor={fieldId}>{label}{field.required && <span aria-hidden="true"> *</span>}</Label>
-        <ShadcnSelect value={toAll(value)} onValueChange={(v) => onChange(fromAll(v))} required={field.required}>
-          <SelectTrigger id={fieldId} className="w-full"><SelectValue placeholder={selectPlaceholder} /></SelectTrigger>
-          <SelectContent>
-          <SelectItem value={ALL}>{selectPlaceholder}</SelectItem>
-          {(field.options ?? []).map((option) => (
-            <SelectItem key={option.value} value={option.value}>{localized(option.label, locale)}</SelectItem>
-          ))}
-          </SelectContent>
-        </ShadcnSelect>
-        {hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}
-      </div>
+      <NativeSelect
+        id={id}
+        error={error}
+        label={label}
+        placeholder={selectPlaceholder}
+        required={field.required}
+        value={value}
+        options={(field.options ?? []).map((option) => ({ value: option.value, label: localized(option.label, locale) }))}
+        onChange={onChange}
+        hint={hint}
+      />
     );
   }
 
   return (
     <Text
+      id={id}
+      error={error}
       label={label}
       value={value}
       onChange={onChange}
@@ -860,7 +997,7 @@ function EntityFieldInput({
       type={field.kind === "number" ? "number" : field.kind === "tel" ? "tel" : "text"}
       step={field.kind === "number" ? 1 : undefined}
       min={field.kind === "number" ? 0 : undefined}
-      hint={hint}
+      hint={field.kind === "tel" ? hint ?? undefined : hint}
     />
   );
 }

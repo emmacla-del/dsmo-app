@@ -877,3 +877,89 @@ button.cam-kpi[aria-pressed="true"] {
   .cam-table-stack td[data-label] > .cam-tag { justify-self: start; }
 }
 .cam-admin.cam-admin .cam-etab-submissions-table thead th:last-child { text-align: right; }
+
+/* ── 11. Campaign selector with the list (audit D-1) ──────────────────── */
+.cam-admin.cam-admin .cam-dossier-completed-archive-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cam-space-3) var(--cam-space-6);
+}
+.cam-admin.cam-admin .cam-campaign-control select { max-width: 22rem; }
+@media (max-width: 639px) {
+  .cam-admin.cam-admin .cam-campaign-control { width: 100%; }
+  .cam-admin.cam-admin .cam-campaign-control select { flex: 1; max-width: none; min-width: 0; }
+}
+.cam-admin.cam-admin .cam-campaign-control { margin-left: 0; }
+
+/* ── 12. Assisted registration (audit N-1, N-2) ─────────────────────────
+   Plain radio lists, no tiles (§9); errors under their field in the error
+   tone, with the summary at the top linking to each. */
+.cam-admin.cam-admin .cam-assisted-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cam-admin.cam-admin .cam-assisted-choice-list.is-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  column-gap: var(--cam-space-5);
+}
+.cam-admin.cam-admin .cam-assisted-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-2) 0;
+  color: var(--cam-text);
+  font-weight: var(--cam-font-weight-regular);
+  cursor: pointer;
+}
+.cam-admin.cam-admin .cam-assisted-choice input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+  accent-color: var(--cam-primary);
+}
+.cam-admin.cam-admin .cam-assisted-choice input:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: 2px; }
+.cam-admin.cam-admin .cam-assisted-choice-label { display: block; font-weight: var(--cam-font-weight-semibold); }
+.cam-admin.cam-admin .cam-assisted-choice-hint { display: block; color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); }
+.cam-admin.cam-admin .cam-assisted-field-error {
+  color: var(--cam-error);
+  font-size: var(--cam-font-size-xs);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-assisted-error-summary ul { margin: var(--cam-space-2) 0 0; padding-left: var(--cam-space-5); list-style: disc; }
+.cam-admin.cam-admin .cam-assisted-error-summary a { color: inherit; text-decoration: underline; }
+.cam-admin.cam-admin select.cam-admin-input[aria-invalid="true"] { border-color: var(--cam-error); }
+
+/* ── 13. Quick views on the registration queue (audit R-8) ──────────────
+   Same look as the dossier queue's « Ma file / Non attribués » buttons,
+   which are styled only under .is-dossier-workflow. */
+.cam-admin.cam-admin .cam-registration-filters > .cam-dossier-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 var(--cam-space-3);
+}
+.cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter {
+  display: inline-flex;
+  min-height: var(--cam-button-height);
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid var(--cam-console-navy-30);
+  border-radius: 999px;
+  background: var(--cam-surface);
+  color: var(--cam-console-navy-51);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter:hover { border-color: var(--cam-console-navy-42); background: var(--cam-console-navy-02); }
+.cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter[aria-pressed="true"] { border-color: var(--cam-console-navy-44); background: var(--cam-console-navy-10); color: var(--cam-console-navy-50); }
+.cam-admin.cam-admin .cam-registration-filters .cam-dossier-quick-filter:focus-visible { outline: 2px solid var(--cam-focus); outline-offset: 2px; }

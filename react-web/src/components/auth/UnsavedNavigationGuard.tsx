@@ -43,6 +43,9 @@ export function UnsavedNavigationGuard({
         || anchor.target === "_blank"
         || anchor.hasAttribute("download")
         || anchor.origin !== window.location.origin
+        // A link within the page (#section) does not leave it: the form's
+        // step list and its error summary jump to fields this way.
+        || (anchor.pathname === window.location.pathname && anchor.search === window.location.search && anchor.hash !== "")
       ) return;
       event.preventDefault();
       event.stopImmediatePropagation();

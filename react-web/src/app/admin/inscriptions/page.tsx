@@ -51,6 +51,7 @@ import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
 import { AdminFilterField, AdminFilterMore, AdminScopePill, territoryPillFor } from "@/components/admin/AdminFilterBarParts";
 import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedViews";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
+import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { coverageHref } from "@/lib/pilotage-targets";
@@ -544,24 +545,46 @@ function InscriptionsContent() {
     if (validPage !== page) setPage(validPage);
   }, [activeListQuery.data, activeListQuery.isPlaceholderData, page, setPage, territoryFiltersValid, vue]);
 
+  // Account actions on the organisations list: each one is confirmed first,
+  // naming the organisation and the consequence, and reports its outcome
+  // (audit R-5; CLAUDE.md: account-affecting actions need a confirmation).
+  const [accountAction, setAccountAction] = useState<{ kind: "suspend" | "activate" | "restore"; item: CompanyRegistrationItem } | null>(null);
   const archiveMutation = useMutation({
     mutationFn: (target: { item: CompanyRegistrationItem; reason: string }) => archiveUser(target.item.id, target.reason),
-    onSuccess: () => { setNotice(null); void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }); },
+    onSuccess: (_data, target) => {
+      setNotice({ tone: "success", text: t("archiveDone", { organisation: target.item.organisation }) });
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+    },
     onError: (error) => {
       setNotice({ tone: "error", text: `${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
     },
   });
   const restoreMutation = useMutation({
-    mutationFn: (id: string) => restoreUser(id),
-    onSuccess: () => { setNotice(null); void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }); },
+    mutationFn: (item: CompanyRegistrationItem) => restoreUser(item.id),
+    onSuccess: (_data, item) => {
+      setNotice({ tone: "success", text: t("restoreDone", { organisation: item.organisation }) });
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+    },
     onError: (error) => {
-      setNotice({ tone: "error", text: `${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
+      setNotice({ tone: "error", text: `${t("restoreFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
     },
   });
   const lifecycleMutation = useMutation({
-    mutationFn: (target: { id: string; active: boolean }) => target.active ? suspendUser(target.id) : activateUser(target.id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] }),
+    mutationFn: (item: CompanyRegistrationItem) => item.isActive ? suspendUser(item.id) : activateUser(item.id),
+    onSuccess: (_data, item) => {
+      setNotice({ tone: "success", text: t(item.isActive ? "suspendDone" : "activateDone", { organisation: item.organisation }) });
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+    },
+    onError: (error, item) => {
+      setNotice({ tone: "error", text: `${t(item.isActive ? "suspendFailed" : "activateFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
+    },
   });
+  const runAccountAction = () => {
+    if (!accountAction) return;
+    if (accountAction.kind === "restore") restoreMutation.mutate(accountAction.item);
+    else lifecycleMutation.mutate(accountAction.item);
+    setAccountAction(null);
+  };
 
   const exportRegistrations = async (targetView: "organisations" | "queue" = vue === "queue" ? "queue" : "organisations") => {
     if (!territoryFiltersValid) return;
@@ -733,9 +756,7 @@ function InscriptionsContent() {
       clear: () => applyDuplicates(""),
     });
   }
-  if (sortOrder !== "newest") {
-    activeQueueFilters.push({ key: "sort", label: `${t("submissionDateColumn")}: ${tRoot("adminDossiersPage.sortOldest")}`, clear: () => applySort("newest") });
-  }
+  // The order is not a filter: it has its own control and « Tout effacer » keeps it (audit, §2).
   if (includeArchived) {
     activeQueueFilters.push({ key: "includeArchived", label: t("showArchived"), clear: () => setUrlFilters({ includeArchived: null }) });
   }
@@ -744,7 +765,7 @@ function InscriptionsContent() {
     : activeQueueFilters;
   const hasActiveQueueFilters = Boolean(
     organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
-    registrationMethod || dateRange !== "all" || duplicatesFilter || createdBy || assignedToMe || sortOrder !== "newest",
+    registrationMethod || dateRange !== "all" || duplicatesFilter || createdBy || assignedToMe,
   );
   const clearQueueFilters = (extra: Record<string, null> = {}) => {
     setOrganisationInput("");
@@ -756,9 +777,8 @@ function InscriptionsContent() {
     setRegistrationMethod("");
     setAssignedToMe(false);
     setDateRange("all");
-    setSortOrder("newest");
     setCustomDateRange(undefined);
-    setDuplicatesFilter(""); setPopoverDateFrom(""); setPopoverDateTo(""); setUrlFilters({ createdBy: null, status: null, region: null, department: null, type: null, search: null, organisation: null, dateRange: null, from: null, to: null, registrationMethod: null, assignedToMe: null, duplicates: null, sort: null, ...extra });
+    setDuplicatesFilter(""); setPopoverDateFrom(""); setPopoverDateTo(""); setUrlFilters({ createdBy: null, status: null, region: null, department: null, type: null, search: null, organisation: null, dateRange: null, from: null, to: null, registrationMethod: null, assignedToMe: null, duplicates: null, ...extra });
   };
 
   // Filter bar (spec §4F): search, scope, up to four pills, saved views,
@@ -769,7 +789,8 @@ function InscriptionsContent() {
   const scopedDepartments = role === "REGIONAL_ADMIN" && userRegion && territoryStructure.isSuccess
     ? (territoryStructure.data.find((item) => item.name === userRegion)?.departments.map((item) => item.name) ?? [])
     : territoryDepartments;
-  const queuePillKeys = ["search", "status", "duplicates", "assignedToMe", "createdBy", ...(territoryPill ? [territoryPill] : [])];
+  // « Mes inscriptions » is a quick view above the bar, not a pill (spec §4F, audit R-8); Type takes its place.
+  const queuePillKeys = ["search", "status", "duplicates", "type", "assignedToMe", "createdBy", ...(territoryPill ? [territoryPill] : [])];
   const organisationPillKeys = ["search", "status", "type", ...(territoryPill ? [territoryPill] : [])];
   const queuePanelChips = activeQueueFilters.filter(({ key }) => !queuePillKeys.includes(key) && key !== "includeArchived");
   const organisationPanelChips = visibleActiveFilters.filter(({ key }) => !organisationPillKeys.includes(key));
@@ -949,15 +970,16 @@ function InscriptionsContent() {
                     {detailIdentifier
                       ? <Link className="cam-button cam-button-secondary cam-button-sm" href={`/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}&returnTo=${encodeURIComponent(establishmentReturnTo)}`}>{t("openButton")}</Link>
                       : <span aria-disabled="true" className="cam-button cam-button-secondary cam-button-sm" title={NOT_PROVIDED}>{t("openButton")}</span>}
-                    {(hasRole(role, USER_ARCHIVE_ROLES) || (!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES))) && <DropdownMenu>
+                    {/* Every reader gets the menu: it holds the read-only « Déclarations » link (audit R-6). */}
+                    <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" className="shrink-0" aria-label={t("actionsColumn")} title={t("actionsColumn")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild><Link href={`/admin/dossiers?vue=submissions&companyId=${encodeURIComponent(item.companyId)}`}>{t("declarationsLink")}</Link></DropdownMenuItem>
                         {hasRole(role, USER_ARCHIVE_ROLES) && !item.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(item)}>{t("archiveButton")}</DropdownMenuItem>}
-                        {hasRole(role, USER_ARCHIVE_ROLES) && item.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => restoreMutation.mutate(item.id)}>{t("restoreButton")}</DropdownMenuItem>}
-                        {!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES) && <DropdownMenuItem disabled={lifecycleMutation.isPending} onSelect={() => lifecycleMutation.mutate({ id: item.id, active: item.isActive })}>{item.isActive ? t("suspendButton") : t("activateButton")}</DropdownMenuItem>}
+                        {hasRole(role, USER_ARCHIVE_ROLES) && item.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => setAccountAction({ kind: "restore", item })}>{t("restoreButton")}</DropdownMenuItem>}
+                        {!item.archivedAt && item.status === "ACTIVE" && hasRole(role, USER_LIFECYCLE_ROLES) && <DropdownMenuItem disabled={lifecycleMutation.isPending} onSelect={() => setAccountAction({ kind: item.isActive ? "suspend" : "activate", item })}>{item.isActive ? t("suspendButton") : t("activateButton")}</DropdownMenuItem>}
                       </DropdownMenuContent>
-                    </DropdownMenu>}
+                    </DropdownMenu>
                   </div></TableCell>
                 </TableRow>;
               })}
@@ -989,6 +1011,15 @@ function InscriptionsContent() {
           onDialogOpenChange={(open) => { if (!open) setArchiveTarget(null); }}
           onArchive={(reason) => { archiveMutation.mutate({ item: archiveTarget, reason }); setArchiveTarget(null); }}
           onRestore={() => {}}
+        />}
+        {accountAction && <ConfirmDialog
+          id="registration-account-action"
+          title={t(`${accountAction.kind}ConfirmTitle`, { organisation: accountAction.item.organisation })}
+          body={t(`${accountAction.kind}ConfirmBody`)}
+          cancelLabel={tRoot("common.cancel")}
+          confirmLabel={t(`${accountAction.kind === "activate" ? "activate" : accountAction.kind}Button`)}
+          onCancel={() => setAccountAction(null)}
+          onConfirm={runAccountAction}
         />}
       </>}
 
@@ -1065,6 +1096,11 @@ function InscriptionsContent() {
         actions={<Button type="button" size="sm" variant="outline" onClick={exportQueue} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>}>
         <div className="cam-admin-table-panel-body">
           <div className="cam-registration-filters">
+            {/* Whose files are listed: quick views above the bar, as in the dossier queue (spec §4F). */}
+            {hasRole(role, APPROVAL_ROLES) && userId && <div className="cam-dossier-quick-filters" role="group" aria-label={t("queueViewsLabel")}>
+              <button type="button" className="cam-dossier-quick-filter" aria-pressed={!assignedToMe} onClick={() => applyAssignedToMe(false)}>{t("queueViewAll")}</button>
+              <button type="button" className="cam-dossier-quick-filter" aria-pressed={assignedToMe} onClick={() => applyAssignedToMe(true)}>{t("queueViewMine")}</button>
+            </div>}
             <div className="cam-filter-bar" role="group" aria-label={filtersLabel}>
               {searchField("registrations-search")}
               <AdminScopePill />
@@ -1096,23 +1132,17 @@ function InscriptionsContent() {
               />
               {territoryPillControl}
               <AdminFilterPill
-                label={t("assignmentColumn")}
-                value={assignedToMe ? "1" : ""}
-                allLabel={tRoot("adminDossiersPage.assignedAll")}
-                clearLabel={t("removeFilterChip", { label: t("assignmentColumn") })}
-                onChange={(value) => applyAssignedToMe(value === "1")}
-                options={[{ value: "1", label: tRoot("adminDossiersPage.assignedToMeOnly") }]}
+                label={t("establishmentTypeColumn")}
+                value={typeFilter}
+                allLabel={t("allTypes")}
+                clearLabel={t("removeFilterChip", { label: t("establishmentTypeColumn") })}
+                onChange={applyType}
+                options={REGISTRATION_ENTITY_TYPES.map((value) => ({ value, label: entityLabel(value) }))}
               />
               {userId && <AdminSavedViews storageKey={`camleap.savedViews.inscriptions.${userId}`} currentQuery={savedViewQuery(currentQuery)} onApply={applySavedView} />}
               <AdminFilterMore label={filtersLabel} count={queuePanelChips.length}>
                 {dateRangeField("registrations")}
                 {departmentPanelField("registrations")}
-                <AdminFilterField id="registrations-type" label={t("establishmentTypeColumn")}>
-                  <select id="registrations-type" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => applyType(event.target.value)}>
-                    <option value="">{t("allTypes")}</option>
-                    {REGISTRATION_ENTITY_TYPES.map((value) => <option key={value} value={value}>{entityLabel(value)}</option>)}
-                  </select>
-                </AdminFilterField>
                 {methodField("registrations")}
               </AdminFilterMore>
               {hasActiveQueueFilters && <Button type="button" variant="ghost" size="sm" onClick={() => clearQueueFilters()}>{t("clearFilters")}</Button>}
@@ -1138,14 +1168,15 @@ function InscriptionsContent() {
                   <TableCell data-label={t("registrationStatusColumn")}><div className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="info">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}{item.duplicateHints.length > 0 && <Badge variant="warning" title={item.duplicateHints.join("\n")}>{t("possibleMatches", { count: item.duplicateHints.length })}</Badge>}</div></TableCell>
                   <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
                   <TableCell data-label={t("submissionDateColumn")} className="cam-cell-nowrap"><span title={stamp(item.submittedAt, true, locale)}>{elapsedSince(item.submittedAt, locale)}</span></TableCell>
-                  <TableCell data-label={t("assignmentColumn")}><div className="flex flex-col items-start gap-1"><span className={item.assigneeId ? undefined : "cam-cell-muted"} title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? item.assigneeName ?? NOT_PROVIDED : tRoot("adminDossiersPage.unassigned")}</span>{hasRole(role, APPROVAL_ROLES) && (item.assigneeId == null || item.assigneeId === userId) && <Button type="button" variant="link" size="sm" className="h-auto px-0" disabled={assignMutation.isPending} onClick={() => assignMutation.mutate({ id: item.id, assigneeId: item.assigneeId ? null : userId ?? null, expectedAssigneeId: item.assigneeId })}>{item.assigneeId ? tRoot("adminDossiersPage.unclaimButton") : tRoot("adminDossiersPage.claimButton")}</Button>}</div></TableCell>
+                  {/* The assignee only: claiming happens once, in the Actions column, and opens the file (audit R-7). */}
+                  <TableCell data-label={t("assignmentColumn")}><span className={item.assigneeId ? undefined : "cam-cell-muted"} title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? (item.assigneeId === userId ? tRoot("adminDossiersPage.assignedToYou") : item.assigneeName ?? NOT_PROVIDED) : tRoot("adminDossiersPage.unassigned")}</span></TableCell>
                   <TableCell className="cam-cell-action"><div className="cam-registration-row-actions">
                     {/* Unclaimed: the main action claims, then opens the review page. The
                         dialog stays reachable from the menu until the page is approved. */}
                     {(() => {
                       const canClaim = hasRole(role, APPROVAL_ROLES) && item.assigneeId == null && !!userId;
                       return <>
-                        <Button type="button" size="sm" variant={canClaim ? "default" : "outline"} disabled={queueUpdating || opening !== null} onClick={() => void openReviewPage(item, canClaim)}>
+                        <Button type="button" size="sm" variant="outline" disabled={opening !== null} onClick={() => void openReviewPage(item, canClaim)}>
                           {canClaim ? tRoot("adminRegistrationReview.claimAndOpen") : tRoot("adminRegistrationReview.openPage")}
                         </Button>
                         {canClaim && <DropdownMenu>

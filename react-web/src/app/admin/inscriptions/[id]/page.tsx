@@ -53,6 +53,8 @@ import { NOT_PROVIDED, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
 import { registrationDecisionModel } from "@/lib/registration-decision";
 import { AdminDialog } from "@/components/admin/AdminDialog";
+import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
+import { UnsavedNavigationGuard } from "@/components/auth/UnsavedNavigationGuard";
 import { DataState } from "@/components/admin/DataState";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -111,6 +113,9 @@ export default function RegistrationReviewRoute() {
     </Suspense>
   );
 }
+
+/** Reasons and messages sent to the declarant: same minimum as the dossier dialogs. */
+const REASON_MIN_LENGTH = 10;
 
 /** One component per file: moving to the next file starts with clean marks and choices. */
 function RegistrationReviewKeyed() {
@@ -191,7 +196,14 @@ function RegistrationReview({ id }: { id: string }) {
   const [marks, setMarks] = useState<VerificationMarks>({});
   const [centralChecked, setCentralChecked] = useState(false);
   const [choice, setChoice] = useState<Choice>(null);
-  const [comment, setComment] = useState("");
+  // One text per choice: a rejection reason must never go out as a
+  // complements message after switching (audit R-3 notes).
+  const [comments, setComments] = useState<Record<"REJECT" | "REQUEST_COMPLEMENTS", string>>({ REJECT: "", REQUEST_COMPLEMENTS: "" });
+  const comment = choice ? comments[choice] : "";
+  const setComment = (value: string) => { if (choice) setComments((current) => ({ ...current, [choice]: value })); };
+  // Leaving the file (Précédent / Suivant, a duplicate link) asks first
+  // when marks or a reason would be lost (audit R-2).
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   // « Reprendre le dossier »: the confirmation before taking over a colleague's claim.
@@ -413,6 +425,11 @@ function RegistrationReview({ id }: { id: string }) {
       setCommentError(choice === "REJECT" ? tq("rejectReasonRequired") : tq("complementsMessageRequired"));
       return;
     }
+    // Sent to the declarant: the same 10-character minimum as the dossier dialogs.
+    if (text.length < REASON_MIN_LENGTH) {
+      setCommentError(t("reasonTooShort", { length: text.length, min: REASON_MIN_LENGTH }));
+      return;
+    }
     setCommentError(null);
     if (choice === "REJECT") rejectMutation.mutate({ reason: text, expectedRevision });
     else complementsMutation.mutate({ message: text, expectedRevision });
@@ -421,6 +438,11 @@ function RegistrationReview({ id }: { id: string }) {
     if (approveBlocked) return;
     approveMutation.mutate({ centralStructureConfirmed: centralChecked, ...verificationFlags(rows, marks), expectedRevision });
   };
+
+  const unsavedWork = decidable && canReview && (
+    rows.some((row) => marks[row.key] !== undefined) || centralChecked || !!comments.REJECT.trim() || !!comments.REQUEST_COMPLEMENTS.trim()
+  );
+  const leaveTo = (go: () => void) => { if (unsavedWork) setPendingLeave(() => go); else go(); };
 
   const sections = [
     item.duplicateHints.length > 0 && { id: "registration-duplicates", label: t("duplicatesTitle"), flag: String(item.duplicateHints.length), blocking: false },
@@ -457,8 +479,10 @@ function RegistrationReview({ id }: { id: string }) {
         title={<span className="cam-dossier-title-line">
           <span title={item.organisation}>{item.organisation || NOT_PROVIDED}</span>
           {status ? <AdminStatusBadge label={tq(status.textKey)} variant={status.variant} /> : <AdminStatusBadge label={item.status} variant="neutral" />}
-          {waitingDays !== null && <span className="cam-dossier-waiting-badge">{t("waitingSince", { count: waitingDays })}</span>}
-          {item.overdue && <Badge variant="info">{tq("overdueBadge", { days: waitingDays ?? registrationQuery.data?.overdueDays ?? 0 })}</Badge>}
+          {/* One time signal, in the information tone (audit R-4). */}
+          {waitingDays !== null && <span className="cam-dossier-waiting-badge">
+            {t("waitingSince", { count: waitingDays })}{item.overdue && <> · {t("overdueSuffix")}</>}
+          </span>}
         </span>}
         subtitle={<span className="cam-dossier-header-facts">
           {item.establishmentId && <span className="cam-registration-ref">{t("reference", { ref: item.establishmentId })}</span>}
@@ -471,10 +495,10 @@ function RegistrationReview({ id }: { id: string }) {
           <div className="cam-dossier-header-actions-v2">
             <span className="cam-admin-meta">{t("position", { position: position.position, total: position.total })}</span>
             <div className="cam-dossier-decision-navigation">
-              <Button type="button" size="sm" variant="outline" disabled={!previousId || pending} onClick={() => previousId && moveTo(previousId, "previous")}>
+              <Button type="button" size="sm" variant="outline" disabled={!previousId || pending} onClick={() => previousId && leaveTo(() => moveTo(previousId, "previous"))}>
                 <span aria-hidden="true">‹</span> {t("previous")}
               </Button>
-              <Button type="button" size="sm" variant="outline" disabled={!nextId || pending} onClick={() => nextId && moveTo(nextId, "next")}>
+              <Button type="button" size="sm" variant="outline" disabled={!nextId || pending} onClick={() => nextId && leaveTo(() => moveTo(nextId, "next"))}>
                 {t("next")} <span aria-hidden="true">›</span>
               </Button>
             </div>
@@ -813,7 +837,9 @@ function RegistrationReview({ id }: { id: string }) {
             <section className="cam-dossier-review-card cam-dossier-review-decisions" aria-labelledby="registration-decision-title">
               <h2 id="registration-decision-title">{t("decisionTitle")}</h2>
               {!canDecide ? (
-                <p className="cam-dossier-review-prompt">{t("claimOtherDecide", { name: item.assigneeName ?? NOT_PROVIDED })}</p>
+                <p className="cam-dossier-review-prompt">
+                  {claimedByOther ? t("claimOtherDecide", { name: item.assigneeName ?? NOT_PROVIDED }) : t("claimToDecide")}
+                </p>
               ) : <>
               {approveBlocked && <p id="registration-approve-blocked" className="cam-dossier-review-blocked">{approveBlocked}</p>}
               {complementsFirst && complementsButton("default")}
@@ -854,7 +880,10 @@ function RegistrationReview({ id }: { id: string }) {
                   <p id="registration-decision-comment-hint" className="cam-admin-meta">
                     {commentError
                       ? <span className="cam-registration-error" role="alert">{commentError}</span>
-                      : <>{choice === "REJECT" ? tq("rejectReasonHint") : tq("complementsMessageHint")} {t("reasonSent")}</>}
+                      : <>
+                        {choice === "REJECT" ? tq("rejectReasonHint") : tq("complementsMessageHint")} {t("reasonSent")}
+                        {comment.trim().length < REASON_MIN_LENGTH && <> {t("reasonRemaining", { count: REASON_MIN_LENGTH - comment.trim().length })}</>}
+                      </>}
                   </p>
                   <div className="cam-registration-reason-actions">
                     <Button type="button" variant={choice === "REJECT" ? "destructive" : "default"} disabled={pending} onClick={submitChoice}>
@@ -901,6 +930,27 @@ function RegistrationReview({ id }: { id: string }) {
       >
         <p>{t("takeOverBody", { name: item.assigneeName ?? NOT_PROVIDED })}</p>
       </AdminDialog>
+
+      {/* Links (a duplicate, the breadcrumb) and Précédent / Suivant both ask
+          before the marks and reasons on this file are lost. */}
+      <UnsavedNavigationGuard
+        active={unsavedWork && !pending}
+        title={t("leaveTitle")}
+        body={t("leaveBody")}
+        cancelLabel={t("leaveStay")}
+        confirmLabel={t("leaveConfirm")}
+      />
+      {pendingLeave && (
+        <ConfirmDialog
+          id="registration-leave"
+          title={t("leaveTitle")}
+          body={t("leaveBody")}
+          cancelLabel={t("leaveStay")}
+          confirmLabel={t("leaveConfirm")}
+          onCancel={() => setPendingLeave(null)}
+          onConfirm={() => { const go = pendingLeave; setPendingLeave(null); go(); }}
+        />
+      )}
     </div>
   );
 }
