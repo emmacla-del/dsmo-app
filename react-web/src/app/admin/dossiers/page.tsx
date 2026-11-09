@@ -9,7 +9,7 @@ import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tansta
 import { Download, MoreHorizontal, Search, SlidersHorizontal } from "lucide-react";
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getAdminListFacets, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
-import { claimTimeLeft } from "@/lib/registration-queue";
+import { claimTimeLeft, waitingDuration } from "@/lib/registration-queue";
 import { OwnClaimLapseNote } from "@/components/admin/OwnClaimLapseNote";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -1985,11 +1985,14 @@ function DossiersContent({
                   </TableCell>
                   {/* One signal: how long the file has waited, flagged once when overdue. */}
                   <TableCell data-label={t("waitingColumn")} className="align-top whitespace-nowrap" title={stamp(d.submittedAt, true, locale)}>
-                    {waiting === null
-                      ? <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>
-                      : isReviewOverdue
-                        ? <Badge className="cam-dossier-overdue-badge" variant="info">{t("waitingOverdue", { count: waiting })}</Badge>
-                        : <span className="cam-dossier-waiting">{t("waitingDays", { count: waiting })}</span>}
+                    {/* To the minute, as on the registration queue (owner, 2026-11-09); days stay the overdue rule. */}
+                    {(() => {
+                      const elapsed = waiting === null || nowMs === null ? null : waitingDuration(d.submittedAt, new Date(nowMs), locale);
+                      if (waiting === null || elapsed === null) return <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>;
+                      return isReviewOverdue
+                        ? <Badge className="cam-dossier-overdue-badge" variant="info">{t("waitingOverdueTime", { time: elapsed })}</Badge>
+                        : <span className="cam-dossier-waiting">{elapsed}</span>;
+                    })()}
                   </TableCell>
                   <TableCell data-label={t("assignedReviewerColumn")} className="cam-dossier-assignee-cell align-top whitespace-normal">
                     <div className="cam-dossier-owner-action">

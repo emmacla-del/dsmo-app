@@ -198,22 +198,28 @@ export function claimTimeLeft(expiresAt: string | null | undefined, now: Date, l
 const INTL_LOCALE: Record<UiLocale, string> = { fr: "fr-FR", en: "en-GB" };
 
 /**
- * How long a registration has waited since the server received it: « 6 heures »,
- * « 18 jours ». Null when the receipt time is missing or unreadable, so the
- * cell can say « Indisponible » instead of guessing. A receipt time in the
- * future (clock skew) reads as under a minute.
+ * How long a registration has waited since the server received it, to the
+ * minute (owner, 2026-11-09): minutes under an hour (« 45 min »), then hours
+ * and minutes (« 6 h 20 min »), then days, hours and minutes (« 18 j 3 h
+ * 12 min »); a part that is zero is left out. Null when the receipt time is
+ * missing or unreadable, so the cell can say « Indisponible » instead of
+ * guessing. A receipt time in the future (clock skew) reads as under a minute.
  */
 export function waitingDuration(receivedAt: string | null | undefined, now: Date, locale: UiLocale): string | null {
   if (!receivedAt) return null;
   const then = new Date(receivedAt).getTime();
   if (Number.isNaN(then)) return null;
-  const minutes = Math.max(0, Math.floor((now.getTime() - then) / 60_000));
+  const total = Math.max(1, Math.floor((now.getTime() - then) / 60_000));
   const unit = (value: number, name: "minute" | "hour" | "day") =>
-    new Intl.NumberFormat(INTL_LOCALE[locale], { style: "unit", unit: name, unitDisplay: "long" }).format(value);
-  if (minutes < 60) return unit(Math.max(1, minutes), "minute");
-  const hours = Math.floor(minutes / 60);
-  if (hours < 48) return unit(hours, "hour");
-  return unit(Math.floor(hours / 24), "day");
+    new Intl.NumberFormat(INTL_LOCALE[locale], { style: "unit", unit: name, unitDisplay: "short" }).format(value);
+  const days = Math.floor(total / 1440);
+  const hours = Math.floor((total % 1440) / 60);
+  const minutes = total % 60;
+  const parts: string[] = [];
+  if (days > 0) parts.push(unit(days, "day"));
+  if (hours > 0) parts.push(unit(hours, "hour"));
+  if (minutes > 0) parts.push(unit(minutes, "minute"));
+  return parts.join(" ");
 }
 
 /** The exact receipt date and time, for the cell's accessible label and tooltip. */

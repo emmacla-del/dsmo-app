@@ -2143,6 +2143,7 @@
     "bulkJustificationHelp": "{count, plural, one {Ce dossier a} other {Ces # dossiers ont}} des avertissements ouverts ({records}) : la justification est enregistrée sur chacun. Sans elle, ils ne sont pas visés.",
     "notClaimedByYouReason": "vous ne l'avez pas réclamé",
     "waitingOverdue": "{count, plural, one {# jour} other {# jours}} · en retard",
+    "waitingOverdueTime": "{time} · en retard",
     "correctionMarker": "correction reçue",
     "checksColumn": "Contrôles",
     "bulkClaimPartial": "{claimed, plural, =0 {Aucun dossier réclamé} one {# dossier réclamé} other {# dossiers réclamés}}, {failed, plural, one {# refusé} other {# refusés}} : {reason}",

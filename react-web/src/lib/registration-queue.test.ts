@@ -122,13 +122,18 @@ test("a claim's time left reads in hours and minutes, and warns in its last 30 m
   assert.equal(claimTimeLeft("not a date", now, "en"), null);
 });
 
-test("waiting time reads in minutes, hours or days, from the receipt time", () => {
+test("waiting time reads in minutes, then hours and minutes, then days, hours and minutes", () => {
   const now = new Date("2026-11-09T12:00:00Z");
-  assert.equal(waitingDuration("2026-11-09T11:55:00Z", now, "en"), "5 minutes");
-  assert.equal(waitingDuration("2026-11-09T06:00:00Z", now, "en"), "6 hours");
+  const fr = (at: string) => waitingDuration(at, now, "fr")?.replace(/\s/gu, " ");
+  assert.equal(waitingDuration("2026-11-09T11:55:00Z", now, "en"), "5 mins");
+  assert.equal(waitingDuration("2026-11-09T06:00:00Z", now, "en"), "6 hrs");
+  assert.equal(waitingDuration("2026-11-09T05:40:00Z", now, "en"), "6 hrs 20 mins");
+  assert.equal(waitingDuration("2026-10-22T08:48:00Z", now, "en"), "18 days 3 hrs 12 mins");
   assert.equal(waitingDuration("2026-10-22T12:00:00Z", now, "en"), "18 days");
-  assert.equal(waitingDuration("2026-10-22T12:00:00Z", now, "fr")?.replace(/\s/gu, " "), "18 jours");
-  assert.equal(waitingDuration("2026-11-09T13:00:00Z", now, "en"), "1 minute");
+  assert.equal(fr("2026-11-09T05:40:00Z"), "6 h 20 min");
+  assert.equal(fr("2026-10-22T08:48:00Z"), "18 j 3 h 12 min");
+  // A receipt time in the future (clock skew) reads as under a minute.
+  assert.equal(waitingDuration("2026-11-09T13:00:00Z", now, "en"), "1 min");
 });
 
 test("a missing or unreadable receipt time is unavailable, never zero", () => {

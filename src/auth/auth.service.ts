@@ -2878,8 +2878,12 @@ export class AuthService {
         registrationMethod: row.user.registrationMethod,
         createdBy: row.user.createdBy,
         // The holder as the deadline sees it: a lapsed claim reads as free,
-        // and claimExpiresAt says when a live one lapses.
-        ...((claim) => ({ assigneeId: claim.assigneeId, claimExpiresAt: claim.expiresAt?.toISOString() ?? null }))(
+        // and claimExpiresAt says when a live one lapses (null once lapsed,
+        // as for any free file).
+        ...((claim) => ({
+          assigneeId: claim.assigneeId,
+          claimExpiresAt: claim.assigneeId && claim.expiresAt ? claim.expiresAt.toISOString() : null,
+        }))(
           registrationClaimState(row.user),
         ),
         hasSubmitted: (row._count?.onefopSubmissions ?? 0) > 0,

@@ -2143,6 +2143,7 @@
     "bulkJustificationHelp": "{count, plural, one {This file has} other {These # files have}} open warnings ({records}): the justification is recorded on each. Without it, they are not endorsed.",
     "notClaimedByYouReason": "you have not claimed it",
     "waitingOverdue": "{count, plural, one {# day} other {# days}} · overdue",
+    "waitingOverdueTime": "{time} · overdue",
     "correctionMarker": "correction received",
     "checksColumn": "Checks",
     "bulkClaimPartial": "{claimed, plural, =0 {No file claimed} one {# file claimed} other {# files claimed}}, {failed} refused: {reason}",

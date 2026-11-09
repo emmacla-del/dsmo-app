@@ -1531,6 +1531,32 @@ describe('AuthService.listCompanyRegistrations — duplicate hints', () => {
     };
   }
 
+  it('gives a live claim its deadline, and a lapsed one none, as for a free file', async () => {
+    const now = Date.now();
+    const held = (id: string, claimedMsAgo: number) => {
+      const row: any = companyRow({ id, name: id });
+      row.user = { ...row.user, status: 'PENDING_APPROVAL', assigneeId: 'officer-1', registrationClaimedAt: new Date(now - claimedMsAgo) };
+      return row;
+    };
+    const rows = [held('live', 30 * 60 * 1000), held('lapsed', 3 * 60 * 60 * 1000)];
+    const prisma: any = {
+      company: { count: jest.fn(async () => 2), findMany: jest.fn(async (args: any) => (!args?.where || args.where.OR ? [] : rows)) },
+      auditLog: { findMany: jest.fn(async () => []) },
+      user: { groupBy: jest.fn(async () => []) },
+      // The holder's name; the deadline is what this test reads.
+      $queryRaw: jest.fn(async () => [{ id: 'officer-1', firstName: 'Awa', lastName: 'N', email: 'awa@example.cm' }]),
+    };
+    const service = new AuthService(prisma, {} as any, {} as any, {} as any, {
+      getSettings: async () => ({ registrationOverdueDays: 7 }),
+    } as any);
+    const { items } = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, {});
+    const byId: Record<string, any> = Object.fromEntries(items.map((item: any) => [item.organisation, item]));
+    expect(byId.live.assigneeId).toBe('officer-1');
+    expect(new Date(byId.live.claimExpiresAt).getTime()).toBe(now - 30 * 60 * 1000 + 2 * 60 * 60 * 1000);
+    expect(byId.lapsed.assigneeId).toBeNull();
+    expect(byId.lapsed.claimExpiresAt).toBeNull();
+  });
+
   it('flags a cross-territory CNPS match without naming the outside company', async () => {
     const local = companyRow({
       id: 'littoral-co',
