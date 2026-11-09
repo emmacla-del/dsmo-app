@@ -2208,6 +2208,7 @@
     "queueView": {
       "mine": "My queue",
       "unassigned": "Unassigned",
+      "others": "Claimed by colleagues",
       "pending": "All pending",
       "corrections": "Corrections requested"
     },
@@ -2363,6 +2364,8 @@
     "unclaimButton": "Release",
     "assignFailed": "Assignment failed.",
     "claimConflict": "The dossier changed or its claim changed. The action was not repeated; the latest server state is being loaded.",
+    "claimTimeLeft": "Expires in {time}",
+    "claimTimeHelp": "A claim lasts 12 hours. After that the file returns to the queue and the lapse is recorded.",
     "claimExpiredBadge": "Claim expired",
     "campaignLabel": "Campaign",
     "allCampaigns": "All campaigns",

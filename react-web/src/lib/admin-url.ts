@@ -67,8 +67,11 @@ export function hasDossierOtherFilters(
 /**
  * The review queue's views (?queueView= on the submissions tab). « Traités »
  * is not one of them: it is the existing completed tab (?vue=completed).
+ * « Réclamés par un collègue » (others) lists the pending files another
+ * officer holds on a live claim, with their name and time left (claims
+ * lapse 12 hours after they are taken, CLAUDE.md §21, 2026-11-09).
  */
-export const DOSSIER_QUEUE_VIEWS = ["mine", "unassigned", "pending", "corrections"] as const;
+export const DOSSIER_QUEUE_VIEWS = ["mine", "unassigned", "others", "pending", "corrections"] as const;
 export type DossierQueueView = (typeof DOSSIER_QUEUE_VIEWS)[number];
 
 /** Views a read-only role may open: no claim of its own, nothing to claim. */
@@ -84,6 +87,7 @@ export function dossierQueueViewFilters(view: DossierQueueView): {
   switch (view) {
     case "mine": return { status: "PENDING_REVIEW", assignment: "me" };
     case "unassigned": return { status: "PENDING_REVIEW", assignment: "unassigned" };
+    case "others": return { status: "PENDING_REVIEW", assignment: "other" };
     case "pending": return { status: "PENDING_REVIEW" };
     case "corrections": return { status: "CORRECTION_REQUESTED" };
   }
@@ -111,6 +115,7 @@ export function resolveDossierQueueView(input: {
   if (input.status && input.status !== "PENDING_REVIEW") return null;
   if (input.assignment === "me") return allowed("mine");
   if (input.assignment === "unassigned") return allowed("unassigned");
+  if (input.assignment === "other") return allowed("others");
   if (input.status || input.assignment || input.hasOtherFilters || input.readOnly) return "pending";
   return null;
 }

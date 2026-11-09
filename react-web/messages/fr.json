@@ -2208,6 +2208,7 @@
     "queueView": {
       "mine": "Ma file",
       "unassigned": "Non attribués",
+      "others": "Réclamés par un collègue",
       "pending": "Tous en attente",
       "corrections": "Corrections demandées"
     },
@@ -2363,6 +2364,8 @@
     "unclaimButton": "Libérer",
     "assignFailed": "L'affectation a échoué.",
     "claimConflict": "Le dossier ou sa réclamation a changé. L'action n'a pas été répétée ; le dernier état du serveur est en cours de chargement.",
+    "claimTimeLeft": "Expire dans {time}",
+    "claimTimeHelp": "Une réclamation dure 12 heures. Ensuite, le dossier retourne dans la file et le dépassement est enregistré.",
     "claimExpiredBadge": "Réclamation expirée",
     "campaignLabel": "Campagne",
     "allCampaigns": "Toutes les campagnes",

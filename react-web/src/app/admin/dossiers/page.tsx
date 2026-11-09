@@ -9,6 +9,7 @@ import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tansta
 import { Download, MoreHorizontal, Search, SlidersHorizontal } from "lucide-react";
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getAdminListFacets, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
+import { claimTimeLeft } from "@/lib/registration-queue";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -128,6 +129,8 @@ interface DossierItem {
   assigneeId?: string | null;
   assigneeName?: string | null;
   claimExpired?: boolean;
+  /** When the holder's claim lapses; null when nobody holds it on a live claim. */
+  claimExpiresAt?: string | null;
   archivedAt?: string | null;
   archivedBy?: string | null;
   archiveReason?: string | null;
@@ -159,6 +162,7 @@ interface QuestionnaireListItem extends NamedSubmission {
   assigneeId?: string | null;
   assigneeName?: string | null;
   claimExpired?: boolean;
+  claimExpiresAt?: string | null;
   archivedAt?: string | null;
   archivedBy?: string | null;
   archiveReason?: string | null;
@@ -358,9 +362,10 @@ function DossiersContent({
   const queueViewPending = view === "submissions" && !statusRedirectPending && activeQueueView === null;
   const queueViewFilters = activeQueueView ? dossierQueueViewFilters(activeQueueView) : null;
   const statusFilter: DossierStatus | "" = queueViewFilters ? queueViewFilters.status : baseStatusFilter;
-  // « Tous en attente » keeps an incoming assignment=other; the other views fix their own.
+  // Each view fixes its own assignment; assignment=other now opens « Réclamés
+  // par un collègue » (resolveDossierQueueView).
   const assignmentFilter = queueViewFilters
-    ? queueViewFilters.assignment ?? (activeQueueView === "pending" && baseAssignmentFilter === "other" ? "other" : "")
+    ? queueViewFilters.assignment ?? ""
     : baseAssignmentFilter;
   const returnParams = new URLSearchParams(searchParams.toString());
   if (view === "submissions" && activeQueueView) returnParams.set("queueView", activeQueueView);
@@ -742,9 +747,22 @@ function DossiersContent({
     enabled: vue === "submissions" && !readOnly,
     staleTime: 60_000,
   });
+  const othersQueueCountQuery = useQuery({
+    queryKey: ["admin", "questionnaires", "queue-view-count", "others"],
+    queryFn: () => listAdminQuestionnaires({ status: "PENDING_REVIEW", view: "queue", assignment: "other", limit: 0, offset: 0 }),
+    enabled: vue === "submissions" && !readOnly && Boolean(user?.id),
+    staleTime: 60_000,
+  });
+  // A claim's time left moves on while the list is open.
+  const [claimNow, setClaimNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setClaimNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const queueViewCounts: Partial<Record<DossierQueueView, number>> = {
     mine: myQueueCountQuery.data?.total,
     unassigned: unassignedQueueCountQuery.data?.total,
+    others: othersQueueCountQuery.data?.total,
     pending: queueStatusCounts?.PENDING_REVIEW,
     corrections: queueStatusCounts?.CORRECTION_REQUESTED,
   };
@@ -997,6 +1015,7 @@ function DossiersContent({
       assigneeId: sub.assigneeId ?? null,
       assigneeName: sub.assigneeName ?? null,
       claimExpired: sub.claimExpired === true,
+      claimExpiresAt: sub.claimExpiresAt ?? null,
     };
   });
 
@@ -1974,6 +1993,16 @@ function DossiersContent({
                     <div className="cam-dossier-owner-action">
                       <span className="cam-dossier-assignee-name">{d.assigneeId ? d.assigneeName ?? NOT_PROVIDED : t("noReviewerAssigned")}</span>
                       {d.claimExpired && d.assigneeId && <Badge variant="warning">{t("claimExpiredBadge")}</Badge>}
+                      {/* The claim's deadline in words; amber, same words, in its last 30 minutes. */}
+                      {(() => {
+                        const left = d.assigneeId ? claimTimeLeft(d.claimExpiresAt, claimNow, locale) : null;
+                        if (!left) return null;
+                        return (
+                          <span className={left.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"} title={t("claimTimeHelp")}>
+                            {left.lapsed ? t("claimExpiredBadge") : t("claimTimeLeft", { time: left.label })}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell className="cam-dossier-action-cell cam-cell-action align-top">

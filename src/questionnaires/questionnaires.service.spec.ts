@@ -1588,7 +1588,7 @@ describe('QuestionnairesService — Vocational Training persistence (VT-5)', () 
       expect(rowWhere.AND).toContainEqual({ assigneeId: 'actor-1' });
       expect(rowWhere.AND).toContainEqual({ region: { equals: 'Centre', mode: 'insensitive' } });
       expect(result.total).toBe(4);
-      expect(result.items[0]).toMatchObject({ assigneeId: null, assigneeName: null, claimExpired: true });
+      expect(result.items[0]).toMatchObject({ assigneeId: null, assigneeName: null, claimExpired: true, claimExpiresAt: null });
       expect(result.items[0]).not.toHaveProperty('claimActivityAt');
     });
 

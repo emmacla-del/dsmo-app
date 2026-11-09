@@ -3649,6 +3649,9 @@ export class QuestionnairesService {
         assigneeId: effectiveAssigneeId,
         assigneeName: effectiveAssigneeName,
         claimExpired: isExpired,
+        // When a live claim lapses (12 hours after it, CLAUDE.md §21,
+        // 2026-11-09); null for a free, lapsed or untracked claim.
+        claimExpiresAt: effectiveAssigneeId && claimState?.expiresAt ? claimState.expiresAt.toISOString() : null,
         reviewedBy: item.reviewedBy ?? null,
         reviewedAt: item.reviewedAt?.toISOString?.() ?? null,
         rejectionReason: item.rejectionReason ?? null,
@@ -3838,6 +3841,7 @@ export class QuestionnairesService {
         ? assigneeName({ firstName: context.assigneeFirstName, lastName: context.assigneeLastName, email: context.assigneeEmail })
         : null,
       claimExpired: claimState.expired,
+      claimExpiresAt: claimState.assigneeId && claimState.expiresAt ? claimState.expiresAt.toISOString() : null,
     };
   }
 

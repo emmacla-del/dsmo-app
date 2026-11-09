@@ -7,12 +7,14 @@ const bare = { requested: "", status: "", assignment: "", hasOtherFilters: false
 test("queue views map onto existing list status and assignment filters", () => {
   assert.deepEqual(dossierQueueViewFilters("mine"), { status: "PENDING_REVIEW", assignment: "me" });
   assert.deepEqual(dossierQueueViewFilters("unassigned"), { status: "PENDING_REVIEW", assignment: "unassigned" });
+  assert.deepEqual(dossierQueueViewFilters("others"), { status: "PENDING_REVIEW", assignment: "other" });
   assert.deepEqual(dossierQueueViewFilters("pending"), { status: "PENDING_REVIEW" });
   assert.deepEqual(dossierQueueViewFilters("corrections"), { status: "CORRECTION_REQUESTED" });
 });
 
 test("the completed tab is not a queue view", () => {
   assert.equal(parseDossierQueueView("corrections"), "corrections");
+  assert.equal(parseDossierQueueView("others"), "others");
   assert.equal(parseDossierQueueView("completed"), "");
   assert.equal(parseDossierQueueView("unrecognized"), "");
 });
@@ -32,7 +34,9 @@ test("links from other screens open the view they meant, never the default", () 
   // assignment links (admin-url.test.ts)
   assert.equal(resolveDossierQueueView({ ...bare, assignment: "me" }), "mine");
   assert.equal(resolveDossierQueueView({ ...bare, assignment: "unassigned" }), "unassigned");
-  assert.equal(resolveDossierQueueView({ ...bare, assignment: "other" }), "pending");
+  // Files a colleague holds have their own view since 2026-11-09.
+  assert.equal(resolveDossierQueueView({ ...bare, assignment: "other" }), "others");
+  assert.equal(resolveDossierQueueView({ ...bare, assignment: "other", readOnly: true }), "pending");
   assert.equal(resolveDossierQueueView({ ...bare, status: "PENDING_REVIEW", assignment: "me" }), "mine");
 });
 
