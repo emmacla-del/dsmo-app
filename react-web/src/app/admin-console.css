@@ -71,6 +71,22 @@
   color: var(--cam-text-muted);
 }
 
+/* One button in the console (owner, 2026-11-06): .cam-button takes the size,
+   type and padding of the shadcn Button, which takes its radius. Respondent
+   screens keep the 40px .cam-button. -sm below still wins, by coming later. */
+.cam-admin .cam-button,
+.cam-admin-dialog .cam-button {
+  height: var(--cam-admin-button-height);
+  padding: 0 var(--cam-space-4);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+.cam-admin [data-slot="button"],
+.cam-admin-dialog [data-slot="button"] {
+  border-radius: var(--cam-radius-control);
+}
+
 /* Doubled class: globals.css declares .cam-button after this file. */
 .cam-button.cam-button-sm {
   height: 32px;
@@ -7326,11 +7342,11 @@ a.cam-dash-review-row:hover {
   overflow-wrap: anywhere;
 }
 
-.cam-admin .cam-registration-queue-table th:nth-child(1) { width: 24%; }
+.cam-admin .cam-registration-queue-table th:nth-child(1) { width: 22%; }
 .cam-admin .cam-registration-queue-table th:nth-child(2) { width: 12%; }
-.cam-admin .cam-registration-queue-table th:nth-child(3) { width: 10%; }
-.cam-admin .cam-registration-queue-table th:nth-child(4) { width: 13%; }
-.cam-admin .cam-registration-queue-table th:nth-child(5) { width: 13%; }
+.cam-admin .cam-registration-queue-table th:nth-child(3) { width: 14%; }
+.cam-admin .cam-registration-queue-table th:nth-child(4) { width: 12%; }
+.cam-admin .cam-registration-queue-table th:nth-child(5) { width: 12%; }
 .cam-admin .cam-registration-queue-table th:nth-child(6) { width: 10%; }
 .cam-admin .cam-registration-queue-table th:nth-child(7) { width: 11%; }
 .cam-admin .cam-registration-queue-table th:nth-child(8) { width: 7%; }
@@ -10952,8 +10968,13 @@ details.cam-dossier-section.is-quiet[open] > summary { margin-bottom: var(--cam-
 .cam-registration-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--cam-space-2) var(--cam-space-3); }
 .cam-registration-ref { font-family: var(--cam-font-mono); font-size: var(--cam-font-size-xs); }
 .cam-registration-lead { margin: 0 0 var(--cam-space-2-5); color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); }
-.cam-registration-hints { margin: 0 0 var(--cam-space-3); padding-inline-start: var(--cam-space-5); font-size: var(--cam-font-size-sm); }
+.cam-registration-hints { font-size: var(--cam-font-size-sm); overflow-wrap: anywhere; }
 .cam-registration-hints li + li { margin-top: var(--cam-space-1); }
+.cam-registration-hints p { margin: var(--cam-space-1) 0 0; }
+/* Queue: the match is read in the row, in the warning tone, without opening anything. */
+.cam-registration-match { display: flex; flex-direction: column; align-items: flex-start; gap: var(--cam-space-1); }
+.cam-registration-match ul { margin: 0; padding: 0; list-style: none; color: var(--cam-warning); font-size: var(--cam-font-size-xs); font-weight: var(--cam-font-weight-semibold); overflow-wrap: anywhere; }
+.cam-registration-match li + li { margin-top: var(--cam-space-1); }
 .cam-registration-link { color: var(--cam-primary); font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); }
 .cam-registration-before { color: var(--cam-text-muted); text-decoration: line-through; }
 .cam-registration-after { font-weight: var(--cam-font-weight-semibold); }
@@ -10976,6 +10997,15 @@ details.cam-dossier-section.is-quiet[open] > summary { margin-bottom: var(--cam-
 .cam-registration-verify-label { color: var(--cam-text-muted); font-size: var(--cam-font-size-sm); font-weight: var(--cam-font-weight-semibold); }
 .cam-registration-verify-value { min-width: 0; font-size: var(--cam-font-size-sm); overflow-wrap: anywhere; }
 .cam-registration-verify-value.is-empty { color: var(--cam-text-muted); font-style: italic; }
+/* The row a checklist link landed on, in the tone of what is wrong with it. */
+.cam-registration-verify-row.is-active { border-radius: var(--cam-radius-control); background: var(--cam-surface-subtle); box-shadow: 0 0 0 var(--cam-space-1) var(--cam-surface-subtle); }
+.cam-registration-verify-row.is-active.is-warning { background: var(--cam-warning-bg); box-shadow: 0 0 0 var(--cam-space-1) var(--cam-warning-bg); }
+.cam-registration-verify-row.is-active.is-blocking { background: var(--cam-error-bg); box-shadow: 0 0 0 var(--cam-space-1) var(--cam-error-bg); }
+.cam-registration-verify-notes { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--cam-space-2); min-width: 0; }
+.cam-registration-verify-notes .cam-dossier-field-flag { margin: 0; overflow-wrap: anywhere; }
+.cam-registration-verify-notes .cam-dossier-field-flag.is-warning strong { color: var(--cam-warning); }
+.cam-registration-verify-notes .cam-dossier-field-flag.is-blocking strong { color: var(--cam-error); }
+.cam-registration-verify-notes p { margin: 0; }
 .cam-registration-segmented {
   display: inline-flex;
   border: var(--cam-border-width, 1px) solid var(--cam-border-strong);
@@ -11032,12 +11062,16 @@ details.cam-dossier-section.is-quiet[open] > summary { margin-bottom: var(--cam-
   background: var(--cam-border-strong);
 }
 .cam-registration-checklist .is-ok a::before { background: var(--cam-success); }
-.cam-registration-checklist .is-ko a::before { background: var(--cam-flag-red); }
+.cam-registration-checklist .is-ko a::before,
+.cam-registration-checklist .is-blocking a::before { background: var(--cam-flag-red); }
+.cam-registration-checklist .is-warning a::before { background: var(--cam-gold-dark); }
 .cam-registration-checklist a:hover { background: var(--cam-surface-subtle); }
 .cam-registration-checklist-label { flex: 1; min-width: 0; }
 .cam-registration-checklist-state { flex: none; color: var(--cam-text-muted); font-size: var(--cam-font-size-xs); }
 .cam-registration-checklist .is-ok .cam-registration-checklist-state { color: var(--cam-success); font-weight: var(--cam-font-weight-semibold); }
-.cam-registration-checklist .is-ko .cam-registration-checklist-state { color: var(--cam-error); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-checklist .is-ko .cam-registration-checklist-state,
+.cam-registration-checklist .is-blocking .cam-registration-checklist-state { color: var(--cam-error); font-weight: var(--cam-font-weight-semibold); }
+.cam-registration-checklist .is-warning .cam-registration-checklist-state { color: var(--cam-warning); font-weight: var(--cam-font-weight-semibold); }
 .cam-registration-central { display: flex; align-items: flex-start; gap: var(--cam-space-2-5); padding-top: var(--cam-space-2-5); border-top: var(--cam-border-width, 1px) solid var(--cam-border); }
 .cam-registration-central label { display: flex; flex-direction: column; gap: var(--cam-space-1); }
 .cam-dossier-review-decisions .cam-registration-reject { border-color: var(--cam-error-border); color: var(--cam-error); }

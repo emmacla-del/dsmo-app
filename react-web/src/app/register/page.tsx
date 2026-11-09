@@ -19,6 +19,7 @@ import {
 } from "@/lib/api-client";
 import {
   ENTITY_CONFIGS,
+  REGISTRATION_STEPS,
   REGISTRATION_STEP_IDS,
   entityApiValue,
   isFieldVisible as checkFieldVisible,
@@ -58,6 +59,7 @@ import {
 import { bundledSubdivisions } from "@/lib/location-nomenclature";
 import { firstIncompleteWithin } from "@/lib/register-rail";
 import {
+  lastFieldId,
   missingFieldsToReport,
   type NameResolvers,
 } from "@/lib/register-required";
@@ -85,20 +87,21 @@ import {
   passwordStrengthBand,
   validatePassword,
 } from "@/lib/password-strength";
-import { type SummaryState } from "@/lib/register-summary";
+import { sectionSummary, summaryRows, type SummaryState } from "@/lib/register-summary";
 import { AuthHeader } from "@/components/auth/AuthHeader";
 import { BlankOption } from "@/components/auth/BlankOption";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordRequirementHint } from "@/components/auth/PasswordRequirementHint";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
+import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
 import { StepHeader } from "@/components/auth/StepHeader";
 
-// CAM-LEAP public self-registration form.
-// Sections stay in one vertical form; validation runs when the respondent submits.
+// CAM-LEAP public self-registration wizard.
 
 const STEPS = REGISTRATION_STEP_IDS;
+const LAST_INDEX = STEPS.length - 1;
 
 // How long a reset notice stays on screen. Long enough to read a sentence,
 // short enough not to sit over the form the respondent went back to.
@@ -951,8 +954,7 @@ export default function RegisterPage() {
     await submit();
   }
 
-  // Enter moves through the vertical form; on the last control, the browser
-  // submits through the same validation path as the visible submit button.
+  // Enter moves through the active step; Enter on its last field continues.
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== "Enter") return;
 
@@ -970,8 +972,6 @@ export default function RegisterPage() {
       (el) => el.offsetParent !== null && !el.hasAttribute("aria-hidden") && el.tabIndex !== -1
     );
 
-    // Renamed from currentIndex: that name now belongs to the revealed-section
-    // cursor below, and shadowing it here read as a bug.
     const fieldIndex = formFields.indexOf(target);
     if (fieldIndex === -1) return;
 
@@ -983,6 +983,9 @@ export default function RegisterPage() {
     } else if (fieldIndex < formFields.length - 1) {
       e.preventDefault();
       formFields[fieldIndex + 1].focus();
+    } else if (target.id && target.id === currentLastFieldId && current < LAST_INDEX) {
+      e.preventDefault();
+      tryContinue();
     }
   };
 
@@ -1245,6 +1248,13 @@ export default function RegisterPage() {
     branchNameEn: resolvedBranchNameEn,
   };
 
+  const completed = STEPS.map((step) => isSectionComplete(step, regState));
+  const railSummaries = STEPS.map((step) =>
+    sectionSummary(summaryRows(step, summaryState, (key) => t(key), locale))
+  );
+  const currentStep = STEPS[current] ?? STEPS[0];
+  const currentLastFieldId = lastFieldId(currentStep, entityType, entityData);
+
   // ── Navigation ─────────────────────────────────────────────────────────
   function scrollToSection(step: RegistrationStepId) {
     document
@@ -1252,14 +1262,31 @@ export default function RegisterPage() {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // Review edits jump back to the corresponding section in the form.
+  function scrollPageTop() {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
   function goToSection(index: number) {
     const step = STEPS[index];
     if (!step) return;
+    if (index > reached) {
+      if (!promptMissing()) setSnackbar(t("registerPage.lockedStepNotice"));
+      return;
+    }
     clearFlags();
     if (index !== current) headingFocusPendingRef.current = true;
     setCurrent(index);
-    requestAnimationFrame(() => scrollToSection(step));
+    requestAnimationFrame(scrollPageTop);
+  }
+
+  function advanceFrom(index: number) {
+    const next = Math.min(index + 1, LAST_INDEX);
+    if (next === index) return;
+    clearFlags();
+    headingFocusPendingRef.current = true;
+    setReached((previous) => Math.max(previous, next));
+    setCurrent(next);
+    requestAnimationFrame(scrollPageTop);
   }
 
   // ── Entity-type change ─────────────────────────────────────────────────
@@ -1373,22 +1400,18 @@ export default function RegisterPage() {
     entityLabel: (field) => localized(entityFieldLabel(field, entityData), locale),
   };
 
-  // Re-derived every render from the values, never stored: a flagged field
-  // loses its error line the moment it is filled, with nothing to clear.
-  // Missing answers across the whole form are shown under their fields after
-  // the single submit attempt.
-  const allMissingFields = STEPS.flatMap((step) =>
-    missingFieldsToReport(step, regState, nameResolvers)
-  );
+  // Re-derived for the active step, so errors disappear as soon as they are fixed.
+  const currentMissingFields = missingFieldsToReport(currentStep, regState, nameResolvers);
   const shownMissingIds = new Set(
-    allMissingFields
+    currentMissingFields
       .filter((f) => flaggedIds.includes(f.id))
       .map((f) => f.id)
   );
 
+  const currentFormatFailure = formatFailure(currentStep);
   const shownFormatError =
-    formatFlagId
-      ? STEPS.map((step) => formatFailure(step)).find((failure) => failure?.focusId === formatFlagId) ?? null
+    formatFlagId && currentFormatFailure?.focusId === formatFlagId
+      ? currentFormatFailure
       : null;
 
   // Focus a field by id and bring it into view, including fields inside the
@@ -1507,15 +1530,31 @@ export default function RegisterPage() {
     ) : undefined;
   }
 
+  function promptMissing(): boolean {
+    const missing = missingFieldsToReport(currentStep, regState, nameResolvers);
+    if (missing.length === 0) return false;
+    setFlaggedIds(missing.map((field) => field.id));
+    setMissingAnnounced(missing.length);
+    requestAnimationFrame(() => focusField(missing[0].id));
+    return true;
+  }
+
   // ── Continue ───────────────────────────────────────────────────────────
-  // Shown at the bottom of the section whenever that section is the furthest
-  // revealed one, complete or not. It stays a real button, with no
-  // aria-disabled: that attribute hides the control from a screen reader and
-  // from automation, and the click is how anyone learns which fields are
-  // missing. Do not put aria-disabled back on Continuer. (Soumettre is a
-  // different control and keeps it until the certification box is ticked.)
-  //
-  // It is the one way forward: no section moves on by itself.
+  const showContinueLink = current < LAST_INDEX && current === reached;
+
+  function tryContinue() {
+    if (promptMissing()) return;
+    const failure = formatFailure(currentStep);
+    if (failure && !isSectionComplete(currentStep, regState)) {
+      setFormatFlagId(failure.focusId);
+      requestAnimationFrame(() => focusField(failure.focusId));
+      return;
+    }
+    setSubmitError(null);
+    if (showContinueLink) advanceFrom(current);
+    else goToSection(current + 1);
+  }
+
   // ── Draft ──────────────────────────────────────────────────────────────
   const draftLoadedRef = useRef(false);
 
@@ -2392,18 +2431,35 @@ export default function RegisterPage() {
       <header className="flow-header">
         <div className="flow-header-inner">
           <AuthHeader onHomeClick={guardLeave("/")} />
+          <RegistrationProgress
+            currentIndex={current}
+            reached={reached}
+            completed={completed}
+            summaries={railSummaries}
+            onSelect={goToSection}
+          />
         </div>
       </header>
 
+      {/* The step announcement, outside the rail: the rail's caption is
+          aria-hidden, and this live region is what says the step changed. */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {t("registerPage.stepIndicator", { current: current + 1, total: STEPS.length })}
+        {" — "}
+        {t(`registerPage.${REGISTRATION_STEPS[current].labelKey}`)}
+      </p>
+
       <div className="flow-split">
         <div className="flow-body">
-          {/* The frame contains the full vertically stacked registration form. */}
+          {/* The frame: the current section and its buttons, in one column. */}
           <div className="flow-frame">
             <div className="flow-frame-content">
-              <div className="registration-form-intro">
-                <h1>{t("registerPage.formTitle")}</h1>
-                <p>{t("registerPage.formIntro")}</p>
-              </div>
+              {current === 0 && (
+                <div className="registration-form-intro">
+                  <h1>{t("registerPage.formTitle")}</h1>
+                  <p>{t("registerPage.formIntro")}</p>
+                </div>
+              )}
               {/* Reset and restore notices. Announced, because the change they
                   report happened somewhere the respondent may not be looking. */}
               <div className="wizard-snackbar-region" role="status" aria-live="polite">
@@ -2482,38 +2538,89 @@ export default function RegisterPage() {
                 }}
                 onKeyDown={handleFormKeyDown}
               >
-                {STEPS.map((id) => {
+                {/* Every revealed section stays mounted and is only hidden, so
+                    a section the respondent has left keeps its state and its
+                    in-flight requests. */}
+                {STEPS.slice(0, reached + 1).map((id, idx) => {
                   if ((id === "entityInfo" || id === "review") && !config) return null;
                   return (
                     <section
                       key={id}
                       id={`registration-section-${id}`}
                       className="wizard-section"
+                      hidden={idx !== current}
                       aria-labelledby={`reg-section-title-${id}`}
+                      // Focus leaving the section's LAST field for somewhere
+                      // outside it names what is still missing. Tabbing
+                      // between the section's own fields, or towards Retour
+                      // and Continuer, never does.
                       onBlurCapture={(event) => {
+                        if (idx !== current) return;
                         const target = event.target as HTMLElement;
                         if (target.id && isFormField(target)) markLeft(target.id);
+                        if (!currentLastFieldId || target.id !== currentLastFieldId) return;
+                        const next = event.relatedTarget as HTMLElement | null;
+                        if (!next) return;
+                        if (
+                          event.currentTarget.contains(next) ||
+                          next.closest("[data-flow-back]") ||
+                          next.closest("[data-flow-continue]")
+                        ) {
+                          return;
+                        }
+                        promptMissing();
                       }}
                     >
                       {renderSection(id)}
                     </section>
                   );
                 })}
+              </form>
+            </div>
 
-                <div className="registration-form-submit">
+            {/* Retour / Continuer at the end of the form, not pinned
+                (owner, 2026-10-10). One primary action per step: Continuer,
+                or Soumettre on the review. Continuer carries no
+                aria-disabled: the click is how the respondent learns what is
+                missing. */}
+            <div className="flow-frame-dock">
+              <div className="flow-frame-foot">
+                {current > 0 && (
                   <button
-                    type="submit"
+                    type="button"
+                    className="btn-secondary flow-back"
+                    data-flow-back
+                    onClick={() => goToSection(current - 1)}
+                  >
+                    <span aria-hidden="true">←</span>
+                    {t("registerPage.backButton")}
+                  </button>
+                )}
+                {current < LAST_INDEX && (
+                  <button
+                    type="button"
+                    className="btn-primary btn-primary--inline flow-continue-link"
+                    data-flow-continue
+                    onClick={tryContinue}
+                  >
+                    {t("registerPage.continueButton")}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                )}
+                {current === LAST_INDEX && (
+                  <button
+                    type="button"
                     className="btn-primary btn-primary--inline btn-primary--submit"
                     aria-disabled={!certified || undefined}
                     aria-busy={submitting || undefined}
                     disabled={submitting}
+                    onClick={() => void handleSubmitPress()}
                   >
                     {submitting ? t("registerPage.submittingLabel") : t("registerPage.submitButton")}
                   </button>
-                </div>
-              </form>
+                )}
+              </div>
             </div>
-
           </div>
         </div>
       </div>

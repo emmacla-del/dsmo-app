@@ -314,6 +314,9 @@ async function runViewport(browser, vp) {
     if (phase === "section 2") {
       await page.click('input[name="entityType"][value="vocationalTraining"]');
       await page.waitForTimeout(300);
+      // No section moves on by itself: Continuer is the way forward.
+      await continueOn(page);
+      await page.waitForTimeout(300);
     }
     if (phase === "section 3 (tall)") {
       await page.fill("#reg-first-name", "Marie");

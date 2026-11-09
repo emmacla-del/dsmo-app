@@ -1,6 +1,6 @@
 import { apiFetch, ApiError } from "./api-client";
 import type { UserRole } from "./roles";
-import { CAMPAIGN_ROLES, NATIONAL_ROLES, hasRole } from "./roles";
+import { CAMPAIGN_ROLES, COVERAGE_READ_ROLES, NATIONAL_ROLES, PILOTAGE_READ_ROLES, hasRole } from "./roles";
 import type { UiLocale } from "./register-i18n";
 import type { Campaign } from "./campaigns";
 
@@ -344,6 +344,16 @@ export function canWritePilotageTargets(role: UserRole | undefined): boolean {
 
 export function canListCampaigns(role: UserRole | undefined): boolean {
   return hasRole(role, CAMPAIGN_ROLES);
+}
+
+/** May read a campaign's returns (Suivi des retours). Includes read-only central staff. */
+export function canReadCampaignReturns(role: UserRole | undefined): boolean {
+  return hasRole(role, PILOTAGE_READ_ROLES);
+}
+
+/** May read registration coverage. Includes read-only central staff. */
+export function canReadRegistrationCoverage(role: UserRole | undefined): boolean {
+  return hasRole(role, COVERAGE_READ_ROLES);
 }
 
 /** Africa/Douala is UTC+1 with no DST. */

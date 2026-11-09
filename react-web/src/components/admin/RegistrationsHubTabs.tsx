@@ -11,19 +11,22 @@ export function RegistrationsHubTabs({
   activeTab,
   canReviewRegistrations,
   currentQuery = "",
+  counts,
 }: {
   activeTab: RegistrationsHubTab;
   canReviewRegistrations: boolean;
   currentQuery?: string;
+  /** Tab counts, as on the canvas boards; omitted when not known yet. */
+  counts?: { queue?: string; organisations?: string };
 }) {
   const t = useTranslations("adminInscriptionsPage");
   const tNav = useTranslations("adminNav");
   const tabs = [
     ...(canReviewRegistrations ? [
-      { id: "queue" as const, label: t("viewQueue"), href: inscriptionsViewHref(currentQuery, "queue") },
-      { id: "organisations" as const, label: t("viewOrganisations"), href: inscriptionsViewHref(currentQuery, "organisations") },
+      { id: "queue" as const, label: t("viewQueue"), href: inscriptionsViewHref(currentQuery, "queue"), count: counts?.queue },
+      { id: "organisations" as const, label: t("viewOrganisations"), href: inscriptionsViewHref(currentQuery, "organisations"), count: counts?.organisations },
     ] : []),
-    { id: "register" as const, label: tNav("routes.etablissements"), href: "/admin/etablissements" },
+    { id: "register" as const, label: tNav("routes.etablissements"), href: "/admin/etablissements", count: undefined },
   ];
 
   return (
@@ -36,6 +39,7 @@ export function RegistrationsHubTabs({
           className="cam-admin-tab"
         >
           {tab.label}
+          {tab.count !== undefined && <span className="cam-admin-tab-count">{tab.count}</span>}
         </Link>
       ))}
     </nav>

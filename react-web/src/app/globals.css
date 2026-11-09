@@ -1280,21 +1280,17 @@ html:has(.cam-auth-page--wizard) {
   margin-bottom: var(--cam-step-header-space-after);
 }
 
-/* The step rail already names the section (its caption does on a phone),
-   so the title is not drawn a second time over the form (owner,
-   2026-10-22). It stays in the tree, visually hidden like .sr-only: it is
-   the page's h1, the section's accessible name and the focus target on
-   every section change. The subtitle is what the respondent reads. */
+/* The section title is shown above its subtitle (owner, 2026-11-08,
+   reversing 2026-10-22, when it was visually hidden because the rail named
+   the section): the subtitle alone did not say which section the
+   respondent was in. It is also the section's accessible name and the
+   focus target on every section change. */
 .cam-auth-page--wizard .step-header-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: var(--cam-sr-offset);
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
+  margin: 0 0 var(--cam-space-1);
+  color: var(--cam-text);
+  font-size: var(--cam-step-title-size);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-heading);
 }
 
 /* The heading takes focus on every section change so the respondent is not
@@ -1882,22 +1878,9 @@ html:has(.cam-auth-page--wizard) {
   display: none;
 }
 
-/* One long application: keep every section visible as the document scrolls. */
-.cam-auth-page--wizard .cam-form-flow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cam-space-7);
-}
-
+/* One section on screen at a time; the others are hidden above. */
 .cam-auth-page--wizard .wizard-section {
   scroll-margin-top: 10rem;
-  padding-bottom: var(--cam-space-6);
-  border-bottom: var(--cam-border-width) solid var(--cam-border);
-}
-
-.cam-auth-page--wizard .wizard-section:last-of-type {
-  padding-bottom: 0;
-  border-bottom: 0;
 }
 
 .cam-auth-page--wizard .registration-form-intro {
@@ -1917,12 +1900,6 @@ html:has(.cam-auth-page--wizard) {
   margin: var(--cam-space-2) 0 0;
   color: var(--cam-text-muted);
   line-height: var(--cam-line-height-copy);
-}
-
-.cam-auth-page--wizard .registration-form-submit {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: var(--cam-space-2);
 }
 
 /* The error banner sits above the section inside the frame, so a failure

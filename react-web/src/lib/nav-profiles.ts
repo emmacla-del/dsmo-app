@@ -75,15 +75,12 @@ export interface NavProfile {
  * its sub-routes (USER_ADMIN_ROLES, AUDIT_ROLES, SETTINGS_ROLES) include
  * them. Territorial team monitoring has its own hub for MONITORING_ROLES.
  *
- * AUDITOR is the one deliberate exception. It can open the one ungated
- * sub-route under "overview" (/admin/pilotage has no allowedRoles), so the
- * principle would give it that hub too. Its nav is held
- * to the audit journal alone until the role is designed properly — see the
- * note on its entry below.
+ * AUDITOR is held to the audit journal alone until the role is designed
+ * properly: see the note on its entry below.
  */
 export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   SUPER_ADMIN: {
-    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
+    hubs: ["inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
   },
   // Same hubs as SUPER_ADMIN, and intentionally written out rather than
   // aliased to it: the two diverge inside "administration", where ADMIN_ONEFOP
@@ -92,13 +89,13 @@ export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   // sub-route gates. Keeping the lists separate means a later change to one
   // role's nav cannot silently move the other's.
   ADMIN_ONEFOP: {
-    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
+    hubs: ["inscriptions", "teledeclarations", "collecte", "equipe", "donnees", "administration"],
   },
   ADMIN_ONEFOP_REGISTRATIONS: {
-    hubs: ["supervision", "inscriptions", "collecte"],
+    hubs: ["inscriptions", "collecte"],
   },
   ADMIN_ONEFOP_SUBMISSIONS: {
-    hubs: ["supervision", "teledeclarations", "collecte", "donnees"],
+    hubs: ["teledeclarations", "collecte", "donnees"],
   },
   // Territorial profiles. They differ in the team hub and campaign routes.
   // REGIONAL_ADMIN sees /admin/equipe (MONITORING_ROLES), while
@@ -106,10 +103,10 @@ export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   // CAMPAIGN_ROLES) but to /admin/cibles for DIVISIONAL_ADMIN (it is not).
   // Each hub's own territory scoping is applied server-side.
   REGIONAL_ADMIN: {
-    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte", "equipe"],
+    hubs: ["inscriptions", "teledeclarations", "collecte", "equipe"],
   },
   DIVISIONAL_ADMIN: {
-    hubs: ["supervision", "inscriptions", "teledeclarations", "collecte"],
+    hubs: ["inscriptions", "teledeclarations", "collecte"],
   },
   // Deferred, deliberately minimal: "administration" resolves to
   // /admin/journal-audit, the one page in AUDIT_ROLES. The hub therefore reads
@@ -119,11 +116,12 @@ export const NAV_PROFILES: Record<UserRole, NavProfile> = {
   AUDITOR: {
     hubs: ["administration"],
   },
-  // Read-only central staff: the submissions dashboard ("overview"), and the
-  // establishment directory. No collecte, qualite, donnees or administration: those
-  // hubs are about acting, and every action is refused to the role.
+  // Read-only central staff: the establishment directory, the dossiers, and
+  // in "collecte" only /admin/cibles, read-only, for returns and coverage.
+  // No donnees or administration: those hubs are about acting, and every
+  // action is refused to the role.
   CENTRAL_AGENT: {
-    hubs: ["supervision", "inscriptions", "teledeclarations"],
+    hubs: ["inscriptions", "teledeclarations", "collecte"],
   },
   // Not a console role: the /admin layout guard (ADMIN_ROLES) turns COMPANY
   // away before any sidebar renders. Present so the Record stays total.
@@ -147,14 +145,12 @@ export function resolveNavProfile(role: string | null | undefined): NavProfile {
 }
 
 /**
- * Where a staff role starts: the first page its rail offers. That is the
- * dashboard for everyone but AUDITOR, which may not open it. Sending AUDITOR
- * there left it on an empty page, because RequireAdminRole refused the
- * dashboard and redirected to the dashboard. Every "go to the console" link
- * and redirect uses this, never a hard-coded /admin/pilotage.
+ * Where a staff role starts: the first page its rail offers. Every "go to the
+ * console" link and redirect uses this, never a hard-coded route. A role with
+ * no rail has no console page to start on, so it goes to /home.
  */
 export function adminHomeFor(role: string | null | undefined): string {
-  return navHubsFor(role)[0]?.href ?? "/admin/pilotage";
+  return navHubsFor(role)[0]?.href ?? "/home";
 }
 
 /**

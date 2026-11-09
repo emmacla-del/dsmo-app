@@ -148,6 +148,9 @@ export const PILOTAGE_READ_ROLES: readonly UserRole[] = [
   ...SURVEY_READ_ROLES,
 ];
 
+/** Registration coverage, read side (PILOTAGE_COVERAGE_READ_ROLES on pilotage.controller.ts). */
+export const COVERAGE_READ_ROLES: readonly UserRole[] = [...REGISTRATION_ROLES, ...READ_ONLY_ROLES];
+
 /** Platform settings and system identity. SUPER_ADMIN alone. */
 export const SETTINGS_ROLES: readonly UserRole[] = ["SUPER_ADMIN"];
 

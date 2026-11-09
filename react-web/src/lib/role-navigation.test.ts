@@ -33,11 +33,13 @@ test("COMPANY role has the 5 respondent-focused tabs in order", () => {
 
 test("Staff administrative roles maintain their supervision routes", () => {
   const divisional = navItemsForRole("DIVISIONAL_ADMIN");
-  assert.ok(divisional.some((i) => i.route === "/admin/pilotage"));
+  assert.ok(divisional.some((i) => i.route === "/admin/dossiers"));
+  assert.ok(!divisional.some((i) => i.route === "/admin/pilotage"));
   assert.ok(divisional.some((i) => i.route === "/admin/dossiers"));
 
   const superAdmin = navItemsForRole("SUPER_ADMIN");
-  assert.ok(superAdmin.some((i) => i.route === "/admin/pilotage"));
+  assert.ok(superAdmin.some((i) => i.route === "/admin/dossiers"));
+  assert.ok(!superAdmin.some((i) => i.route === "/admin/pilotage"));
   assert.ok(superAdmin.some((i) => i.route === "/admin/dossiers"));
   assert.ok(superAdmin.some((i) => i.route === "/admin/diffusion"));
 });

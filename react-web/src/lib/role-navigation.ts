@@ -82,13 +82,11 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "aide", labelKey: "homeNav.item.help", route: "/home/aide" },
   ],
   DIVISIONAL_ADMIN: [
-    { slug: "pilotage", labelKey: "homeNav.item.territorialDashboard", route: "/admin/pilotage" },
     { slug: "submissions", labelKey: "homeNav.item.fileReview", route: "/admin/dossiers" },
     // No "Statistiques" entry: the React app has no analytics screen, and the
     // entry only led to the not-yet-migrated placeholder.
   ],
   REGIONAL_ADMIN: [
-    { slug: "pilotage", labelKey: "homeNav.item.regionalDashboard", route: "/admin/pilotage" },
     { slug: "submissions", labelKey: "homeNav.item.fileReview", route: "/admin/dossiers" },
     // No "Statistiques DSMO" entry, for the same reason as DIVISIONAL_ADMIN.
     // REGIONAL_ADMIN will be able to send notifications when the ONEFOP
@@ -96,15 +94,13 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     // until that component exists — see the deleted DSMO SendNotificationForm
     // in git history for the shape it should take.
   ],
-  // Read-only central staff: the national dashboard and the dossiers, to
+  // Read-only central staff: the dossiers, to
   // consult. Nothing that acts.
   CENTRAL_AGENT: [
-    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
     { slug: "dossiers", labelKey: "homeNav.item.fileConsultation", route: "/admin/dossiers" },
   ],
   // Union of the former CENTRAL and SUPER_ADMIN_ONEFOP lists (see header).
   ADMIN_ONEFOP: [
-    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
     { slug: "dossiers", labelKey: "homeNav.item.reviewEndorsement", route: "/admin/dossiers" },
     { slug: "diffusion", labelKey: "homeNav.item.statisticsDissemination", route: "/admin/diffusion" },
     { slug: "settings", labelKey: "homeNav.item.sectorClassification", route: "/admin/sectors" },
@@ -112,18 +108,15 @@ const TABS_BY_ROLE: Record<NavRole, NavItem[]> = {
     { slug: "annuaire", labelKey: "homeNav.item.establishmentRegister", route: "/admin/annuaire" },
   ],
   ADMIN_ONEFOP_REGISTRATIONS: [
-    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
     { slug: "inscriptions", labelKey: "homeNav.item.registrationQueue", route: "/admin/inscriptions" },
     { slug: "annuaire", labelKey: "homeNav.item.establishmentRegister", route: "/admin/etablissements" },
   ],
   ADMIN_ONEFOP_SUBMISSIONS: [
-    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
     { slug: "dossiers", labelKey: "homeNav.item.reviewEndorsement", route: "/admin/dossiers" },
     { slug: "collecte", labelKey: "homeNav.item.surveys", route: "/admin/campagnes" },
     { slug: "diffusion", labelKey: "homeNav.item.statisticsDissemination", route: "/admin/diffusion" },
   ],
   SUPER_ADMIN: [
-    { slug: "pilotage", labelKey: "homeNav.item.nationalDashboard", route: "/admin/pilotage" },
     { slug: "dossiers", labelKey: "homeNav.item.reviewEndorsement", route: "/admin/dossiers" },
     { slug: "diffusion", labelKey: "homeNav.item.statisticsDissemination", route: "/admin/diffusion" },
     { slug: "settings", labelKey: "homeNav.item.sectorClassification", route: "/admin/sectors" },

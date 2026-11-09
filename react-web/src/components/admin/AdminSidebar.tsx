@@ -2,29 +2,24 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Database,
-  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   FileText,
   LayoutDashboard,
-  LogOut,
   Settings,
   ShieldCheck,
   Users,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { getActiveHub, type AdminHub } from "@/app/admin/_routes";
+import { getActiveHub, isSubRouteActive as isHubSubRouteActive, type AdminHub } from "@/app/admin/_routes";
 import type { UserRole } from "@/lib/user-types";
-import { LanguageLink } from "@/components/LanguageLink";
-import { AdminRailActions } from "@/components/admin/AdminHeaderActions";
 import { useNavProfile } from "@/hooks/useNavProfile";
 import { navHubsFor } from "@/lib/nav-profiles";
-import { hasRole, SETTINGS_ROLES } from "@/lib/roles";
 
 export interface AdminSidebarProps {
   /**
@@ -36,14 +31,8 @@ export interface AdminSidebarProps {
    * not ADMIN_HUBS filtered by allowedRoles; see that file for why.
    */
   role?: UserRole;
-  /** Signed-in identity shown in the sidebar footer. */
-  accountName?: string;
-  accountRole?: string;
   /** Badge count on data quality */
   anomaliesCount?: number;
-  /** Sign-out, kept at the foot of the rail (owner, 2026-10-10). */
-  onLogout?: () => void;
-  accountScope?: string;
   /**
    * From 1024px up: full labels (true) or the icon strip (false). In the
    * strip, hovering or focusing a hub opens a flyout with its name and pages.
@@ -53,11 +42,6 @@ export interface AdminSidebarProps {
   onToggleExpanded?: () => void;
 }
 
-/** True when `pathname` is the sub-route's page or one of its children. */
-function isSubRouteActive(pathname: string, href: string): boolean {
-  const base = href.split("?")[0];
-  return pathname === base || pathname.startsWith(`${base}/`);
-}
 
 // ── Hub Icons ─────────────────────────────────────────────────────────────────────────
 
@@ -73,6 +57,17 @@ const HUB_ICONS: Record<AdminHub["iconName"], LucideIcon> = {
   data: Database,
   settings: Settings,
 };
+
+// ── Groups ──────────────────────────────────────────────────────────────────
+
+// The rail's sections, as on the canvas boards (2026-11-08): the work on
+// files first, then running the collection, then data, then the system.
+const HUB_GROUPS: { key: "instruction" | "collecte" | "donnees" | "systeme"; hubs: readonly AdminHub["key"][] }[] = [
+  { key: "instruction", hubs: ["inscriptions", "teledeclarations"] },
+  { key: "collecte", hubs: ["collecte", "equipe"] },
+  { key: "donnees", hubs: ["donnees"] },
+  { key: "systeme", hubs: ["administration"] },
+];
 
 // ── Badge pill ────────────────────────────────────────────────────────────────
 
@@ -90,11 +85,7 @@ function Badge({ count }: { count: number }) {
 
 export function AdminSidebar({
   role,
-  accountName,
-  accountRole,
   anomaliesCount = 0,
-  onLogout,
-  accountScope,
   expanded = false,
   onToggleExpanded,
 }: AdminSidebarProps) {
@@ -102,10 +93,6 @@ export function AdminSidebar({
   const searchParams = useSearchParams();
   const t = useTranslations("adminSidebar");
   const tNav = useTranslations("adminNav");
-  const tHeader = useTranslations("adminHeaderActions");
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
-  const accountTriggerRef = useRef<HTMLButtonElement>(null);
   // A flyout closed with Escape stays closed until the pointer or focus leaves its hub.
   const [dismissedFlyout, setDismissedFlyout] = useState<string | null>(null);
 
@@ -116,35 +103,13 @@ export function AdminSidebar({
   const visibleHubs = useMemo(() => (role ? navHubsFor(role) : ownHubs), [role, ownHubs]);
 
   const activeHub = getActiveHub(pathname, searchParams);
-  const canOpenSettings = hasRole(role, SETTINGS_ROLES);
-
-  // The account menu closes on navigation, caught while rendering rather
-  // than in an effect (see the drawer in admin/layout.tsx).
-  const [accountMenuPathname, setAccountMenuPathname] = useState(pathname);
-  if (accountMenuPathname !== pathname) {
-    setAccountMenuPathname(pathname);
-    setAccountMenuOpen(false);
-  }
-
-  useEffect(() => {
-    if (!accountMenuOpen) return;
-    const dismissOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !accountMenuRef.current?.contains(event.target)) {
-        setAccountMenuOpen(false);
-      }
-    };
-    const dismissOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setAccountMenuOpen(false);
-      accountTriggerRef.current?.focus();
-    };
-    document.addEventListener("pointerdown", dismissOutside);
-    document.addEventListener("keydown", dismissOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", dismissOutside);
-      document.removeEventListener("keydown", dismissOnEscape);
-    };
-  }, [accountMenuOpen]);
+  // Hubs the role sees, in their sections; a hub no section names is kept
+  // at the end rather than dropped.
+  const grouped = HUB_GROUPS
+    .map((group) => ({ key: group.key, hubs: visibleHubs.filter((hub) => group.hubs.includes(hub.key)) }))
+    .filter((group) => group.hubs.length > 0);
+  const ungrouped = visibleHubs.filter((hub) => !HUB_GROUPS.some((group) => group.hubs.includes(hub.key)));
+  if (ungrouped.length > 0) grouped.push({ key: "systeme", hubs: ungrouped });
 
   function getBadgeCount(badgeKey?: AdminHub["badgeKey"]): number {
     if (badgeKey === "anomalies") return anomaliesCount;
@@ -164,7 +129,10 @@ export function AdminSidebar({
 
       {/* ── Primary Navigation Hubs ── */}
       <nav className="cam-admin-rail-nav">
-        {visibleHubs.map((hub) => {
+        {grouped.map((group) => (
+          <div key={group.key} className="cam-admin-rail-group" role="group" aria-labelledby={`cam-admin-rail-group-${group.key}`}>
+            <div id={`cam-admin-rail-group-${group.key}`} className="cam-admin-rail-group-title">{t(`group.${group.key}`)}</div>
+        {group.hubs.map((hub) => {
           const isActive = activeHub?.key === hub.key;
           const badgeCount = getBadgeCount(hub.badgeKey);
           const HubIcon = HUB_ICONS[hub.iconName];
@@ -211,7 +179,7 @@ export function AdminSidebar({
                       <Link
                         href={sub.href}
                         className="cam-admin-rail-subnav-link"
-                        aria-current={isSubRouteActive(pathname, sub.href) ? "page" : undefined}
+                        aria-current={isHubSubRouteActive(sub.href, pathname, searchParams, pages) ? "page" : undefined}
                       >
                         {tNav(`routes.${sub.labelKey}`)}
                       </Link>
@@ -232,7 +200,7 @@ export function AdminSidebar({
                           <Link
                             href={sub.href}
                             className="cam-admin-rail-flyout-link"
-                            aria-current={isSubRouteActive(pathname, sub.href) ? "page" : undefined}
+                            aria-current={isHubSubRouteActive(sub.href, pathname, searchParams, pages) ? "page" : undefined}
                           >
                             {tNav(`routes.${sub.labelKey}`)}
                           </Link>
@@ -245,9 +213,9 @@ export function AdminSidebar({
             </div>
           );
         })}
+          </div>
+        ))}
       </nav>
-
-      <AdminRailActions />
 
       {onToggleExpanded && (
         <button
@@ -263,47 +231,12 @@ export function AdminSidebar({
         </button>
       )}
 
-      {/* ── Footer: signed-in identity, language, and sign-out. ── */}
-      {onLogout && (
-        <div className="cam-admin-rail-account" ref={accountMenuRef}>
-          <button
-            ref={accountTriggerRef}
-            type="button"
-            className="cam-admin-account-trigger"
-            aria-expanded={accountMenuOpen}
-            aria-controls="cam-admin-account-menu"
-            onClick={() => setAccountMenuOpen((open) => !open)}
-          >
-            <span className="cam-admin-rail-avatar" aria-hidden="true">
-              {(accountName || "").split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() || "?"}
-            </span>
-            <span className="cam-admin-account-trigger-copy">
-              <span className="cam-admin-rail-user-name">{accountName}</span>
-              <span className="cam-admin-rail-user-role">{accountRole}</span>
-            </span>
-            <ChevronDown className={`cam-admin-account-trigger-chevron${accountMenuOpen ? " is-open" : ""}`} size={16} aria-hidden="true" />
-          </button>
-
-          {accountMenuOpen && <div id="cam-admin-account-menu" className="cam-admin-account-menu" aria-label={t("accountMenuAriaLabel")}>
-            {canOpenSettings && <Link href="/admin/parametres" className="cam-admin-account-menu-link" onClick={() => setAccountMenuOpen(false)}>
-              <Settings size={15} aria-hidden="true" />
-              <span>{t("accountSettingsButton")}</span>
-            </Link>}
-            {accountScope && <div className="cam-admin-account-menu-territory">
-              <span>{tHeader("scopeTitle")}</span>
-              <span className="cam-admin-scope" title={tHeader("scopeTitle")}>{tHeader("scopeChip", { scope: accountScope })}</span>
-            </div>}
-            <div className="cam-admin-account-menu-language">
-              <span>{t("languageLabel")}</span>
-              <LanguageLink compact />
-            </div>
-            <button type="button" onClick={() => { setAccountMenuOpen(false); onLogout(); }} className="cam-admin-rail-logout">
-              <LogOut size={14} aria-hidden="true" />
-              <span>{t("logoutButton")}</span>
-            </button>
-          </div>}
-        </div>
-      )}
+      {/* Who runs the platform and where to get help (canvas boards). The
+          account moved to the masthead. Hidden in the icon strip (CSS). */}
+      <div className="cam-admin-rail-foot">
+        <span>{t("footPlatform")}</span>
+        <span>{t("footAssistance", { phone: t("footAssistancePhone") })}</span>
+      </div>
     </aside>
   );
 }

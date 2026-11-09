@@ -13,9 +13,11 @@ import { directoryRoleLabel } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { computeUserScopeLabel } from "@/lib/admin-data-state";
 import { isRegistrationReviewPath } from "@/lib/registration-trail";
-import { ADMIN_ROLES, PILOTAGE_READ_ROLES, hasRole } from "@/lib/roles";
+import { ADMIN_ROLES, PILOTAGE_READ_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminMasthead } from "@/components/admin/AdminMasthead";
+import { AdminAccountMenu } from "@/components/admin/AdminAccountMenu";
+import { AdminFooter } from "@/components/admin/AdminFooter";
 import { RequireAdminRole } from "@/components/admin/RequireAdminRole";
 import {
   getAdminRailExpandedServerSnapshot,
@@ -211,32 +213,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className={`cam-admin${drawerOpen ? " is-menu-open" : ""}${isDossierWorkflow ? " is-dossier-workflow" : ""}${isDossierDetail ? " is-dossier-detail" : ""}${isRegistrationReview ? " is-review-detail" : ""}${railExpanded ? " is-rail-expanded" : " is-rail-compact"}`}>
-      <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
-        <AdminSidebar
-          role={user?.role}
-          accountName={displayName}
-          accountRole={accountRole}
-          anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
-          onLogout={handleLogout}
-          accountScope={scopeLabel}
-          expanded={railExpanded}
-          onToggleExpanded={toggleRail}
-        />
-      </Suspense>
-
-      {/* Sibling of the body, not a child, so the scrim stays clickable while
-          the body is inert. */}
-      <div className="cam-admin-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-
-      {/* The menu button sits inside this element, so it is inert too while
-          the drawer is open — which matches what is on screen, since the
-          scrim covers it. Escape and the scrim are the ways back out. */}
-        <div className="cam-admin-body" inert={drawerOpen}>
-        {/* Institutional masthead on every console route (spec §2, rev. 3,
-            owner 2026-11-08). Below 1024px it also holds the drawer toggle. */}
+      {/* Institutional masthead on every console route (spec §2, rev. 3,
+          owner 2026-11-08), across the whole window above the rail as on the
+          canvas boards. Below 1024px it also holds the drawer toggle. Inert
+          with the body while the drawer is open: the scrim covers it. */}
+      <div className="cam-admin-top" inert={drawerOpen}>
         <AdminMasthead
           scopeLabel={t("adminHeaderActions.scopeChip", { scope: scopeLabel })}
           scopeTitle={t("adminHeaderActions.scopeTitle")}
+          account={
+            <AdminAccountMenu
+              name={displayName}
+              role={accountRole}
+              scope={scopeLabel}
+              canOpenSettings={hasRole(user?.role, SETTINGS_ROLES)}
+              onLogout={handleLogout}
+            />
+          }
           menuButton={
             <button
               ref={menuButtonRef}
@@ -251,13 +244,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </button>
           }
         />
+      </div>
 
+      <Suspense fallback={<aside id="cam-admin-rail" className="cam-admin-rail" />}>
+        <AdminSidebar
+          role={user?.role}
+          anomaliesCount={queuesQuery.data?.blockingAnomaliesCount ?? 0}
+          expanded={railExpanded}
+          onToggleExpanded={toggleRail}
+        />
+      </Suspense>
+
+      {/* Sibling of the body, not a child, so the scrim stays clickable while
+          the body is inert. */}
+      <div className="cam-admin-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+
+      {/* The menu button sits inside this element, so it is inert too while
+          the drawer is open — which matches what is on screen, since the
+          scrim covers it. Escape and the scrim are the ways back out. */}
+        <div className="cam-admin-body" inert={drawerOpen}>
         <main className="cam-admin-main">
           {/* D8: per-page gate on top of the console gate above. */}
           <div key={pathname} className="cam-admin-route-transition">
             <RequireAdminRole>{children}</RequireAdminRole>
           </div>
         </main>
+        <AdminFooter />
       </div>
     </div>
   );

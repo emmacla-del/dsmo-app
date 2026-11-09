@@ -14,8 +14,8 @@ function renderAs(role: string, path: string) {
   return renderWithProviders(<Harness path={path} />);
 }
 
-test("an auditor refused the dashboard is sent to the audit journal, not back to the dashboard", async () => {
-  renderAs("AUDITOR", "/admin/pilotage");
+test("an auditor refused a page is sent to the audit journal", async () => {
+  renderAs("AUDITOR", "/admin/dossiers");
   await waitFor(() => assert.deepEqual(navigationMock.replaced, ["/admin/journal-audit"]));
   assert.equal(screen.queryByText("Contenu de la page"), null);
 });
@@ -26,7 +26,7 @@ test("an auditor on the audit journal stays there and sees the page", () => {
   assert.deepEqual(navigationMock.replaced, []);
 });
 
-test("another role refused a page still goes to the dashboard", async () => {
+test("another role refused a page goes to its own first page", async () => {
   renderAs("CENTRAL_AGENT", "/admin/journal-audit");
-  await waitFor(() => assert.deepEqual(navigationMock.replaced, ["/admin/pilotage"]));
+  await waitFor(() => assert.deepEqual(navigationMock.replaced, ["/admin/etablissements"]));
 });

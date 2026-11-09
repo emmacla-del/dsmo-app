@@ -21,9 +21,8 @@ import { formatDoualaDate } from "@/lib/douala-date";
 import { asUiLocale } from "@/lib/register-i18n";
 import { referencePeriodLabel } from "@/lib/onefop-period-label";
 
-// The four staff destinations, in the order the console lists them.
+// The staff destinations, in the order the console lists them.
 const STAFF_LINKS = [
-  { href: "/admin/pilotage", titleKey: "homeLandingPage.staffDashboard", hintKey: "homeLandingPage.staffDashboardHint" },
   { href: "/admin/dossiers?status=PENDING_REVIEW", titleKey: "homeLandingPage.staffPending", hintKey: "homeLandingPage.staffPendingHint" },
   { href: "/admin/dossiers", titleKey: "homeLandingPage.staffReview", hintKey: "homeLandingPage.staffReviewHint" },
   { href: "/admin/diffusion", titleKey: "homeLandingPage.staffStatistics", hintKey: "homeLandingPage.staffStatisticsHint" },

@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { coverageHref, groupNonRespondents, nonRespondentsHref, YEAR_MAX, YEAR_MIN, type NonRespondentRow } from "./pilotage-targets";
+import { canListCampaigns, canReadCampaignReturns, canReadRegistrationCoverage, canWritePilotageTargets, coverageHref, groupNonRespondents, nonRespondentsHref, YEAR_MAX, YEAR_MIN, type NonRespondentRow } from "./pilotage-targets";
 
 test("a valid ?annee= is carried over to campaign registration coverage", () => {
   assert.equal(coverageHref("2025"), "/admin/cibles?vue=couverture&annee=2025");
@@ -58,4 +58,24 @@ test("non-respondents are grouped by department, out-of-territory groups last", 
 
 test("the non-respondents view link carries the campaign", () => {
   assert.equal(nonRespondentsHref("c 1"), "/admin/cibles?vue=relances&campagne=c%201");
+});
+
+test("read-only central staff may read returns and coverage, and write nothing", () => {
+  assert.equal(canReadCampaignReturns("CENTRAL_AGENT"), true);
+  assert.equal(canReadRegistrationCoverage("CENTRAL_AGENT"), true);
+  assert.equal(canWritePilotageTargets("CENTRAL_AGENT"), false);
+  assert.equal(canListCampaigns("CENTRAL_AGENT"), false);
+});
+
+test("the two read gates mirror the server's role sets", () => {
+  // Returns have no registrations specialist; coverage has no submissions
+  // specialist. AUDITOR and COMPANY have neither.
+  assert.equal(canReadCampaignReturns("ADMIN_ONEFOP_REGISTRATIONS"), false);
+  assert.equal(canReadRegistrationCoverage("ADMIN_ONEFOP_REGISTRATIONS"), true);
+  assert.equal(canReadCampaignReturns("ADMIN_ONEFOP_SUBMISSIONS"), true);
+  assert.equal(canReadRegistrationCoverage("ADMIN_ONEFOP_SUBMISSIONS"), false);
+  for (const role of ["AUDITOR", "COMPANY"] as const) {
+    assert.equal(canReadCampaignReturns(role), false);
+    assert.equal(canReadRegistrationCoverage(role), false);
+  }
 });

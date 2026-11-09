@@ -16,9 +16,8 @@ import {
 } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
 import { getDataManagementStats } from "@/lib/api-client";
-import { APPROVAL_ROLES, DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
+import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
 import { AdminFilterField, AdminFilterMore, AdminScopePill, territoryPillFor } from "@/components/admin/AdminFilterBarParts";
@@ -425,6 +424,13 @@ function EtablissementsContent() {
         hideTabs
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* Export with the page's actions, as on the canvas board. */}
+            {!readOnly && (
+              <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
+                <Download aria-hidden="true" />
+                {t("exportButton")}
+              </Button>
+            )}
             {!readOnly && (
               <Button
                 type="button"
@@ -441,7 +447,6 @@ function EtablissementsContent() {
           </div>
         }
       />
-      <RegistrationsHubTabs activeTab="register" canReviewRegistrations={!!role && APPROVAL_ROLES.includes(role)} />
 
       {/* Key figures (canvas board 1): each one filters the register below. */}
       <AdminKpiStrip
@@ -481,12 +486,6 @@ function EtablissementsContent() {
         title={t("registerTitle")}
         description={t("scopeNote")}
         headingId="establishments-register-title"
-        actions={!readOnly ? (
-          <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
-            <Download aria-hidden="true" />
-            {t("exportButton")}
-          </Button>
-        ) : undefined}
         toolbar={
           <div className="cam-registration-filters">
             <div className="cam-filter-bar" role="group" aria-label={tRoot("adminDossiersPage.filtersButton")}>
