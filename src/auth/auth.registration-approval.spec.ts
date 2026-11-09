@@ -1431,6 +1431,22 @@ describe('AuthService.listCompanyRegistrations — duplicate selection', () => {
     expect(JSON.stringify(where)).toContain('Littoral');
   });
 
+  it('lists the files colleagues hold on a live claim, never the caller\'s own', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { view: 'queue', status: 'PENDING_APPROVAL', heldByOthersThan: 'officer-1' },
+    );
+    const where = pageWhere(prisma);
+    expect(where.user.AND[0]).toEqual({ assigneeId: { not: null } });
+    expect(where.user.AND[1]).toEqual({ NOT: { assigneeId: 'officer-1' } });
+    expect(where.user.AND[2].OR).toEqual(expect.arrayContaining([{ registrationClaimedAt: null }]));
+    expect(JSON.stringify(where)).toContain('Littoral');
+    await expect(
+      service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { heldByOthersThan: 'officer-1', unassigned: true }),
+    ).rejects.toThrow('assignedToOthers cannot be combined');
+  });
+
   it('lists a lapsed claim with the free files, never under its former holder', async () => {
     const { service, prisma } = makeService();
     const before = Date.now();

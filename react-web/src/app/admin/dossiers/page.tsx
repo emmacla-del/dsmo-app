@@ -1461,8 +1461,12 @@ function DossiersContent({
   const pageHeader = (
     <AdminPageHeader
       breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations"), href: "/admin/dossiers" }, { label: activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers") }]}
-      title={activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers")}
-      subtitle={activeView === "completed" ? t("completedSubtitle") : activeView === "followup" ? t("followUpSubtitle") : t("pageSubtitle")}
+      // The purpose sits beside the title, in brackets, so the table gets the
+      // height (owner, 2026-11-09, as on the registration queue).
+      title={<>
+        {activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers")}{" "}
+        <span className="cam-admin-page-title-note">({activeView === "completed" ? t("completedSubtitle") : activeView === "followup" ? t("followUpSubtitle") : t("pageSubtitle")})</span>
+      </>}
       actions={(
         <div className="cam-dossier-header-actions">
           <AdminHeaderActions showCampaignPill={false} />

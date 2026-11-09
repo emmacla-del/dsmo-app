@@ -200,8 +200,14 @@ export interface CompanyRegistrationItem {
   approvalComment: string | null;
   rejectionReason: string | null;
   duplicateHints: string[];
-  /** The matches this reader may open; a hint outside their territory has none. */
-  duplicateFiles: { id: string; organisation: string }[];
+  /**
+   * The matches this reader may open; a hint outside their territory has none.
+   * This and duplicateMatches are optional because the web app can reach a
+   * backend deployed before them: the page must still open, with the hints only.
+   */
+  duplicateFiles?: { id: string; organisation: string }[];
+  /** The same matches by field. organisation is null outside the reader's territory, fileId when it cannot be opened. */
+  duplicateMatches?: { field: "taxNumber" | "cnpsNumber" | "name"; fileId: string | null; organisation: string | null }[];
   requiresCentralStructureCheck: boolean;
   // Phase 2 attribution — see DirectoryUser above for the same three fields.
   registrationMethod: string | null;
@@ -211,6 +217,12 @@ export interface CompanyRegistrationItem {
   // entity has already filed a declaration. A draft does not count.
   assigneeId: string | null;
   assigneeName: string | null;
+  /**
+   * When the holder's claim lapses (2 hours after the claim, round the clock;
+   * CLAUDE.md §21, 2026-11-09). null for a free file, a file waiting for the
+   * declarant, or a server deployed before the deadline existed.
+   */
+  claimExpiresAt?: string | null;
   hasSubmitted: boolean;
   // The corrections the company last sent, when that resubmission is newer
   // than the last complements request on the same file. null when the company
@@ -260,6 +272,12 @@ export function listCompanyRegistrations(params: {
   overdue?: boolean;
   /** Only files assigned to the signed-in agent (phase 5). */
   assignedToMe?: boolean;
+  /** Only files nobody has claimed; exclusive with assignedToMe. */
+  unassigned?: boolean;
+  /** Only files another officer holds on a live claim; exclusive with the two above. */
+  assignedToOthers?: boolean;
+  /** A subdivision NAME, as Company.subdivision stores it; narrows within the reader's scope. */
+  subdivision?: string;
   /** Sort registration records by their submission date, across all pages. */
   sortOrder?: "oldest" | "newest";
   page?: number;
@@ -282,6 +300,9 @@ export function listCompanyRegistrations(params: {
   if (params.createdBy) query.set("createdBy", params.createdBy);
   if (params.overdue) query.set("overdue", "true");
   if (params.assignedToMe) query.set("assignedToMe", "true");
+  if (params.unassigned) query.set("unassigned", "true");
+  if (params.assignedToOthers) query.set("assignedToOthers", "true");
+  if (params.subdivision) query.set("subdivision", params.subdivision);
   if (params.sortOrder) query.set("sortOrder", params.sortOrder);
   if (params.page) query.set("page", String(params.page));
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
@@ -339,6 +360,23 @@ export function assignRegistrationUser(id: string, assigneeId: string | null, ex
       body: JSON.stringify({ assigneeId, expectedAssigneeId }),
     },
   );
+}
+
+/**
+ * Shows a claim on the review page as soon as the server has accepted it. The
+ * page reads its own cache entry, not the queue's: without this, a file opened
+ * shortly before read « Non réclamé » after being claimed, for as long as that
+ * entry counted as fresh. Invalidated too, so the history is read again.
+ */
+export function applyRegistrationClaim(
+  queryClient: Pick<QueryClient, "setQueryData" | "invalidateQueries">,
+  id: string,
+  claim: { assigneeId: string | null; assigneeName: string | null },
+) {
+  const key = ["auth", "company-registration", id];
+  queryClient.setQueryData<CompanyRegistrationItem & { overdueDays: number }>(key, (file) =>
+    file && { ...file, assigneeId: claim.assigneeId, assigneeName: claim.assigneeName });
+  void queryClient.invalidateQueries({ queryKey: key });
 }
 
 /**

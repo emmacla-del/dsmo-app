@@ -17,6 +17,8 @@ import { DataState } from "@/components/admin/DataState";
 import { canListCampaigns, doualaCalendarYear, formatApiError, getAnnualCoverage, getQuarterCoverage, getSemesterCoverage, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
 import { count, percent } from "@/lib/admin-data-state";
 import { listCompanyRegistrations } from "@/lib/user-directory";
+import { organisationsListHref } from "@/lib/inscriptions";
+import { oldestPendingHref } from "@/lib/registration-queue";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
@@ -77,14 +79,13 @@ function CoverageContent({
     staleTime: 60_000,
   });
   /**
-   * A ranked entity type links to the same queue, filtered on the type.
-   * `entityType` is the stored code, which is what the queue's own filter
-   * sends; the server checks nothing territorial here because the type is
-   * not a territory, and the reader's own scope still bounds the answer.
+   * A ranked entity type links to the registered organisations of that type:
+   * coverage counts approvals, so that is the list behind the figure, not the
+   * pending queue. `entityType` is the stored code the view's filter sends;
+   * the reader's own scope still bounds the answer server-side.
    */
   const typeQueueHref = hasRole(role, APPROVAL_ROLES)
-    ? (entityType: string) =>
-        `/admin/inscriptions?vue=queue&status=ALL&type=${encodeURIComponent(entityType)}`
+    ? (entityType: string) => organisationsListHref({ type: entityType })
     : null;
   const tRootPanel = useTranslations();
   const typeLabel = (entityType: string) =>
@@ -92,20 +93,10 @@ function CoverageContent({
       ? tRootPanel(ENTITY_TYPE_OPTION_KEYS[entityType])
       : entityTypeLabel(entityType);
   const queueHref = hasRole(role, APPROVAL_ROLES)
-    ? (regionName: string, departmentName?: string) => {
-        const params = new URLSearchParams({ vue: "file", status: "ALL", region: regionName });
-        if (departmentName) params.set("department", departmentName);
-        return `/admin/inscriptions?${params.toString()}`;
-      }
+    ? (regionName: string, departmentName?: string) => organisationsListHref({ region: regionName, department: departmentName })
     : null;
   const overdueQueueHref = canReadRegistrationQueue
-    ? (filters: { region?: string; department?: string; entityType?: string }) => {
-        const params = new URLSearchParams({ status: "OVERDUE" });
-        if (filters.region) params.set("region", filters.region);
-        if (filters.department) params.set("department", filters.department);
-        if (filters.entityType) params.set("type", filters.entityType);
-        return `/admin/inscriptions?${params.toString()}`;
-      }
+    ? (filters: { region?: string; department?: string; entityType?: string }) => oldestPendingHref(filters, role)
     : null;
   const query = useQuery({
     queryKey: ["admin", "pilotage", "coverage", year, semester, quarter],
@@ -379,6 +370,7 @@ function CoverageSummary({ totals, showOverdue }: { totals: CoverageResponse["to
 
 function CoverageOverdue() {
   const tRoot = useTranslations();
+  const role = useAuthStore((state) => state.user?.role);
   const t = useTranslations("adminInscriptionsPage");
   const locale = asUiLocale(useLocale());
   const query = useQuery({
@@ -396,7 +388,7 @@ function CoverageOverdue() {
 
   return (
     <Link
-      href="/admin/inscriptions?status=OVERDUE"
+      href={oldestPendingHref({}, role)}
       className="coverage-summary-card coverage-overdue-card focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <span className="text-sm font-medium">{tRoot("adminInscriptionsPage.statusOverdue", { days })}</span>
@@ -405,6 +397,9 @@ function CoverageOverdue() {
           overdue tile already uses them; naming that namespace keeps one
           wording rather than a second copy drifting here. */}
       <small className="text-muted-foreground">{tRoot("adminPilotagePage.registrationOverdueCaption")}</small>
+      {/* The queue has no overdue filter: it opens oldest first, so say so
+          rather than promise a list of exactly this many files. */}
+      <small className="text-muted-foreground">{t("openOldestPending")}</small>
     </Link>
   );
 }

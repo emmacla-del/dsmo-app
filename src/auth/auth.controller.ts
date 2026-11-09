@@ -456,6 +456,7 @@ export class AuthController {
     @Query('overdue') overdue?: string,
     @Query('assignedToMe') assignedToMe?: string,
     @Query('unassigned') unassigned?: string,
+    @Query('assignedToOthers') assignedToOthers?: string,
     @Query('subdivision') subdivision?: string,
     @Query('sortOrder') sortOrder?: string,
     @Query('page') page?: string,
@@ -483,6 +484,8 @@ export class AuthController {
       overdue: overdue === 'true',
       assigneeId: assignedToMe === 'true' ? req.user.id : undefined,
       unassigned: unassigned === 'true',
+      // Files colleagues hold: never the caller's own, whatever is sent.
+      heldByOthersThan: assignedToOthers === 'true' ? req.user.id : undefined,
       subdivision,
       sortOrder: sortOrder === 'oldest' ? 'oldest' : 'newest',
       page: page ? parseInt(page, 10) : undefined,

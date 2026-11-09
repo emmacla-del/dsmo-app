@@ -78,6 +78,7 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: "Le statut d'archivage a changé. Rechargez la page.", en: 'The archiving status changed. Reload the page.' },
   { fr: 'Les paramètres status et statuses s\'excluent mutuellement.', en: 'status and statuses are mutually exclusive.' },
   { fr: 'Les paramètres unassigned et assignedToMe s\'excluent mutuellement.', en: 'unassigned and assignedToMe are mutually exclusive.' },
+  { fr: 'Le paramètre assignedToOthers ne se combine ni avec unassigned ni avec assignedToMe.', en: 'assignedToOthers cannot be combined with unassigned or assignedToMe.' },
   { fr: 'Le paramètre statuses doit contenir au moins une valeur UserStatus.', en: 'statuses must contain at least one UserStatus value.' },
   { fr: "OVERDUE n'est pas un statut stocké ; utilisez overdue=true.", en: 'OVERDUE is not a stored status; use overdue=true.' },
   { fr: 'Statut d\'inscription inconnu : {0}.', en: 'Unknown registration status: {0}.' },

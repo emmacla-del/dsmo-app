@@ -41,7 +41,8 @@ test("a dossier return round trip keeps view, filters, and page", () => {
 test("an establishment return restores Organisations context and excludes queue-only or unknown filters", () => {
   assert.equal(
     buildRegistrationReturnTo("vue=organisations&organisation=atelier&status=ACTIVE&region=Centre&page=2&assignedToMe=1&duplicates=with&createdBy=u1&unknown=drop"),
-    "/admin/inscriptions?vue=organisations&search=atelier&status=ACTIVE&region=Centre&page=2",
+    // createdBy belongs to Organisations since the team page lists one agent's files there.
+    "/admin/inscriptions?vue=organisations&search=atelier&status=ACTIVE&region=Centre&createdBy=u1&page=2",
   );
   assert.equal(
     buildRegistrationReturnTo("vue=organisations&status=PENDING_APPROVAL&assignedToMe=1"),

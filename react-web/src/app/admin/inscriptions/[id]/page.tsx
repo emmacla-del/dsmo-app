@@ -52,6 +52,7 @@ import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
 import { NOT_PROVIDED, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { AdminPageHeader, AdminStatusBadge } from "@/components/admin/AdminPageHeader";
 import { registrationDecisionModel } from "@/lib/registration-decision";
+import { claimTimeLeft } from "@/lib/registration-queue";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { UnsavedNavigationGuard } from "@/components/auth/UnsavedNavigationGuard";
@@ -144,6 +145,13 @@ function RegistrationReview({ id }: { id: string }) {
     staleTime: 15_000,
   });
   const item = registrationQuery.data;
+  // A claim lasts 2 hours (CLAUDE.md §21, 2026-11-09): its time left moves on
+  // while the page is open.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const [revision, pinRevision] = usePinnedRevision(registrationQuery.isFetching ? undefined : item?.updatedAt);
   const historyQuery = useQuery({
     queryKey: ["auth", "company-registration", id, "history"],
@@ -300,7 +308,10 @@ function RegistrationReview({ id }: { id: string }) {
   };
   const failed = (error: Error & { status?: number }) => {
     if (error?.status === 409) {
-      setNotice({ tone: "error", text: t("staleFileError"), stale: true });
+      // The officer's own claim ran out while the page was open: say so,
+      // rather than « changed meanwhile »; the reload shows it free to claim.
+      const lapsed = !!userId && item?.assigneeId === userId && claimTimeLeft(item?.claimExpiresAt, new Date(), locale)?.lapsed;
+      setNotice({ tone: "error", text: lapsed ? t("claimLapsedError") : t("staleFileError"), stale: true });
       return;
     }
     setNotice({ tone: "error", text: error.message });
@@ -374,6 +385,7 @@ function RegistrationReview({ id }: { id: string }) {
   const status = STATUS_BADGE[item.status];
   const ownsClaim = !!userId && item.assigneeId === userId;
   const claimedByOther = !!item.assigneeId && !ownsClaim;
+  const claimLeft = item.assigneeId ? claimTimeLeft(item.claimExpiresAt, now, locale) : null;
   // The claim and the main action: see registration-decision.ts.
   const { canDecide, complementsFirst } = registrationDecisionModel({
     userId,
@@ -787,6 +799,12 @@ function RegistrationReview({ id }: { id: string }) {
                 </Button>
               )}
               <p className="cam-registration-claim-hint">{ownsClaim ? t("claimYouHint") : claimedByOther ? t("claimOtherHint") : t("claimFreeHint")}</p>
+              {claimLeft && (
+                <p className={claimLeft.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"}>
+                  {claimLeft.lapsed ? tRoot("adminRegistrationQueue.claimLapsed") : tRoot("adminRegistrationQueue.timeLeft", { time: claimLeft.label })}
+                  {" "}{tRoot("adminRegistrationQueue.timeLeftHelp")}
+                </p>
+              )}
             </div>
           )}
 

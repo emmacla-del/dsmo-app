@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { MoreHorizontal, Plus, Search, X } from "lucide-react";
+import { Download, MoreHorizontal, Search } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { useAuthStore } from "@/lib/auth-store";
 import { API_BASE_URL, getToken, localeHeader } from "@/lib/api-client";
@@ -15,8 +15,6 @@ import {
   restoreUser,
   suspendUser,
   activateUser,
-  applyRegistrationClaim,
-  assignRegistrationUser,
   decidedOrganisation,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
@@ -24,10 +22,10 @@ import { clampAdminListPage, parseAdminListPage, parseRegistrationVue } from "@/
 import { selectAdminViewCounts } from "@/lib/admin-view-counts";
 import { isBackgroundRefreshing } from "@/lib/admin-query-state";
 import { buildRegistrationReturnTo } from "@/lib/admin-return";
-import { registrationReviewHref, saveRegistrationTrail, type RegistrationListParams } from "@/lib/registration-trail";
+import { registrationReviewHref } from "@/lib/registration-trail";
 import { ENTITY_TYPE_OPTION_KEYS } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
-import { APPROVAL_ROLES, DIRECTORY_ROLES, USER_ARCHIVE_ROLES, USER_LIFECYCLE_ROLES, hasRole } from "@/lib/roles";
+import { APPROVAL_ROLES, USER_ARCHIVE_ROLES, USER_LIFECYCLE_ROLES, hasRole } from "@/lib/roles";
 import {
   inscriptionsHref,
   normalizeInscriptionsHref,
@@ -36,12 +34,10 @@ import {
   REGISTRATION_ENTITY_TYPES,
   REGISTRATION_METHOD_VALUES,
   registrationMethodLabel,
-  REGISTRATION_OVERDUE_DEFAULT_DAYS,
-  daysWaiting,
 } from "@/lib/inscriptions";
 import { departmentInRegion, regionInTree, useTerritoryDepartments, useTerritoryRegions, useTerritoryStructure } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { RegistrationsHubTabs } from "@/components/admin/RegistrationsHubTabs";
+import { RegistrationQueue } from "@/components/admin/RegistrationQueue";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminKpiStrip, type KpiItem } from "@/components/admin/AdminKpiStrip";
 import { AdminNumberedPager } from "@/components/admin/AdminPager";
@@ -53,7 +49,7 @@ import { AdminSavedViews, savedViewQuery } from "@/components/admin/AdminSavedVi
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
-import { NOT_PROVIDED, count, elapsedSince, resolveDataState, stamp } from "@/lib/admin-data-state";
+import { NOT_PROVIDED, count, resolveDataState } from "@/lib/admin-data-state";
 import { coverageHref } from "@/lib/pilotage-targets";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -106,11 +102,13 @@ function buildOrganisationsRequestParams(filters: {
   from?: string;
   to?: string;
   includeArchived: boolean;
+  createdBy?: string;
 }): Parameters<typeof listCompanyRegistrations>[0] {
   const status = normalizeRegistrationStatus(filters.statusFilter, "organisations");
   return {
     search: filters.search || undefined,
-    statuses: organisationsStatusesForFilter(status),
+    statuses: organisationsStatusesForFilter(status, filters.createdBy),
+    createdBy: filters.createdBy || undefined,
     view: "organisations",
     includeArchived: filters.includeArchived,
     entityType: filters.typeFilter || undefined,
@@ -159,9 +157,20 @@ function formatQueueDate(date: Date, locale: "fr" | "en"): string {
 export default function InscriptionsPage() {
   return (
     <Suspense fallback={<InscriptionsLoading />}>
-      <InscriptionsContent />
+      <InscriptionsView />
     </Suspense>
   );
+}
+
+/**
+ * The default view is the registration queue (pending review only), its own
+ * component; the organisations list and the legacy coverage alias stay here.
+ */
+function InscriptionsView() {
+  const searchParams = useSearchParams();
+  return parseRegistrationVue(searchParams.get("vue")) === "queue"
+    ? <RegistrationQueue />
+    : <InscriptionsContent />;
 }
 
 /**
@@ -198,13 +207,13 @@ function InscriptionsLoading() {
 function InscriptionsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // /admin/equipe's "Voir les inscriptions" arrives with ?createdBy=<userId>:
-  // every file that agent registered, so the status filter starts at "ALL"
-  // rather than the review queue — the équipe card counts every status.
+  // /admin/equipe's "Voir les inscriptions" arrives with ?vue=organisations&
+  // createdBy=<userId>: every file that agent registered, whatever its status,
+  // since the équipe card counts every status (organisationsStatusesForFilter).
   const vue = parseRegistrationVue(searchParams.get("vue"));
-  const createdBy = vue === "queue" ? searchParams.get("createdBy")?.trim() ?? "" : "";
+  const createdBy = vue === "organisations" ? searchParams.get("createdBy")?.trim() ?? "" : "";
   const requestedStatus = searchParams.get("status") ?? "";
-  const initialStatus = normalizeRegistrationStatus(requestedStatus, vue) || (vue === "queue" && createdBy ? "ALL" : "");
+  const initialStatus = normalizeRegistrationStatus(requestedStatus, vue);
   // The coverage ranking links a region here (?region=<Region.name>), the
   // same vocabulary this page's own filter options use. It only seeds the
   // filter: changing it afterwards is local state, as every other filter is,
@@ -469,54 +478,6 @@ function InscriptionsContent() {
         ? dateBoundary(customFrom)
         : undefined;
   const to = customFrom && customTo ? dateBoundary(customTo, true) : undefined;
-  const duplicatesParam = duplicatesFilter === "with" || duplicatesFilter === "without" ? duplicatesFilter : undefined;
-
-  // "OVERDUE" is a view of the queue, not a stored status: files the
-  // reviewers have left waiting past the threshold set in /admin/parametres.
-  const overdueOnly = statusFilter === "OVERDUE";
-  const queueQueryKey = [
-    "auth",
-    "company-registrations",
-    "queue",
-    organisation,
-    statusFilter,
-    typeFilter,
-    region,
-    department,
-    registrationMethod,
-    from,
-    to,
-    duplicatesParam,
-    createdBy,
-    registrationMethod,
-    assignedToMe,
-    sortOrder,
-    page,
-  ] as const;
-  // The queue request without paging: also what the review page pages through.
-  const queueListParams: RegistrationListParams = {
-    search: organisation || undefined,
-    view: "queue",
-    status: overdueOnly ? undefined : statusFilter || undefined,
-    overdue: overdueOnly || undefined,
-    createdBy: createdBy || undefined,
-    entityType: typeFilter || undefined,
-    region: region || undefined,
-    department: department || undefined,
-    registrationMethod: registrationMethod || undefined,
-    duplicates: duplicatesParam,
-    assignedToMe: assignedToMe || undefined,
-    sortOrder,
-    from,
-    to,
-  };
-  const queueQuery = useQuery({
-    queryKey: queueQueryKey,
-    queryFn: () => listCompanyRegistrations({ ...queueListParams, page, pageSize: PAGE_SIZE }),
-    enabled: canReadQueue && vue === "queue" && territoryFiltersValid,
-    placeholderData: keepPreviousData,
-    staleTime: 15_000,
-  });
 
   const organisationsRequestParams = buildOrganisationsRequestParams({
     search: organisation,
@@ -529,6 +490,7 @@ function InscriptionsContent() {
     from,
     to,
     includeArchived,
+    createdBy,
   });
   const organisationsQuery = useQuery({
     queryKey: ["auth", "company-registrations", "organisations", organisationsRequestParams, page],
@@ -538,7 +500,7 @@ function InscriptionsContent() {
     staleTime: 15_000,
   });
 
-  const activeListQuery = vue === "organisations" ? organisationsQuery : queueQuery;
+  const activeListQuery = organisationsQuery;
   useEffect(() => {
     if (vue === "coverage" || !territoryFiltersValid || activeListQuery.data === undefined || activeListQuery.isPlaceholderData) return;
     const validPage = clampAdminListPage(page, activeListQuery.data.total, PAGE_SIZE);
@@ -586,27 +548,11 @@ function InscriptionsContent() {
     setAccountAction(null);
   };
 
-  const exportRegistrations = async (targetView: "organisations" | "queue" = vue === "queue" ? "queue" : "organisations") => {
+  const exportOrganisations = async () => {
     if (!territoryFiltersValid) return;
     const params = new URLSearchParams();
-    if (targetView === "organisations") {
-      for (const [key, value] of Object.entries(organisationsRequestParams)) {
-        if (value !== undefined) params.set(key, String(value));
-      }
-    } else {
-      params.set("view", "queue");
-      if (organisation) params.set("search", organisation);
-      if (overdueOnly) params.set("overdue", "true");
-      else if (statusFilter) params.set("status", statusFilter);
-      if (createdBy) params.set("createdBy", createdBy);
-      if (typeFilter) params.set("entityType", typeFilter);
-      if (region) params.set("region", region);
-      if (department) params.set("department", department);
-      if (registrationMethod) params.set("registrationMethod", registrationMethod);
-      if (duplicatesParam) params.set("duplicates", duplicatesParam);
-      if (assignedToMe) params.set("assignedToMe", "true");
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
+    for (const [key, value] of Object.entries(organisationsRequestParams)) {
+      if (value !== undefined) params.set(key, String(value));
     }
     const token = getToken();
     const response = await fetch(`${API_BASE_URL}/auth/company-registrations/export?${params.toString()}`, {
@@ -628,79 +574,19 @@ function InscriptionsContent() {
     const url = URL.createObjectURL(await response.blob());
     const link = document.createElement("a");
     link.href = url;
-    link.download = `registrations_${targetView}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `registrations_organisations_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
-  const exportOrganisations = () => exportRegistrations("organisations");
-  const exportQueue = () => exportRegistrations("queue");
-
-  const assignMutation = useMutation({
-    mutationFn: (target: { id: string; assigneeId: string | null; expectedAssigneeId: string | null }) =>
-      assignRegistrationUser(target.id, target.assigneeId, target.expectedAssigneeId),
-    onSuccess: (claim, target) => {
-      applyRegistrationClaim(queryClient, target.id, claim);
-      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
-    },
-    onError: (error) => {
-      setNotice({ tone: "error", text: `${tRoot("adminDossiersPage.assignFailed")} ${error instanceof Error ? error.message : ""}`.trim() });
-      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
-    },
-  });
-
   // The region filter is applied by the API, inside the reviewer's own
   // territory scope, so paging and the totals stay consistent with it.
   const territoryValidationError = hasTerritoryFilters && territoryStructure.isError;
   const territoryValidationPending = hasTerritoryFilters && !territoryFiltersValid && !territoryValidationError;
-  const items = territoryFiltersValid ? queueQuery.data?.items ?? [] : [];
-  // null until the queue answers: a tile never shows a zero it has not read.
-  const counts = territoryFiltersValid ? selectAdminViewCounts(queueQuery.data?.countsView, "queue", queueQuery.data?.counts) : null;
   const organisationsResult = territoryFiltersValid ? organisationsQuery.data : undefined;
   const organisationItems = organisationsResult?.items ?? [];
   const organisationCounts = selectAdminViewCounts(organisationsResult?.countsView, "organisations", organisationsResult?.counts);
-  // The threshold the server applied, so the labels match the flags.
-  const overdueDays = territoryFiltersValid ? queueQuery.data?.overdueDays ?? REGISTRATION_OVERDUE_DEFAULT_DAYS : REGISTRATION_OVERDUE_DEFAULT_DAYS;
-  const total = territoryFiltersValid ? queueQuery.data?.total ?? 0 : 0;
-  const queueUpdating = territoryFiltersValid && queueQuery.isFetching && queueQuery.data !== undefined;
   const organisationsUpdating = territoryFiltersValid && isBackgroundRefreshing(organisationsQuery.isFetching, organisationsQuery.data);
 
-  // « Réclamer et ouvrir » / « Ouvrir »: the review page, with this page of
-  // the queue as its previous / next trail. A claim that fails (someone else
-  // took the file meanwhile) keeps the reviewer on the queue, with the reason.
-  const [opening, setOpening] = useState<string | null>(null);
-  const openReviewPage = async (item: CompanyRegistrationItem, claim: boolean) => {
-    setNotice(null);
-    saveRegistrationTrail({
-      returnTo: currentHref,
-      params: queueListParams,
-      page: queueQuery.data?.page ?? page,
-      pageSize: PAGE_SIZE,
-      total: queueQuery.data?.total ?? items.length,
-      ids: items.map((row) => row.id),
-    });
-    if (claim && userId) {
-      setOpening(item.id);
-      try {
-        await assignMutation.mutateAsync({ id: item.id, assigneeId: userId, expectedAssigneeId: item.assigneeId });
-      } catch {
-        setOpening(null);
-        return;
-      }
-    }
-    router.push(registrationReviewHref(item.id, currentHref));
-  };
-
-  const displayedPage = territoryFiltersValid ? queueQuery.data?.page ?? page : 1;
-  const start = items.length === 0 ? 0 : (displayedPage - 1) * PAGE_SIZE + 1;
-  const end = items.length === 0 ? 0 : start + items.length - 1;
-
-  const tableState = resolveDataState({
-    roleAllowed: canReadQueue,
-    isLoading: queueQuery.isLoading || territoryValidationPending,
-    isError: queueQuery.isError || territoryValidationError,
-    error: queueQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined),
-    rowCount: territoryFiltersValid && queueQuery.data ? items.length : null,
-  });
   const organisationsTableState = resolveDataState({
     roleAllowed: canReadQueue,
     isLoading: organisationsQuery.isLoading || territoryValidationPending,
@@ -732,9 +618,7 @@ function InscriptionsContent() {
   if (statusFilter) {
     const statusLabel = statusFilter === "ALL"
       ? t("statusAll")
-      : statusFilter === "OVERDUE"
-        ? t("statusOverdue", { days: overdueDays })
-        : statusFilter === "PENDING_APPROVAL"
+      : statusFilter === "PENDING_APPROVAL"
           ? t("statusPending")
           : statusFilter === "COMPLEMENTS_REQUESTED"
             ? t("statusComplements")
@@ -742,9 +626,6 @@ function InscriptionsContent() {
               ? t("statusApproved")
               : t("statusRejected");
     activeQueueFilters.push({ key: "status", label: `${t("registrationStatusColumn")}: ${statusLabel}`, clear: () => applyStatus("") });
-  }
-  if (createdBy) {
-    activeQueueFilters.push({ key: "createdBy", label: `${t("registeredByLabel")}: ${items.find((item) => item.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}`, clear: () => setUrlFilters({ createdBy: null }) });
   }
   if (assignedToMe) {
     activeQueueFilters.push({ key: "assignedToMe", label: tRoot("adminDossiersPage.assignedToMeOnly"), clear: () => applyAssignedToMe(false) });
@@ -756,17 +637,23 @@ function InscriptionsContent() {
       clear: () => applyDuplicates(""),
     });
   }
+  if (createdBy) {
+    // The name comes from the rows themselves (createdByName, resolved by the
+    // server); with no row to read it from, the chip still says what it does.
+    const author = organisationsResult?.items.find((item) => item.createdBy === createdBy)?.createdByName;
+    activeQueueFilters.push({
+      key: "createdBy",
+      label: author ? t("createdByChip", { name: author }) : t("createdByChipUnnamed"),
+      clear: () => setUrlFilters({ createdBy: null }),
+    });
+  }
   // The order is not a filter: it has its own control and « Tout effacer » keeps it (audit, §2).
   if (includeArchived) {
     activeQueueFilters.push({ key: "includeArchived", label: t("showArchived"), clear: () => setUrlFilters({ includeArchived: null }) });
   }
   const visibleActiveFilters = vue === "organisations"
-    ? activeQueueFilters.filter((filter) => ["search", "type", "region", "department", "dateRange", "status", "includeArchived", "registrationMethod", "sort"].includes(filter.key))
+    ? activeQueueFilters.filter((filter) => ["search", "type", "region", "department", "dateRange", "status", "includeArchived", "registrationMethod", "sort", "createdBy"].includes(filter.key))
     : activeQueueFilters;
-  const hasActiveQueueFilters = Boolean(
-    organisationInput.trim() || organisation || region || department || statusFilter || typeFilter ||
-    registrationMethod || dateRange !== "all" || duplicatesFilter || createdBy || assignedToMe,
-  );
   const clearQueueFilters = (extra: Record<string, null> = {}) => {
     setOrganisationInput("");
     setOrganisation("");
@@ -789,10 +676,7 @@ function InscriptionsContent() {
   const scopedDepartments = role === "REGIONAL_ADMIN" && userRegion && territoryStructure.isSuccess
     ? (territoryStructure.data.find((item) => item.name === userRegion)?.departments.map((item) => item.name) ?? [])
     : territoryDepartments;
-  // « Mes inscriptions » is a quick view above the bar, not a pill (spec §4F, audit R-8); Type takes its place.
-  const queuePillKeys = ["search", "status", "duplicates", "type", "assignedToMe", "createdBy", ...(territoryPill ? [territoryPill] : [])];
   const organisationPillKeys = ["search", "status", "type", ...(territoryPill ? [territoryPill] : [])];
-  const queuePanelChips = activeQueueFilters.filter(({ key }) => !queuePillKeys.includes(key) && key !== "includeArchived");
   const organisationPanelChips = visibleActiveFilters.filter(({ key }) => !organisationPillKeys.includes(key));
   const hasActiveOrganisationFilters = visibleActiveFilters.length > 0;
   const applySavedView = (query: string) => router.push(`/admin/inscriptions${query ? `?${query}` : ""}`, { scroll: false });
@@ -864,28 +748,18 @@ function InscriptionsContent() {
   );
 
 
-  // Key figures above the list (canvas board 1): the same territory totals
-  // as before, each one a filter on the list below. They replace the loose
-  // « Statut des inscriptions » summary and the overdue banner.
-  const queueKpis: KpiItem[] = counts ? [
-    { key: "pending", label: t("kpiPending"), value: count(counts.pending ?? 0, locale), hint: t("kpiPendingHint"), tone: "warning", pressed: statusFilter === "PENDING_APPROVAL", onSelect: () => applyStatus(statusFilter === "PENDING_APPROVAL" ? "" : "PENDING_APPROVAL"), selectHint: t("kpiFilterHint") },
-    { key: "complements", label: t("kpiComplements"), value: count(counts.complements ?? 0, locale), hint: t("kpiComplementsHint"), tone: "info", pressed: statusFilter === "COMPLEMENTS_REQUESTED", onSelect: () => applyStatus(statusFilter === "COMPLEMENTS_REQUESTED" ? "" : "COMPLEMENTS_REQUESTED"), selectHint: t("kpiFilterHint") },
-    { key: "overdue", label: t("kpiOverdue", { days: overdueDays }), value: count(counts.overdue ?? 0, locale), hint: t("kpiOverdueHint"), tone: "info", pressed: statusFilter === "OVERDUE", onSelect: () => applyStatus(statusFilter === "OVERDUE" ? "" : "OVERDUE"), selectHint: t("kpiFilterHint") },
-    { key: "approved", label: t("kpiApproved"), value: count(counts.approved ?? 0, locale), hint: t("kpiApprovedHint"), tone: "success", pressed: statusFilter === "ACTIVE", onSelect: () => applyStatus(statusFilter === "ACTIVE" ? "" : "ACTIVE"), selectHint: t("kpiFilterHint") },
-  ] : [];
   const organisationKpis: KpiItem[] = organisationCounts ? [
     { key: "approved", label: t("kpiApproved"), value: count(organisationCounts.approved ?? 0, locale), hint: t("kpiApprovedHint"), tone: "success", pressed: statusFilter === "ACTIVE", onSelect: () => applyStatus(statusFilter === "ACTIVE" ? "" : "ACTIVE"), selectHint: t("kpiFilterHint") },
     { key: "rejected", label: t("kpiRejected"), value: count(organisationCounts.rejected ?? 0, locale), hint: t("kpiRejectedHint"), tone: "danger", pressed: statusFilter === "REJECTED", onSelect: () => applyStatus(statusFilter === "REJECTED" ? "" : "REJECTED"), selectHint: t("kpiFilterHint") },
   ] : [];
   const kpiStrip = canReadQueue ? (
     <AdminKpiStrip
-      items={vue === "organisations" ? organisationKpis : queueKpis}
+      items={organisationKpis}
       label={t("kpiAriaLabel")}
-      loading={territoryFiltersValid && (vue === "organisations" ? !organisationsResult && !organisationsQuery.isError : !queueQuery.data && !queueQuery.isError)}
+      loading={territoryFiltersValid && !organisationsResult && !organisationsQuery.isError}
       loadingLabel={tRoot("adminLayout.loadingFigures")}
-      error={vue === "organisations" ? organisationsQuery.isError : queueQuery.isError}
+      error={organisationsQuery.isError}
       errorLabel={tRoot("adminLayout.figuresUnavailable")}
-      note={t("statusCountsScopeNote")}
     />
   ) : null;
 
@@ -899,19 +773,19 @@ function InscriptionsContent() {
         title={vue === "organisations" ? t("viewOrganisations") : tRoot("adminNav.routes.inscriptions")}
         subtitle={vue === "organisations" ? t("organisationsSubtitle") : t("pageSubtitle")}
         hideTabs
-        actions={vue === "queue" && role && DIRECTORY_ROLES.includes(role) ? (
-          <Link href="/admin/inscriptions/nouvelle" className="cam-button cam-button-primary cam-button-sm">
-            <Plus aria-hidden="true" />
-            {tRoot("adminNav.routes.nouvelleInscription")}
-          </Link>
-        ) : undefined}
+        actions={
+          // Exports sit with the page's actions, as on the canvas boards.
+          <Button type="button" size="sm" variant="outline" onClick={exportOrganisations} disabled={!territoryFiltersValid}>
+            <Download aria-hidden="true" />
+            {t("exportRegistrations")}
+          </Button>
+        }
       />
-      <RegistrationsHubTabs activeTab={vue} canReviewRegistrations={canReadQueue} currentQuery={currentQuery} />
       {kpiStrip}
 
       {vue === "organisations" && <>
         {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="my-4">{notice.text}</Alert>}
-        <AdminTablePanel title={t("viewOrganisations")} description={t("organisationsScopeNote")} headingId="registration-organisations-table-title" busy={organisationsUpdating} busyLabel={t("updatingOrganisations")} actions={<Button type="button" size="sm" variant="outline" onClick={exportOrganisations} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>}>
+        <AdminTablePanel title={t("viewOrganisations")} description={<>{t("organisationsScopeNote")} {t("statusCountsScopeNote")}</>} headingId="registration-organisations-table-title" busy={organisationsUpdating} busyLabel={t("updatingOrganisations")}>
           <div className="cam-admin-table-panel-body">
             <div className="cam-registration-filters">
               <div className="cam-filter-bar" role="group" aria-label={filtersLabel}>
@@ -937,7 +811,6 @@ function InscriptionsContent() {
                   onChange={applyType}
                   options={REGISTRATION_ENTITY_TYPES.map((value) => ({ value, label: entityLabel(value) }))}
                 />
-                {userId && <AdminSavedViews storageKey={`camleap.savedViews.organisations.${userId}`} currentQuery={savedViewQuery(currentQuery)} onApply={applySavedView} />}
                 <AdminFilterMore label={filtersLabel} count={organisationPanelChips.length}>
                   {dateRangeField("organisations")}
                   {departmentPanelField("organisations")}
@@ -949,6 +822,7 @@ function InscriptionsContent() {
                 </AdminFilterMore>
                 {hasActiveOrganisationFilters && <Button type="button" variant="ghost" size="sm" onClick={() => clearQueueFilters({ includeArchived: null })}>{t("clearFilters")}</Button>}
                 {sortControl("organisations")}
+                {userId && <AdminSavedViews storageKey={`camleap.savedViews.organisations.${userId}`} currentQuery={savedViewQuery(currentQuery)} onApply={applySavedView} />}
               </div>
               <AdminActiveFilterChips filters={organisationPanelChips.map(({ key, label, clear }) => ({ key, label, onClear: clear }))} label={t("activeFiltersLabel")} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
             </div>
@@ -967,7 +841,11 @@ function InscriptionsContent() {
                   <TableCell data-label={t("registrationStatusColumn")}><span className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}</span></TableCell>
                   <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
                   <TableCell className="cam-cell-action"><div className="flex items-center justify-end gap-1">
-                    {detailIdentifier
+                    {/* A file still under review (listed here only for one agent's
+                        files) opens on its review page, where it can be decided. */}
+                    {item.status === "PENDING_APPROVAL" || item.status === "COMPLEMENTS_REQUESTED"
+                      ? <Link className="cam-button cam-button-secondary cam-button-sm" href={registrationReviewHref(item.id, `/admin/inscriptions?${currentQuery}`)}>{t("openButton")}</Link>
+                      : detailIdentifier
                       ? <Link className="cam-button cam-button-secondary cam-button-sm" href={`/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}&returnTo=${encodeURIComponent(establishmentReturnTo)}`}>{t("openButton")}</Link>
                       : <span aria-disabled="true" className="cam-button cam-button-secondary cam-button-sm" title={NOT_PROVIDED}>{t("openButton")}</span>}
                     {/* Every reader gets the menu: it holds the read-only « Déclarations » link (audit R-6). */}
@@ -1022,180 +900,6 @@ function InscriptionsContent() {
           onConfirm={runAccountAction}
         />}
       </>}
-
-      {vue === "queue" && (<>
-      {createdBy && (
-        <Alert role="status" variant="info" className="my-4 flex items-center gap-3">
-          <span>
-            {t("createdByFilter")}{" "}
-            <strong>{items.find((i) => i.createdBy === createdBy)?.createdByName ?? t("selectedOfficer")}</strong>
-          </span>
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            className="ms-auto h-auto px-0"
-            onClick={() => {
-              applyStatus("");
-              setUrlFilters({ createdBy: null });
-            }}
-          >
-            {t("removeFilter")}
-          </Button>
-        </Alert>
-      )}
-
-      {notice && (
-        <Alert
-          role={notice.tone === "error" ? "alert" : "status"}
-          variant={notice.tone === "error" ? "destructive" : "success"}
-          className="my-4 flex items-center gap-3"
-        >
-          <span>{notice.text}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="ms-auto size-7"
-            aria-label={t("closeAriaLabel")}
-            onClick={() => setNotice(null)}
-          >
-            <X />
-          </Button>
-        </Alert>
-      )}
-
-      {vue === "queue" && queueUpdating && (
-        <p className="cam-registration-queue-updating" role="status" aria-live="polite">
-          <span className="cam-registration-queue-spinner" aria-hidden="true" />
-          {t("updatingQueue")}
-        </p>
-      )}
-
-
-      </>)}
-
-      {vue === "queue" && (<>
-
-      <AdminTablePanel title={t("viewQueue")} headingId="registration-queue-table-title" busy={queueUpdating}
-        footer={queueQuery.data && total > 0 ? (
-          // Only once the queue has answered (G10) and has rows: "0–0 sur 0"
-          // read as a count nobody had read while loading.
-          <AdminNumberedPager
-            page={displayedPage}
-            pageCount={Math.max(1, Math.ceil(total / PAGE_SIZE))}
-            range={<AdminLiveResultCount announce={!queueQuery.isPlaceholderData}>{t("showingRange", { start: count(start, locale), end: count(end, locale), total: count(total, locale) })}</AdminLiveResultCount>}
-            previousLabel={t("previousButton")}
-            nextLabel={t("nextButton")}
-            label={t("pagerAriaLabel")}
-            pageLabel={(n) => t("pageButtonAriaLabel", { page: n })}
-            disabled={queueUpdating}
-            onPage={setPage}
-          />
-        ) : undefined}
-        actions={<Button type="button" size="sm" variant="outline" onClick={exportQueue} disabled={!territoryFiltersValid}>{t("exportRegistrations")}</Button>}>
-        <div className="cam-admin-table-panel-body">
-          <div className="cam-registration-filters">
-            {/* Whose files are listed: quick views above the bar, as in the dossier queue (spec §4F). */}
-            {hasRole(role, APPROVAL_ROLES) && userId && <div className="cam-dossier-quick-filters" role="group" aria-label={t("queueViewsLabel")}>
-              <button type="button" className="cam-dossier-quick-filter" aria-pressed={!assignedToMe} onClick={() => applyAssignedToMe(false)}>{t("queueViewAll")}</button>
-              <button type="button" className="cam-dossier-quick-filter" aria-pressed={assignedToMe} onClick={() => applyAssignedToMe(true)}>{t("queueViewMine")}</button>
-            </div>}
-            <div className="cam-filter-bar" role="group" aria-label={filtersLabel}>
-              {searchField("registrations-search")}
-              <AdminScopePill />
-              <AdminFilterPill
-                label={t("registrationStatusColumn")}
-                value={statusFilter}
-                allLabel={t("statusInQueue")}
-                clearLabel={t("removeFilterChip", { label: t("registrationStatusColumn") })}
-                onChange={applyStatus}
-                options={[
-                  { value: "PENDING_APPROVAL", label: t("statusPending"), count: counts?.pending },
-                  { value: "COMPLEMENTS_REQUESTED", label: t("statusComplements"), count: counts?.complements },
-                  { value: "OVERDUE", label: t("statusOverdue", { days: overdueDays }), count: counts?.overdue },
-                  { value: "ACTIVE", label: t("statusApproved"), count: counts?.approved },
-                  { value: "REJECTED", label: t("statusRejected"), count: counts?.rejected },
-                  { value: "ALL", label: t("statusAll") },
-                ]}
-              />
-              <AdminFilterPill
-                label={t("duplicatesColumn")}
-                value={duplicatesFilter}
-                allLabel={t("statusAll")}
-                clearLabel={t("removeFilterChip", { label: t("duplicatesColumn") })}
-                onChange={applyDuplicates}
-                options={[
-                  { value: "with", label: t("withDuplicates") },
-                  { value: "without", label: t("withoutDuplicates") },
-                ]}
-              />
-              {territoryPillControl}
-              <AdminFilterPill
-                label={t("establishmentTypeColumn")}
-                value={typeFilter}
-                allLabel={t("allTypes")}
-                clearLabel={t("removeFilterChip", { label: t("establishmentTypeColumn") })}
-                onChange={applyType}
-                options={REGISTRATION_ENTITY_TYPES.map((value) => ({ value, label: entityLabel(value) }))}
-              />
-              {userId && <AdminSavedViews storageKey={`camleap.savedViews.inscriptions.${userId}`} currentQuery={savedViewQuery(currentQuery)} onApply={applySavedView} />}
-              <AdminFilterMore label={filtersLabel} count={queuePanelChips.length}>
-                {dateRangeField("registrations")}
-                {departmentPanelField("registrations")}
-                {methodField("registrations")}
-              </AdminFilterMore>
-              {hasActiveQueueFilters && <Button type="button" variant="ghost" size="sm" onClick={() => clearQueueFilters()}>{t("clearFilters")}</Button>}
-              {sortControl("registrations")}
-            </div>
-            <AdminActiveFilterChips filters={queuePanelChips.map(({ key, label, clear }) => ({ key, label, onClear: clear }))} label={t("activeFiltersLabel")} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
-          </div>
-          <Table className="cam-registration-queue-table cam-table-stack">
-            <TableHeader><TableRow>
-              <TableHead scope="col">{t("organisationReferenceColumn")}</TableHead>
-              <TableHead scope="col">{t("registrationStatusColumn")}</TableHead>
-              <TableHead scope="col">{t("territoryColumn")}</TableHead>
-              <TableHead scope="col" aria-sort={sortOrder === "oldest" ? "ascending" : "descending"}>{t("submissionDateColumn")}</TableHead>
-              <TableHead scope="col">{t("assignmentColumn")}</TableHead>
-              <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              <DataStateRow colSpan={6} state={tableState} resource={tRoot("adminNav.routes.inscriptions")} error={queueQuery.error ?? (territoryValidationError ? territoryStructure.error : undefined)} onRetry={() => territoryValidationError ? territoryStructure.refetch() : queueQuery.refetch()} title={tableState === "loading" ? tRoot("common.loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noQueueAccess") : tableState === "empty" ? t("emptyTitle") : undefined} />
-              {items.map((item) => {
-                const badge = STATUS_BADGE[item.status];
-                return <TableRow key={item.id}>
-                  <TableHead scope="row"><span className="cam-record-cell"><span className="cam-record-cell-name" title={item.organisation}>{item.organisation}</span><span className="cam-record-cell-meta"><span className="cam-record-cell-ref">{item.establishmentId || NOT_PROVIDED}</span><span className="cam-tag" title={entityLabel(item.entityType)}>{entityShortLabel(item.entityType)}</span></span></span></TableHead>
-                  <TableCell data-label={t("registrationStatusColumn")}><div className="flex flex-wrap items-center gap-1.5"><Badge variant={badge?.tone ?? "neutral"}>{badge ? t(badge.textKey) : item.status}</Badge>{item.overdue && <Badge variant="info">{t("overdueBadge", { days: daysWaiting(item.waitingSince) ?? overdueDays })}</Badge>}{item.duplicateHints.length > 0 && <Badge variant="warning" title={item.duplicateHints.join("\n")}>{t("possibleMatches", { count: item.duplicateHints.length })}</Badge>}</div></TableCell>
-                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
-                  <TableCell data-label={t("submissionDateColumn")} className="cam-cell-nowrap"><span title={stamp(item.submittedAt, true, locale)}>{elapsedSince(item.submittedAt, locale)}</span></TableCell>
-                  {/* The assignee only: claiming happens once, in the Actions column, and opens the file (audit R-7). */}
-                  <TableCell data-label={t("assignmentColumn")}><span className={item.assigneeId ? undefined : "cam-cell-muted"} title={item.assigneeId ? item.assigneeName ?? undefined : undefined}>{item.assigneeId ? (item.assigneeId === userId ? tRoot("adminDossiersPage.assignedToYou") : item.assigneeName ?? NOT_PROVIDED) : tRoot("adminDossiersPage.unassigned")}</span></TableCell>
-                  <TableCell className="cam-cell-action"><div className="cam-registration-row-actions">
-                    {/* Unclaimed: the main action claims, then opens the review page. The
-                        dialog stays reachable from the menu until the page is approved. */}
-                    {(() => {
-                      const canClaim = hasRole(role, APPROVAL_ROLES) && item.assigneeId == null && !!userId;
-                      return <>
-                        <Button type="button" size="sm" variant="outline" disabled={opening !== null} onClick={() => void openReviewPage(item, canClaim)}>
-                          {canClaim ? tRoot("adminRegistrationReview.claimAndOpen") : tRoot("adminRegistrationReview.openPage")}
-                        </Button>
-                        {canClaim && <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" className="shrink-0" aria-label={tRoot("adminRegistrationReview.rowActions", { organisation: item.organisation })} title={t("actionsColumn")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => void openReviewPage(item, false)}>{tRoot("adminRegistrationReview.openWithoutClaim")}</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>}
-                      </>;
-                    })()}
-                  </div></TableCell>
-                </TableRow>;
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </AdminTablePanel>
-
-      </>)}
 
     </div>
   );

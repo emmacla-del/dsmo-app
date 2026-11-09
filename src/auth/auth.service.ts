@@ -1698,6 +1698,12 @@ export class AuthService {
       assigneeId?: string;
       /** Only files nobody has claimed (the « À réclamer » view of the queue). */
       unassigned?: boolean;
+      /**
+       * Only files another officer holds on a live claim: the queue's
+       * « Réclamées par un collègue » view. The actor's own id, so their own
+       * claims are left out.
+       */
+      heldByOthersThan?: string;
       /** A subdivision NAME, as Company.subdivision stores it; narrows within the actor's scope. */
       subdivision?: string;
       duplicates?: string;
@@ -1709,6 +1715,9 @@ export class AuthService {
     }
     if (params.unassigned && params.assigneeId) {
       throw new BadRequestException('unassigned and assignedToMe are mutually exclusive.');
+    }
+    if (params.heldByOthersThan && (params.unassigned || params.assigneeId)) {
+      throw new BadRequestException('assignedToOthers cannot be combined with unassigned or assignedToMe.');
     }
     let statuses: UserStatus[] | undefined;
     if (params.statuses !== undefined) {
@@ -1835,6 +1844,12 @@ export class AuthService {
       userWhere.AND = [liveRegistrationClaimWhere(claimNow)];
     } else if (params.unassigned) {
       userWhere.AND = [freeRegistrationWhere(claimNow)];
+    } else if (params.heldByOthersThan?.trim()) {
+      userWhere.AND = [
+        { assigneeId: { not: null } },
+        { NOT: { assigneeId: params.heldByOthersThan.trim() } },
+        liveRegistrationClaimWhere(claimNow),
+      ];
     }
     const registrationMethod = params.registrationMethod?.trim();
     if (registrationMethod) userWhere.registrationMethod = registrationMethod;
@@ -1919,6 +1934,8 @@ export class AuthService {
       assigneeId?: string;
       // Only files nobody holds; exclusive with assigneeId.
       unassigned?: boolean;
+      // Only files another officer holds on a live claim (not this id's).
+      heldByOthersThan?: string;
       subdivision?: string;
       sortOrder?: 'oldest' | 'newest';
       // with: files that share an NIU, a CNPS number or a name in one

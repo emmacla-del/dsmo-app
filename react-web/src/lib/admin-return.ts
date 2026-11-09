@@ -28,6 +28,7 @@ const INSCRIPTIONS_RETURN_FILTERS = [
   "to",
   "sort",
   "includeArchived",
+  "createdBy",
 ] as const;
 
 function setNonEmpty(params: URLSearchParams, key: string, value: string | null): void {

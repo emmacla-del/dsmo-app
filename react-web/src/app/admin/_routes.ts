@@ -88,7 +88,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: DIRECTORY_READ_ROLES,
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
-      { label: "Examen des inscriptions", labelKey: "inscriptions", href: "/admin/inscriptions", allowedRoles: APPROVAL_ROLES },
+      { label: "File des inscriptions", labelKey: "inscriptions", href: "/admin/inscriptions", allowedRoles: APPROVAL_ROLES },
       // A view of the same page, listed in the rail rather than as a tab row
       // over the page (owner, 2026-11-08: « release the space »).
       { label: "Organisations enregistrées", labelKey: "organisations", href: "/admin/inscriptions?vue=organisations", allowedRoles: APPROVAL_ROLES },

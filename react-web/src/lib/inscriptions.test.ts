@@ -17,9 +17,11 @@ import {
   isValidSocialCapital,
   normalizeInscriptionsHref,
   normalizeRegistrationStatus,
+  organisationsListHref,
   organisationsStatusesForFilter,
   registrationTerritoryChoice,
   verificationFlags,
+  verificationIssues,
   verificationRows,
 } from "./inscriptions";
 
@@ -78,7 +80,7 @@ test("registration tab transitions keep shared filters and unrelated context, bu
       "vue=queue&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=ASSISTED&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&status=PENDING_APPROVAL&createdBy=agent-1&assignedToMe=1&duplicates=with&page=3&annee=2025&context=dashboard",
       "organisations",
     ),
-    "/admin/inscriptions?vue=organisations&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=ASSISTED&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&context=dashboard",
+    "/admin/inscriptions?vue=organisations&search=atelier&type=ONG&region=Centre&department=Mfoundi&registrationMethod=ASSISTED&dateRange=custom&from=2026-01-01&to=2026-02-01&sort=oldest&createdBy=agent-1&context=dashboard",
   );
 });
 
@@ -88,6 +90,17 @@ test("organisation status normalization keeps the control, chip, and request sco
   assert.equal(organisationsStatusesForFilter(""), "ACTIVE,REJECTED");
   assert.equal(organisationsStatusesForFilter("ACTIVE"), "ACTIVE");
   assert.equal(organisationsStatusesForFilter("PENDING_APPROVAL"), "ACTIVE,REJECTED");
+  // One agent's files: every status unless the reader picks one.
+  assert.equal(organisationsStatusesForFilter("", "agent-1"), "PENDING_APPROVAL,COMPLEMENTS_REQUESTED,ACTIVE,REJECTED");
+  assert.equal(organisationsStatusesForFilter("REJECTED", "agent-1"), "REJECTED");
+});
+
+test("links into the Organisations view carry territory, type and author", () => {
+  assert.equal(organisationsListHref({}), "/admin/inscriptions?vue=organisations");
+  assert.equal(
+    organisationsListHref({ region: "Centre", department: "Mfoundi", type: "ONG", createdBy: "agent 1" }),
+    "/admin/inscriptions?vue=organisations&region=Centre&department=Mfoundi&type=ONG&createdBy=agent+1",
+  );
 });
 
 test("direct registration URLs remove unsupported filters and invalid pages while preserving valid context", () => {
@@ -96,7 +109,7 @@ test("direct registration URLs remove unsupported filters and invalid pages whil
       "vue=organisations&status=PENDING_APPROVAL&assignedToMe=1&duplicates=with&createdBy=agent-1&page=bogus&search=atelier&context=dashboard",
       "organisations",
     ),
-    "/admin/inscriptions?vue=organisations&search=atelier&context=dashboard",
+    "/admin/inscriptions?vue=organisations&createdBy=agent-1&search=atelier&context=dashboard",
   );
   assert.equal(
     inscriptionsViewHref("vue=organisations&status=REJECTED&page=4", "queue"),
@@ -322,4 +335,51 @@ test("a file without an entity type or a subdivision cannot be approved, whateve
   assert.equal(approvalDataBlocker({ entityType: null, subdivisionId: "s1" }), "entityType");
   assert.equal(approvalDataBlocker({ entityType: "ONG", subdivisionId: null }), "subdivision");
   assert.equal(approvalDataBlocker({ entityType: "ONG", subdivisionId: "s1" }), null);
+});
+
+const noSignals = { duplicateMatches: [], lastResubmission: null };
+const row = (key: "nameVerified" | "phoneVerified" | "contactEmailVerified" | "cnpsVerified", value: string | null = "x") => ({ key, label: "", value });
+
+test("a row with nothing to report has no issue, even once marked", () => {
+  assert.deepEqual(verificationIssues(row("phoneVerified"), undefined, noSignals), []);
+  assert.deepEqual(verificationIssues(row("phoneVerified"), "ok", noSignals), []);
+});
+
+test("an empty value and a non-compliant mark are blocking, and come first", () => {
+  const issues = verificationIssues(row("cnpsVerified", null), "ko", {
+    duplicateMatches: [{ field: "cnpsNumber", fileId: "u2", organisation: "Beta" }],
+    lastResubmission: null,
+  });
+  assert.deepEqual(issues.map((issue) => [issue.kind, issue.severity]), [
+    ["empty", "blocking"],
+    ["rejected", "blocking"],
+    ["duplicate", "warning"],
+  ]);
+});
+
+test("a duplicate lands on the row of its own field, and a shared NIU on none", () => {
+  const item = {
+    lastResubmission: null,
+    duplicateMatches: [
+      { field: "cnpsNumber" as const, fileId: null, organisation: null },
+      { field: "taxNumber" as const, fileId: "u2", organisation: "Beta" },
+    ],
+  };
+  assert.equal(verificationIssues(row("cnpsVerified"), undefined, item).length, 1);
+  for (const key of ["nameVerified", "phoneVerified", "contactEmailVerified"] as const) {
+    assert.deepEqual(verificationIssues(row(key), undefined, item), []);
+  }
+});
+
+test("a value the declarant changed carries what it replaced, on the row that reads it", () => {
+  const item = {
+    duplicateMatches: [],
+    lastResubmission: { at: "2026-11-07", changes: { phone: { before: "650", after: "651" }, address: { before: "a", after: "b" } } },
+  };
+  assert.deepEqual(verificationIssues(row("phoneVerified"), undefined, item), [{ kind: "changed", severity: "warning", before: "650" }]);
+  assert.deepEqual(verificationIssues(row("nameVerified"), undefined, item), []);
+});
+
+test("a backend that sends no duplicate matches leaves the row without a duplicate note", () => {
+  assert.deepEqual(verificationIssues(row("cnpsVerified"), undefined, { lastResubmission: null }), []);
 });

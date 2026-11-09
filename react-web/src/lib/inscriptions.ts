@@ -334,8 +334,10 @@ export function inscriptionsHref(
 const QUEUE_STATUSES = ["ALL", "PENDING_APPROVAL", "COMPLEMENTS_REQUESTED", "OVERDUE", "ACTIVE", "REJECTED"] as const;
 const ORGANISATION_STATUSES = ["ACTIVE", "REJECTED"] as const;
 const SHARED_REGISTRATION_FILTERS = ["search", "organisation", "type", "region", "department", "registrationMethod", "dateRange", "from", "to", "sort"];
-const QUEUE_ONLY_REGISTRATION_FILTERS = ["createdBy", "assignedToMe", "duplicates"];
-const ORGANISATION_ONLY_REGISTRATION_FILTERS = ["includeArchived"];
+const QUEUE_ONLY_REGISTRATION_FILTERS = ["assignedToMe", "duplicates"];
+// createdBy: the team page's « Voir les inscriptions » lists one agent's files
+// here, every status, since the pending queue no longer filters by author.
+const ORGANISATION_ONLY_REGISTRATION_FILTERS = ["includeArchived", "createdBy"];
 const COVERAGE_REGISTRATION_FILTERS = ["annee", "semestre", "trimestre", "periode"];
 
 /** One status value shared by the selected control, active chip, and query for the destination view. */
@@ -346,10 +348,26 @@ export function normalizeRegistrationStatus(raw: string | null | undefined, view
   return (supported as readonly string[]).includes(status) ? status : "";
 }
 
-/** The organisations endpoint's default scope is active plus rejected. */
-export function organisationsStatusesForFilter(statusFilter: string): string {
+/**
+ * The organisations endpoint's default scope is active plus rejected. Listing
+ * one agent's files (createdBy) widens it to every status: the team page counts
+ * the files still under review too, and they would otherwise be in no list
+ * filtered by author.
+ */
+export function organisationsStatusesForFilter(statusFilter: string, createdBy = ""): string {
   const status = normalizeRegistrationStatus(statusFilter, "organisations");
-  return status || "ACTIVE,REJECTED";
+  if (status) return status;
+  return createdBy ? "PENDING_APPROVAL,COMPLEMENTS_REQUESTED,ACTIVE,REJECTED" : "ACTIVE,REJECTED";
+}
+
+/** The Organisations view narrowed to a territory, a type or one agent's files. */
+export function organisationsListHref(filters: { region?: string; department?: string; type?: string; createdBy?: string }): string {
+  const params = new URLSearchParams({ vue: "organisations" });
+  if (filters.region) params.set("region", filters.region);
+  if (filters.department) params.set("department", filters.department);
+  if (filters.type) params.set("type", filters.type);
+  if (filters.createdBy) params.set("createdBy", filters.createdBy);
+  return `/admin/inscriptions?${params.toString()}`;
 }
 
 function registrationQueryForView(current: string, view: InscriptionsView, preservePage: boolean): URLSearchParams {
@@ -620,6 +638,43 @@ export function approvalDataBlocker(
   if (!item.entityType) return "entityType";
   if (!item.subdivisionId) return "subdivision";
   return null;
+}
+
+/**
+ * Why a row deserves attention, placed under its value. An empty value and a
+ * ✗ stop the approval, so they are blocking; a duplicate or a value the
+ * declarant changed only asks for a closer look. Most serious first.
+ */
+export type VerificationIssue =
+  | { kind: "empty" | "rejected"; severity: "blocking" }
+  | { kind: "duplicate"; severity: "warning"; field: "cnpsNumber" | "name"; fileId: string | null; organisation: string | null }
+  | { kind: "changed"; severity: "warning"; before: unknown };
+
+/** The file field each row reads, as named in lastResubmission.changes. */
+const ROW_FIELDS: Record<VerificationKey, string> = {
+  nameVerified: "name",
+  phoneVerified: "phone",
+  contactEmailVerified: "email",
+  cnpsVerified: "cnpsNumber",
+};
+
+export function verificationIssues(
+  row: VerificationRow,
+  mark: VerificationMark | undefined,
+  item: Pick<CompanyRegistrationItem, "duplicateMatches" | "lastResubmission">,
+): VerificationIssue[] {
+  const field = ROW_FIELDS[row.key];
+  const issues: VerificationIssue[] = [];
+  if (row.value === null) issues.push({ kind: "empty", severity: "blocking" });
+  if (mark === "ko") issues.push({ kind: "rejected", severity: "blocking" });
+  for (const match of item.duplicateMatches ?? []) {
+    if (match.field !== "taxNumber" && match.field === field) {
+      issues.push({ kind: "duplicate", severity: "warning", field: match.field, fileId: match.fileId, organisation: match.organisation });
+    }
+  }
+  const change = item.lastResubmission?.changes[field];
+  if (change) issues.push({ kind: "changed", severity: "warning", before: change.before });
+  return issues;
 }
 
 /** The approve body's flags: true only for a row marked ✓. */

@@ -1212,3 +1212,53 @@ button.cam-kpi[aria-pressed="true"] {
 /* Control badges stack, one per line, so the column stays as narrow as its
    widest badge and the table fits its card. */
 .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-validation-summary { flex-direction: column; align-items: flex-start; }
+
+/* ── Registration queue (/admin/inscriptions, queue view) ─────────────────
+   One toolbar row of labelled fields that wraps; the summary strip, table
+   and pager are the shared console classes. */
+/* A page's one-line purpose, in brackets beside its title (owner,
+   2026-11-09: the queues give that line's height to the table). */
+.cam-admin-page-title-note {
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-regular);
+}
+.cam-queue-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cam-space-3);
+  margin-bottom: var(--cam-space-3);
+}
+.cam-queue-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  min-width: 10rem;
+}
+.cam-queue-field > label {
+  margin: 0;
+  color: var(--cam-slate-600);
+  font-size: var(--cam-font-size-xs);
+}
+.cam-queue-field select { height: 36px; }
+.cam-queue-field-search { flex: 1 1 16rem; max-width: 24rem; }
+/* The shared search wrapper flexes along a row; in this column it would
+   take its 15rem basis as height. */
+.cam-queue-field-search .cam-filter-bar-search { flex: none; max-width: none; }
+.cam-queue-clear { align-self: flex-end; }
+@media (max-width: 640px) {
+  .cam-queue-field, .cam-queue-field-search { flex: 1 1 100%; max-width: none; min-width: 0; }
+}
+
+/* Registration queue: the time a claim has left (CLAUDE.md §21, 2026-11-09).
+   A time signal in words; amber, with the same words, in its last 30 minutes. */
+.cam-claim-time {
+  display: block;
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-slate-600);
+}
+.cam-claim-time.is-urgent {
+  color: var(--cam-warning);
+  font-weight: 600;
+}
