@@ -33,6 +33,8 @@ import {
   CLAIM_ASSIGNMENT_AUDIT_ACTION,
   CLAIM_EXPIRED_AUDIT_ACTION,
   CLAIM_PROGRESS_AUDIT_ACTION,
+  CLAIMABLE_REVIEW_STATUSES,
+  claimActivityCutoff,
   claimInactivityMs,
   getEffectiveClaimState,
   getEffectiveClaimStatesBatch,
@@ -4001,7 +4003,7 @@ export class QuestionnairesService {
               timestamp: now,
               details: {
                 previousAssigneeId: actorId,
-                reason: 'INACTIVITY',
+                reason: 'DEADLINE',
                 actorRole: territory?.role ?? null,
               },
             },
@@ -4120,6 +4122,64 @@ export class QuestionnairesService {
     };
   }
 
+  /**
+   * The sweep (ClaimExpiryScheduler, every 5 minutes): releases every review
+   * claim past its 12-hour deadline, fixed from the claim (owner, CLAUDE.md
+   * §21, 2026-11-09), and records the miss against the holder
+   * (DOSSIER_CLAIM_EXPIRED, reason DEADLINE). Lists already read a lapsed
+   * claim as free; this makes the release and the record happen even when
+   * nobody opens the file. Each release is conditional on the row still
+   * holding that claim at that revision, so a concurrent claim or decision
+   * wins and no miss is recorded twice. One file at a time (session pool).
+   */
+  async expireReviewClaims(now = new Date(), limit = 100): Promise<number> {
+    const lapsed = await (this.prisma as any).onefopSubmission.findMany({
+      where: {
+        status: { in: [...CLAIMABLE_REVIEW_STATUSES] },
+        archivedAt: null,
+        assigneeId: { not: null },
+        claimActivityAt: { lte: claimActivityCutoff(now) },
+      },
+      select: { id: true, status: true, assigneeId: true, claimActivityAt: true, revision: true },
+      orderBy: { claimActivityAt: 'asc' },
+      take: limit,
+    });
+    let released = 0;
+    for (const submission of lapsed) {
+      const done = await this.prisma.$transaction(async (tx: any) => {
+        const cleared = await tx.onefopSubmission.updateMany({
+          where: {
+            id: submission.id,
+            status: submission.status,
+            assigneeId: submission.assigneeId,
+            claimActivityAt: submission.claimActivityAt,
+            revision: submission.revision,
+            archivedAt: null,
+          },
+          data: { assigneeId: null, claimActivityAt: null, revision: { increment: 1 }, updatedAt: now },
+        });
+        if (cleared.count !== 1) return false;
+        await tx.auditLog.create({
+          data: {
+            userId: submission.assigneeId,
+            action: CLAIM_EXPIRED_AUDIT_ACTION,
+            resourceType: 'OnefopSubmission',
+            resourceId: submission.id,
+            timestamp: now,
+            details: {
+              previousAssigneeId: submission.assigneeId,
+              claimedAt: submission.claimActivityAt.toISOString(),
+              reason: 'DEADLINE',
+            },
+          },
+        });
+        return true;
+      });
+      if (done) released += 1;
+    }
+    return released;
+  }
+
   async listReviewProgress(id: string, territory?: Territory) {
     const submission = await (this.prisma as any).onefopSubmission.findFirst({
       where: { AND: [{ OR: [{ id }, { submissionId: id }] }, territoryWhere(territory)] },
@@ -4191,7 +4251,7 @@ export class QuestionnairesService {
             timestamp: clearedAt,
             details: {
               previousAssigneeId: actorId,
-              reason: 'INACTIVITY',
+              reason: 'DEADLINE',
               actorRole: territory?.role ?? null,
             },
           },
@@ -4202,7 +4262,9 @@ export class QuestionnairesService {
       const now = new Date();
       const updated = await tx.onefopSubmission.updateMany({
         where: { id: submission.id, status: submission.status, assigneeId: actorId, revision: expectedRevision, archivedAt: null },
-        data: { claimActivityAt: now, revision: { increment: 1 }, updatedAt: now },
+        // The claim clock is fixed from the claim (owner, CLAUDE.md §21,
+        // 2026-11-09): saving progress no longer extends it.
+        data: { revision: { increment: 1 }, updatedAt: now },
       });
       if (updated.count !== 1) throw new ConflictException('Ce dossier a changé pendant l’enregistrement. Rechargez-le.');
       await tx.auditLog.create({
@@ -4296,7 +4358,7 @@ export class QuestionnairesService {
               timestamp: clearedAt,
               details: {
                 previousAssigneeId: actorId,
-                reason: 'INACTIVITY',
+                reason: 'DEADLINE',
               },
             },
           });

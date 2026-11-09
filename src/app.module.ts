@@ -20,6 +20,7 @@ import { DataManagementModule } from './data-management/data-management.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { PilotageModule } from './pilotage/pilotage.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ClaimExpiryModule } from './claims/claim-expiry.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     SystemSettingsModule,
     PilotageModule,
     NotificationsModule,
+    ClaimExpiryModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

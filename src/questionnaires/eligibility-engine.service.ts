@@ -80,7 +80,7 @@ export class EligibilityEngineService {
             timestamp: clearedAt,
             details: {
               previousAssigneeId: actorId,
-              reason: 'INACTIVITY',
+              reason: 'DEADLINE',
             },
           },
         });
@@ -648,7 +648,7 @@ export class EligibilityEngineService {
               timestamp: now,
               details: {
                 previousAssigneeId: actor.id,
-                reason: 'INACTIVITY',
+                reason: 'DEADLINE',
               },
             },
           });
@@ -656,7 +656,8 @@ export class EligibilityEngineService {
         }
         const parentUpdated = await tx.onefopSubmission.updateMany({
           where: { id: submission.id, status: submission.status, assigneeId: actor.id, revision, archivedAt: null },
-          data: { claimActivityAt: now, revision: { increment: 1 }, updatedAt: now },
+          // The claim clock is fixed from the claim (owner, 2026-11-09).
+          data: { revision: { increment: 1 }, updatedAt: now },
         });
         if (parentUpdated.count !== 1) throw new ConflictException('Le dossier a été modifié simultanément. Rechargez-le.');
       } else {

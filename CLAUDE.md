@@ -1511,6 +1511,49 @@ Approved changes on record:
   archived files would appear in those lists. Not exercised on an archived row:
   the live database holds none.
 
+- 2026-11-09 — a claim has a deadline: 2 hours for a registration, 12 hours
+  for a submission, fixed from the claim and running round the clock; past it
+  the claim is released and the miss is recorded against the officer (schema
+  change; migration `20261109120000_registration_claim_deadline`;
+  `src/auth/registration-claim-policy.ts`,
+  `src/questionnaires/review-claim-policy.ts`,
+  `src/claims/claim-expiry.scheduler.ts`). Issue: registration claims never
+  expired, so a file held by an officer who stopped working on it dropped out
+  of every colleague's queue with nothing to show it; submission claims lapsed
+  after 12 hours WITHOUT ACTIVITY, so saving a progress note kept a file
+  indefinitely. Owner's rule, in chat 2026-11-09: colleagues see who holds a
+  file; a claimed registration must be treated within 2 hours and a submission
+  within 12, after which it returns to the pool automatically; and a reviewer
+  who misses the deadline carries a negative signal. Decisions taken with it:
+  the clock is FIXED from the claim (nothing short of a decision extends it);
+  it runs round the clock, nights and weekends included; the officer may claim
+  the file again at once, but every lapse is recorded, so re-claiming never
+  hides a miss; the signal is shown to the officer and to their supervisors
+  (national admins and the délégué of their territory), never to colleagues.
+  Mechanism: `User.registrationClaimedAt` (nullable, additive) holds the claim
+  time of a registration; `OnefopSubmission.claimActivityAt` keeps its name but
+  now means the claim time — saving progress or resolving a finding no longer
+  moves it. Lists read a lapsed claim as free at once (`freeRegistrationWhere`,
+  `admin-list-filter.ts`); a sweep every 5 minutes releases it in the database
+  and writes `REGISTRATION_CLAIM_EXPIRED` / `DOSSIER_CLAIM_EXPIRED` with
+  `previousAssigneeId` and reason `DEADLINE` — those audit rows ARE the
+  negative signal, there is no separate table. Only a PENDING_APPROVAL
+  registration is on the clock: a file sent back for complements waits on the
+  declarant, and its holder gets a fresh 2 hours when it is resubmitted. An
+  assisted registration is held by its author from creation, on the same
+  clock. A decision by an officer whose claim lapsed is refused with 409
+  (`REGISTRATION_CLAIM_LAPSED`); a colleague's lapsed claim reads as a free
+  file. Backfill at deploy: a held registration takes the time of its latest
+  claim record, else the deploy time, so anything held more than 2 hours is
+  released by the first sweep; a held submission with no time gets the deploy
+  time. Durations are `ONEFOP_REGISTRATION_CLAIM_HOURS` (2) and
+  `ONEFOP_REVIEW_CLAIM_INACTIVITY_HOURS` (12, historical name). No statistical
+  variable, export, PDF or dataset version changes; no role or route changes.
+  Approved by the owner in chat, 2026-11-09. Delivered in phases: phase 1 is
+  the server (deadline, release, record); the queue's « Réclamées par un
+  collègue » view and time left (2), the submission list (3) and the signal on
+  screen (4) follow.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE

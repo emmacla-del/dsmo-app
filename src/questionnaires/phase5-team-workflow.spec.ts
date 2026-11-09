@@ -169,8 +169,10 @@ describe('Phase 5 team workflow', () => {
     expect(result).toMatchObject({ submissionId: 'sub-1', assigneeId: 'actor-a', actorId: 'actor-a' });
     expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: 'sub-1', assigneeId: 'actor-a', revision: 1 }),
-      data: expect.objectContaining({ claimActivityAt: expect.any(Date), revision: { increment: 1 }, updatedAt: expect.any(Date) }),
+      data: { revision: { increment: 1 }, updatedAt: expect.any(Date) },
     }));
+    // The claim clock is fixed from the claim (2026-11-09): progress does not move it.
+    expect(prisma.onefopSubmission.updateMany.mock.calls[0][0].data).not.toHaveProperty('claimActivityAt');
     expect(result).toMatchObject({ revision: 2, lastActivityAt: expect.any(Date) });
     expect(prisma.auditLog.create.mock.calls[0][0].data).toMatchObject({
       action: 'DOSSIER_REVIEW_PROGRESS_SAVED',
@@ -226,7 +228,7 @@ describe('Phase 5 team workflow', () => {
       data: expect.objectContaining({
         action: 'DOSSIER_CLAIM_EXPIRED',
         resourceId: 'sub-1',
-        details: expect.objectContaining({ previousAssigneeId: 'actor-a', reason: 'INACTIVITY' }),
+        details: expect.objectContaining({ previousAssigneeId: 'actor-a', reason: 'DEADLINE' }),
       }),
     });
   });
@@ -386,7 +388,7 @@ describe('Phase 5 team workflow', () => {
       department: 'Mfoundi',
       regionId: null,
       departmentId: null,
-      user: { id: 'user-1', assigneeId: 'first-agent' },
+      user: { id: 'user-1', assigneeId: 'first-agent', status: 'PENDING_APPROVAL', registrationClaimedAt: new Date() },
     });
     prisma.user.updateMany = jest.fn(async () => ({ count: 0 }));
     const auth = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
@@ -394,7 +396,7 @@ describe('Phase 5 team workflow', () => {
     await expect(auth.assignRegistration('user-1', 'agent-1', 'actor-a', regionalA, null)).rejects.toThrow(ConflictException);
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: { id: 'user-1', assigneeId: null },
-      data: { assigneeId: 'agent-1' },
+      data: { assigneeId: 'agent-1', registrationClaimedAt: expect.any(Date) },
     });
     expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
@@ -407,15 +409,16 @@ describe('Phase 5 team workflow', () => {
       department: 'Mfoundi',
       regionId: null,
       departmentId: null,
-      user: { id: 'user-1', assigneeId: 'previous-agent' },
+      user: { id: 'user-1', assigneeId: 'previous-agent', status: 'PENDING_APPROVAL', registrationClaimedAt: new Date() },
     });
     prisma.user.updateMany = jest.fn(async () => ({ count: 1 }));
     const auth = new AuthService(prisma, {} as any, {} as any, {} as any, {} as any);
 
     const assigned = await auth.assignRegistration('user-1', 'agent-1', 'actor-a', regionalA);
+    // A takeover starts a new 2-hour clock.
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: { assigneeId: 'agent-1' },
+      data: { assigneeId: 'agent-1', registrationClaimedAt: expect.any(Date) },
     });
     expect(prisma.auditLog.create.mock.calls[0][0].data).toMatchObject({
       action: 'REGISTRATION_ASSIGNED',

@@ -468,7 +468,7 @@ describe('EligibilityEngineService', () => {
       expect(resolved.status).toBe(AnomalyStatus.RESOLVED);
       expect(prisma.onefopSubmission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ id: 'sub-2', assigneeId: 'reviewer-1', revision }),
-        data: expect.objectContaining({ claimActivityAt: expect.any(Date), revision: { increment: 1 } }),
+        data: { revision: { increment: 1 }, updatedAt: expect.any(Date) },
       }));
       expect(prisma.auditLog.create.mock.calls.map((call: any[]) => call[0].data.action)).toEqual([
         'ANOMALY_RESOLVED', 'DOSSIER_REVIEW_PROGRESS_SAVED',
@@ -515,7 +515,7 @@ describe('EligibilityEngineService', () => {
       expect(prisma.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({
           action: 'DOSSIER_CLAIM_EXPIRED', resourceId: 'sub-expired',
-          details: expect.objectContaining({ previousAssigneeId: 'reviewer-1', reason: 'INACTIVITY' }),
+          details: expect.objectContaining({ previousAssigneeId: 'reviewer-1', reason: 'DEADLINE' }),
         }),
       }));
       expect(prisma.onefopAnomaly.updateMany).not.toHaveBeenCalled();
@@ -997,7 +997,7 @@ describe('QuestionnairesService.reject — companion fixes', () => {
       data: expect.objectContaining({
         action: 'DOSSIER_CLAIM_EXPIRED',
         resourceId: 's1',
-        details: expect.objectContaining({ previousAssigneeId: 'actor-1', reason: 'INACTIVITY' }),
+        details: expect.objectContaining({ previousAssigneeId: 'actor-1', reason: 'DEADLINE' }),
       }),
     });
   });

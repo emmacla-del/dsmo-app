@@ -27,6 +27,14 @@ export interface EffectiveClaimState {
   expiresAt: Date | null;
 }
 
+/**
+ * Length of a review claim. Since 2026-11-09 (owner, CLAUDE.md §21) the clock
+ * is FIXED from the claim: claimActivityAt is the time of the claim and saving
+ * progress no longer moves it, so a submission must be decided within 12 hours
+ * of being claimed, round the clock. The names keep their historical
+ * "inactivity" wording (and the env variable its name) so existing
+ * configuration still applies.
+ */
 export function claimInactivityMs(env: NodeJS.ProcessEnv = process.env): number {
   const configuredHours = Number(env.ONEFOP_REVIEW_CLAIM_INACTIVITY_HOURS ?? 12);
   const hours = Number.isFinite(configuredHours) && configuredHours > 0 ? configuredHours : 12;

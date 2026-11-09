@@ -224,6 +224,11 @@ model User {
   registrationNumber         String?            @unique
   // Agent the registration is assigned to for review.
   assigneeId                 String?
+  // When the current holder claimed the registration. A pending claim lasts
+  // REGISTRATION_CLAIM_HOURS (2 h, round the clock) from this moment and is
+  // then released (owner, CLAUDE.md §21, 2026-11-09). NULL with an assignee
+  // means a claim the clock does not apply to (a decided file).
+  registrationClaimedAt      DateTime?
   lastReminderAt             DateTime?
   // Reviewer comment on approval / complements request (kept apart from rejectionReason).
   approvalComment            String?
@@ -270,6 +275,7 @@ model User {
   @@index([approvedBy])
   @@index([assigneeId])
   @@index([archivedAt])
+  @@index([status, assigneeId, registrationClaimedAt], map: "users_registration_claim_idx")
   @@map("users")
 }
 

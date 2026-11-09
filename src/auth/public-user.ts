@@ -63,6 +63,9 @@ export const SECRET_USER_FIELDS = [
   'registrationNumber',
   'registrationRequestId',
   'assigneeId',
+  // When the holder claimed the registration (2-hour deadline): read by the
+  // staff queue through its own select.
+  'registrationClaimedAt',
   'lastReminderAt',
   'approvalComment',
   'perAgentTarget',

@@ -77,6 +77,7 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   },
   { fr: "Le statut d'archivage a changé. Rechargez la page.", en: 'The archiving status changed. Reload the page.' },
   { fr: 'Les paramètres status et statuses s\'excluent mutuellement.', en: 'status and statuses are mutually exclusive.' },
+  { fr: 'Les paramètres unassigned et assignedToMe s\'excluent mutuellement.', en: 'unassigned and assignedToMe are mutually exclusive.' },
   { fr: 'Le paramètre statuses doit contenir au moins une valeur UserStatus.', en: 'statuses must contain at least one UserStatus value.' },
   { fr: "OVERDUE n'est pas un statut stocké ; utilisez overdue=true.", en: 'OVERDUE is not a stored status; use overdue=true.' },
   { fr: 'Statut d\'inscription inconnu : {0}.', en: 'Unknown registration status: {0}.' },
@@ -529,6 +530,10 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
     en: 'Another officer has claimed this registration. Take it over to decide.',
   },
   { fr: 'Réclamez cette inscription avant de décider.', en: 'Claim this registration before deciding.' },
+  {
+    fr: 'Votre réclamation de cette inscription a expiré (délai de 2 heures). Réclamez-la à nouveau pour décider.',
+    en: 'Your claim on this registration has expired (2-hour limit). Claim it again to decide.',
+  },
   { fr: 'La justification doit comporter au moins 10 caractères.', en: 'The justification must be at least 10 characters long.' },
   { fr: 'La justification de résolution doit comporter au moins 10 caractères.', en: 'The resolution justification must be at least 10 characters long.' },
   { fr: 'La justification du rejet doit comporter au moins 10 caractères.', en: 'The rejection justification must be at least 10 characters long.' },

@@ -1392,6 +1392,10 @@ describe('AuthService.listCompanyRegistrations — duplicate selection', () => {
   });
 
   it('applies overdue and assignment on the CSV the same way as the list', async () => {
+    // Both read the 2-hour claim cutoff from the clock: freeze Date only, so
+    // the two calls see the same instant.
+    jest.useFakeTimers({ now: new Date('2026-11-09T12:00:00Z'), doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'queueMicrotask'] });
+    try {
     const listed = makeService();
     await listed.service.listCompanyRegistrations(
       { role: 'ADMIN_ONEFOP' },
@@ -1406,6 +1410,67 @@ describe('AuthService.listCompanyRegistrations — duplicate selection', () => {
     expect(pageWhere(exported.prisma).user).toEqual(pageWhere(listed.prisma).user);
     expect(pageWhere(exported.prisma).user.status).toBe('PENDING_APPROVAL');
     expect(pageWhere(exported.prisma).user.assigneeId).toBe('officer-1');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('lists only unclaimed files for unassigned=true, inside the actor scope', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { view: 'queue', status: 'PENDING_APPROVAL', unassigned: true },
+    );
+    const where = pageWhere(prisma);
+    // Free = nobody holds it, or the holder's 2-hour claim has lapsed.
+    const free = where.user.AND[0].OR;
+    expect(free[0]).toEqual({ assigneeId: null });
+    expect(free[1].status).toBe('PENDING_APPROVAL');
+    expect(free[1].registrationClaimedAt.lte).toBeInstanceOf(Date);
+    expect(where.user.status).toBe('PENDING_APPROVAL');
+    expect(JSON.stringify(where)).toContain('Littoral');
+  });
+
+  it('lists a lapsed claim with the free files, never under its former holder', async () => {
+    const { service, prisma } = makeService();
+    const before = Date.now();
+    await service.listCompanyRegistrations(
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+      { view: 'queue', status: 'PENDING_APPROVAL', assigneeId: 'officer-1' },
+    );
+    const where = pageWhere(prisma);
+    expect(where.user.assigneeId).toBe('officer-1');
+    const live = where.user.AND[0].OR;
+    expect(live).toEqual(expect.arrayContaining([{ registrationClaimedAt: null }]));
+    const cutoff = live.find((clause: any) => clause.registrationClaimedAt?.gt).registrationClaimedAt.gt as Date;
+    // Two hours before the request, give or take the test's own run time.
+    expect(before - cutoff.getTime()).toBeGreaterThanOrEqual(2 * 60 * 60 * 1000 - 5_000);
+    expect(before - cutoff.getTime()).toBeLessThanOrEqual(2 * 60 * 60 * 1000 + 5_000);
+  });
+
+  it('refuses unassigned together with an assignee', async () => {
+    const { service } = makeService();
+    await expect(service.listCompanyRegistrations(
+      { role: 'ADMIN_ONEFOP' },
+      { view: 'queue', unassigned: true, assigneeId: 'officer-1' },
+    )).rejects.toThrow('unassigned and assignedToMe are mutually exclusive.');
+  });
+
+  it('narrows to a subdivision by ANDing it onto the territory scope', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations(
+      { role: 'DIVISIONAL_ADMIN', region: 'Littoral', department: 'Wouri' },
+      { view: 'queue', subdivision: 'Douala 1er' },
+    );
+    const where = pageWhere(prisma);
+    expect(where.AND).toContainEqual({ subdivision: { equals: 'Douala 1er', mode: 'insensitive' } });
+    expect(JSON.stringify(where)).toContain('Wouri');
+  });
+
+  it('searches the establishment reference as well as name, NIU and CNPS', async () => {
+    const { service, prisma } = makeService();
+    await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { view: 'queue', search: 'EN26' });
+    expect(pageWhere(prisma).OR).toContainEqual({ establishmentId: { contains: 'EN26', mode: 'insensitive' } });
   });
 });
 

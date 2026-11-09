@@ -26,6 +26,13 @@ import { buildUserListWhere, type UserListFilterParams } from './user-list-filte
 import { TERRITORIAL_APPROVER_ROLES, REGISTRATION_ADMIN_ROLES, assertCanApproveRegistration, assertCanManageRole, manageableRolesFor, staffApprovalScope } from './staff-scope';
 import { assertTerritorialAuthority, companyInTerritory, territoryWhere, type Territory } from './territory';
 import { resolveAssignee } from './assignee';
+import {
+  REGISTRATION_CLAIM_EXPIRED_AUDIT_ACTION,
+  freeRegistrationWhere,
+  liveRegistrationClaimWhere,
+  registrationClaimCutoff,
+  registrationClaimState,
+} from './registration-claim-policy';
 import { toPublicUser } from './public-user';
 import { isOverdue, overdueCutoff, overdueDaysFrom, waitingSince } from './registration-overdue';
 import { registrationDuplicateIds } from './registration-duplicates';
@@ -63,6 +70,10 @@ export const REGISTRATION_CLAIMED_BY_OTHER =
 // rule as declarations »): the officer claims it first.
 export const REGISTRATION_NOT_CLAIMED =
   'Réclamez cette inscription avant de décider.';
+// A decision by an officer whose claim passed its 2-hour deadline
+// (registration-claim-policy.ts, owner 2026-11-09).
+export const REGISTRATION_CLAIM_LAPSED =
+  'Votre réclamation de cette inscription a expiré (délai de 2 heures). Réclamez-la à nouveau pour décider.';
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -778,6 +789,9 @@ export class AuthService {
           registrationRequestId: attribution.registrationRequestId,
           createdBy: attribution.createdBy ?? null,
           assigneeId: attribution.assigneeId ?? null,
+          // An assisted registration is held by its author from creation, on
+          // the same 2-hour clock as any claim.
+          registrationClaimedAt: attribution.assigneeId ? new Date() : null,
         },
         });
 
@@ -1520,6 +1534,12 @@ export class AuthService {
           'Ce dossier a déjà été renvoyé ou traité entre-temps. Rechargez la page.',
         );
       }
+      // Back under review: the officer who asked for complements keeps the
+      // file with a fresh 2-hour clock (registration-claim-policy.ts).
+      await tx.user.updateMany({
+        where: { id: actorId, assigneeId: { not: null } },
+        data: { registrationClaimedAt: new Date() },
+      });
 
       const updates: Record<string, unknown> = {};
       // A type alias, not an interface: that is what gives the diff an implicit
@@ -1676,12 +1696,19 @@ export class AuthService {
       createdBy?: string;
       overdue?: boolean;
       assigneeId?: string;
+      /** Only files nobody has claimed (the « À réclamer » view of the queue). */
+      unassigned?: boolean;
+      /** A subdivision NAME, as Company.subdivision stores it; narrows within the actor's scope. */
+      subdivision?: string;
       duplicates?: string;
       userId?: string;
     },
   ) {
     if (params.status !== undefined && params.statuses !== undefined) {
       throw new BadRequestException('status and statuses are mutually exclusive.');
+    }
+    if (params.unassigned && params.assigneeId) {
+      throw new BadRequestException('unassigned and assignedToMe are mutually exclusive.');
     }
     let statuses: UserStatus[] | undefined;
     if (params.statuses !== undefined) {
@@ -1753,6 +1780,13 @@ export class AuthService {
       });
       territoryAnd.push({ department: { equals: departmentFilter, mode: 'insensitive' } });
     }
+    // One level further down, for a divisional reviewer's own subdivisions.
+    // A narrowing only: it is ANDed onto `scope`, so a subdivision name outside
+    // the actor's territory matches nothing rather than widening the list.
+    const subdivisionFilter = params.subdivision?.trim();
+    if (subdivisionFilter) {
+      territoryAnd.push({ subdivision: { equals: subdivisionFilter, mode: 'insensitive' } });
+    }
     if (territoryAnd.length > 0) regionScope.AND = territoryAnd;
 
     const createdAt: Record<string, Date> = {};
@@ -1791,8 +1825,17 @@ export class AuthService {
     // One registration, still inside the actor's territory and archive rules.
     const userId = params.userId?.trim();
     if (userId) userWhere.id = userId;
+    // A claim past its deadline (registration-claim-policy.ts) is no claim:
+    // the file is listed with the free ones, never under its former holder,
+    // even before the sweep has cleared it.
     const assigneeId = params.assigneeId?.trim();
-    if (assigneeId) userWhere.assigneeId = assigneeId;
+    const claimNow = new Date();
+    if (assigneeId) {
+      userWhere.assigneeId = assigneeId;
+      userWhere.AND = [liveRegistrationClaimWhere(claimNow)];
+    } else if (params.unassigned) {
+      userWhere.AND = [freeRegistrationWhere(claimNow)];
+    }
     const registrationMethod = params.registrationMethod?.trim();
     if (registrationMethod) userWhere.registrationMethod = registrationMethod;
 
@@ -1825,6 +1868,7 @@ export class AuthService {
         { name: { contains: term, mode: 'insensitive' } },
         { taxNumber: { contains: term, mode: 'insensitive' } },
         { cnpsNumber: { contains: term, mode: 'insensitive' } },
+        { establishmentId: { contains: term, mode: 'insensitive' } },
         { user: { is: { email: { contains: term, mode: 'insensitive' } } } },
       ];
     }
@@ -1873,6 +1917,9 @@ export class AuthService {
       overdue?: boolean;
       // Only files assigned to this staff agent (phase 5, team workflow).
       assigneeId?: string;
+      // Only files nobody holds; exclusive with assigneeId.
+      unassigned?: boolean;
+      subdivision?: string;
       sortOrder?: 'oldest' | 'newest';
       // with: files that share an NIU, a CNPS number or a name in one
       // subdivision. without: the files that share none. Absent: no change.
@@ -1918,6 +1965,7 @@ export class AuthService {
               registrationMethod: true,
               createdBy: true,
               assigneeId: true,
+              registrationClaimedAt: true,
             },
           },
           // Whether the entity has already filed a declaration: the
@@ -2060,19 +2108,25 @@ export class AuthService {
           department: true,
           regionId: true,
           departmentId: true,
-          user: { select: { id: true, assigneeId: true } },
+          user: { select: { id: true, assigneeId: true, status: true, registrationClaimedAt: true } },
         },
       });
       if (!company) throw new NotFoundException('Inscription introuvable.');
       assertTerritorialAuthority(actor, company);
 
       const assignee = await resolveAssignee(tx, assigneeId, company as Territory, REGISTRATION_ADMIN_ROLES);
+      // A claim past its deadline is released (and recorded against its
+      // holder) before this one is written, so a page that showed the file
+      // as free can claim it.
+      const now = new Date();
+      const lapsed = await this.releaseLapsedRegistrationClaim(tx, company.user, now);
       const assigned = await tx.user.updateMany({
         where: {
           id: company.user.id,
           ...(expectedAssigneeId === undefined ? {} : { assigneeId: expectedAssigneeId }),
         },
-        data: { assigneeId: assignee?.id ?? null },
+        // Every claim or takeover starts a new 2-hour clock; a release stops it.
+        data: { assigneeId: assignee?.id ?? null, registrationClaimedAt: assignee ? now : null },
       });
       if (assigned.count !== 1) {
         throw new ConflictException("L'attribution de cette inscription a changé. Rechargez la page.");
@@ -2087,7 +2141,7 @@ export class AuthService {
             companyId: company.id,
             assigneeId: assignee?.id ?? null,
             assigneeName: assignee?.name ?? null,
-            previousAssigneeId: company.user.assigneeId ?? null,
+            previousAssigneeId: lapsed ? null : company.user.assigneeId ?? null,
             actorRole: actor?.role ?? null,
           },
         },
@@ -2228,7 +2282,7 @@ export class AuthService {
   }
 
   private async approveCompanyRegistration(
-    user: { id: string; email: string; status: string; assigneeId?: string | null },
+    user: { id: string; email: string; status: string; assigneeId?: string | null; registrationClaimedAt?: Date | null },
     actorId: string,
     actorRole: string,
     actorTerritory?: Territory,
@@ -2364,13 +2418,80 @@ export class AuthService {
   }
 
   /**
+   * Releases a pending registration's claim once it is past its deadline and
+   * records the miss against the holder (REGISTRATION_CLAIM_EXPIRED, read by
+   * the reviewer's and supervisors' counts). Conditional on the row still
+   * holding that claim, so of the sweep and a concurrent claim only one
+   * releases it and only one record is written. Returns whether it released.
+   */
+  private async releaseLapsedRegistrationClaim(
+    tx: Prisma.TransactionClient,
+    user: { id: string; status: string; assigneeId: string | null; registrationClaimedAt: Date | null },
+    now: Date,
+  ): Promise<boolean> {
+    const claim = registrationClaimState(user, now);
+    if (!claim.expired || !user.assigneeId || !user.registrationClaimedAt) return false;
+    const released = await tx.user.updateMany({
+      where: {
+        id: user.id,
+        status: 'PENDING_APPROVAL',
+        assigneeId: user.assigneeId,
+        registrationClaimedAt: user.registrationClaimedAt,
+      },
+      data: { assigneeId: null, registrationClaimedAt: null },
+    });
+    if (released.count !== 1) return false;
+    await tx.auditLog.create({
+      data: {
+        userId: user.assigneeId,
+        action: REGISTRATION_CLAIM_EXPIRED_AUDIT_ACTION,
+        resourceType: 'User',
+        resourceId: user.id,
+        timestamp: now,
+        details: {
+          previousAssigneeId: user.assigneeId,
+          claimedAt: user.registrationClaimedAt.toISOString(),
+          expiredAt: claim.expiresAt?.toISOString() ?? null,
+          reason: 'DEADLINE',
+        },
+      },
+    });
+    return true;
+  }
+
+  /**
+   * The sweep (ClaimExpiryScheduler, every 5 minutes): releases every pending
+   * registration claim past its deadline, oldest first, at most `limit` per
+   * run. Each release is its own short transaction, so one conflict never
+   * holds the others back, and they run one after another (session pool).
+   */
+  async expireRegistrationClaims(now = new Date(), limit = 100): Promise<number> {
+    const lapsed = await this.prisma.user.findMany({
+      where: {
+        role: 'COMPANY',
+        status: 'PENDING_APPROVAL',
+        assigneeId: { not: null },
+        registrationClaimedAt: { lte: registrationClaimCutoff(now) },
+      },
+      select: { id: true, status: true, assigneeId: true, registrationClaimedAt: true },
+      orderBy: { registrationClaimedAt: 'asc' },
+      take: limit,
+    });
+    let released = 0;
+    for (const user of lapsed) {
+      if (await this.prisma.$transaction((tx) => this.releaseLapsedRegistrationClaim(tx, user, now))) released += 1;
+    }
+    return released;
+  }
+
+  /**
    * Whether a reviewer may still decide this file. A request that names a
    * revision comes from a page that believed the file was open, so a file
    * already decided is a stale page (409, which offers a reload), not a bad
    * request.
    */
   private assertRegistrationDecidable(
-    user: { status: string; assigneeId?: string | null },
+    user: { status: string; assigneeId?: string | null; registrationClaimedAt?: Date | null },
     company: { updatedAt: Date },
     actorId: string,
     expectedRevision?: string,
@@ -2386,10 +2507,16 @@ export class AuthService {
     // officer holds is taken over first, a free file claimed first; both are
     // separate, logged assignments (assignRegistration). 409, not 403: the
     // page that sent it is out of date and reloads to show the claim action.
-    if (user.assigneeId && user.assigneeId !== actorId) {
+    // A claim past its 2-hour deadline (owner, 2026-11-09) no longer holds
+    // the file: its former holder is told so, anyone else sees a free file.
+    const claim = registrationClaimState(user);
+    if (claim.expired && user.assigneeId === actorId) {
+      throw new ConflictException(REGISTRATION_CLAIM_LAPSED);
+    }
+    if (claim.assigneeId && claim.assigneeId !== actorId) {
       throw new ConflictException(REGISTRATION_CLAIMED_BY_OTHER);
     }
-    if (!user.assigneeId) {
+    if (!claim.assigneeId) {
       throw new ConflictException(REGISTRATION_NOT_CLAIMED);
     }
     if (expectedRevision) {
@@ -2612,6 +2739,7 @@ export class AuthService {
         registrationMethod: string | null;
         createdBy: string | null;
         assigneeId: string | null;
+        registrationClaimedAt?: Date | null;
       };
     }>,
     actor: Territory,
@@ -2732,7 +2860,11 @@ export class AuthService {
         requiresCentralStructureCheck: row.entityType === 'ADMINISTRATION',
         registrationMethod: row.user.registrationMethod,
         createdBy: row.user.createdBy,
-        assigneeId: row.user.assigneeId ?? null,
+        // The holder as the deadline sees it: a lapsed claim reads as free,
+        // and claimExpiresAt says when a live one lapses.
+        ...((claim) => ({ assigneeId: claim.assigneeId, claimExpiresAt: claim.expiresAt?.toISOString() ?? null }))(
+          registrationClaimState(row.user),
+        ),
         hasSubmitted: (row._count?.onefopSubmissions ?? 0) > 0,
         updatedAt: row.updatedAt,
       };
