@@ -64,7 +64,7 @@ Never an inline white box. The mechanical tell is an inline `style` object carry
 
 ### G5 — Buttons
 
-`.cam-button` plus exactly one of `-primary` / `-secondary` / `-danger`; add `-sm` in toolbars and table rows; `.cam-text-button` for an inline text action. **One primary action per view.** Never an inline-styled `<button>`.
+`.cam-button` plus exactly one of `-primary` / `-secondary` / `-danger`; add `-sm` in toolbars and table rows; `.cam-text-button` for an inline text action. **One primary action per view.** Never an inline-styled `<button>`. In the console every button is `--cam-admin-button-height` (36px), 14px medium, whether `.cam-button` or the shadcn `Button`, and `-sm` is 32px (owner, 2026-11-06). Fields stay at 40px, and respondent screens keep the 40px `.cam-button`.
 
 ### G6 — Tables
 

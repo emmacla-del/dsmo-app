@@ -1511,6 +1511,69 @@ Approved changes on record:
   archived files would appear in those lists. Not exercised on an archived row:
   the live database holds none.
 
+- 2026-11-07 — the staff dashboard is withdrawn until it is rebuilt
+  (`react-web/src/app/admin/pilotage/page.tsx` deleted; the « supervision » hub
+  in `_routes.ts`, `nav-profiles.ts`; `role-navigation.ts`; `home/page.tsx`).
+  Issue: the owner decided to take the current dashboard out and develop it
+  later. Decision: no route, rail entry or /home link remains. Each role now
+  starts on the first page its rail offers (`adminHomeFor`): /admin/inscriptions,
+  /admin/dossiers for ADMIN_ONEFOP_SUBMISSIONS, /admin/etablissements for
+  CENTRAL_AGENT, the journal for AUDITOR; a role with no rail goes to /home.
+  /admin/pilotage redirects temporarily to /admin/inscriptions
+  (`next.config.ts`), and RequireAdminRole moves on any role refused there.
+  CONSEQUENCE: the campaign activity, review-status and registration trend
+  charts appear nowhere. KEPT for the
+  rebuild: the backend `/admin/pilotage/*` routes, which /admin/cibles, the
+  queue badges and others still read; PILOTAGE_READ_ROLES;
+  `CampaignActivityTrendChart`, `CampaignReviewStatusChart`,
+  `RegistrationTrendChart` and `pilotage-timeline.ts`, now unused; the
+  `adminPilotagePage` messages and `cam-dash-*` styles, which other screens
+  share. No schema, statistical variable, export, PDF or dataset version
+  change. Requested by the owner in chat, 2026-11-07.
+
+- 2026-11-07 — read-only central staff may open /admin/cibles (RBAC;
+  `COVERAGE_READ_ROLES` in `react-web/src/lib/roles.ts`, `_routes.ts`,
+  `nav-profiles.ts`, `canReadCampaignReturns` / `canReadRegistrationCoverage`
+  in `pilotage-targets.ts`, `cibles/page.tsx`). Issue: withdrawing the dashboard
+  left CENTRAL_AGENT with no screen for the returns and coverage figures the
+  server already lets it read (PILOTAGE_READ_ROLES,
+  PILOTAGE_COVERAGE_READ_ROLES). Decision: the « collecte » hub and
+  /admin/cibles open to it with two views, Suivi des retours and Couverture.
+  Quotas stay hidden and `?vue=relances` falls back to its default view. It
+  reads the active campaigns through `campaigns/active`, and `GET /campaigns`
+  stays closed to it. Frontend only: no server role, route or query changed,
+  so a write is still refused there. Do not widen `canListCampaigns` or
+  SURVEY_ROLES to solve a read need of this role. No schema, statistical
+  variable, export, PDF or dataset version change. Approved by the owner in
+  chat, 2026-11-07.
+
+- 2026-11-08 — a company registration is decided by the officer who holds it
+  (RBAC/workflow; `AuthService.assertRegistrationDecidable` and
+  `writeRegistrationDecision` in `src/auth/auth.service.ts`;
+  `registrationDecisionModel` in `react-web/src/lib/registration-decision.ts`;
+  `/admin/inscriptions/[id]`). Issue: approve, reject and request complements
+  never read `assigneeId`, and the review page showed its decision buttons
+  under « Réclamée par X », so two officers could decide one file; the
+  revision check stopped the second only when the first had already
+  committed. Decision: a decision on a file another officer holds is refused
+  with 409 « Un autre agent a réclamé cette inscription. Reprenez-la pour
+  décider. » A decision on a FREE file claims it: the write is conditional on
+  the holder it read, and leaves the file assigned to the officer who decided,
+  so a colleague who claims in between gets a 409 instead. On a colleague's
+  file the page replaces the decision buttons with « Reprendre le dossier », a
+  confirmed reassignment through the existing `PATCH /auth/users/:id/assign`
+  (with `expectedAssigneeId`), recorded as REGISTRATION_ASSIGNED with the
+  previous holder. Staff-account approval is NOT covered: it has no claim. In
+  the same pass, R-3 of
+  `docs/audit/admin-registration-submission-ux-audit-2026-11-08.md`: when the
+  file cannot be approved as it stands (a value marked non-compliant, a value
+  left empty, data the ID needs), « Demander des compléments » is the primary
+  action, as in the dossier workspace. Not changed: the dossier workspace,
+  which still requires an explicit claim, and registration claims, which
+  still do not expire (SINCE 2026-11-09 THEY DO: see the entry below). No
+  schema, statistical variable, export, PDF or dataset version change.
+  Approved by the owner in chat, 2026-11-08.
+
 - 2026-11-09 — a claim has a deadline: 2 hours for a registration, 12 hours
   for a submission, fixed from the claim and running round the clock; past it
   the claim is released and the miss is recorded against the officer (schema
