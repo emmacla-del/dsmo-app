@@ -1562,11 +1562,26 @@ Approved changes on record:
   national admins and the délégué of the territory — the post read from the
   database, as `staffApprovalScope` does — and null for any other territorial
   admin, who is a colleague. Only releases with reason DEADLINE count; earlier
-  INACTIVITY releases are not held against anyone. STILL OPEN: national
-  reviewers are not on the team page (it lists territorial admins only), so
-  their lapses are visible to themselves alone; and none of the four phases had
-  been exercised in a browser at commit time, the migration being applied by
-  the deploy.
+  INACTIVITY releases are not held against anyone.
+  Gaps closed the same day: (a) the national reviewers (ADMIN_ONEFOP,
+  ADMIN_ONEFOP_REGISTRATIONS, ADMIN_ONEFOP_SUBMISSIONS), absent from the
+  territorial roster, get their own table on the team page for the
+  SUPER_ADMIN only (`nationalLapses`) — the one role that manages theirs
+  (`manageableRolesFor`); an ADMIN_ONEFOP is their colleague and gets null.
+  (b) A claim taken BEFORE the rule cannot have missed it, yet the first sweep
+  releases every older claim with reason DEADLINE (it did so on the shared
+  database on 2026-11-09 at 03:45 UTC, from a local watch-mode backend: four
+  submission claims of 1 and 8 November). Those releases are correct but are
+  not misses: a lapse counts only when the claim it ends was taken at or after
+  `claimSignalFrom()` (`src/claims/claim-lapses.ts`), by default
+  2026-11-10T00:00Z; set ONEFOP_CLAIM_SIGNAL_FROM to the deployment time to
+  count from it exactly. What is released and recorded is unchanged.
+  Exercised in a browser against the shared database, read-only: the team
+  page (lapse column and national table), the submission list's colleagues
+  view, the officer's note (absent once the pre-rule releases stopped
+  counting). STILL OPEN: the registration queue and review page cannot load
+  until the migration adds `registrationClaimedAt`, so they are checked after
+  the deploy only.
 
 ---
 

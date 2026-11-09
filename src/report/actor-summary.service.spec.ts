@@ -36,16 +36,19 @@ const admin = {
 function makeService(
   overrides: {
     users?: any[]; backlog?: any[]; fieldRows?: any[]; decisions?: any[]; lastDecision?: any; lastActions?: any[];
-    /** auditLog.groupBy rows for the claim-lapse count (the call that asks for _count). */
+    /** auditLog.findMany rows for the claim-lapse count (the read of *_CLAIM_EXPIRED). */
     lapses?: any[];
     /** The caller's own row, read for their post (positionType). */
     self?: any;
+    /** Active national reviewers (the SUPER_ADMIN-only list). */
+    national?: any[];
   } = {},
 ) {
   const prisma = {
     user: {
       findUnique: jest.fn(async () => overrides.self ?? null),
       findMany: jest.fn(async (args: any) => {
+        if (args.where?.role?.in?.includes('ADMIN_ONEFOP')) return overrides.national ?? [];
         if (args.where?.assigneeId) return overrides.backlog ?? [];
         if (args.where?.createdBy) return overrides.fieldRows ?? [];
         if (args.where?.id?.in) return [];
@@ -53,8 +56,9 @@ function makeService(
       }),
     },
     auditLog: {
-      groupBy: jest.fn(async (args: any) => (args?._count ? overrides.lapses ?? [] : overrides.lastActions ?? [])),
-      findMany: jest.fn(async () => overrides.decisions ?? []),
+      groupBy: jest.fn(async () => overrides.lastActions ?? []),
+      findMany: jest.fn(async (args: any) =>
+        args?.where?.action?.in?.includes('DOSSIER_CLAIM_EXPIRED') ? overrides.lapses ?? [] : overrides.decisions ?? []),
       findFirst: jest.fn(async () => overrides.lastDecision ?? null),
     },
   } as any;
@@ -220,18 +224,33 @@ describe('ActorSummaryService.getActorSummary', () => {
   });
 
   describe('claim lapses (CLAUDE.md §21, 2026-11-09)', () => {
+    // NOW is 2026-10-04: count claims taken from 2026-09-01 in these tests.
+    const signalFrom = process.env.ONEFOP_CLAIM_SIGNAL_FROM;
+    beforeAll(() => { process.env.ONEFOP_CLAIM_SIGNAL_FROM = '2026-09-01T00:00:00.000Z'; });
+    afterAll(() => {
+      if (signalFrom === undefined) delete process.env.ONEFOP_CLAIM_SIGNAL_FROM;
+      else process.env.ONEFOP_CLAIM_SIGNAL_FROM = signalFrom;
+    });
+    const lapse = (userId: string, action: string) => ({
+      userId,
+      action,
+      timestamp: new Date(NOW.getTime() - DAY),
+      details: { reason: 'DEADLINE', claimedAt: new Date(NOW.getTime() - 2 * DAY).toISOString() },
+    });
     const lapseRows = [
-      { userId: 'a1', action: 'REGISTRATION_CLAIM_EXPIRED', _count: { _all: 2 } },
-      { userId: 'a1', action: 'DOSSIER_CLAIM_EXPIRED', _count: { _all: 1 } },
+      lapse('a1', 'REGISTRATION_CLAIM_EXPIRED'),
+      lapse('a1', 'REGISTRATION_CLAIM_EXPIRED'),
+      lapse('a1', 'DOSSIER_CLAIM_EXPIRED'),
     ];
+    const lapseRead = (prisma: any) =>
+      prisma.auditLog.findMany.mock.calls.find((c: any[]) => c[0].where?.action?.in?.includes('DOSSIER_CLAIM_EXPIRED'));
 
     it('shows a national admin each officer\'s lapses over the period, deadline lapses only', async () => {
       const { service, prisma } = makeService({ lapses: lapseRows });
       const result = await service.getActorSummary({ id: 's1', role: 'ADMIN_ONEFOP' }, { period: '30d' }, NOW);
       expect(result.claimLapsesVisible).toBe(true);
       expect(result.actors[0].claimLapses).toEqual({ registrations: 2, submissions: 1 });
-      const call = prisma.auditLog.groupBy.mock.calls.find((c: any[]) => c[0]._count)[0];
-      expect(call.where).toMatchObject({
+      expect(lapseRead(prisma)[0].where).toMatchObject({
         userId: { in: ['a1'] },
         action: { in: ['REGISTRATION_CLAIM_EXPIRED', 'DOSSIER_CLAIM_EXPIRED'] },
         timestamp: { gte: new Date('2026-09-04T10:00:00.000Z'), lte: NOW },
@@ -260,7 +279,33 @@ describe('ActorSummaryService.getActorSummary', () => {
       const result = await service.getActorSummary({ id: 'r2', role: 'REGIONAL_ADMIN', region: 'Littoral' }, {}, NOW);
       expect(result.claimLapsesVisible).toBe(false);
       expect(result.actors[0].claimLapses).toBeNull();
-      expect(prisma.auditLog.groupBy.mock.calls.some((c: any[]) => c[0]._count)).toBe(false);
+      expect(lapseRead(prisma)).toBeUndefined();
+    });
+
+    it('lists the national reviewers\' lapses for a SUPER_ADMIN, most first', async () => {
+      const national = [
+        { id: 'n1', firstName: 'Awa', lastName: 'N', email: 'awa@example.cm', role: 'ADMIN_ONEFOP_REGISTRATIONS', region: null, department: null },
+        { id: 'n2', firstName: 'Ben', lastName: 'O', email: 'ben@example.cm', role: 'ADMIN_ONEFOP', region: null, department: null },
+      ];
+      const { service, prisma } = makeService({
+        national,
+        lapses: [lapse('n2', 'DOSSIER_CLAIM_EXPIRED'), lapse('n2', 'DOSSIER_CLAIM_EXPIRED')],
+      });
+      const result = await service.getActorSummary({ id: 's1', role: 'SUPER_ADMIN' }, {}, NOW);
+      expect(result.nationalLapses).toEqual([
+        { userId: 'n2', displayName: 'Ben O', role: 'ADMIN_ONEFOP', claimLapses: { registrations: 0, submissions: 2 } },
+        { userId: 'n1', displayName: 'Awa N', role: 'ADMIN_ONEFOP_REGISTRATIONS', claimLapses: { registrations: 0, submissions: 0 } },
+      ]);
+      const where = prisma.user.findMany.mock.calls.map((c: any[]) => c[0].where).find((w: any) => w.role?.in?.includes('ADMIN_ONEFOP'));
+      // SUPER_ADMIN is not on the list: it has no supervisor, only peers.
+      expect(where).toEqual({ role: { in: ['ADMIN_ONEFOP', 'ADMIN_ONEFOP_REGISTRATIONS', 'ADMIN_ONEFOP_SUBMISSIONS'] }, isActive: true, status: 'ACTIVE' });
+    });
+
+    it('never gives the national list to an ADMIN_ONEFOP, a colleague of the reviewers on it', async () => {
+      const { service, prisma } = makeService({ national: [{ id: 'n1', firstName: 'A', lastName: 'B', email: 'a@b', role: 'ADMIN_ONEFOP' }] });
+      const result = await service.getActorSummary({ id: 'o1', role: 'ADMIN_ONEFOP' }, {}, NOW);
+      expect(result.nationalLapses).toBeNull();
+      expect(prisma.user.findMany.mock.calls.some((c: any[]) => c[0].where?.role?.in?.includes('ADMIN_ONEFOP'))).toBe(false);
     });
 
     it('fails closed when the caller\'s own row cannot be read', async () => {
@@ -365,6 +410,7 @@ describe('ActorSummaryService — connection budget', () => {
     const prisma = {
       user: {
         findMany: q('user.findMany', (args) => {
+          if (args.where?.role?.in?.includes('ADMIN_ONEFOP')) return [];
           if (args.where?.assigneeId) {
             return [
               { assigneeId: 'a1', createdAt: at(10) },
@@ -394,7 +440,7 @@ describe('ActorSummaryService — connection budget', () => {
           { userId: 'a1', action: 'SEND_NOTIFICATION', _max: { timestamp: at(1) } },
           { userId: 'a2', action: 'AUDIT_CORRECTION', _max: { timestamp: at(2) } },
         ]),
-        findMany: q('auditLog.findMany', () => [
+        findMany: q('auditLog.findMany', (args) => args?.where?.action?.in?.includes('DOSSIER_CLAIM_EXPIRED') ? [] : [
           { userId: 'a1', action: 'COMPANY_REGISTRATION_APPROVED', resourceType: 'User', resourceId: 'c1', timestamp: at(4) },
           { userId: 'a1', action: 'COMPANY_REGISTRATION_REJECTED', resourceType: 'User', resourceId: 'c2', timestamp: at(5) },
           { userId: 'a1', action: 'AUDIT_APPROVE', resourceType: 'OnefopSubmission', resourceId: 's1', timestamp: at(6) },
@@ -487,6 +533,7 @@ describe('ActorSummaryService — connection budget', () => {
       periodEnd: '2026-10-04T10:00:00.000Z',
       staleAfterDays: 7,
       claimLapsesVisible: true,
+      nationalLapses: [],
       actors: [
         actor('a1', 'Jean Dupont', 'REGIONAL_ADMIN', 'Littoral', null, {
           lastActionAt: '2026-10-03T10:00:00.000Z',

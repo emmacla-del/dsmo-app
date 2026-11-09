@@ -2755,6 +2755,8 @@
       "backlog": "En attente",
       "stale": "En retard",
       "staleDays": "En retard (> {days} j)",
+      "lapsedRegistrations": "Inscriptions expirées",
+      "lapsedSubmissions": "Dossiers expirés",
       "claimLapses": "Délais dépassés",
       "decisions": "Décisions",
       "medianDays": "Délai médian",
@@ -2771,6 +2773,9 @@
     "otherRole": "Autre rôle",
     "claimLapsesTitle": "Réclamations libérées faute de décision dans le délai (2 h pour une inscription, 12 h pour un dossier), sur la période",
     "claimLapsesDetail": "{registrations} inscription(s), {submissions} dossier(s)",
+    "nationalLapsesTitle": "Examinateurs nationaux : délais dépassés",
+    "nationalLapsesDescription": "Réclamations que chaque examinateur national a laissé expirer sans décision sur la période (2 h pour une inscription, 12 h pour un dossier). Visible du super administrateur seul.",
+    "nationalLapsesEmpty": "Aucun examinateur national actif.",
     "staleTitle": "Dossiers en attente au-delà du délai",
     "departmentLabel": "Département"
   },

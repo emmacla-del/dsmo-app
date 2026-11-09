@@ -2755,6 +2755,8 @@
       "backlog": "Pending",
       "stale": "Overdue",
       "staleDays": "Overdue (> {days} d)",
+      "lapsedRegistrations": "Registrations lapsed",
+      "lapsedSubmissions": "Files lapsed",
       "claimLapses": "Missed deadlines",
       "decisions": "Decisions",
       "medianDays": "Median time",
@@ -2771,6 +2773,9 @@
     "otherRole": "Other role",
     "claimLapsesTitle": "Claims released because the officer did not decide in time (2 h for a registration, 12 h for a file), over the period",
     "claimLapsesDetail": "{registrations} registration(s), {submissions} file(s)",
+    "nationalLapsesTitle": "National reviewers: missed deadlines",
+    "nationalLapsesDescription": "Claims each national reviewer let lapse without a decision over the period (2 h for a registration, 12 h for a file). Shown to the super administrator only.",
+    "nationalLapsesEmpty": "No active national reviewer.",
     "staleTitle": "Files waiting beyond the time limit",
     "departmentLabel": "Department"
   },

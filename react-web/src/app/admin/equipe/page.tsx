@@ -153,6 +153,7 @@ function EquipeContent() {
   const staleAfterDays = summaryQuery.data?.staleAfterDays;
   // Missed claim deadlines: for supervisors only, as the server decides.
   const lapsesVisible = summaryQuery.data?.claimLapsesVisible === true;
+  const nationalLapses = summaryQuery.data?.nationalLapses ?? null;
 
   const header = (
     <AdminPageHeader
@@ -298,6 +299,53 @@ function EquipeContent() {
           </table>
         </div>
       </AdminTablePanel>
+
+      {/* National reviewers are not on the roster above; their supervisor,
+          the super administrator, reads their missed deadlines here. */}
+      {/* Not tied to the roster's state: an empty territorial roster must
+          not hide the national reviewers. */}
+      {summaryQuery.isSuccess && nationalLapses && (
+        <AdminTablePanel
+          title={t("adminEquipePage.nationalLapsesTitle")}
+          headingId="equipe-national-lapses-title"
+          description={t("adminEquipePage.nationalLapsesDescription")}
+          meta={t("adminEquipePage.rosterCount", { count: nationalLapses.length })}
+        >
+          <div className="cam-equipe-table-scroll" role="region" tabIndex={0} aria-labelledby="equipe-national-lapses-title">
+            <table className="cam-table cam-equipe-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t("adminEquipePage.column.actor")}</th>
+                  <th scope="col" className="is-num">{t("adminEquipePage.column.lapsedRegistrations")}</th>
+                  <th scope="col" className="is-num">{t("adminEquipePage.column.lapsedSubmissions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nationalLapses.length === 0 && (
+                  <tr><td colSpan={3} className="cam-admin-meta">{t("adminEquipePage.nationalLapsesEmpty")}</td></tr>
+                )}
+                {nationalLapses.map((reviewer) => (
+                  <tr key={reviewer.userId}>
+                    <td>
+                      <span className="cam-equipe-cell">
+                        <span className="cam-admin-strong">{reviewer.displayName}</span>
+                        <span className="cam-admin-meta">{t.has(`homeNav.role.${reviewer.role}`) ? t(`homeNav.role.${reviewer.role}`) : reviewer.role}</span>
+                      </span>
+                    </td>
+                    {(["registrations", "submissions"] as const).map((kind) => (
+                      <td key={kind} className="is-num">
+                        {reviewer.claimLapses[kind] > 0
+                          ? <span className="cam-badge cam-badge-warning">{count(reviewer.claimLapses[kind], locale)}</span>
+                          : count(0, locale)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </AdminTablePanel>
+      )}
 
       {/* ── Relancer Modal ── */}
       <AdminDialog

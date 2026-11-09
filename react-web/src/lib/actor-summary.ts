@@ -65,6 +65,17 @@ export interface ActorSummaryResponse {
   /** Whether this reader is shown claimLapses; the column is drawn only then. */
   claimLapsesVisible?: boolean;
   actors: ActorSummaryActor[];
+  /**
+   * The national reviewers' missed claim deadlines over the period. Sent to a
+   * SUPER_ADMIN only, the one role that supervises them; null (or absent, on
+   * an older server) for everyone else.
+   */
+  nationalLapses?: Array<{
+    userId: string;
+    displayName: string;
+    role: string;
+    claimLapses: { registrations: number; submissions: number };
+  }> | null;
 }
 
 export interface ActorSummaryParams {

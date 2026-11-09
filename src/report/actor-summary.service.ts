@@ -94,6 +94,19 @@ export interface ActorSummaryActor {
   claimLapses: ClaimLapseCount | null;
 }
 
+/**
+ * National staff who hold review claims. SUPER_ADMIN is left out: it has no
+ * supervisor on the platform, and its peers are colleagues.
+ */
+export const NATIONAL_REVIEWER_ROLES = ['ADMIN_ONEFOP', 'ADMIN_ONEFOP_REGISTRATIONS', 'ADMIN_ONEFOP_SUBMISSIONS'] as const;
+
+export interface NationalReviewerLapses {
+  userId: string;
+  displayName: string;
+  role: string;
+  claimLapses: ClaimLapseCount;
+}
+
 interface ActingUser {
   id: string;
   role: string;
@@ -169,6 +182,10 @@ export class ActorSummaryService {
       const lapses = await countClaimLapses(this.prisma as any, users.map((user) => user.id), start, now);
       for (const entry of actors) entry.claimLapses = lapses.get(entry.userId) ?? { registrations: 0, submissions: 0 };
     }
+    // The national reviewers are not on this roster (it lists territorial
+    // admins); their supervisor is the SUPER_ADMIN, the only role that
+    // manages theirs (manageableRolesFor). An ADMIN_ONEFOP is their colleague.
+    const nationalLapses = actor.role === 'SUPER_ADMIN' ? await this.nationalReviewerLapses(start, now) : null;
 
     // Worst cases first: most stale, then largest backlog, then name.
     actors.sort(
@@ -186,7 +203,30 @@ export class ActorSummaryService {
       staleAfterDays: STALE_AFTER_DAYS,
       claimLapsesVisible,
       actors,
+      nationalLapses,
     };
+  }
+
+  /**
+   * Every active national reviewer (the roles that hold claims nationally),
+   * with their lapses over the period, most first. Two reads, one after the
+   * other.
+   */
+  private async nationalReviewerLapses(start: Date, now: Date): Promise<NationalReviewerLapses[]> {
+    const reviewers: MonitoredUser[] = await this.prisma.user.findMany({
+      where: { role: { in: [...NATIONAL_REVIEWER_ROLES] as any }, isActive: true, status: 'ACTIVE' },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, region: true, department: true },
+    }) as any;
+    const lapses = await countClaimLapses(this.prisma as any, reviewers.map((user) => user.id), start, now);
+    const total = (count: ClaimLapseCount) => count.registrations + count.submissions;
+    return reviewers
+      .map((user) => ({
+        userId: user.id,
+        displayName: displayName(user),
+        role: user.role,
+        claimLapses: lapses.get(user.id) ?? { registrations: 0, submissions: 0 },
+      }))
+      .sort((a, b) => total(b.claimLapses) - total(a.claimLapses) || a.displayName.localeCompare(b.displayName));
   }
 
   /**
