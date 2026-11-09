@@ -151,6 +151,8 @@ function EquipeContent() {
   const actors = summaryQuery.data?.actors ?? [];
   // The server's threshold; the reminder dialog only opens from a loaded summary.
   const staleAfterDays = summaryQuery.data?.staleAfterDays;
+  // Missed claim deadlines: for supervisors only, as the server decides.
+  const lapsesVisible = summaryQuery.data?.claimLapsesVisible === true;
 
   const header = (
     <AdminPageHeader
@@ -263,6 +265,7 @@ function EquipeContent() {
                     ? t("adminEquipePage.column.staleDays", { days: staleAfterDays })
                     : t("adminEquipePage.column.stale")}
                 </th>
+                {lapsesVisible && <th scope="col" className="is-num" title={t("adminEquipePage.claimLapsesTitle")}>{t("adminEquipePage.column.claimLapses")}</th>}
                 <th scope="col">{t("adminEquipePage.column.decisions")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.medianDays")}</th>
                 <th scope="col" className="text-right">{t("adminEquipePage.column.actions")}</th>
@@ -272,7 +275,7 @@ function EquipeContent() {
               {/* Loading, failure and "no one matches these filters" stay
                   three distinct renders. */}
               <DataStateRow
-                colSpan={10}
+                colSpan={lapsesVisible ? 11 : 10}
                 state={summaryState}
                 resource={t("adminNav.routes.equipe")}
                 error={summaryQuery.error}
@@ -289,7 +292,7 @@ function EquipeContent() {
               />
               {summaryState === "ready" &&
                 actors.map((actor) => (
-                  <ActorRow key={actor.userId} actor={actor} onNudge={() => openNudgeModal(actor)} />
+                  <ActorRow key={actor.userId} actor={actor} showLapses={lapsesVisible} onNudge={() => openNudgeModal(actor)} />
                 ))}
             </tbody>
           </table>
@@ -395,7 +398,7 @@ function EquipeContent() {
  * work (registrations, conversions), coverage against the quota, processing
  * (backlog, stale, decisions, median time), and the row's actions.
  */
-function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () => void }) {
+function ActorRow({ actor, showLapses, onNudge }: { actor: ActorSummaryActor; showLapses: boolean; onNudge: () => void }) {
   // The journal is AUDIT_ROLES-only; ADMIN_ONEFOP and REGIONAL_ADMIN, who use
   // this page, would land on a refusal.
   const canReadAudit = hasRole(useAuthStore((s) => s.user?.role), AUDIT_ROLES);
@@ -449,6 +452,20 @@ function ActorRow({ actor, onNudge }: { actor: ActorSummaryActor; onNudge: () =>
           count(actor.processing.stale, locale)
         )}
       </td>
+      {showLapses && (
+        <td className="is-num">
+          {(() => {
+            const lapses = actor.claimLapses;
+            if (!lapses) return NOT_PROVIDED;
+            const total = lapses.registrations + lapses.submissions;
+            const detail = t("claimLapsesDetail", { registrations: lapses.registrations, submissions: lapses.submissions });
+            // Amber with its number and a worded title: a missed deadline, not an error.
+            return total > 0
+              ? <span className="cam-badge cam-badge-warning" title={detail}>{count(total, locale)}</span>
+              : <span title={detail}>{count(0, locale)}</span>;
+          })()}
+        </td>
+      )}
       <td>
         <span className="cam-equipe-decisions">
           <span className="cam-badge cam-badge-success" title={t("approvedTitle")}>

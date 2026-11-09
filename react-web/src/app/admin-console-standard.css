@@ -1262,3 +1262,12 @@ button.cam-kpi[aria-pressed="true"] {
   color: var(--cam-warning);
   font-weight: 600;
 }
+
+/* The officer's own missed claim deadlines (CLAUDE.md §21, 2026-11-09):
+   a sentence, amber, under the queue summary; shown only when non-zero. */
+.cam-claim-lapse-note {
+  margin: 0 0 var(--cam-space-3);
+  color: var(--cam-warning);
+  font-size: var(--cam-font-size-sm);
+  font-weight: 600;
+}

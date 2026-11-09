@@ -2755,6 +2755,7 @@
       "backlog": "Pending",
       "stale": "Overdue",
       "staleDays": "Overdue (> {days} d)",
+      "claimLapses": "Missed deadlines",
       "decisions": "Decisions",
       "medianDays": "Median time",
       "actions": "Actions"
@@ -2768,6 +2769,8 @@
     "medianDays": "{days} d",
     "rosterDescription": "One row per regional or departmental administrator, over the chosen period.",
     "otherRole": "Other role",
+    "claimLapsesTitle": "Claims released because the officer did not decide in time (2 h for a registration, 12 h for a file), over the period",
+    "claimLapsesDetail": "{registrations} registration(s), {submissions} file(s)",
     "staleTitle": "Files waiting beyond the time limit",
     "departmentLabel": "Department"
   },
@@ -4740,5 +4743,9 @@
     "pageButton": "Page {page}",
     "previous": "Previous",
     "next": "Next"
+  },
+  "adminClaimLapses": {
+    "ownRegistrations": "{count, plural, one {# of your registration claims expired without a decision} other {# of your registration claims expired without a decision}} in the last {days} days.",
+    "ownSubmissions": "{count, plural, one {# of your file claims expired without a decision} other {# of your file claims expired without a decision}} in the last {days} days."
   }
 }

@@ -2755,6 +2755,7 @@
       "backlog": "En attente",
       "stale": "En retard",
       "staleDays": "En retard (> {days} j)",
+      "claimLapses": "Délais dépassés",
       "decisions": "Décisions",
       "medianDays": "Délai médian",
       "actions": "Actions"
@@ -2768,6 +2769,8 @@
     "medianDays": "{days} j",
     "rosterDescription": "Une ligne par administrateur régional ou départemental, sur la période choisie.",
     "otherRole": "Autre rôle",
+    "claimLapsesTitle": "Réclamations libérées faute de décision dans le délai (2 h pour une inscription, 12 h pour un dossier), sur la période",
+    "claimLapsesDetail": "{registrations} inscription(s), {submissions} dossier(s)",
     "staleTitle": "Dossiers en attente au-delà du délai",
     "departmentLabel": "Département"
   },
@@ -4740,5 +4743,9 @@
     "pageButton": "Page {page}",
     "previous": "Précédent",
     "next": "Suivant"
+  },
+  "adminClaimLapses": {
+    "ownRegistrations": "{count, plural, one {# de vos réclamations d’inscription a expiré sans décision} other {# de vos réclamations d’inscription ont expiré sans décision}} ces {days} derniers jours.",
+    "ownSubmissions": "{count, plural, one {# de vos réclamations de dossier a expiré sans décision} other {# de vos réclamations de dossier ont expiré sans décision}} ces {days} derniers jours."
   }
 }

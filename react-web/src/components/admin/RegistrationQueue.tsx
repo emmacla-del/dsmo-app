@@ -40,6 +40,7 @@ import { useTerritoryStructure } from "@/hooks/useTerritoryStructure";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminKpiStrip, type KpiItem } from "@/components/admin/AdminKpiStrip";
+import { OwnClaimLapseNote } from "@/components/admin/OwnClaimLapseNote";
 import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -334,6 +335,7 @@ export function RegistrationQueue() {
           note={t("summaryCaption")}
         />
       )}
+      {canRead && <OwnClaimLapseNote kind="registrations" enabled={enabled} />}
 
       {notice && (
         <Alert

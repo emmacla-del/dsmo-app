@@ -49,6 +49,12 @@ export interface ActorSummaryActor {
     decisions: { approved: number; rejected: number; corrections: number };
     medianDaysToDecision: number | null;
   };
+  /**
+   * Claims this officer let lapse before deciding, over the period. null (or
+   * absent, on an older server) unless the reader is their supervisor:
+   * national admins and the délégué of the territory (CLAUDE.md §21, 2026-11-09).
+   */
+  claimLapses?: { registrations: number; submissions: number } | null;
 }
 
 export interface ActorSummaryResponse {
@@ -56,6 +62,8 @@ export interface ActorSummaryResponse {
   periodEnd: string;
   /** The server's stale-backlog threshold in days (STALE_AFTER_DAYS). */
   staleAfterDays: number;
+  /** Whether this reader is shown claimLapses; the column is drawn only then. */
+  claimLapsesVisible?: boolean;
   actors: ActorSummaryActor[];
 }
 

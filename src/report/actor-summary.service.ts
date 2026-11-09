@@ -7,7 +7,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { PilotageService } from '../pilotage/pilotage.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { TERRITORIAL_APPROVER_ROLES } from '../auth/staff-scope';
+import { TERRITORIAL_APPROVER_ROLES, USER_ADMIN_ROLES, staffApprovalScope } from '../auth/staff-scope';
+import { countClaimLapses, type ClaimLapseCount } from '../claims/claim-lapses';
 
 /**
  * Territorial admin monitoring — Phase 4 of
@@ -84,6 +85,13 @@ export interface ActorSummaryActor {
     decisions: { approved: number; rejected: number; corrections: number };
     medianDaysToDecision: number | null;
   };
+  /**
+   * Claims this officer let lapse before deciding, over the period
+   * (CLAUDE.md §21, 2026-11-09). null when the caller is not their
+   * supervisor: national admins and the délégué of the territory see it,
+   * a colleague never does.
+   */
+  claimLapses: ClaimLapseCount | null;
 }
 
 interface ActingUser {
@@ -154,6 +162,14 @@ export class ActorSummaryService {
     });
     const actors = await this.summarize(users, start, now);
 
+    // The lapse signal is for supervisors only. Read after summarize, not
+    // beside it, to keep the connection fan-out where it is.
+    const claimLapsesVisible = await this.canSeeClaimLapses(actor);
+    if (claimLapsesVisible) {
+      const lapses = await countClaimLapses(this.prisma as any, users.map((user) => user.id), start, now);
+      for (const entry of actors) entry.claimLapses = lapses.get(entry.userId) ?? { registrations: 0, submissions: 0 };
+    }
+
     // Worst cases first: most stale, then largest backlog, then name.
     actors.sort(
       (a, b) =>
@@ -168,8 +184,25 @@ export class ActorSummaryService {
       periodStart: start.toISOString(),
       periodEnd: now.toISOString(),
       staleAfterDays: STALE_AFTER_DAYS,
+      claimLapsesVisible,
       actors,
     };
+  }
+
+  /**
+   * National admins, and the délégué of a territory: the post, read from the
+   * database (never the token, which may predate a change of post), as
+   * staffApprovalScope reads it for staff approval. Any other territorial
+   * admin may open this page but is a colleague of the officers on it.
+   */
+  private async canSeeClaimLapses(actor: ActingUser): Promise<boolean> {
+    if ((USER_ADMIN_ROLES as readonly string[]).includes(actor.role)) return true;
+    if (!actor.id) return false;
+    const own = await this.prisma.user.findUnique({
+      where: { id: actor.id },
+      select: { role: true, region: true, department: true, positionType: true },
+    });
+    return staffApprovalScope(own as any) !== null;
   }
 
   async nudge(actor: ActingUser, body: unknown, now = new Date()) {
@@ -339,6 +372,7 @@ export class ActorSummaryService {
           decisions,
           medianDaysToDecision: medianDays == null ? null : Math.round(medianDays * 10) / 10,
         },
+        claimLapses: null,
       };
     });
   }

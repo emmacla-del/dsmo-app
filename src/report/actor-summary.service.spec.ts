@@ -34,10 +34,17 @@ const admin = {
 };
 
 function makeService(
-  overrides: { users?: any[]; backlog?: any[]; fieldRows?: any[]; decisions?: any[]; lastDecision?: any; lastActions?: any[] } = {},
+  overrides: {
+    users?: any[]; backlog?: any[]; fieldRows?: any[]; decisions?: any[]; lastDecision?: any; lastActions?: any[];
+    /** auditLog.groupBy rows for the claim-lapse count (the call that asks for _count). */
+    lapses?: any[];
+    /** The caller's own row, read for their post (positionType). */
+    self?: any;
+  } = {},
 ) {
   const prisma = {
     user: {
+      findUnique: jest.fn(async () => overrides.self ?? null),
       findMany: jest.fn(async (args: any) => {
         if (args.where?.assigneeId) return overrides.backlog ?? [];
         if (args.where?.createdBy) return overrides.fieldRows ?? [];
@@ -46,7 +53,7 @@ function makeService(
       }),
     },
     auditLog: {
-      groupBy: jest.fn(async () => overrides.lastActions ?? []),
+      groupBy: jest.fn(async (args: any) => (args?._count ? overrides.lapses ?? [] : overrides.lastActions ?? [])),
       findMany: jest.fn(async () => overrides.decisions ?? []),
       findFirst: jest.fn(async () => overrides.lastDecision ?? null),
     },
@@ -212,6 +219,58 @@ describe('ActorSummaryService.getActorSummary', () => {
     expect(result.actors[0].lastDecisionAt).toBeNull();
   });
 
+  describe('claim lapses (CLAUDE.md §21, 2026-11-09)', () => {
+    const lapseRows = [
+      { userId: 'a1', action: 'REGISTRATION_CLAIM_EXPIRED', _count: { _all: 2 } },
+      { userId: 'a1', action: 'DOSSIER_CLAIM_EXPIRED', _count: { _all: 1 } },
+    ];
+
+    it('shows a national admin each officer\'s lapses over the period, deadline lapses only', async () => {
+      const { service, prisma } = makeService({ lapses: lapseRows });
+      const result = await service.getActorSummary({ id: 's1', role: 'ADMIN_ONEFOP' }, { period: '30d' }, NOW);
+      expect(result.claimLapsesVisible).toBe(true);
+      expect(result.actors[0].claimLapses).toEqual({ registrations: 2, submissions: 1 });
+      const call = prisma.auditLog.groupBy.mock.calls.find((c: any[]) => c[0]._count)[0];
+      expect(call.where).toMatchObject({
+        userId: { in: ['a1'] },
+        action: { in: ['REGISTRATION_CLAIM_EXPIRED', 'DOSSIER_CLAIM_EXPIRED'] },
+        timestamp: { gte: new Date('2026-09-04T10:00:00.000Z'), lte: NOW },
+        details: { path: ['reason'], equals: 'DEADLINE' },
+      });
+      // A national admin needs no post: their own row is not read.
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('shows them to the délégué of the region, read from the database post', async () => {
+      const { service, prisma } = makeService({
+        lapses: lapseRows,
+        self: { role: 'REGIONAL_ADMIN', region: 'Littoral', department: null, positionType: 'DELEGUE_REGIONAL' },
+      });
+      const result = await service.getActorSummary({ id: 'r1', role: 'REGIONAL_ADMIN', region: 'Littoral' }, {}, NOW);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'r1' } }));
+      expect(result.claimLapsesVisible).toBe(true);
+      expect(result.actors[0].claimLapses).toEqual({ registrations: 2, submissions: 1 });
+    });
+
+    it('never shows them to a colleague: a regional admin who is not the délégué', async () => {
+      const { service, prisma } = makeService({
+        lapses: lapseRows,
+        self: { role: 'REGIONAL_ADMIN', region: 'Littoral', department: null, positionType: 'CADRE' },
+      });
+      const result = await service.getActorSummary({ id: 'r2', role: 'REGIONAL_ADMIN', region: 'Littoral' }, {}, NOW);
+      expect(result.claimLapsesVisible).toBe(false);
+      expect(result.actors[0].claimLapses).toBeNull();
+      expect(prisma.auditLog.groupBy.mock.calls.some((c: any[]) => c[0]._count)).toBe(false);
+    });
+
+    it('fails closed when the caller\'s own row cannot be read', async () => {
+      const { service } = makeService({ lapses: lapseRows, self: null });
+      const result = await service.getActorSummary({ id: 'r3', role: 'REGIONAL_ADMIN', region: 'Littoral' }, {}, NOW);
+      expect(result.claimLapsesVisible).toBe(false);
+      expect(result.actors[0].claimLapses).toBeNull();
+    });
+  });
+
   it('rejects an unknown role filter', async () => {
     const { service } = makeService();
     await expect(service.getActorSummary({ id: 's1', role: 'SUPER_ADMIN' }, { role: 'COMPANY' }, NOW)).rejects.toThrow(
@@ -330,7 +389,7 @@ describe('ActorSummaryService — connection budget', () => {
         }),
       },
       auditLog: {
-        groupBy: q('auditLog.groupBy', () => [
+        groupBy: q('auditLog.groupBy', (args) => args?._count ? [] : [
           { userId: 'a1', action: 'COMPANY_REGISTRATION_APPROVED', _max: { timestamp: at(4) } },
           { userId: 'a1', action: 'SEND_NOTIFICATION', _max: { timestamp: at(1) } },
           { userId: 'a2', action: 'AUDIT_CORRECTION', _max: { timestamp: at(2) } },
@@ -421,11 +480,13 @@ describe('ActorSummaryService — connection budget', () => {
       department: string | null,
       rest: object,
     ) => ({ userId, displayName, role, region, department, ...rest });
-    // Recorded from the single-Promise.all implementation before the change.
+    // Recorded from the single-Promise.all implementation before the change;
+    // claimLapses added 2026-11-09 (a national caller sees them).
     expect(result).toEqual({
       periodStart: '2026-09-04T10:00:00.000Z',
       periodEnd: '2026-10-04T10:00:00.000Z',
       staleAfterDays: 7,
+      claimLapsesVisible: true,
       actors: [
         actor('a1', 'Jean Dupont', 'REGIONAL_ADMIN', 'Littoral', null, {
           lastActionAt: '2026-10-03T10:00:00.000Z',
@@ -438,6 +499,7 @@ describe('ActorSummaryService — connection budget', () => {
             decisions: { approved: 2, rejected: 1, corrections: 0 },
             medianDaysToDecision: 8.5,
           },
+          claimLapses: { registrations: 0, submissions: 0 },
         }),
         actor('a2', 'div@example.cm', 'DIVISIONAL_ADMIN', 'Littoral', 'Wouri', {
           lastActionAt: '2026-10-02T10:00:00.000Z',
@@ -450,6 +512,7 @@ describe('ActorSummaryService — connection budget', () => {
             decisions: { approved: 0, rejected: 0, corrections: 1 },
             medianDaysToDecision: 4,
           },
+          claimLapses: { registrations: 0, submissions: 0 },
         }),
         actor('a3', 'Ana B', 'REGIONAL_ADMIN', 'Centre', null, {
           lastActionAt: null,
@@ -462,6 +525,7 @@ describe('ActorSummaryService — connection budget', () => {
             decisions: { approved: 0, rejected: 0, corrections: 0 },
             medianDaysToDecision: null,
           },
+          claimLapses: { registrations: 0, submissions: 0 },
         }),
       ],
     });

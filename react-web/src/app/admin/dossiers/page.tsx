@@ -10,6 +10,7 @@ import { Download, MoreHorizontal, Search, SlidersHorizontal } from "lucide-reac
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getAdminListFacets, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
 import { claimTimeLeft } from "@/lib/registration-queue";
+import { OwnClaimLapseNote } from "@/components/admin/OwnClaimLapseNote";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
 import { asUiLocale } from "@/lib/register-i18n";
@@ -1751,6 +1752,7 @@ function DossiersContent({
         {(vue === "submissions" || vue === "completed") && <div className={`cam-dossier-queue-layout${vue === "submissions" && filterPanelOpen ? " is-filter-open" : ""}`}>
         <div className="cam-dossier-queue-main">
         {vue === "submissions" && <CardContent className="border-b cam-dossier-submissions-filters">
+          {!readOnly && <OwnClaimLapseNote kind="submissions" />}
           <div className="cam-dossier-queue-search-row">
             {!readOnly && <Button type="button" size="sm" variant="outline" className="cam-dossier-queue-export" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
             <div className="cam-dossier-quick-filters" role="group" aria-label={t("queueViewsLabel")}>
