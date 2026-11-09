@@ -1548,11 +1548,25 @@ Approved changes on record:
   released by the first sweep; a held submission with no time gets the deploy
   time. Durations are `ONEFOP_REGISTRATION_CLAIM_HOURS` (2) and
   `ONEFOP_REVIEW_CLAIM_INACTIVITY_HOURS` (12, historical name). No statistical
-  variable, export, PDF or dataset version changes; no role or route changes.
-  Approved by the owner in chat, 2026-11-09. Delivered in phases: phase 1 is
-  the server (deadline, release, record); the queue's « Réclamées par un
-  collègue » view and time left (2), the submission list (3) and the signal on
-  screen (4) follow.
+  variable, export, PDF or dataset version changes; no role changes, and one
+  read route added in phase 4 (below).
+  Approved by the owner in chat, 2026-11-09. Delivered in four commits the
+  same day: (1) the server — deadline, release, record (c2ee6fe8); (2) the
+  registration queue's « Réclamées par un collègue » view, with the holder's
+  name and « Expire dans … » (amber in the last 30 minutes), and the time left
+  on the review page (4068745c); (3) the same view and time left on the
+  submission list, from `claimExpiresAt` (13f40059); (4) the signal on screen
+  (4998fdf0): the officer's own count over 30 days on their queue
+  (`GET /claims/lapses/me`, the caller only), and a « Délais dépassés » column
+  on the team page (`claimLapses` on `/audit/actor-summary`), filled for
+  national admins and the délégué of the territory — the post read from the
+  database, as `staffApprovalScope` does — and null for any other territorial
+  admin, who is a colleague. Only releases with reason DEADLINE count; earlier
+  INACTIVITY releases are not held against anyone. STILL OPEN: national
+  reviewers are not on the team page (it lists territorial admins only), so
+  their lapses are visible to themselves alone; and none of the four phases had
+  been exercised in a browser at commit time, the migration being applied by
+  the deploy.
 
 ---
 
