@@ -34,11 +34,11 @@ async function captureRequest(work: () => Promise<unknown>) {
 test("claim and release use the actual assignment DTO while the backend owns its atomic revision check", async () => {
   const claimCalls = await captureRequest(() => assignDossier("dossier 1", "agent-1"));
   const releaseCalls = await captureRequest(() => assignDossier("dossier 1", null));
-  assert.deepEqual(claimCalls[0], {
-    url: "http://localhost:3001/api/admin/questionnaires/dossier%201/assign",
-    method: "PATCH",
-    body: { assigneeId: "agent-1" },
-  });
+  // The API origin comes from NEXT_PUBLIC_API_URL (or the local default), so
+  // only the route is pinned here: the test passes on any machine.
+  assert.equal(new URL(claimCalls[0].url).pathname, "/api/admin/questionnaires/dossier%201/assign");
+  assert.equal(claimCalls[0].method, "PATCH");
+  assert.deepEqual(claimCalls[0].body, { assigneeId: "agent-1" });
   assert.deepEqual(releaseCalls[0].body, { assigneeId: null });
   assert.equal("expectedRevision" in (claimCalls[0].body as object), false);
 });

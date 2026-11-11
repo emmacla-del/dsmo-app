@@ -33,7 +33,10 @@ const VIEWPORTS = [
 ];
 
 const FRAME_MAX_WIDTH = 600;
-const FIELD_HEIGHT = 40;
+// The respondent field height (--cam-respondent-field-height in tokens.css):
+// the registration boxes match the questionnaires' since 2026-10, not the
+// 40px admin height.
+const FIELD_HEIGHT = 36;
 
 let failures = 0;
 let checks = 0;
@@ -488,10 +491,20 @@ async function runRail(browser) {
   await page.click('input[name="entityType"][value="enterprise"]');
   await page.waitForTimeout(300);
 
+  // Picking a type answers the step but does not leave it: the respondent
+  // moves on with Continuer, as on every other step.
+  rail = await page.evaluate(railStates);
+  check(
+    rail[0].cls === "is-currentComplete",
+    "picking a type marks the step answered while it stays current",
+    rail[0].cls
+  );
+  await continueOn(page);
+
   rail = await page.evaluate(railStates);
   check(
     rail[0].cls === "is-done" && rail[0].hasCheck,
-    "picking a type turns the first circle green with a check",
+    "after Continuer the first circle is green with a check",
     rail[0].cls
   );
   check(
@@ -697,6 +710,8 @@ const measureLabels = () => {
 const measureInputWidths = () => {
   const out = [];
   for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
+    // Choice rows (a fieldset of radios) have no text box to measure.
+    if (field.matches("fieldset.choice-fieldset")) continue;
     const control = field.querySelector("input, select");
     if (!control) continue;
     const r = control.getBoundingClientRect();
@@ -722,6 +737,7 @@ async function openEntitySection(page, type) {
   await page.waitForSelector(".flow-frame-content");
   await page.click('input[name="entityType"][value="' + type + '"]');
   await page.waitForTimeout(250);
+  await continueOn(page);
   await page.fill("#reg-first-name", "Marie");
   await page.fill("#reg-last-name", "Ngono");
   await page.selectOption("#reg-function", { index: 1 });
@@ -859,10 +875,22 @@ async function runRequiredOnly(browser) {
       check(false, type + ": Respondent did not advance on required fields alone");
       continue;
     }
-    // Fill section 3's required, visible fields and nothing else.
-    const filled = await page.evaluate(() => {
+    // Fill section 3's required, visible fields and nothing else. Twice: a
+    // select fed by another (the branch, by the sector) has its options only
+    // after the first pass has re-rendered, and an answer can reveal more
+    // required fields (an authorized centre asks for its order's number and
+    // date).
+    const fillRequired = () => page.evaluate(() => {
       const touched = [];
       for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
+        // A short list of options is a fieldset of choice rows (radios);
+        // the fieldset carries aria-required, and answering is a click.
+        if (field.matches("fieldset.choice-fieldset")) {
+          if (field.getAttribute("aria-required") !== "true") continue;
+          field.querySelector('input[type="radio"]')?.click();
+          touched.push(field.id);
+          continue;
+        }
         const control = field.querySelector("input, select");
         if (!control) continue;
         if (control.getAttribute("aria-required") !== "true") continue;
@@ -878,19 +906,42 @@ async function runRequiredOnly(browser) {
         } else {
           // Year and amount fields are digits-only text inputs (numeric
           // keypad, non-digits filtered out), so they need a number.
-          set(control, control.inputMode === "numeric" ? "2020" : "Test");
+          // A phone must pass the Cameroon format check.
+          set(
+            control,
+            control.type === "tel"
+              ? "677123456"
+              : control.type === "date"
+                ? "2020-01-15"
+                : control.inputMode === "numeric"
+                  ? "2020"
+                  : "Test"
+          );
         }
         touched.push(control.id);
       }
       return touched;
     });
+    await fillRequired();
+    await page.waitForTimeout(300);
+    const filled = await fillRequired();
     await page.waitForTimeout(500);
 
     const untouchedOptional = await page.evaluate(() =>
       [...document.querySelectorAll(".wizard-section:not([hidden]) .field")]
-        .map((f) => f.querySelector("input, select"))
-        .filter((c) => c && c.getAttribute("aria-required") !== "true")
-        .map((c) => ({ id: c.id, value: c.value }))
+        .map((f) =>
+          f.matches("fieldset.choice-fieldset")
+            ? {
+                id: f.id,
+                required: f.getAttribute("aria-required") === "true",
+                value: f.querySelector("input:checked")?.value ?? "",
+              }
+            : (() => {
+                const c = f.querySelector("input, select");
+                return c && { id: c.id, required: c.getAttribute("aria-required") === "true", value: c.value };
+              })()
+        )
+        .filter((c) => c && !c.required)
     );
     check(
       untouchedOptional.every((c) => c.value === ""),
@@ -918,20 +969,21 @@ async function runRequiredOnly(browser) {
       await page.click(".flow-continue-link", { force: true });
       await page.waitForTimeout(300);
       const loc = await page.evaluate(() => ({
-        notice: document.querySelector(".flow-missing-notice")?.textContent?.trim() ?? "",
+        announce: [...document.querySelectorAll('.flow-frame-content .sr-only[role="status"]')]
+          .map((e) => e.textContent?.trim() ?? "")
+          .join(""),
         invalid: [
           ...document.querySelectorAll('.wizard-section:not([hidden]) [aria-invalid="true"]'),
         ].map((e) => e.id),
       }));
       check(
-        /2 champs|2 required/i.test(loc.notice) &&
-          !/D[ée]partement|Division|Arrondissement|Subdivision/i.test(loc.notice),
-        "empty Localisation names the region and the area, not the gated selects",
-        loc.notice
+        /2 champs|2 required/i.test(loc.announce),
+        "empty Localisation counts the region and the area, not the gated selects",
+        loc.announce
       );
       check(
-        loc.invalid.length === 1 && loc.invalid[0] === "reg-region",
-        "and marks the region alone",
+        loc.invalid.join(",") === "reg-region,reg-area",
+        "and marks those two alone",
         loc.invalid.join(", ")
       );
     }
@@ -942,21 +994,24 @@ async function runRequiredOnly(browser) {
 }
 
 // ── The four prompt triggers (item 11) ───────────────────────────────────
+//
+// What a missing answer looks like (since the 2026-10 form redesign): every
+// missing field in the section is marked and carries its own line under the
+// control, focus goes to the first one, and one polite status line counts
+// them for a screen reader. The boxed summary above the section is kept for
+// format errors (a malformed phone, a short password), not for blanks.
 
 const promptState = () => ({
-  notice: document.querySelector(".flow-missing-notice")?.textContent?.trim() ?? null,
   invalid: [
     ...document.querySelectorAll('.wizard-section:not([hidden]) [aria-invalid="true"]'),
   ].map((e) => e.id),
-  errors: [...document.querySelectorAll(".wizard-section:not([hidden]) .field-error")].length,
-  focused: document.activeElement?.id ?? null,
+  errors: [...document.querySelectorAll(".wizard-section:not([hidden]) .field-error")].map((e) => e.id),
+  announce: [...document.querySelectorAll('.flow-frame-content .sr-only[role="status"]')]
+    .map((e) => e.textContent?.trim() ?? "")
+    .join(""),
+  focused: document.activeElement?.id || document.activeElement?.getAttribute("name") || null,
   describedBy: document.querySelector("#reg-first-name")?.getAttribute("aria-describedby") ?? null,
-  links: [...document.querySelectorAll(".flow-missing-notice a")].map((a) => a.getAttribute("href")),
-  noticeAboveFields: (() => {
-    const n = document.querySelector(".flow-missing-notice");
-    const f = document.querySelector(".wizard-section:not([hidden]) .field");
-    return !!n && !!f && n.getBoundingClientRect().bottom <= f.getBoundingClientRect().top;
-  })(),
+  section: document.querySelector(".wizard-section:not([hidden])")?.getAttribute("aria-labelledby") ?? null,
 });
 
 async function runPrompts(browser) {
@@ -970,7 +1025,7 @@ async function runPrompts(browser) {
   // Nothing is flagged before a trigger fires.
   let st = await page.evaluate(promptState);
   check(
-    st.notice === null && st.invalid.length === 0 && st.errors === 0,
+    st.invalid.length === 0 && st.errors.length === 0 && st.announce === "",
     "no error is shown before any trigger fires"
   );
 
@@ -979,55 +1034,41 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    st.notice !== null && /1 champ|1 required/i.test(st.notice),
-    "(b) continue on an empty section names the one thing missing",
-    st.notice || ""
+    st.invalid.length === 1 && st.errors.length === 1 && /1 champ|1 required/i.test(st.announce),
+    "(b) continue on an empty section marks the one thing missing and counts it",
+    st.invalid.join(", ") + " / " + st.announce
   );
+  check(st.focused === "entityType", "and focuses the type list", st.focused || "");
 
   await page.click('input[name="entityType"][value="enterprise"]');
   await page.waitForTimeout(400);
   st = await page.evaluate(promptState);
-  check(st.notice === null, "the notice clears when the section is satisfied");
+  check(
+    st.invalid.length === 0 && st.errors.length === 0,
+    "the flag clears when the section is satisfied"
+  );
+  await continueOn(page);
 
-  // (d) a locked rail item.
+  // (d) a locked rail item, from the empty Respondent section.
   await railItem(page, 5).click({ force: true });
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
-  // One message: the notice names all five, only the first control is
-  // marked, and no field carries a "Champ obligatoire" line of its own.
   check(
-    st.notice !== null && /5 champs|5 required/i.test(st.notice),
-    "(d) a locked rail click names every missing field in one notice",
-    st.notice || ""
+    st.section === "reg-section-title-respondent",
+    "(d) a locked rail click does not leave the section",
+    st.section || ""
   );
   check(
-    st.invalid.length === 1 && st.invalid[0] === "reg-first-name" && st.errors === 0,
-    "only the first missing field is marked, and no per-field message",
-    st.invalid.join(", ") + " / " + st.errors + " field errors"
+    st.invalid.length === 5 && st.errors.length === 5,
+    "every missing field is marked, each with its own line",
+    st.invalid.join(", ") + " / " + st.errors.length + " field errors"
   );
+  check(/5 champs|5 required/i.test(st.announce), "one status line counts all five", st.announce);
   check(st.focused === "reg-first-name", "it focuses the first one", st.focused || "");
   check(
-    st.describedBy === "reg-missing-notice",
-    "and points that control at the notice",
+    st.describedBy === "reg-first-name-error",
+    "and points that control at its own error line",
     st.describedBy || ""
-  );
-  check(st.noticeAboveFields, "the summary sits above the section's fields");
-  check(
-    st.links.length === 5 && st.links[0] === "#reg-first-name",
-    "every missing field in the summary is a link to its control",
-    st.links.join(", ")
-  );
-  await page.click('.flow-missing-notice a[href="#reg-email"]');
-  await page.waitForTimeout(100);
-  check(
-    (await page.evaluate(() => document.activeElement?.id)) === "reg-email",
-    "a summary link focuses its field"
-  );
-  const stillHere = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
-  check(
-    stillHere === "reg-section-title-respondent",
-    "and does not navigate anywhere",
-    stillHere || ""
   );
 
   // Errors clear per field as each is fixed.
@@ -1035,10 +1076,9 @@ async function runPrompts(browser) {
   await page.waitForTimeout(250);
   st = await page.evaluate(promptState);
   check(
-    st.notice !== null && /4 champs|4 required/i.test(st.notice) &&
-      st.invalid.length === 1 && st.invalid[0] === "reg-last-name",
-    "fixing one field drops it from the notice and the marker moves on",
-    (st.notice || "") + " / " + st.invalid.join(", ")
+    st.invalid.length === 4 && !st.invalid.includes("reg-first-name"),
+    "fixing one field clears its flag and leaves the others",
+    st.invalid.join(", ")
   );
 
   // (c) Enter on the section's last field.
@@ -1047,9 +1087,9 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    st.notice !== null && /4 champs|4 required/i.test(st.notice) && st.invalid.length === 1,
-    "(c) Enter on the last field raises the prompt",
-    st.notice || ""
+    /4 champs|4 required/i.test(st.announce) && st.focused === "reg-last-name",
+    "(c) Enter on the last field raises the prompt and focuses the first gap",
+    st.announce + " / " + (st.focused || "")
   );
 
   // (a) focus leaving the last field for somewhere outside the section.
@@ -1063,10 +1103,10 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    st.notice !== null && /2 champs|2 required/i.test(st.notice) &&
-      st.invalid.length === 1 && st.invalid[0] === "reg-email",
+    /2 champs|2 required/i.test(st.announce) &&
+      st.invalid.length === 2 && st.invalid[0] === "reg-email",
     "(a) leaving the last field for outside the section raises the prompt",
-    (st.notice || "") + " / " + st.invalid.join(", ")
+    st.announce + " / " + st.invalid.join(", ")
   );
 
   // Finishing the section clears everything.
@@ -1075,9 +1115,9 @@ async function runPrompts(browser) {
   await page.waitForTimeout(700);
   st = await page.evaluate(promptState);
   check(
-    st.notice === null && st.invalid.length === 0,
-    "completing the section clears the notice and every flag",
-    st.notice || ""
+    st.invalid.length === 0 && st.errors.length === 0 && st.announce === "",
+    "completing the section clears every flag and the count",
+    st.invalid.join(", ")
   );
 
   await context.close();

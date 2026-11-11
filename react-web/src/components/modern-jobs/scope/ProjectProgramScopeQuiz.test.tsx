@@ -32,19 +32,24 @@ async function next(user: { click: (el: Element) => Promise<void> }) {
   if (!(button as HTMLButtonElement).disabled) await user.click(button);
 }
 
-async function chooseNo(user: { click: (el: Element) => Promise<void> }) {
-  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Non" }));
+// A Oui/Non beat does not advance on its own (the quiz waits for Continuer,
+// like the registration form), so each answer is followed by a click.
+async function answer(user: { click: (el: Element) => Promise<void> }, choice: "Oui" | "Non") {
+  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: choice }));
+  await user.click(screen.getByRole("button", { name: /^(Continuer|Ouvrir les tableaux)$/ }));
 }
+
+const CONFIRM_TABLES = /Confirmer et ouvrir les tableaux|Confirm and open the tables/;
 
 async function reachReviewWithRecruitmentTypes(user: { click: (el: Element) => Promise<void> }) {
   const checks = screen.getAllByRole("checkbox");
   await user.click(checks[0]); // one outcome
   await next(user);
-  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Oui" }));
-  await chooseNo(user);
-  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Oui" }));
+  await answer(user, "Oui"); // permanent
+  await answer(user, "Non"); // temporary
+  await answer(user, "Oui"); // recruitment -> its categories
   for (const checkbox of screen.getAllByRole("checkbox")) await user.click(checkbox);
-  await user.click(screen.getByRole("button", { name: /Ouvrir les tableaux|Open the tables|Confirmer et ouvrir les tableaux|Confirm and open the tables/ }));
+  await user.click(screen.getByRole("button", { name: /^Ouvrir les tableaux$/ }));
 }
 
 // The project quiz follows the employer quiz pattern: one focused beat at a
@@ -56,6 +61,8 @@ test("project quiz asks one labelled Oui/Non question at a time", async () => {
   const group = await within(container).findByRole("radiogroup", { name: "Personnel permanent" });
   assert.equal(within(group).getAllByRole("radio").length, 2);
   await user.click(within(group).getByRole("radio", { name: "Oui" }));
+  assert.equal(screen.getByRole("radiogroup").getAttribute("aria-label"), "Personnel permanent", "an answer alone does not advance");
+  await user.click(screen.getByRole("button", { name: "Continuer" }));
   assert.equal(screen.getAllByRole("radiogroup").length, 1);
   assert.equal(screen.getByRole("radiogroup").getAttribute("aria-label"), "Personnel temporaire");
   unmount();
@@ -95,10 +102,10 @@ test("re-opening a closed table clears its derived zeros when the quiz is confir
   };
   const { user, changes, unmount } = renderQuiz(closed);
   await next(user);
-  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Oui" }));
-  await chooseNo(user);
-  await chooseNo(user);
-  await user.click(screen.getByRole("button", { name: /Confirmer et ouvrir les tableaux/i }));
+  await answer(user, "Oui"); // permanent
+  await answer(user, "Non"); // temporary
+  await answer(user, "Non"); // recruitment -> straight to the review
+  await user.click(screen.getByRole("button", { name: CONFIRM_TABLES }));
 
   assert.ok(changes.some(([id, value]) => id === "S4Q01_RESPONSE_STATUS" && value === "REPORTED"));
   const cleared = changes.filter(([id, value]) => id.startsWith("pp_s4q01_") && value === "");
@@ -112,10 +119,10 @@ test("a nil declaration still requires confirmation in a named dialog", async ()
   const checks = screen.getAllByRole("checkbox");
   await user.click(checks.at(-1)!); // no beneficiaries
   await next(user);
-  await chooseNo(user);
-  await chooseNo(user);
-  await user.click(within(screen.getByRole("radiogroup")).getByRole("radio", { name: "Non" }));
-  await user.click(screen.getByRole("button", { name: /Confirmer et ouvrir les tableaux|Confirm and open the tables/ }));
+  await answer(user, "Non"); // permanent
+  await answer(user, "Non"); // temporary
+  await answer(user, "Non"); // recruitment -> the review
+  await user.click(screen.getByRole("button", { name: CONFIRM_TABLES }));
 
   const dialog = screen.getByRole("dialog");
   assert.ok(dialog.getAttribute("aria-labelledby"));
