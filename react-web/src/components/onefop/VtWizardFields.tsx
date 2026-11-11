@@ -616,7 +616,7 @@ function VtFiveSlotsField({
                 {slotPrefix} {i + 1}
                 {/* Required unless marked optional, the form's rule: no asterisk. */}
                 {!isSlotRequired && (
-                  <span style={{ color: "var(--cam-text-muted)", fontWeight: "var(--cam-font-weight-regular)", marginLeft: "4px", fontSize: "var(--cam-font-size-3xs)" }}>
+                  <span style={{ color: "var(--cam-text-muted)", fontWeight: "var(--cam-font-weight-regular)", marginLeft: "4px", fontSize: "var(--cam-font-size-2xs)" /* 12px, the type floor (2026-11-11) */ }}>
                     ({isEn ? "optional" : "facultatif"})
                   </span>
                 )}

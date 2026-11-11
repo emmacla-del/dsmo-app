@@ -375,7 +375,9 @@ export function WizardShell({
     if (isVtQuizStage) return "var(--cam-container-quiz)";
     return widest === 0
       ? "var(--vt-content-max)"
-      : `clamp(var(--vt-content-max), ${widest}px, ${TABLE_MAX_WIDTH_PX}px)`;
+      : // +4px: borders round up when the table renders (a 923px table in a
+        // 920px column showed a scrollbar for 3px, 2026-11-11).
+        `clamp(var(--vt-content-max), ${widest + 4}px, ${TABLE_MAX_WIDTH_PX}px)`;
   }, [currentSection, formLocale, isVtQuizStage]);
 
   // ── A1: focus, scroll and announcement on every VT step change ──────────

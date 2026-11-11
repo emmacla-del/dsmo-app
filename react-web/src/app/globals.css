@@ -3838,9 +3838,9 @@ html:has(.cam-auth-page--wizard) {
   border: 2px solid var(--cam-border);
   background: var(--cam-surface);
   color: var(--cam-text-muted);
-  /* 11px, not 13px: the number is the step's rank, not its name, and in a
-     24px circle it keeps two digits (VT runs to 11) off the ring. */
-  font-size: var(--cam-font-size-3xs);
+  /* 12px (2026-11-11; 11px before): the type floor. In the 24px circle
+     two digits (VT runs to 11) still clear the 2px ring. */
+  font-size: var(--cam-font-size-2xs);
   font-weight: var(--cam-font-weight-bold);
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
@@ -4290,6 +4290,10 @@ textarea.sovereign-text-input {
          group/corner 600 · leaf (Homme, Femme…) 400 · row label 400
          typed value 400 · computed 600 · total row 700 · empty "—" grey */
 .cam-dt {
+  /* The table anchors its own absolutely placed pieces (the .sr-only text
+     in its headers): unanchored, they were placed against the page, outside
+     the frame's scroller, and widened the whole page (2026-11-11). */
+  position: relative;
   font-family: var(--cam-font-sans);
   font-size: var(--cam-table-fs);
   line-height: var(--cam-table-lh);

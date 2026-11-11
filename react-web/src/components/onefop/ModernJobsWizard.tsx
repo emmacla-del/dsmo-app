@@ -697,8 +697,10 @@ export function ModernJobsWizard({
               ? "calc(100dvh - var(--mj-header-block, var(--mj-header-h, 0px)))"
               : undefined,
             paddingTop: "var(--cam-space-5)",
-            paddingLeft: "clamp(12px, 3vw, 24px)",
-            paddingRight: "clamp(12px, 3vw, 24px)",
+            // 1.5vw, not 3vw (owner, 2026-11-11): at 1280px the gutters
+            // took the 30px the widest tables lacked to sit whole.
+            paddingLeft: "clamp(12px, 1.5vw, 24px)",
+            paddingRight: "clamp(12px, 1.5vw, 24px)",
             paddingBottom: isScopeStage ? "var(--cam-space-5)" : "var(--cam-space-6, 24px)",
           }}
         >

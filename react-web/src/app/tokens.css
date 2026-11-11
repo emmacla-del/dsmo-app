@@ -916,3 +916,13 @@
   --cam-console-teal-07: #12604c; /* L22 ×2 */
   --cam-console-teal-08: #075b45; /* L19 ×3 */
 }
+
+/* Below 1400px wide the side rails (wizard sommaire, respondent rail) give
+   40px back to the content (owner, 2026-11-11): at 1280px the widest
+   statistical tables (981px, eight 95px columns) need the room to sit
+   whole instead of scrolling inside their frame. */
+@media (max-width: 1399.98px) {
+  :root {
+    --cam-side-rail-width: 240px;
+  }
+}
