@@ -112,3 +112,21 @@
 .slim .strong {
   font-size: 13px;
 }
+
+/* The console variant (AdminMasthead): the same three parts, a 64px disc
+   (the emblem keeps its 56px), and the console's own side padding. */
+.console .inner {
+  max-width: none;
+  padding: var(--cam-space-1) var(--cam-space-6);
+}
+
+.console .disc {
+  width: var(--cam-official-disc-console);
+  height: var(--cam-official-disc-console);
+}
+
+@media (max-width: 1023px) {
+  .console .inner {
+    padding-inline: var(--cam-space-4);
+  }
+}

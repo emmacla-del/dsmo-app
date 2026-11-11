@@ -6,20 +6,12 @@ import { Suspense, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Lock, Search } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
+import { OfficialBand } from "@/components/brand/OfficialBand";
 import { LanguageLink } from "@/components/LanguageLink";
 import { useAuthStore } from "@/lib/auth-store";
 import { adminHomeFor } from "@/lib/nav-profiles";
 import { DIRECTORY_READ_ROLES, hasRole } from "@/lib/roles";
 import { parseRegistrationVue } from "@/lib/admin-url";
-
-/**
- * The national coat of arms, vector (600×680), supplied by the owner on
- * 2026-11-08. It replaces nothing: the two raster files in public/images (a
- * blurred 360px copy and a watermarked stock preview) are not fit for an
- * official screen and are not used. If the file ever fails to load, the
- * masthead names the Republic in words alone.
- */
-export const COAT_OF_ARMS_SRC = "/images/cameroon-coat-of-arms.svg";
 
 export interface AdminMastheadProps {
   /** « Ressort : National », already worded. */
@@ -33,17 +25,18 @@ export interface AdminMastheadProps {
 
 /**
  * Institutional header of every staff-console page (admin-layout-spec §2,
- * revision 3): the national tricolour, the Republic and ministry line with
- * the coat of arms, then the application bar (CAMLEAP, the console name, a
+ * revision 3): the national tricolour, then the official band of the whole
+ * platform (OfficialBand, option D: the Republic, the ONEFOP emblem on its
+ * white disc, the ministry; owner, 2026-11-11, replacing the coat of arms of
+ * 2026-11-08), then the application bar (CAMLEAP, the console name, a
  * search of the establishment register, the enforced territorial scope, the
  * other language, notifications and the account). It spans the window above
  * the rail, as on the canvas boards (2026-11-08). Brand rule (docs/standards/brand.md): the State speaks in the
- * band, CAMLEAP is the product in the bar; no ONEFOP seal below 56px, so
- * ONEFOP is named in words.
+ * band, CAMLEAP is the product in the bar; the ONEFOP emblem is
+ * never drawn below 56px, so below 820px the band names ONEFOP in words.
  */
 export function AdminMasthead({ scopeLabel, scopeTitle, menuButton, account }: AdminMastheadProps) {
   const t = useTranslations("adminLayout");
-  const [armsAvailable, setArmsAvailable] = useState(true);
   const role = useAuthStore((s) => s.user?.role);
   // The register is the one list that covers every establishment in the
   // reader's territory, by name, NIU or identifier; roles that cannot read
@@ -52,32 +45,7 @@ export function AdminMasthead({ scopeLabel, scopeTitle, menuButton, account }: A
 
   return (
     <header className="cam-admin-masthead" aria-label={t("mastheadAriaLabel")}>
-      <div className="cam-admin-masthead-gov">
-        <div className="cam-admin-masthead-state">
-          {armsAvailable && (
-            // A plain <img>: next/image would route an SVG through the
-            // optimiser, which refuses it, and the file is already vector.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={COAT_OF_ARMS_SRC}
-              alt={t("coatOfArmsAlt")}
-              className="cam-admin-masthead-arms"
-              width={35}
-              height={40}
-              onError={() => setArmsAvailable(false)}
-            />
-          )}
-          <span className="cam-admin-masthead-republic">
-            <strong>{t("mastheadRepublic")}</strong>
-            <span>{t("mastheadMotto")}</span>
-          </span>
-        </div>
-        <span className="cam-admin-masthead-ministry">
-          {t("mastheadMinistry")}
-          <span aria-hidden="true"> · </span>
-          {t("mastheadPlatform")}
-        </span>
-      </div>
+      <OfficialBand console />
       <div className="cam-admin-masthead-bar">
         {menuButton}
         <Link href={adminHomeFor(role)} className="cam-admin-masthead-brand">

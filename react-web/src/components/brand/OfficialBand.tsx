@@ -16,7 +16,12 @@ import styles from "./official-band.module.css";
 // `slim`: the working screens' variant (the respondent area). One line of
 // words under the flag ribbon and no emblem, which is never drawn below
 // 56px; the full band stays at the front door.
-export function OfficialBand({ slim = false }: { slim?: boolean }) {
+//
+// `console`: the staff console's masthead (owner, 2026-11-11: the ONEFOP
+// emblem, not the coat of arms). The full band, tightened: a 64px disc
+// around the 56px emblem, full width, and no ribbon of its own, because the
+// console already pins the national tricolour at the top of the window.
+export function OfficialBand({ slim = false, console: isConsole = false }: { slim?: boolean; console?: boolean }) {
   const t = useTranslations("site");
 
   if (slim) {
@@ -33,8 +38,8 @@ export function OfficialBand({ slim = false }: { slim?: boolean }) {
   }
 
   return (
-    <div className={styles.band}>
-      <div className={styles.ribbon} aria-hidden="true" />
+    <div className={isConsole ? `${styles.band} ${styles.console}` : styles.band}>
+      {!isConsole && <div className={styles.ribbon} aria-hidden="true" />}
       <div className={styles.inner}>
         <p className={styles.state}>
           <span className={styles.strong}>{t("officialRepublic")}</span>

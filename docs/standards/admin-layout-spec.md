@@ -1,6 +1,6 @@
 ﻿# CAM-LEAP Staff Console Layout Specification
 
-**Status:** Normative companion to `docs/standards/ui-grammar.md`. Revision 3 (2026-11-08, owner: "government platform" upgrade) adds the institutional masthead on every route, the light labelled rail, IBM Plex Sans in the console, the KPI strip and the table conventions; see §11. Revision 2 (2026-11-02), approved by the owner on 2026-11-06: adds the filter bar pattern (§4F), the three-column review workspace (§4C), the compact rail on a dossier (§2) and a change record (§10). Sections marked **[v2]** describe the layout now in the code; each is listed in §10, the record of what was accepted.
+**Status:** Normative companion to `docs/standards/ui-grammar.md`. Revision 4 (2026-11-11, owner: masthead option D) replaces the coat of arms with the platform's official band and makes the rail navy; see §12. Revision 3 (2026-11-08, owner: "government platform" upgrade) adds the institutional masthead on every route, the light labelled rail, IBM Plex Sans in the console, the KPI strip and the table conventions; see §11. Revision 2 (2026-11-02), approved by the owner on 2026-11-06: adds the filter bar pattern (§4F), the three-column review workspace (§4C), the compact rail on a dossier (§2) and a change record (§10). Sections marked **[v2]** describe the layout now in the code; each is listed in §10, the record of what was accepted.
 **Scope:** Every route under `react-web/src/app/admin/**` and every shared layout component under `react-web/src/components/admin/**`.
 **Purpose:** Specify page composition, hierarchy, responsive behavior, and the responsibility of each route and shared component. This is a layout map and implementation contract; it does not prescribe token values or replace route-specific product requirements.
 
@@ -295,3 +295,14 @@ Decided by the owner in chat on 2026-11-08 ("adopt a more tidy and professional 
 Differences kept on purpose, from later decisions: row actions are secondary (G5, audit D-4), not green as on the boards; the dossier campaign selector stays with the list (audit D-1), not in the header; status and duplicates share a column in the registration queue (board 0 §6 row standard). Not built: « Lignes par page » (fixed page sizes on the server).
 
 Every console route listed in this revision now follows it. `/admin/inscriptions/nouvelle` already follows the form pattern (steps, numbered sections, action bar) and was left as is.
+
+## 12. Change record (revision 4: option D)
+
+Decided by the owner in chat on 2026-11-11 (« onefop emblem »), from the canvas board « Pilotage ONEFOP » (option D header). Presentation only: no route, hub, step or rule changes.
+
+| Kind | Section | Change | Files |
+|---|---|---|---|
+| Spec change | §2 | The masthead's band is the platform's official band (`OfficialBand`, variant `console`): navy, « République du Cameroun / Paix – Travail – Patrie » on the left, the ONEFOP emblem at 56px on a 64px white disc in the centre, the ministry and ONEFOP on the right. The coat of arms is no longer shown. Below 820px the disc and the ministry fold away and ONEFOP is named in words (brand.md, 56px floor). The application bar is unchanged. The masthead grows from 108px to 129px; the review workspaces still fit the window from 1366×768. | `components/admin/AdminMasthead.tsx`, `components/brand/OfficialBand.tsx`, `official-band.module.css`, `tokens.css` |
+| Spec change | §2 | The rail is the official navy (`--cam-official`) instead of light: muted white hubs, a white wash on the open hub and on hover, gold counts and focus ring. Same sections (Instruction, Collecte, Données, Système), same hubs, same icon strip, flyouts and drawer. Replaces revision 3's light rail. | `admin-console-standard.css` §19, `tokens.css` |
+| Fix | §7 | Dossier queue: the quick views' counts were 11px (now 12px, the floor). | `admin-console.css` |
+| Fix | — | `/admin/dossiers` showed « â€” » for an empty count and in two lists: the file had been saved through the wrong encoding (61 garbled characters, comments included). Restored to UTF-8. | `app/admin/dossiers/page.tsx` |

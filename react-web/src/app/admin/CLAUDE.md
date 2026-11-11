@@ -1,7 +1,7 @@
 # Admin console — UI/UX rules
 
 Applies to everything under `src/app/admin/**` and `src/components/admin/**`.
-Layout map: `docs/standards/admin-layout-spec.md` (revision 3; §11 lists what changed). Shared revision-3 rules: `src/app/admin-console-standard.css`, loaded after `admin-console.css`. Classes and components: `docs/standards/ui-grammar.md` (G1–G17). Values: `src/app/tokens.css`.
+Layout map: `docs/standards/admin-layout-spec.md` (revision 4; §11 and §12 list what changed). Shared revision-3 rules: `src/app/admin-console-standard.css`, loaded after `admin-console.css`. Classes and components: `docs/standards/ui-grammar.md` (G1–G17). Values: `src/app/tokens.css`.
 When this file and the spec disagree, the spec wins; fix this file.
 
 ## Before you change a screen
@@ -13,8 +13,8 @@ When this file and the spec disagree, the spec wins; fix this file.
 
 ## Console rail
 
-- Every console page opens with the institutional masthead (`AdminMasthead`): tricolour line, coat of arms and « République du Cameroun », then CAMLEAP, « Console des agents », the locked scope and notifications. Don't build page-level brand bars.
-- One rail on every page (`layout.tsx`, `AdminSidebar`): light, **labelled by default** from 1024px; the open hub lists its pages under it. « Réduire le menu » turns it into an icon strip, remembered per browser (`lib/admin-rail-preference.ts`, stored only as `"0"`). Don't add page-specific rail rules; the shell classes are `is-rail-compact` / `is-rail-expanded`.
+- Every console page opens with the institutional masthead (`AdminMasthead`): tricolour line, the official band (`OfficialBand console`: « République du Cameroun », the ONEFOP emblem at 56px, the ministry; no coat of arms, option D, 2026-11-11), then CAMLEAP, « Console des agents », the locked scope and notifications. Don't build page-level brand bars.
+- One rail on every page (`layout.tsx`, `AdminSidebar`): official navy, in four sections (Instruction, Collecte, Données, Système), **labelled by default** from 1024px; the open hub lists its pages under it. « Réduire le menu » turns it into an icon strip, remembered per browser (`lib/admin-rail-preference.ts`, stored only as `"0"`). Don't add page-specific rail rules; the shell classes are `is-rail-compact` / `is-rail-expanded`.
 - Below 1024px the rail is the drawer; flyouts and the expand control are hidden there.
 
 ## Page frame

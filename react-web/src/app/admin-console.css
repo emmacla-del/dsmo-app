@@ -1604,7 +1604,7 @@
   border-radius: 10px;
   background: var(--cam-console-navy-18);
   color: var(--cam-console-navy-55);
-  font-size: 11px;
+  font-size: var(--cam-font-size-2xs); /* 12px: no text below 12px (was 11px) */
   font-variant-numeric: tabular-nums;
   text-align: center;
 }

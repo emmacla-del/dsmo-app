@@ -72,6 +72,12 @@
   --cam-official-motto: var(--cam-gold);
   --cam-official-rule: color-mix(in srgb, var(--cam-white) 18%, transparent);
   --cam-official-disc: 72px;
+  /* The staff console's band: the smallest disc around the 56px emblem. */
+  --cam-official-disc-console: 64px;
+  /* The navy console rail (option D): white washes on --cam-official. */
+  --cam-official-hover: color-mix(in srgb, var(--cam-white) 8%, transparent);
+  --cam-official-active: color-mix(in srgb, var(--cam-white) 14%, transparent);
+  --cam-on-official-soft: color-mix(in srgb, var(--cam-white) 62%, transparent);
 
   /* ── Institutional national tricolor ──
      Kept for the VT status colours that alias them. The portal no longer

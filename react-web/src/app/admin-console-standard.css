@@ -1271,3 +1271,65 @@ button.cam-kpi[aria-pressed="true"] {
   font-size: var(--cam-font-size-sm);
   font-weight: 600;
 }
+
+/* ── 19. Option D: the navy rail (owner, 2026-11-11) ───────────────────────
+   The rail takes the official navy of the band above it (--cam-official),
+   as on the canvas board « Pilotage ONEFOP » (2026-11-11): same groups,
+   same hubs, same behaviour; only the colours change. White text, muted
+   white for the rest, white washes for hover and the open hub, gold for the
+   counts and the focus ring. The icon strip's flyouts and the account menu
+   stay white panels. Replaces section 3's light rail. */
+.cam-admin.cam-admin .cam-admin-rail {
+  background: var(--cam-official);
+  border-right: 0;
+  color: var(--cam-on-official);
+}
+/* The drawer (below 1024px) still names the platform at its top. */
+.cam-admin.cam-admin .cam-admin-rail-brand-name { color: var(--cam-on-official); }
+.cam-admin.cam-admin .cam-admin-rail-brand-sub { color: var(--cam-on-official-soft); }
+.cam-admin.cam-admin .cam-admin-rail-group-title { color: var(--cam-on-official-soft); }
+.cam-admin.cam-admin .cam-admin-rail-hub { color: var(--cam-on-official-muted); }
+.cam-admin.cam-admin .cam-admin-rail-hub:hover:not([aria-current="page"]) {
+  background: var(--cam-official-hover);
+  color: var(--cam-on-official);
+}
+.cam-admin.cam-admin .cam-admin-rail-hub[aria-current="page"],
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-rail-hub[aria-current="page"] {
+  background: var(--cam-official-active);
+  color: var(--cam-on-official);
+  font-weight: var(--cam-font-weight-semibold);
+  box-shadow: none;
+}
+.cam-admin.cam-admin .cam-admin-rail :is(.cam-admin-rail-hub, .cam-admin-rail-subnav-link, .cam-admin-rail-toggle):focus-visible {
+  outline: 2px solid var(--cam-official-motto);
+  outline-offset: -2px;
+}
+.cam-admin.cam-admin .cam-admin-rail-badge {
+  background: var(--cam-official-motto);
+  color: var(--cam-official);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-admin-rail-subnav { border-left-color: var(--cam-official-rule); }
+.cam-admin.cam-admin .cam-admin-rail-subnav-link { color: var(--cam-on-official-muted); }
+.cam-admin.cam-admin .cam-admin-rail-subnav-link:hover {
+  background: var(--cam-official-hover);
+  color: var(--cam-on-official);
+}
+.cam-admin.cam-admin .cam-admin-rail-subnav-link[aria-current="page"] {
+  color: var(--cam-on-official);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-admin-rail-toggle { color: var(--cam-on-official-muted); }
+.cam-admin.cam-admin .cam-admin-rail-toggle:hover {
+  background: var(--cam-official-hover);
+  color: var(--cam-on-official);
+}
+.cam-admin.cam-admin .cam-admin-rail-foot {
+  border-top-color: var(--cam-official-rule);
+  color: var(--cam-on-official-soft);
+}
+@media (min-width: 1024px) {
+  /* The rail reads as one navy column down the page. */
+  .cam-admin.cam-admin { background: linear-gradient(to right, var(--cam-official) var(--cam-side-rail-width), var(--cam-bg) var(--cam-side-rail-width)); }
+  .cam-admin.cam-admin .cam-admin-body { border-left: 0; }
+}
