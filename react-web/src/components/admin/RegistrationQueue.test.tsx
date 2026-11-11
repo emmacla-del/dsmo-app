@@ -90,7 +90,7 @@ test("lists pending, unclaimed registrations in five columns with the summary", 
   await screen.findByText("Organisation r1");
   assert.ok(screen.getByRole("heading", { level: 1, name: /^Registration applications \(Review applications and consult registrations/ }));
   const headers = screen.getAllByRole("columnheader").map((cell) => cell.textContent?.split(".")[0].trim());
-  assert.deepEqual(headers, ["Organisation / Reference", "Territory", "Waiting time", "Assigned to", "Action"]);
+  assert.deepEqual(headers, ["Organisation", "Territory", "Waiting time", "Assigned to", "Action"]);
 
   const available = screen.getByRole("button", { name: /Available to claim/ });
   const mine = screen.getByRole("button", { name: /Claimed by me/ });
@@ -146,7 +146,7 @@ test("rejected applications are a status filter of the same registrations page",
   assert.equal(list.get("view"), "organisations");
   assert.equal(list.get("unassigned"), null);
   assert.deepEqual(screen.getAllByRole("columnheader").map((cell) => cell.textContent?.trim()), [
-    "Organisation / Reference", "Registration status", "Territory", "Decision", "Action",
+    "Organisation", "Registration status", "Territory", "Decision", "Action",
   ]);
   const rejectedRow = screen.getByText("Organisation rejected").closest("tr")!;
   assert.ok(within(rejectedRow).getByText("Rejected"));

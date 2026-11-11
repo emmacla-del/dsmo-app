@@ -715,6 +715,7 @@ export default function DiffusionPage() {
                 className="cam-text-button"
                 aria-expanded={showAdvancedFilters}
                 aria-controls="diffusion-advanced-filters"
+                title={t("filtersDetail")}
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               >
                 {showAdvancedFilters ? t("hideFilters") : t("showFilters")} {showAdvancedFilters ? "▲" : "▼"}
