@@ -48,7 +48,7 @@ export function RegistrationReview({
     REGISTRATION_STEPS.findIndex((s) => s.id === step) + 1;
 
   return (
-    <div style={{ marginTop: "var(--cam-space-3)" }}>
+    <div className="review-sheet" style={{ marginTop: "var(--cam-space-3)" }}>
       {SUMMARISED_STEPS.map((step) => {
         const rows = summaryRows(step, state, (key) => t(key), locale);
         if (rows.length === 0) return null;

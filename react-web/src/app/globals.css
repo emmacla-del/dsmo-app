@@ -2123,6 +2123,12 @@ html:has(.cam-auth-page--wizard) {
   margin: 0 0 var(--cam-field-row-gap);
 }
 
+/* The wait notice after the answer sheet: clear of the last table, so its
+   left rule does not read as a stray edge of that table. */
+.cam-auth-page--wizard .review-sheet + .section-notice {
+  margin-top: var(--cam-space-5);
+}
+
 /* ── The section in the frame ──
    No border, no radius, no padding and no background of its own: the frame
    around it supplies all four, and a second box inside the first was exactly
@@ -2225,16 +2231,19 @@ html:has(.cam-auth-page--wizard) {
     padding: var(--cam-space-3) var(--cam-section-pad);
   }
 
-  /* Phone: the buttons share the row. Continuer takes the larger share and
-     fills it alone on the first step. */
-  .cam-auth-page--wizard .flow-frame-foot > .flow-back {
-    flex: 1 1 0;
-    margin-right: 0;
+  /* Phone: the buttons stack, the green one on top, each the full width.
+     Sharing one row broke "Revenir à Sécurité" over three lines: the labels
+     name the step they lead to and are too long for half a phone. */
+  .cam-auth-page--wizard .flow-frame-foot {
+    flex-direction: column-reverse;
+    align-items: stretch;
   }
 
+  .cam-auth-page--wizard .flow-frame-foot > .flow-back,
   .cam-auth-page--wizard .flow-frame-foot > .btn-primary {
-    flex: 2 1 0;
-    width: auto;
+    width: 100%;
+    margin-right: 0;
+    justify-content: center;
   }
 }
 
