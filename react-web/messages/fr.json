@@ -221,6 +221,17 @@
     "pageTitle": "Notifications"
   },
   "homeLandingPage": {
+    "trackReady": "À commencer",
+    "trackLabel": "Étapes de l'enquête",
+    "trackRegistration": "Inscription",
+    "trackEntry": "Saisie",
+    "trackFiling": "Dépôt",
+    "trackEndorsement": "Visa de l'ONEFOP",
+    "trackDone": "Terminée",
+    "trackCurrent": "En cours",
+    "trackTodo": "À venir",
+    "trackCorrection": "Correction demandée",
+    "trackRejected": "Rejetée",
     "welcomeTitle": "Bienvenue",
     "campaignOpenUntil": "{campaign}, ouverte jusqu'au {date}",
     "newDeclarationHeading": "Nouvelle déclaration",

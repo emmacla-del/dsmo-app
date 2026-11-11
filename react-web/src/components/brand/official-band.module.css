@@ -100,3 +100,15 @@
     display: inline;
   }
 }
+
+/* The slim variant: one line, 32px. */
+.slim .slimLine {
+  margin: 0;
+  padding: 6px var(--cam-space-5);
+  font-size: 13px;
+  color: var(--cam-on-official-muted);
+}
+
+.slim .strong {
+  font-size: 13px;
+}

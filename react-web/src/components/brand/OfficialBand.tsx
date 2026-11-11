@@ -13,8 +13,24 @@
 import { useTranslations } from "next-intl";
 import styles from "./official-band.module.css";
 
-export function OfficialBand() {
+// `slim`: the working screens' variant (the respondent area). One line of
+// words under the flag ribbon and no emblem, which is never drawn below
+// 56px; the full band stays at the front door.
+export function OfficialBand({ slim = false }: { slim?: boolean }) {
   const t = useTranslations("site");
+
+  if (slim) {
+    return (
+      <div className={`${styles.band} ${styles.slim}`}>
+        <div className={styles.ribbon} aria-hidden="true" />
+        <p className={styles.slimLine}>
+          <span className={styles.strong}>{t("officialRepublic")}</span>
+          <span aria-hidden="true"> · </span>
+          <span>{t("officialShort")}</span>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.band}>

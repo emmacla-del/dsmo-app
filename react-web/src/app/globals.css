@@ -5382,3 +5382,66 @@ textarea.sovereign-text-input {
     margin-top: 0;
   }
 }
+
+/* ── Survey track on the respondent home (owner, 2026-11-11) ─────────────
+   Four steps in a row, each a bar, a name and its state in words. Not a
+   card: it sits in the survey section like the status line above it. */
+.cam-home-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--cam-space-3);
+  max-width: 720px;
+  margin: var(--cam-space-4) 0 var(--cam-space-3);
+}
+
+.cam-home-track-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  min-width: 0;
+}
+
+.cam-home-track-bar {
+  height: 6px;
+  margin-bottom: var(--cam-space-1);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-border);
+}
+
+.cam-home-track-step.is-done .cam-home-track-bar {
+  background: var(--cam-primary);
+}
+
+.cam-home-track-step.is-current .cam-home-track-bar {
+  background: linear-gradient(90deg, var(--cam-primary) 0 50%, var(--cam-border) 50% 100%);
+}
+
+.cam-home-track-step.is-correction .cam-home-track-bar {
+  background: var(--cam-warning);
+}
+
+.cam-home-track-step.is-rejected .cam-home-track-bar {
+  background: var(--cam-error);
+}
+
+.cam-home-track-name {
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-home-track-step.is-todo .cam-home-track-name {
+  color: var(--cam-text-muted);
+}
+
+.cam-home-track-state {
+  font-size: var(--cam-font-size-xs);
+  color: var(--cam-text-muted);
+}
+
+@media (max-width: 560px) {
+  .cam-home-track {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: var(--cam-space-4);
+  }
+}

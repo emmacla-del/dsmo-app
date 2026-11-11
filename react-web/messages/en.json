@@ -221,6 +221,17 @@
     "pageTitle": "Notifications"
   },
   "homeLandingPage": {
+    "trackReady": "Not started",
+    "trackLabel": "Survey steps",
+    "trackRegistration": "Registration",
+    "trackEntry": "Data entry",
+    "trackFiling": "Filing",
+    "trackEndorsement": "ONEFOP endorsement",
+    "trackDone": "Done",
+    "trackCurrent": "In progress",
+    "trackTodo": "To come",
+    "trackCorrection": "Correction requested",
+    "trackRejected": "Rejected",
     "welcomeTitle": "Welcome",
     "campaignOpenUntil": "{campaign}, open until {date}",
     "newDeclarationHeading": "New declaration",
