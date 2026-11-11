@@ -125,6 +125,9 @@ const measureLayout = () => {
   const borderedExtras = [];
   for (const el of document.querySelectorAll(".flow-frame-content *")) {
     if (skip.includes(el.tagName)) continue;
+    // A choice row is a control too: the radio's whole label, boxed like an
+    // input (owner, 2026-11-11).
+    if (el.matches(".choice-option, .entity-type-option")) continue;
     const cs = getComputedStyle(el);
     if (cs.display === "none") continue;
     const sides = ["Top", "Right", "Bottom", "Left"].filter(
@@ -245,20 +248,20 @@ const measurePlaceholderVsLabel = () => {
   };
 };
 
-// The step navigation is the horizontal rail on a narrow screen and the
-// dossier panel's vertical list from 1080px; only one of the two is rendered
-// at a time. Both carry the same states and accessible names, so every rail
-// check reads whichever one is on screen. On the list, the state class sits
-// on the <li> around the button.
-const RAIL_ITEMS = ".progress-rail .progress-step-item, .step-list .step-list-button";
+// The step navigation is the questionnaires' step list (WizardStepList): a
+// side column from 1024px, and the same list in a drawer behind the
+// « Sommaire » button below it (owner, 2026-11-11). Every rail check reads
+// whichever one is on screen. The state class sits on the <li> around the
+// button.
+const RAIL_ITEMS = ".flow-rail .cam-step-button, .cam-sheet .cam-step-button";
 
 const railStates = () =>
   Array.from(
-    document.querySelectorAll(".progress-rail .progress-step-item, .step-list .step-list-button")
+    document.querySelectorAll(".flow-rail .cam-step-button, .cam-sheet .cam-step-button")
   ).filter((b) => b.offsetParent !== null).map((b) => {
-    const circle = b.querySelector(".progress-step-circle");
-    const labelEl = b.querySelector(".progress-step-label, .step-list-name");
-    const stateEl = b.closest(".step-list-item") || b;
+    const circle = b.querySelector(".cam-step-marker");
+    const labelEl = b.querySelector(".cam-step-name");
+    const stateEl = b.closest(".cam-step") || b;
     return {
       label: labelEl ? labelEl.textContent.trim() : "",
       labelHidden: labelEl ? getComputedStyle(labelEl).display === "none" : true,
@@ -438,18 +441,19 @@ async function runViewport(browser, vp) {
     }
   }
 
-  // Narrow: circles stay, labels go.
-  if (vp.width < 560) {
+  // Below 1024px the steps are behind the « Sommaire » button, in a drawer.
+  if (vp.width < 1024) {
+    check(
+      (await page.isVisible(".flow-steps-opener")) && !(await page.isVisible(".flow-rail")),
+      "below 1024px the steps open from the Sommaire button"
+    );
+    await page.click(".flow-steps-opener");
+    await page.waitForTimeout(300);
     const rail = await page.evaluate(railStates);
-    check(
-      rail.every((r) => r.labelHidden),
-      "rail labels hidden below 560px"
-    );
-    check(
-      rail.every((r) => Math.abs(r.circleSize - 30) <= 1),
-      "rail circles stay 30px",
-      rail.map((r) => r.circleSize).join("/")
-    );
+    check(rail.length === 6, "the drawer lists the six steps", String(rail.length));
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    check(!(await page.isVisible(".cam-sheet")), "Escape closes the drawer");
   }
 
   await context.close();
@@ -459,13 +463,13 @@ async function runRail(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
-  await page.waitForSelector(".step-list");
+  await page.waitForSelector(".flow-rail");
 
-  console.log("\n── step navigation (1280x720: the dossier panel) ──");
+  console.log("\n── step navigation (1280x720: the side column) ──");
 
   check(
-    await page.isVisible(".flow-panel") && !(await page.isVisible(".flow-header")),
-    "the dossier panel replaces the header at 1280px"
+    (await page.isVisible(".flow-rail")) && !(await page.isVisible(".flow-steps-opener")),
+    "the side column carries the steps at 1280px"
   );
 
   let rail = await page.evaluate(railStates);
@@ -512,7 +516,7 @@ async function runRail(browser) {
   check(
     /Entreprise|Company/.test(rail[0].ariaLabel || "") &&
       /Entreprise|Company/.test(
-        (await page.textContent(".step-list-item.is-done .step-list-summary").catch(() => "")) || ""
+        (await page.textContent(".flow-rail .cam-step.is-done .cam-step-detail").catch(() => "")) || ""
       ),
     "a completed item shows its summary and carries it in its accessible name",
     rail[0].ariaLabel || ""
@@ -532,7 +536,7 @@ async function runRail(browser) {
     rail[0].cls
   );
   check(
-    rail[1].cls === "is-revealed" && rail[1].circleBorderStyle === "dashed",
+    rail[1].cls === "is-inProgress" && rail[1].circleBorderStyle === "dashed",
     "the section left behind, still empty, is a dashed gold ring",
     rail[1].cls + " / " + rail[1].circleBorderStyle
   );

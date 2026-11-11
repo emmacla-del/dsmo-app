@@ -663,6 +663,7 @@
     "draftClearBody": "Toutes les réponses saisies seront supprimées et l'inscription reprendra à la première étape.",
     "draftClearCancel": "Garder mes réponses",
     "draftClearConfirm": "Effacer et recommencer",
+    "stepsSheetClose": "Fermer",
     "optionalPlaceholder": "Facultatif",
     "optionalDetailsSummary": "Informations facultatives",
     "railEditHintLine": "Cliquez sur une étape terminée pour la modifier.",

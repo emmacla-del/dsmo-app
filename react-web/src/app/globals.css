@@ -1260,65 +1260,131 @@ html:has(.cam-auth-page--wizard) {
   }
 }
 
-/* ── Wide: the steps in a side column (canvas, option D, 2026-11-11) ──
-   From 1080px the six steps leave the header for a column to the left of
-   the form, the shared respondent step list (WizardRail + WizardStepList,
-   as in the VT and Modern Jobs questionnaires). The header keeps the logo
-   and the language link and is no longer pinned: the column is what stays
-   in view as the document scrolls. The form keeps its 600px column, one
-   field under another (owner, 2026-10-10). Below 1080px nothing changes:
-   the rail stays in the header and this column is not rendered. */
-.cam-auth-page--wizard .flow-rail {
+/* ── Title and steps (canvas, option D; owner, 2026-11-11) ──
+   The steps are the questionnaires' own side navigation (WizardRail +
+   WizardStepList): a column beside the form from 1024px, and below that a
+   « Sommaire » button opening the same list in a sheet (.cam-sheet*). The
+   page title « Inscrire une organisation » is the same on every step: over
+   the column on a wide screen, beside the button on a narrow one. The form
+   keeps its 600px column, one field under another (owner, 2026-10-10). The
+   header holds only the logo and the language link and is never pinned. */
+.cam-auth-page--wizard .flow-header {
+  position: static;
+}
+
+.cam-auth-page--wizard .flow-header .masthead {
+  margin-bottom: 0;
+}
+
+html:has(.cam-auth-page--wizard) {
+  scroll-padding-top: var(--cam-space-5);
+}
+
+.cam-auth-page--wizard .flow-split {
+  flex-direction: column;
+}
+
+.cam-auth-page--wizard .flow-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cam-space-2) var(--cam-space-4);
+  width: 100%;
+  max-width: var(--cam-container-wizard);
+  margin: 0 auto;
+  padding: var(--cam-space-4) var(--cam-frame-scroll-pad-x) 0;
+}
+
+.cam-auth-page--wizard .flow-title h1 {
+  margin: 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-text);
+}
+
+.cam-auth-page--wizard .flow-steps-opener {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cam-space-2);
+}
+
+.cam-auth-page--wizard .flow-steps-opener-count {
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-text-muted);
+}
+
+.cam-auth-page--wizard .flow-split > .flow-rail {
   display: none;
 }
 
-@media (min-width: 1080px) {
+@media (max-width: 640px) {
+  .cam-auth-page--wizard .flow-title {
+    padding: var(--cam-space-3) var(--cam-section-pad) 0;
+  }
+}
+
+@media (min-width: 1024px) {
   .cam-auth-page--wizard {
     --reg-rail-width: 260px;
     --reg-layout-width: calc(var(--reg-rail-width) + var(--cam-space-7) + var(--cam-container-wizard));
   }
 
-  .cam-auth-page--wizard .flow-header {
-    position: static;
-  }
-
-  .cam-auth-page--wizard .flow-header .registration-progress {
-    display: none;
-  }
-
-  .cam-auth-page--wizard .flow-header-inner,
-  .cam-auth-page--wizard .flow-split {
+  .cam-auth-page--wizard .flow-header-inner {
     width: 100%;
     max-width: var(--reg-layout-width);
     margin: 0 auto;
   }
 
   .cam-auth-page--wizard .flow-header .masthead {
-    margin-bottom: 0;
     padding: 0;
   }
 
-  /* Beside the logo at every wide width, as from 1240px; between 1080 and
-     1239 it took the free space and sat in the middle of the row. */
+  /* Beside the logo at every wide width; between 1024 and 1239 it took the
+     free space and sat in the middle of the row. */
   .cam-auth-page--wizard .flow-header .masthead > .brand-sub {
     flex: 0 1 auto;
     text-align: left;
   }
 
+  /* Title over the column, the form beside both. */
   .cam-auth-page--wizard .flow-split {
-    gap: var(--cam-space-7);
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: var(--reg-rail-width) minmax(0, var(--cam-container-wizard));
+    grid-template-rows: auto 1fr;
+    column-gap: var(--cam-space-7);
+    row-gap: var(--cam-space-5);
+    justify-content: center;
+    align-items: start;
+    width: 100%;
+    max-width: var(--reg-layout-width);
+    margin: 0 auto;
     padding: var(--cam-space-6) 0 var(--cam-space-7);
+  }
+
+  .cam-auth-page--wizard .flow-title {
+    grid-column: 1;
+    grid-row: 1;
+    display: block;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .cam-auth-page--wizard .flow-steps-opener {
+    display: none;
   }
 
   /* Three classes: the shared rail's own rhythm rule (.cam-wizard-rail
      :not(--sheet)) sets a top padding for a full-height panel, and this
-     column instead starts level with the form's title. */
-  .cam-auth-page--wizard .flow-rail.cam-wizard-rail {
+     column instead sits under the title. */
+  .cam-auth-page--wizard .flow-split > .flow-rail.cam-wizard-rail {
+    grid-column: 1;
+    grid-row: 2;
     display: flex;
     position: sticky;
     top: var(--cam-space-5);
-    flex: 0 0 var(--reg-rail-width);
     width: var(--reg-rail-width);
     height: auto;
     padding: 0;
@@ -1327,12 +1393,13 @@ html:has(.cam-auth-page--wizard) {
   }
 
   .cam-auth-page--wizard .flow-body {
-    flex: 0 1 var(--cam-container-wizard);
+    grid-column: 2;
+    grid-row: 1 / 3;
     min-width: 0;
     padding: 0;
   }
 
-  /* The frame's content starts on the column's edge, level with the rail. */
+  /* The frame's content starts on the column's edge, level with the title. */
   .cam-auth-page--wizard .flow-frame-content {
     padding-left: 0;
     padding-right: 0;
@@ -1347,24 +1414,9 @@ html:has(.cam-auth-page--wizard) {
   .cam-auth-page--wizard .flow-footer {
     display: none;
   }
-
-  html:has(.cam-auth-page--wizard) {
-    scroll-padding-top: var(--cam-space-5);
-  }
 }
 
-/* « Étape 4 sur 6 » above the section title. Only beside the side column:
-   below 1080px the header's rail already says where the respondent is. */
-.cam-auth-page--wizard .step-header-eyebrow {
-  display: none;
-}
-
-@media (min-width: 1080px) {
-  .cam-auth-page--wizard .step-header-eyebrow {
-    display: block;
-  }
-}
-
+/* « Étape 4 sur 6 » above the section title, at every width. */
 .cam-auth-page--wizard .step-header-eyebrow {
   margin: 0 0 var(--cam-space-1);
   font-size: var(--cam-font-size-sm);
@@ -1395,7 +1447,7 @@ html:has(.cam-auth-page--wizard) {
 }
 
 .cam-auth-page--wizard .flow-draft-notice > p {
-  flex: 1 1 18rem;
+  flex: 1 1 14rem;
   margin: 0;
 }
 
@@ -1482,26 +1534,59 @@ html:has(.cam-auth-page--wizard) {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--cam-space-1);
+  gap: var(--cam-space-2);
 }
 
 .cam-auth-page--wizard .choice-list--inline {
   flex-direction: row;
   flex-wrap: wrap;
-  column-gap: var(--cam-space-5);
+  gap: var(--cam-space-2) var(--cam-space-3);
 }
 
+/* Each choice is a row with its own edge, 48px tall, and the chosen one is
+   marked by a teal edge and tint (canvas, option D; owner, 2026-11-11). The
+   whole row is the label, so the whole row is the target. A row is a
+   control, like an input: it is the one bordered thing a respondent form
+   may hold (still no cards). */
 .cam-auth-page--wizard .entity-type-option,
 .cam-auth-page--wizard .choice-option {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--cam-space-3);
+  min-height: 48px;
   margin: 0;
-  padding: var(--cam-space-2) 0;
+  padding: var(--cam-space-2) var(--cam-space-4);
+  border: var(--cam-border-width) solid var(--cam-field-border);
+  border-radius: var(--cam-radius-control);
+  background: var(--cam-surface);
   font-size: var(--cam-answer-size);
   font-weight: var(--cam-font-weight-regular);
   color: var(--cam-text);
   cursor: pointer;
+}
+
+.cam-auth-page--wizard .entity-type-option:hover,
+.cam-auth-page--wizard .choice-option:hover {
+  border-color: var(--cam-primary);
+}
+
+/* 2px without moving the text: the second pixel is an inset ring. */
+.cam-auth-page--wizard .entity-type-option:has(input:checked),
+.cam-auth-page--wizard .choice-option:has(input:checked) {
+  border-color: var(--cam-primary);
+  box-shadow: inset 0 0 0 1px var(--cam-primary);
+  background: var(--cam-primary-tint);
+}
+
+.cam-auth-page--wizard .entity-type-option:has(input:focus-visible),
+.cam-auth-page--wizard .choice-option:has(input:focus-visible) {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+}
+
+.cam-auth-page--wizard [aria-invalid="true"] > .entity-type-option,
+.cam-auth-page--wizard [aria-invalid="true"] .choice-option {
+  border-color: var(--cam-error);
 }
 
 .cam-auth-page--wizard .entity-type-option input,
@@ -1510,14 +1595,14 @@ html:has(.cam-auth-page--wizard) {
   width: var(--cam-choice-size);
   height: var(--cam-choice-size);
   flex: 0 0 auto;
-  margin: calc((var(--cam-line-height-copy) * 1em - var(--cam-choice-size)) / 2) 0 0;
+  margin: 0;
   cursor: pointer;
 }
 
+/* The ring is drawn on the row (above), not twice. */
 .cam-auth-page--wizard .entity-type-option input:focus-visible,
 .cam-auth-page--wizard .choice-option input:focus-visible {
-  outline: 2px solid var(--cam-focus);
-  outline-offset: 2px;
+  outline: none;
 }
 
 .cam-auth-page--wizard .entity-type-option-label,

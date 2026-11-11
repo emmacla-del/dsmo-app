@@ -489,7 +489,7 @@
     "vocationalTrainingLabel": "VOCATIONAL TRAINING"
   },
   "registerPage": {
-    "formTitle": "Register an organization",
+    "formTitle": "Register an organisation",
     "formIntro": "Complete the form below, review your answers, then submit your registration.",
     "errorEntityTypeRequired": "Choose your organization type.",
     "errorRequiredFields": "Please complete all required fields.",
@@ -663,6 +663,7 @@
     "draftClearBody": "Every answer you entered will be deleted and the registration will start again at the first step.",
     "draftClearCancel": "Keep my answers",
     "draftClearConfirm": "Clear and start again",
+    "stepsSheetClose": "Close",
     "optionalPlaceholder": "Optional",
     "optionalDetailsSummary": "Optional details",
     "railEditHintLine": "Click a completed step to edit it.",

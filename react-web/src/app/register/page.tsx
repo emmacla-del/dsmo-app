@@ -99,10 +99,10 @@ import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import { FormRow, type FieldSize } from "@/components/auth/FormRow";
 import { PasswordRequirementHint } from "@/components/auth/PasswordRequirementHint";
 import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityToggle";
-import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
 import { StepHeader } from "@/components/auth/StepHeader";
 import { WizardRail } from "@/components/wizard/WizardRail";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { WizardStepList, type WizardStepState } from "@/components/wizard/WizardStepList";
 
 // CAM-LEAP public self-registration wizard.
@@ -235,6 +235,9 @@ function RegisterWizard({ onRestart }: { onRestart: () => void }) {
   // moves on (canvas, option D); null once there is nothing to say.
   const [draftNoticeIndex, setDraftNoticeIndex] = useState<number | null>(null);
   const [confirmClearDraft, setConfirmClearDraft] = useState(false);
+  // The steps drawer below 1024px, the questionnaires' own (.cam-sheet*).
+  const [stepsSheetOpen, setStepsSheetOpen] = useState(false);
+  const stepsSheetRef = useRef<HTMLDivElement>(null);
   // Item 11: the DOM ids of the fields a trigger has flagged. Only a FLAG is
   // stored, never an error message -- whether a flagged field still shows one
   // is re-derived from its value on every render, so an error clears the
@@ -1726,6 +1729,22 @@ function RegisterWizard({ onRestart }: { onRestart: () => void }) {
   }, [hasEnteredData, result]);
 
   // Render receipt screen on success
+  // Escape closes the drawer, focus moves in on open and back to the opener
+  // on close, Tab stays inside -- as in the questionnaires.
+  useDialogFocus(stepsSheetOpen, stepsSheetRef, () => setStepsSheetOpen(false));
+  // A window widened past 1024px shows the side column; the drawer has no
+  // reason to stay open over it.
+  useEffect(() => {
+    if (!stepsSheetOpen) return;
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const close = () => {
+      if (wide.matches) setStepsSheetOpen(false);
+    };
+    close();
+    wide.addEventListener("change", close);
+    return () => wide.removeEventListener("change", close);
+  }, [stepsSheetOpen]);
+
   if (result) {
     const isActive = result.status === "ACTIVE";
     const establishmentId = result.establishmentId;
@@ -2454,7 +2473,10 @@ function RegisterWizard({ onRestart }: { onRestart: () => void }) {
       state: RAIL_TO_STEP_STATE[state],
       stateLabel: t(`registerPage.${railStateLabelKey(state)}`),
       detail: state === "done" ? railSummaries[index] || undefined : undefined,
-      onSelect: () => goToSection(index),
+      onSelect: () => {
+        setStepsSheetOpen(false);
+        goToSection(index);
+      },
     };
   });
   const doneCount = completed.filter(Boolean).length;
@@ -2490,18 +2512,12 @@ function RegisterWizard({ onRestart }: { onRestart: () => void }) {
   // email-availability check running when they moved on still lands.
   return (
     <main className="cam-auth-page cam-auth-page--wizard">
-      {/* The logo and the rail. Scrolls away on a narrow screen; pinned on a
-          wide one (globals.css). */}
+      {/* The logo and the language link. The steps are not here any more:
+          they are the side column from 1024px and a drawer below it, as in
+          the questionnaires (owner, 2026-11-11). */}
       <header className="flow-header">
         <div className="flow-header-inner">
           <AuthHeader onHomeClick={guardLeave("/")} />
-          <RegistrationProgress
-            currentIndex={current}
-            reached={reached}
-            completed={completed}
-            summaries={railSummaries}
-            onSelect={goToSection}
-          />
         </div>
       </header>
 
@@ -2514,7 +2530,26 @@ function RegisterWizard({ onRestart }: { onRestart: () => void }) {
       </p>
 
       <div className="flow-split">
-        {/* Wide screens only (globals.css); the header's rail below 1080px. */}
+        {/* The page's one title, the same on every step (owner, 2026-11-11):
+            it used to open step 1 only, which pushed that step's own title
+            down and left steps 2 to 6 without a page heading. Over the side
+            column from 1024px; above the form, beside the drawer's opener,
+            below it. */}
+        <div className="flow-title">
+          <h1>{t("registerPage.formTitle")}</h1>
+          <button
+            type="button"
+            className="cam-button cam-button-secondary flow-steps-opener"
+            aria-haspopup="dialog"
+            onClick={() => setStepsSheetOpen(true)}
+          >
+            {t("wizardRail.title")}
+            <span className="flow-steps-opener-count">
+              {t("registerPage.stepIndicator", { current: current + 1, total: STEPS.length })}
+            </span>
+          </button>
+        </div>
+        {/* Side column from 1024px (globals.css). */}
         <WizardRail
           className="flow-rail"
           progress={{ done: doneCount, total: STEPS.length }}
@@ -2526,12 +2561,6 @@ function RegisterWizard({ onRestart }: { onRestart: () => void }) {
           {/* The frame: the current section and its buttons, in one column. */}
           <div className="flow-frame">
             <div className="flow-frame-content">
-              {current === 0 && (
-                <div className="registration-form-intro">
-                  <h1>{t("registerPage.formTitle")}</h1>
-                  <p>{t("registerPage.formIntro")}</p>
-                </div>
-              )}
               {/* Reset and restore notices. Announced, because the change they
                   report happened somewhere the respondent may not be looking. */}
               <div className="wizard-snackbar-region" role="status" aria-live="polite">
@@ -2736,6 +2765,36 @@ function RegisterWizard({ onRestart }: { onRestart: () => void }) {
             applyEntityType(next, true);
           }}
         />
+      )}
+
+      {/* The steps below 1024px: the same rail in a sheet from the bottom. */}
+      {stepsSheetOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reg-steps-sheet-title"
+          className="cam-sheet-scrim cam-drawer-backdrop-in"
+          onClick={() => setStepsSheetOpen(false)}
+        >
+          <div
+            ref={stepsSheetRef}
+            tabIndex={-1}
+            className="cam-sheet cam-drawer-sheet-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cam-sheet-head">
+              <h2 id="reg-steps-sheet-title" className="cam-sheet-title">
+                {t("wizardRail.title")}
+              </h2>
+              <button type="button" className="cam-text-button" onClick={() => setStepsSheetOpen(false)}>
+                {t("registerPage.stepsSheetClose")}
+              </button>
+            </div>
+            <WizardRail sheet progress={{ done: doneCount, total: STEPS.length }} foot={helpLink}>
+              <WizardStepList label={t("registerPage.railLabel")} steps={railSteps} />
+            </WizardRail>
+          </div>
+        </div>
       )}
 
       {/* Clearing the restored draft. Everything entered goes, so it is
