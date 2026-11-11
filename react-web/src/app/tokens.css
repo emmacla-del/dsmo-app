@@ -259,10 +259,13 @@
      the star inside the flag circle. Raising either to 11px would change a
      size that was chosen small on purpose, so the ladder gains a step
      instead. Nothing new should reach for it. */
-  --cam-font-size-4xs: 0.5625rem;
-  /* 9px */
-  --cam-font-size-3xs: 0.6875rem;
-  /* 11px */
+  /* Both raised to 12px on 2026-11-11: no text below 12px, anywhere
+     (owner's rule). The two names stay so the 43 call sites need no edit;
+     nothing new should reach for them, use --cam-font-size-2xs. */
+  --cam-font-size-4xs: 0.75rem;
+  /* 12px (was 9px) */
+  --cam-font-size-3xs: 0.75rem;
+  /* 12px (was 11px) */
   --cam-font-size-2xs: 0.75rem;
   /* 12px */
   --cam-font-size-xs: 0.8125rem;

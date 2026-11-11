@@ -543,11 +543,11 @@ function ActorRow({ actor, showLapses, onNudge }: { actor: ActorSummaryActor; sh
             {t("nudgeButton")}
           </button>
           {canReadAudit && (
-            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button">
+            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button" aria-label={t("viewLogAria", { name: actor.displayName })}>
               {t("viewLogLink")}
             </Link>
           )}
-          <Link href={registrationRecordsHref({ status: "ALL", createdBy: actor.userId })} className="cam-text-button">
+          <Link href={registrationRecordsHref({ status: "ALL", createdBy: actor.userId })} className="cam-text-button" aria-label={t("viewRegistrationsAria", { name: actor.displayName })}>
             {t("viewRegistrationsLink")}
           </Link>
         </div>

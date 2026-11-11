@@ -1943,10 +1943,13 @@ function DossiersContent({
                     <div className="cam-dossier-record-stack">
                       <Link className="cam-dossier-record-name cam-dossier-record-link" href={detailHref} title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</Link>
                       {/* Board row: the file number in mono, then the form. */}
-                      <span className="cam-dossier-cell-secondary" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>
-                        {d.submissionId && <><span className="cam-record-cell-ref">{d.submissionId}</span> · </>}
-                        {d.formType ? queueTypeLabel(d.formType) : NOT_PROVIDED}
-                        {d.supersedes && <> · {t("correctionMarker")}</>}
+                      {/* The file number in mono, then the form as a tag, as in
+                          the registration queue: a narrow column wraps between
+                          the two, never inside one (2026-11-11). */}
+                      <span className="cam-dossier-cell-secondary cam-record-cell-meta">
+                        {d.submissionId && <span className="cam-record-cell-ref">{d.submissionId}</span>}
+                        <span className="cam-tag" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>{d.formType ? queueTypeLabel(d.formType) : NOT_PROVIDED}</span>
+                        {d.supersedes && <span>{t("correctionMarker")}</span>}
                       </span>
                       {/* Each view already names its status; only a row that differs says it. */}
                       {(d.adminStatus !== "PENDING_REVIEW" || d.archivedAt) && <span className="flex flex-wrap items-center gap-1.5">
@@ -1956,8 +1959,11 @@ function DossiersContent({
                       {d.reviewedAt && (d.adminStatus === "APPROVED" || d.adminStatus === "REJECTED" || d.adminStatus === "SUPERSEDED") && <span className="cam-dossier-cell-secondary">{stamp(d.reviewedAt, true, locale)}</span>}
                     </div>
                   </TableCell>
-                  <TableCell data-label={t("territoryColumn")} className="align-top cam-cell-nowrap" title={territoryTitle}>
-                    <span className="cam-dossier-cell-primary">{[d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</span>
+                  <TableCell data-label={t("territoryColumn")} className="cam-dossier-territory-cell align-top cam-cell-nowrap" title={territoryTitle}>
+                    {/* Region, then the department under it (2026-11-11): « Centre ·
+                        Mfoundi » broke at its dot in a narrow column. */}
+                    <span className="cam-dossier-cell-primary">{d.region ?? d.department ?? NOT_PROVIDED}</span>
+                    {d.region && d.department && <span className="cam-dossier-cell-secondary">{d.department}</span>}
                   </TableCell>
                   <TableCell data-label={t("checksColumn")} className="align-top whitespace-normal">
                     <div className="cam-dossier-review-stack">
@@ -1973,13 +1979,15 @@ function DossiersContent({
                     </div>
                   </TableCell>
                   {/* One signal: how long the file has waited, flagged once when overdue. */}
-                  <TableCell data-label={t("waitingColumn")} className="align-top whitespace-nowrap" title={stamp(d.submittedAt, true, locale)}>
+                  <TableCell data-label={t("waitingColumn")} className="cam-dossier-waiting-cell align-top whitespace-nowrap" title={stamp(d.submittedAt, true, locale)}>
                     {/* To the minute, as on the registration queue (owner, 2026-11-09); days stay the overdue rule. */}
                     {(() => {
                       const elapsed = waiting === null || nowMs === null ? null : waitingDuration(d.submittedAt, new Date(nowMs), locale);
                       if (waiting === null || elapsed === null) return <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>;
+                      // The time on its line, « en retard » as a tag under it
+                      // (2026-11-11): the two in one badge broke anywhere.
                       return isReviewOverdue
-                        ? <Badge className="cam-dossier-overdue-badge" variant="info">{t("waitingOverdueTime", { time: elapsed })}</Badge>
+                        ? <span className="cam-dossier-waiting-stack"><span className="cam-dossier-waiting">{elapsed}</span><Badge className="cam-dossier-overdue-badge" variant="info">{t("waitingOverdueTag")}</Badge></span>
                         : <span className="cam-dossier-waiting">{elapsed}</span>;
                     })()}
                   </TableCell>

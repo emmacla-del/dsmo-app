@@ -1198,9 +1198,14 @@ button.cam-kpi[aria-pressed="true"] {
     max-width: none !important;
   }
   .cam-admin.cam-admin.cam-admin .cam-register-table thead th:first-child { width: 34% !important; }
+  /* The establishment's name wraps (2026-11-11): one long name made the
+     column 612px and the register scrolled sideways at 1440px. */
+  .cam-admin.cam-admin.cam-admin .cam-register-table tbody td:first-child { white-space: normal; }
   .cam-admin.cam-admin.cam-admin .cam-registration-organisations-table thead th:first-child { width: 46% !important; }
   .cam-admin.cam-admin.cam-admin .cam-registration-organisations-table thead th:nth-child(2) { width: 20% !important; }
-  .cam-admin.cam-admin.cam-admin .cam-registration-queue-table thead th:first-child { width: 28% !important; }
+  /* 40 %, not 28 % (2026-11-11): at 1280px the organisation wrapped and
+     was cut while the territory column stood half empty. */
+  .cam-admin.cam-admin.cam-admin .cam-registration-queue-table thead th:first-child { width: 40% !important; }
   .cam-admin.cam-admin.cam-admin :is(.cam-dossier-standard-table, .cam-dossier-completed-table) thead th.cam-dossier-record-column,
   .cam-admin.cam-admin.cam-admin .cam-dossier-completed-table thead th:first-child { width: 28% !important; }
   .cam-admin.cam-admin.cam-admin :is(.cam-dossier-standard-table, .cam-dossier-completed-table) thead th.cam-dossier-select-column { width: 44px !important; }
@@ -1332,4 +1337,108 @@ button.cam-kpi[aria-pressed="true"] {
   /* The rail reads as one navy column down the page. */
   .cam-admin.cam-admin { background: linear-gradient(to right, var(--cam-official) var(--cam-side-rail-width), var(--cam-bg) var(--cam-side-rail-width)); }
   .cam-admin.cam-admin .cam-admin-body { border-left: 0; }
+}
+
+/* ── 21. The dossier queue fits its card from 1280px (2026-11-11) ──────────
+   At 1280px the table was 1102px in a 971px card and scrolled sideways, and
+   the entity column was left 139px. Each cell now breaks where it is meant
+   to, never mid-phrase: the record's reference and type each stay whole;
+   the region sits over the department; the waiting time stays on one line
+   with « en retard » as a tag under it; a control badge may take two
+   balanced lines; the row button keeps one line (« Examiner », not
+   « Examiner les problèmes »: the controls column already names them). */
+@media (min-width: 640px) {
+  .cam-admin.cam-admin .cam-dossier-standard-table :is(.cam-record-cell-ref, .cam-tag) { white-space: nowrap; }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-cell-secondary.cam-record-cell-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cam-space-1) var(--cam-space-2);
+    margin-top: var(--cam-space-1);
+  }
+  /* One vertical alignment for the whole row: the cells centred on the
+     row, as in the registration queue (the entity was top-aligned and the
+     rest centred, so multi-line rows did not line up). */
+  .cam-admin.cam-admin.cam-admin .cam-dossier-standard-table td { vertical-align: middle; }
+  .cam-admin.cam-admin.cam-admin .cam-dossier-standard-table td.cam-dossier-territory-cell { white-space: normal !important; }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-territory-cell > span { display: block; white-space: nowrap; }
+  .cam-admin.cam-admin .cam-dossier-waiting-stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--cam-space-1);
+  }
+  .cam-admin.cam-admin.cam-admin .cam-dossier-standard-table td.cam-dossier-validation-cell,
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-validation-summary { min-width: 8.5rem; }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-validation-summary [data-slot="badge"] {
+    width: fit-content;
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+    text-wrap: balance;
+    text-align: left;
+    line-height: var(--cam-line-height-ui);
+  }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-row-actions { flex-wrap: nowrap; }
+}
+/* The navy column also runs down the dossier pages, whose shell sets its
+   own background (section 2). */
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin.is-dossier-workflow { background: linear-gradient(to right, var(--cam-official) var(--cam-side-rail-width), var(--cam-bg) var(--cam-side-rail-width)); }
+}
+/* The queue's page header was pinned 68px from the top, under a masthead
+   that no longer stays in view, and section 18 made it transparent: the
+   title floated over the rows on scroll. It scrolls with the page. */
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+  position: static;
+}
+
+/* ── 22. The wide staff tables fit their card from 1024px (2026-11-11) ─────
+   « Utilisateurs & rôles », « Équipe territoriale » and the audit journal
+   had fixed minimum widths (1040px, 1240px, 900px) and scrolled sideways
+   inside their card even at 1440px, with two agents' columns and the team's
+   last columns out of view. The minimums go; headers may take two lines
+   (most of the width was « Inscriptions assistées » over a single figure),
+   and long text wraps while identifiers, dates and figures stay on one
+   line. The scroll region stays as the fallback on narrower screens. */
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin :is(.cam-agents-table, .cam-equipe-table, .cam-audit-table) {
+    min-width: 0;
+    width: 100%;
+  }
+  .cam-admin.cam-admin :is(.cam-agents-table, .cam-equipe-table, .cam-audit-table) th {
+    white-space: normal;
+    text-wrap: balance;
+    vertical-align: bottom;
+  }
+  /* Agents: the role wraps; the staff number never breaks at its hyphen. */
+  .cam-admin.cam-admin .cam-agents-table td:nth-child(2) { white-space: normal !important; }
+  .cam-admin.cam-admin .cam-agents-table td:nth-child(4) { white-space: nowrap; }
+  .cam-admin.cam-admin .cam-equipe-table td:first-child,
+  .cam-admin.cam-admin .cam-equipe-table th:first-child { min-width: 9.5rem; }
+  /* Notes under a figure may wrap: « Dernière : » over its date. */
+  .cam-admin.cam-admin .cam-equipe-table .cam-equipe-sub { white-space: normal; }
+  /* Agents: the name and e-mail may wrap (an e-mail breaks anywhere rather
+     than widen the table); « Profil » and « Réassigner » stack. */
+  .cam-admin.cam-admin .cam-agents-table td:first-child { white-space: normal !important; }
+  /* The e-mail never breaks: a broken address cannot be read back. */
+  .cam-admin.cam-admin .cam-agents-table td:first-child .cam-admin-meta { white-space: nowrap; }
+  /* « par Paul Essomba » may take a second line under the date. */
+  .cam-admin.cam-admin .cam-agents-table .cam-agent-created { white-space: normal; }
+  .cam-admin.cam-admin .cam-agents-table td:last-child > div {
+    flex-direction: column !important;
+    align-items: flex-end;
+    gap: var(--cam-space-1) !important;
+  }
+  /* Team: the row's links may take two lines (« Voir les / inscriptions »). */
+  .cam-admin.cam-admin .cam-equipe-actions { white-space: normal; }
+  /* Nine and eleven columns: 8px each side instead of 12, the outer edges kept. */
+  .cam-admin.cam-admin :is(.cam-equipe-table, .cam-agents-table) :is(th, td) { padding-inline: var(--cam-space-2); }
+  .cam-admin.cam-admin :is(.cam-equipe-table, .cam-agents-table) :is(th, td):first-child { padding-inline-start: var(--cam-space-3); }
+  .cam-admin.cam-admin :is(.cam-equipe-table, .cam-agents-table) :is(th, td):last-child { padding-inline-end: var(--cam-space-3); }
+  .cam-admin.cam-admin .cam-agents-table thead th:first-child { width: 20%; }
+  .cam-admin.cam-admin .cam-equipe-actions > * { white-space: nowrap; text-align: right; }
+  .cam-admin.cam-admin .cam-audit-table td { white-space: normal; }
+  .cam-admin.cam-admin .cam-audit-table td:first-child { white-space: nowrap; }
+  .cam-admin.cam-admin .cam-audit-table .cam-audit-resource-id { white-space: nowrap; }
 }
