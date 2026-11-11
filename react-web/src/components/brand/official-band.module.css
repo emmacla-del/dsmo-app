@@ -1,0 +1,102 @@
+/* The official band. Tokens only (hex-in-module-css): --cam-official* in
+   tokens.css. See OfficialBand.tsx. */
+
+.band {
+  background: var(--cam-official);
+  color: var(--cam-on-official);
+  font-family: var(--cam-font-sans);
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.4;
+}
+
+.band *,
+.band *::before,
+.band *::after {
+  box-sizing: border-box;
+}
+
+.band :focus-visible {
+  outline: 2px solid var(--cam-official-motto);
+  outline-offset: 2px;
+}
+
+.ribbon {
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--cam-flag-green) 0 33.33%,
+    var(--cam-flag-red) 33.33% 66.66%,
+    var(--cam-flag-yellow) 66.66% 100%
+  );
+}
+
+.inner {
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: var(--cam-space-2) var(--cam-space-6);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--cam-space-5);
+}
+
+.state,
+.ministry {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ministry {
+  text-align: right;
+  color: var(--cam-on-official-muted);
+}
+
+.strong {
+  color: var(--cam-on-official);
+  font-size: 15px;
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.motto {
+  color: var(--cam-official-motto);
+}
+
+.short {
+  display: none;
+  color: var(--cam-on-official-muted);
+}
+
+.disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cam-official-disc);
+  height: var(--cam-official-disc);
+  border-radius: var(--cam-radius-full);
+  background: var(--cam-white);
+}
+
+.disc img {
+  display: block;
+  width: var(--cam-brand-emblem-min);
+  height: auto;
+}
+
+@media (max-width: 820px) {
+  .inner {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--cam-space-2) var(--cam-space-4);
+  }
+
+  .disc,
+  .ministry {
+    display: none;
+  }
+
+  .short {
+    display: inline;
+  }
+}

@@ -60,6 +60,19 @@
   --cam-portal-foot-muted: var(--cam-portal-closing-muted);
   --cam-portal-flow: #cbd5e1;
 
+  /* ── Official band (owner, 2026-11-11: masthead option D) ──
+     The public portal's top band: « République du Cameroun / Paix – Travail –
+     Patrie » on the left, the ONEFOP emblem centred on a white disc, the
+     ministry and ONEFOP on the right. Navy is the logo's own navy
+     (--cam-logo-navy): the band is the State's ground, not a UI colour.
+     Gold is the motto only (7.1:1 on the navy). */
+  --cam-official: var(--cam-logo-navy, #021f40);
+  --cam-on-official: var(--cam-white);
+  --cam-on-official-muted: color-mix(in srgb, var(--cam-white) 80%, transparent);
+  --cam-official-motto: var(--cam-gold);
+  --cam-official-rule: color-mix(in srgb, var(--cam-white) 18%, transparent);
+  --cam-official-disc: 72px;
+
   /* ── Institutional national tricolor ──
      Kept for the VT status colours that alias them. The portal no longer
      draws a tricolor bar (owner, 2026-10-14). */

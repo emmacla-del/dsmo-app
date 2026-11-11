@@ -387,6 +387,10 @@
     "portalGuideButton": "Consulter la documentation publique →"
   },
   "loginPage": {
+    "newOrgTitle": "Votre organisation n'est pas encore inscrite ?",
+    "newOrgBody": "L'inscription se fait en ligne. L'ONEFOP valide ensuite le compte, puis vous répondez à l'enquête.",
+    "newOrgAction": "Inscrire mon organisation",
+    "staffNote": "Agents de l'ONEFOP et des services déconcentrés : utilisez ce même formulaire de connexion.",
     "twoFactorTitle": "Vérification en deux étapes",
     "twoFactorSubtitle": "Un code à 6 chiffres a été envoyé à votre adresse email.",
     "verificationCodeLabel": "Code de vérification",
@@ -4325,6 +4329,19 @@
     "portalAction": "Assistance"
   },
   "site": {
+    "officialRepublic": "République du Cameroun",
+    "officialMotto": "Paix – Travail – Patrie",
+    "officialMinistry": "Ministère de l'Emploi et de la Formation Professionnelle",
+    "officialObservatory": "Observatoire National de l'Emploi et de la Formation Professionnelle",
+    "officialShort": "MINEFOP · ONEFOP",
+    "officialOnefopAlt": "ONEFOP, Observatoire National de l'Emploi et de la Formation Professionnelle",
+    "platformOf": "Une plateforme de l'ONEFOP",
+    "homeServicesTitle": "Guichet en ligne",
+    "homeServiceRegisterTitle": "Inscrire mon organisation",
+    "homeServiceRegisterBody": "Première participation. L'ONEFOP valide le compte.",
+    "homeServiceResumeTitle": "Répondre à mon enquête",
+    "homeServiceResumeBody": "Organisation déjà inscrite : reprenez où vous en étiez.",
+    "homeServiceHelpBody": "Éligibilité, étapes, contacts de l'ONEFOP.",
     "skipToContent": "Aller au contenu",
     "endorsement": "ONEFOP · MINEFOP",
     "navLabel": "Navigation principale",

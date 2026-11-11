@@ -1,7 +1,10 @@
 "use client";
 
-// The masthead every public page shares: the CAMLEAP logo with its
-// endorsement in words, three tabs, the way in, and the language switch.
+// The masthead every public page shares, in two rows (owner, 2026-11-11,
+// option D): the official band (OfficialBand, shared with the sign-in
+// pages), which scrolls away, and under it the sticky bar: the CAMLEAP logo with the
+// platform's full name and « Une plateforme de l'ONEFOP », three tabs, the
+// way in, and the language switch.
 // Reference: the CAMLEAP website (2026-10-14). The pilot strip that sat
 // above it was removed on 2026-10-21; its sentence is now under the home
 // hero's buttons (HomeView, homePilotNote).
@@ -17,6 +20,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { LanguageLink } from "@/components/LanguageLink";
+import { OfficialBand } from "@/components/brand/OfficialBand";
 import { SITE_NAV } from "./site-content";
 import { usePortalEntry } from "./use-portal-entry";
 import styles from "../portal.module.css";
@@ -25,6 +29,7 @@ const NAV_ID = "site-nav";
 
 export function SiteMasthead() {
   const t = useTranslations("site");
+  const tAuth = useTranslations("authShared");
   const pathname = usePathname();
   const entry = usePortalEntry();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -44,54 +49,59 @@ export function SiteMasthead() {
   }, [open]);
 
   return (
-    <header className={styles.masthead}>
-      <div className={`${styles.container} ${styles.mastheadInner}`}>
-        <Link href="/" className={styles.lockup}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={146} height={22} className={styles.logo} />
-          <span className={styles.endorsement}>{t("endorsement")}</span>
-        </Link>
-
-        <nav
-          id={NAV_ID}
-          className={open ? `${styles.nav} ${styles.navOpen}` : styles.nav}
-          aria-label={t("navLabel")}
-        >
-          {SITE_NAV.map(({ key, href }) => {
-            const current = pathname === href;
-            return (
-              <Link
-                key={key}
-                href={href}
-                className={current ? styles.navCurrent : undefined}
-                aria-current={current ? "page" : undefined}
-              >
-                {t(key)}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className={styles.mastheadTools}>
-          <Link href={entry.spaceHref} className={styles.signIn}>
-            {entry.spaceLabel}
+    <>
+      <OfficialBand />
+      <header className={styles.masthead}>
+        <div className={`${styles.container} ${styles.mastheadInner}`}>
+          <Link href="/" className={styles.lockup}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={170} height={24} className={styles.logo} />
+            <span className={styles.endorsement}>
+              <span className={styles.platformName}>{tAuth("subtitle")}</span>
+              <span>{t("platformOf")}</span>
+            </span>
           </Link>
-          <LanguageLink compact />
-          <button
-            type="button"
-            className={styles.menuToggle}
-            aria-expanded={open}
-            aria-controls={NAV_ID}
-            onClick={() => {
-              setOpenedOn(pathname);
-              setMenuOpen(!open);
-            }}
+          <nav
+            id={NAV_ID}
+            className={open ? `${styles.nav} ${styles.navOpen}` : styles.nav}
+            aria-label={t("navLabel")}
           >
-            {t("navMenu")}
-            <span className={styles.menuChevron} aria-hidden="true" />
-          </button>
+            {SITE_NAV.map(({ key, href }) => {
+              const current = pathname === href;
+              return (
+                <Link
+                  key={key}
+                  href={href}
+                  className={current ? styles.navCurrent : undefined}
+                  aria-current={current ? "page" : undefined}
+                >
+                  {t(key)}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className={styles.mastheadTools}>
+            <Link href={entry.spaceHref} className={styles.signIn}>
+              {entry.spaceLabel}
+            </Link>
+            <LanguageLink compact />
+            <button
+              type="button"
+              className={styles.menuToggle}
+              aria-expanded={open}
+              aria-controls={NAV_ID}
+              onClick={() => {
+                setOpenedOn(pathname);
+                setMenuOpen(!open);
+              }}
+            >
+              {t("navMenu")}
+              <span className={styles.menuChevron} aria-hidden="true" />
+            </button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   );
 }

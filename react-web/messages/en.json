@@ -387,6 +387,10 @@
     "portalGuideButton": "View public documentation →"
   },
   "loginPage": {
+    "newOrgTitle": "Is your organisation not registered yet?",
+    "newOrgBody": "Registration is online. ONEFOP then approves the account, and you answer the survey.",
+    "newOrgAction": "Register my organisation",
+    "staffNote": "ONEFOP and field-office staff: use this same sign-in form.",
     "twoFactorTitle": "Two-Factor Verification",
     "twoFactorSubtitle": "A 6-digit code has been sent to your email address.",
     "verificationCodeLabel": "Verification Code",
@@ -4325,6 +4329,19 @@
     "portalAction": "Help"
   },
   "site": {
+    "officialRepublic": "Republic of Cameroon",
+    "officialMotto": "Peace – Work – Fatherland",
+    "officialMinistry": "Ministry of Employment and Vocational Training",
+    "officialObservatory": "National Observatory of Employment and Vocational Training",
+    "officialShort": "MINEFOP · ONEFOP",
+    "officialOnefopAlt": "ONEFOP, National Observatory of Employment and Vocational Training",
+    "platformOf": "A platform of ONEFOP",
+    "homeServicesTitle": "Online services",
+    "homeServiceRegisterTitle": "Register my organisation",
+    "homeServiceRegisterBody": "First time taking part. ONEFOP approves the account.",
+    "homeServiceResumeTitle": "Answer my survey",
+    "homeServiceResumeBody": "Already registered: pick up where you left off.",
+    "homeServiceHelpBody": "Eligibility, steps and ONEFOP contacts.",
     "skipToContent": "Skip to content",
     "endorsement": "ONEFOP · MINEFOP",
     "navLabel": "Main navigation",

@@ -6,11 +6,13 @@ import { useTranslations } from "next-intl";
 import { HOME_PHASES } from "./site-content";
 import { PortalEntryLink } from "./PortalEntryLink";
 import { SiteCta } from "./SiteCta";
+import { usePortalEntry } from "./use-portal-entry";
 import styles from "../portal.module.css";
 
 // `visual` is the hero animation, rendered on the server by the page.
 export function HomeView({ visual }: { visual: ReactNode }) {
   const t = useTranslations("site");
+  const entry = usePortalEntry();
 
   return (
     <>
@@ -42,6 +44,34 @@ export function HomeView({ visual }: { visual: ReactNode }) {
           </div>
         </div>
       </section>
+
+      {/* 01b · Online services (owner, 2026-11-11): the three things a
+          visitor comes to do, as one row of doors. Links, not a list: the
+          phases below stay the page's one list. Signed in, the first door
+          already returns to the survey, so the second is not repeated. */}
+      <nav className={styles.services} aria-labelledby="guichet">
+        <div className={styles.container}>
+          <h2 id="guichet" className={styles.servicesTitle}>
+            {t("homeServicesTitle")}
+          </h2>
+          <div className={styles.servicesGrid}>
+            <Link href={entry.actionHref} className={styles.service}>
+              <span className={styles.serviceTitle}>{entry.actionLabel(t("homeServiceRegisterTitle"))}</span>
+              <span className={styles.serviceBody}>{t("homeServiceRegisterBody")}</span>
+            </Link>
+            {!entry.isAuthenticated && (
+              <Link href={entry.spaceHref} className={styles.service}>
+                <span className={styles.serviceTitle}>{t("homeServiceResumeTitle")}</span>
+                <span className={styles.serviceBody}>{t("homeServiceResumeBody")}</span>
+              </Link>
+            )}
+            <Link href="/assistance" className={styles.service}>
+              <span className={styles.serviceTitle}>{t("navHelp")}</span>
+              <span className={styles.serviceBody}>{t("homeServiceHelpBody")}</span>
+            </Link>
+          </div>
+        </div>
+      </nav>
 
       {/* 02 · Programme stages (4 phases) */}
       <section id="programme" className={`${styles.section} ${styles.sectionWash}`}>

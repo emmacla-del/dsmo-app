@@ -1473,3 +1473,264 @@
     text-align: center;
   }
 }
+
+/* ── Official identity (owner, 2026-11-11, masthead option D) ─────────────
+   Appended last on purpose: it re-points the earlier rules of this file, so
+   each override sits after what it overrides, media blocks included.
+   - The official band: the State in words, the ONEFOP emblem centred on a
+     white disc (never below 56px, brand.md), the ministry on the right.
+     It scrolls away; only the CAMLEAP bar under it is sticky.
+   - Navy (--cam-official, the logo's navy) is the State's ground: the band,
+     the closing band and the footer. Teal stays the one action colour.
+   - Corners go square-ish (--cam-radius-sm): pills read as an app store,
+     not an administration. */
+
+.footer *:focus-visible {
+  outline-color: var(--cam-official-motto);
+}
+
+/* The CAMLEAP bar: solid white under a rule, no frosted glass. */
+.masthead {
+  background: var(--cam-portal-bg);
+  backdrop-filter: none;
+  border-bottom: var(--cam-border-width) solid var(--cam-portal-rule);
+}
+
+.logo {
+  height: 26px;
+}
+
+.endorsement {
+  display: flex;
+  flex-direction: column;
+  max-width: 250px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: var(--cam-font-weight-regular);
+  color: var(--cam-portal-muted);
+}
+
+.platformName {
+  color: var(--cam-portal-ink);
+  font-weight: var(--cam-font-weight-medium);
+}
+
+/* The current tab: navy, heavier, and a teal rule along the bar's foot. */
+.nav a.navCurrent {
+  color: var(--cam-official);
+  box-shadow: inset 0 -3px 0 var(--cam-primary);
+}
+
+.signIn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--cam-space-4);
+  border-color: var(--cam-official);
+  border-radius: var(--cam-radius-sm);
+  color: var(--cam-official);
+}
+
+.signIn:hover {
+  border-color: var(--cam-official);
+  background: var(--cam-surface-subtle);
+}
+
+.btn {
+  border-radius: var(--cam-radius-sm);
+}
+
+.hero {
+  padding: 80px 0 64px;
+}
+
+.hero h1,
+.pageHead h1,
+.section h2,
+.sectionGrid h2 {
+  color: var(--cam-official);
+}
+
+/* Online services: one framed row of doors under the hero. */
+.services {
+  padding: 0 0 var(--cam-space-8);
+  background: var(--cam-portal-bg);
+}
+
+.page .servicesTitle {
+  margin: 0 0 var(--cam-space-3);
+  font-family: var(--cam-font-sans);
+  font-size: 16px;
+  font-weight: var(--cam-font-weight-semibold);
+  letter-spacing: 0;
+  color: var(--cam-official);
+}
+
+.servicesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  border: var(--cam-border-width) solid var(--cam-official);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-portal-panel);
+}
+
+.service {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding: var(--cam-space-5) var(--cam-space-8) var(--cam-space-5) var(--cam-space-5);
+  color: var(--cam-portal-ink);
+  text-decoration: none;
+  transition: background var(--cam-transition-fast);
+}
+
+.service + .service {
+  border-left: var(--cam-border-width) solid var(--cam-portal-rule);
+}
+
+/* A right-pointing chevron, drawn like the menu's. */
+.service::after {
+  content: "";
+  position: absolute;
+  right: var(--cam-space-5);
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--cam-primary);
+  border-bottom: 2px solid var(--cam-primary);
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.service:hover {
+  background: var(--cam-surface-subtle);
+}
+
+.service:hover .serviceTitle {
+  text-decoration: underline;
+}
+
+.serviceTitle {
+  font-size: 18px;
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-primary);
+}
+
+.serviceBody {
+  font-size: 15px;
+  color: var(--cam-portal-muted);
+}
+
+/* Phases: the current one in the State's navy. */
+.phases > li.phaseNow .phaseMarker {
+  border-color: var(--cam-official);
+  background: var(--cam-official);
+}
+
+/* Participant families and programme cards: framed panels, square corners. */
+.participant {
+  padding: var(--cam-space-6);
+  border: var(--cam-border-width) solid var(--cam-portal-rule);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-portal-panel);
+}
+
+.participant h3,
+.card h3 {
+  color: var(--cam-official);
+}
+
+.participant:focus-within {
+  border-radius: var(--cam-radius-sm);
+}
+
+.card {
+  border-radius: var(--cam-radius-sm);
+  padding: var(--cam-space-6);
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+/* The closing band keeps its teal: on navy it would merge with the footer
+   into one slab (the 2026-10-21 note on .footer). */
+
+/* Footer: on the official navy, the ONEFOP emblem first, the ribbon last. */
+.footer {
+  padding-bottom: 0;
+  background: var(--cam-official);
+  color: var(--cam-on-official-muted);
+  border-top: 0;
+}
+
+.footerIdentity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cam-space-5);
+}
+
+.footerEmblem {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-white);
+}
+
+.footerEmblem img {
+  display: block;
+  width: 64px;
+  height: auto;
+}
+
+.footerOrg,
+.footerNav a,
+.footerContact a {
+  color: var(--cam-on-official);
+}
+
+.footerContact a {
+  text-decoration: underline;
+}
+
+.footerLegal {
+  margin-bottom: var(--cam-space-6);
+  color: var(--cam-on-official-muted);
+  border-top-color: var(--cam-official-rule);
+}
+
+@media (max-width: 1100px) {
+  .endorsement {
+    display: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .logo {
+    height: 18px;
+  }
+
+  .signIn {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    color: var(--cam-primary);
+  }
+
+  .signIn:hover {
+    background: none;
+  }
+
+  .service + .service {
+    border-left: 0;
+    border-top: var(--cam-border-width) solid var(--cam-portal-rule);
+  }
+
+  .footerIdentity {
+    flex-direction: column;
+  }
+}
