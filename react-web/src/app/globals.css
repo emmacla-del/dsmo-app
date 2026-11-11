@@ -5505,3 +5505,145 @@ textarea.sovereign-text-input {
     border-top: var(--cam-border-width) solid var(--cam-border);
   }
 }
+
+/* ── Employer review (ModernJobsWizard), same shape as the VT review ──────
+   Owner, 2026-11-11: it was a shadowed card with a 4px coloured edge,
+   rgba() colours and 12–13px section names. Now: the step title, a muted
+   intro, notices in the token tints, sections under hairlines at body
+   size, and the shared two-column layout (.cam-review-layout). */
+.cam-review-head {
+  margin-bottom: var(--cam-space-5);
+}
+
+.cam-review-intro {
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.5;
+  color: var(--cam-text-muted);
+}
+
+.cam-review-notice {
+  margin: 0 0 var(--cam-space-5);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border-radius: var(--cam-radius-sm);
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.5;
+  color: var(--cam-text);
+}
+
+.cam-review-notice--error {
+  background: var(--cam-error-bg);
+  border: var(--cam-border-width) solid var(--cam-error-border);
+}
+
+.cam-review-notice--warning {
+  background: var(--cam-notice-surface);
+  border: var(--cam-border-width) solid var(--cam-gold);
+}
+
+.cam-review-notice-title {
+  margin: 0;
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.cam-review-notice--error .cam-review-notice-title {
+  color: var(--cam-error);
+}
+
+.cam-review-notice-text {
+  margin: var(--cam-space-1) 0 0;
+  color: var(--cam-text-muted);
+}
+
+.cam-review-issues {
+  margin: var(--cam-space-3) 0 0;
+  padding-left: var(--cam-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-2);
+}
+
+.cam-review-sections {
+  list-style: none;
+  margin: 0 0 var(--cam-space-5);
+  padding: 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-review-section {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--cam-space-3);
+  min-height: 56px;
+  padding: var(--cam-space-3) 0;
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-review-marker {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--cam-radius-full);
+  border: 2px solid var(--cam-border);
+  font-size: var(--cam-font-size-2xs);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text-muted);
+  box-sizing: border-box;
+}
+
+.cam-review-marker.is-complete {
+  border-color: var(--cam-primary);
+  background: var(--cam-primary);
+  color: var(--cam-white);
+}
+
+.cam-review-marker.is-has-errors {
+  border-color: var(--cam-error);
+  color: var(--cam-error);
+}
+
+.cam-review-section-name {
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-review-link {
+  padding: var(--cam-space-2) var(--cam-space-1);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--cam-font-size-sm);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cam-review-link--quiet {
+  color: var(--cam-text-muted);
+  text-decoration: none;
+}
+
+.cam-review-link--quiet:hover {
+  color: var(--cam-text);
+  text-decoration: underline;
+}
+
+.cam-review-back {
+  margin-top: var(--cam-space-5);
+}
+
+@media (max-width: 640px) {
+  .cam-review-section {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .cam-review-section > :nth-child(3) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}

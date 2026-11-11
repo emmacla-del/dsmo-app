@@ -122,6 +122,7 @@ export function ModernJobsWizard({
 }: ModernJobsWizardProps) {
   const tShell = useTranslations("wizardShell");
   const tSidebar = useTranslations("modernJobs.sidebar");
+  const tVt = useTranslations("vtValidationScreen");
   const locale: "fr" | "en" = useLocale().startsWith("en") ? "en" : "fr";
 
   const t = useTranslations("modernJobs.wizard");
@@ -709,9 +710,12 @@ export function ModernJobsWizard({
               width: "100%",
               maxWidth: isScopeStage
                 ? "var(--cam-container-quiz)"
-                : !isValidationStage && clampedSectionIndex >= tableSectionsStart
-                  ? "min(1360px, 100%)"
-                  : "var(--vt-content-max, 940px)",
+                : isValidationStage
+                  ? // The review's two columns (owner, 2026-11-11).
+                    "var(--vt-content-max-wide, 1100px)"
+                  : clampedSectionIndex >= tableSectionsStart
+                    ? "min(1360px, 100%)"
+                    : "var(--vt-content-max, 940px)",
               marginTop: isScopeStage ? "auto" : 0,
               marginBottom: isScopeStage ? "auto" : 0,
               marginLeft: "auto",
@@ -911,148 +915,44 @@ export function ModernJobsWizard({
                 />
               )
             ) : isValidationStage ? (
-              <div
-                style={{
-                  background: "var(--cam-surface)",
-                  border: "1px solid var(--vt-card-border)",
-                  borderRadius: "var(--cam-radius-md)",
-                  padding: "clamp(20px, 4vw, 32px)",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    borderLeft: "4px solid var(--cam-green-dark)",
-                    paddingLeft: "var(--cam-space-3, 12px)",
-                    borderBottom: "1px solid var(--cam-border)",
-                    paddingBottom: 12,
-                    marginBottom: 20,
-                  }}
-                >
+              // The employer review, as the VT review (owner, 2026-11-11): no
+              // card, no shadow, no coloured edge; the sections on the left
+              // and, beside them under a rule, what submitting means and the
+              // actions. One column below 1100px (globals.css .cam-review-*).
+              <div className="cam-review-mj">
+                <div className="cam-review-head">
                   <h2
                     id={REVIEW_HEADING_ID}
                     tabIndex={-1}
                     // The section heading's style, as the VT review's heading.
                     className="cam-step-title"
-                    style={{ margin: "0 0 6px" }}
+                    style={{ margin: "0 0 var(--cam-space-2)" }}
                   >
                     {t("reviewHeading")}
                   </h2>
-                  <p style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text-muted)", margin: 0 }}>
-                    {t("reviewIntro")}
-                  </p>
+                  <p className="cam-review-intro">{t("reviewIntro")}</p>
                 </div>
 
-                {/* Section Review Cards */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-                  {sections.map((sec, sIdx) => {
-                    const progress = getSectionProgressSummary(sec, data, validationIssues, true);
-                    const status = progress.status;
-                    const isDone = status === "complete";
-                    const isErr = status === "has-errors";
-                    const statusLabel =
-                      status === "complete" ? tSidebar("statusCompleted") :
-                      status === "has-errors" ? tSidebar("statusToCorrect") :
-                      status === "in-progress" ? tSidebar("statusInProgress") :
-                      tRail("stateTodo");
-                    const sectionName =
-                      (sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id;
-                    return (
-                      <div
-                        key={sec.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "10px 14px",
-                          borderRadius: "var(--cam-radius-sm)",
-                          background: "var(--cam-bg)",
-                          border: "1px solid var(--cam-border)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <span
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 4,
-                              display: "grid",
-                              placeItems: "center",
-                              fontSize: "var(--cam-font-size-2xs)",
-                              fontWeight: "var(--cam-font-weight-bold)",
-                              background: isDone
-                                ? "var(--cam-green)"
-                                : isErr
-                                  ? "var(--cam-error)"
-                                  : "rgba(11, 31, 20, 0.15)",
-                              color: isDone || isErr ? "var(--cam-white)" : "var(--cam-text)",
-                            }}
-                          >
-                            {/* The section's own number, the one the rail
-                                shows (ModernJobsSidebar's `marker: idx`):
-                                Modern Jobs numbers its sections from 0, as
-                                the paper form does, so « Employment and
-                                labour » is 2 here and 2 there. */}
-                            {isDone ? "✓" : isErr ? "!" : sIdx}
-                          </span>
-                          <span style={{ fontSize: "var(--cam-font-size-xs)", fontWeight: "var(--cam-font-weight-semibold)", color: "var(--cam-text)" }}>
-                            {sectionName}
-                          </span>
-                          <SectionProgressText status={status}>{statusLabel}</SectionProgressText>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectSection(sIdx)}
-                          // Five « Modifier » in a row say nothing to a screen
-                          // reader: each names its section (audit C7).
-                          aria-label={t("editSectionAria", { section: sectionName })}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--cam-green)",
-                            fontSize: "var(--cam-font-size-2xs)",
-                            fontWeight: "var(--cam-font-weight-bold)",
-                            cursor: "pointer",
-                            textDecoration: "underline",
-                          }}
-                        >
-                          {t("edit")}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Validation summary card if blocking issues exist */}
+                {/* Blocking issues, before the columns: they decide the rest. */}
                 {validationIssues.length > 0 && (
                   <div
                     id={VALIDATION_SUMMARY_ID}
                     tabIndex={-1}
                     role="region"
                     aria-labelledby={VALIDATION_SUMMARY_TITLE_ID}
-                    style={{
-                      marginBottom: 20,
-                      padding: "16px 20px",
-                      borderRadius: "var(--cam-radius-sm)",
-                      background: "rgba(179, 38, 30, 0.06)",
-                      border: "1px solid rgba(179, 38, 30, 0.3)",
-                    }}
+                    className="cam-review-notice cam-review-notice--error"
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <div>
-                        <h3 id={VALIDATION_SUMMARY_TITLE_ID} style={{ margin: 0, fontSize: "var(--cam-font-size-sm)", fontWeight: "var(--cam-font-weight-bold)", color: "var(--cam-error)" }}>
-                          {locale === "fr"
-                            ? `${validationIssues.length} point(s) à corriger avant la soumission`
-                            : `${validationIssues.length} issue(s) require attention before submission`}
-                        </h3>
-                        <p style={{ margin: "2px 0 0", fontSize: "var(--cam-font-size-2xs)", color: "var(--cam-text-muted)" }}>
-                          {locale === "fr"
-                            ? "Veuillez renseigner les champs obligatoires ou corriger les formats invalides ci-dessous."
-                            : "Please fill required fields or correct invalid formats below."}
-                        </p>
-                      </div>
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <h3 id={VALIDATION_SUMMARY_TITLE_ID} className="cam-review-notice-title">
+                      {locale === "fr"
+                        ? `${validationIssues.length} point(s) à corriger avant la soumission`
+                        : `${validationIssues.length} issue(s) require attention before submission`}
+                    </h3>
+                    <p className="cam-review-notice-text">
+                      {locale === "fr"
+                        ? "Veuillez renseigner les champs obligatoires ou corriger les formats invalides ci-dessous."
+                        : "Please fill required fields or correct invalid formats below."}
+                    </p>
+                    <ul className="cam-review-issues">
                       {validationIssues.map((issue) => {
                         const location = locateIssue(sections, issue.fieldId);
                         const matchingField = location?.field;
@@ -1062,28 +962,19 @@ export function ModernJobsWizard({
                             ? (sections[secIdx].title ? localized(sections[secIdx].title, locale) : `Section ${secIdx + 1}`)
                             : null;
                         return (
-                          <li key={issue.fieldId} style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>
+                          <li key={issue.fieldId}>
                             <span style={{ fontWeight: "var(--cam-font-weight-semibold)" }}>{issue.message}</span>
                             {secTitle && (
                               <button
                                 type="button"
+                                className="cam-review-link"
                                 onClick={() => {
                                   handleSelectSection(secIdx);
                                   if (matchingField) {
                                     setActiveTableId(matchingField.id);
                                   }
                                 }}
-                                style={{
-                                  marginLeft: 8,
-                                  background: "none",
-                                  border: "none",
-                                  color: "var(--cam-green)",
-                                  fontSize: "var(--cam-font-size-2xs)",
-                                  fontWeight: "var(--cam-font-weight-semibold)",
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                  padding: 0,
-                                }}
+                                style={{ marginLeft: "var(--cam-space-2)" }}
                               >
                                 ({secTitle})
                               </button>
@@ -1097,140 +988,77 @@ export function ModernJobsWizard({
 
                 {/* Quarter Closed Warning if applicable */}
                 {!canSubmit && (
-                  <div
-                    style={{
-                      marginBottom: 20,
-                      padding: "14px 18px",
-                      borderRadius: "var(--cam-radius-sm)",
-                      background: "rgba(230, 81, 0, 0.08)",
-                      border: "1px solid rgba(230, 81, 0, 0.3)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                    }}
-                  >
-                    <div style={{ fontSize: "var(--cam-font-size-xs)", color: "var(--cam-text)" }}>
-                      <span style={{ fontWeight: "var(--cam-font-weight-bold)" }}>
-                        {locale === "fr" ? "Période de déclaration fermée" : "Declaration period closed"}
-                      </span>
-                      {quarterStatusMessage && (
-                        <div style={{ marginTop: 2, color: "var(--cam-text-muted)" }}>
-                          {quarterStatusMessage}
-                        </div>
-                      )}
-                    </div>
+                  <div className="cam-review-notice cam-review-notice--warning">
+                    <p className="cam-review-notice-title">
+                      {locale === "fr" ? "Période de déclaration fermée" : "Declaration period closed"}
+                    </p>
+                    {quarterStatusMessage && <p className="cam-review-notice-text">{quarterStatusMessage}</p>}
                   </div>
                 )}
 
-                {/* Non-blocking coherence anomalies still open */}
-                <CoherenceReviewList />
+                <div className="cam-review-layout">
+                  <div className="cam-review-main">
+                    {/* One row per section: its number (the rail's), name,
+                        state in words, and the change link naming it. */}
+                    <ol className="cam-review-sections">
+                      {sections.map((sec, sIdx) => {
+                        const progress = getSectionProgressSummary(sec, data, validationIssues, true);
+                        const status = progress.status;
+                        const statusLabel =
+                          status === "complete" ? tSidebar("statusCompleted") :
+                          status === "has-errors" ? tSidebar("statusToCorrect") :
+                          status === "in-progress" ? tSidebar("statusInProgress") :
+                          tRail("stateTodo");
+                        const sectionName =
+                          (sec.title && sectionNavTitle(sec.id, localized(sec.title, locale), sIdx, locale, data)) || sec.id;
+                        return (
+                          <li key={sec.id} className="cam-review-section">
+                            {/* The section's own number, the one the rail
+                                shows (ModernJobsSidebar's `marker: idx`):
+                                Modern Jobs numbers its sections from 0, as
+                                the paper form does. Its state is the word
+                                beside the name, not a glyph in the marker. */}
+                            <span className={`cam-review-marker is-${status}`}>{sIdx}</span>
+                            <span className="cam-review-section-name">{sectionName}</span>
+                            <SectionProgressText status={status}>{statusLabel}</SectionProgressText>
+                            <button
+                              type="button"
+                              className="cam-review-link cam-review-section-edit"
+                              onClick={() => handleSelectSection(sIdx)}
+                              // Five « Modifier » in a row say nothing to a screen
+                              // reader: each names its section (audit C7).
+                              aria-label={t("editSectionAria", { section: sectionName })}
+                            >
+                              {t("edit")}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ol>
 
-                {/* Actions: Navigation, PDF Preview & Final Submit */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 12,
-                    flexWrap: "wrap",
-                    marginTop: 24,
-                    paddingTop: 16,
-                    borderTop: "1px solid var(--cam-border)",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={handlePrev}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "var(--cam-text-muted)",
-                      fontSize: "var(--cam-font-size-sm)",
-                      fontWeight: "var(--cam-font-weight-semibold)",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "8px 4px",
-                    }}
-                  >
-                    <span aria-hidden="true">←</span>
-                    <span>{locale === "fr" ? "Précédent" : "Previous"}</span>
-                  </button>
+                    {/* Non-blocking coherence anomalies still open */}
+                    <CoherenceReviewList />
 
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    {onPreviewPdf && (
-                      <button
-                        type="button"
-                        onClick={() => onPreviewPdf(locale)}
-                        disabled={isGeneratingPdf}
-                        style={{
-                          background: "var(--cam-surface)",
-                          border: "1px solid var(--cam-border)",
-                          borderRadius: "var(--cam-radius-sm)",
-                          padding: "10px 18px",
-                          fontSize: "var(--cam-font-size-xs)",
-                          fontWeight: "var(--cam-font-weight-semibold)",
-                          cursor: isGeneratingPdf ? "wait" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          color: "var(--cam-text)",
-                          opacity: isGeneratingPdf ? 0.7 : 1,
-                        }}
-                      >
-                        <span>
-                          {isGeneratingPdf
-                            ? (locale === "fr" ? "Génération en cours..." : "Generating...")
-                            : t("pdfPreview")}
-                        </span>
+                    <div className="cam-review-back">
+                      <button type="button" onClick={handlePrev} className="cam-review-link cam-review-link--quiet">
+                        <span aria-hidden="true">← </span>
+                        <span>{locale === "fr" ? "Précédent" : "Previous"}</span>
                       </button>
-                    )}
+                    </div>
+                  </div>
 
-                    {/* With nothing to correct it only reopened Section 0, a sixth
-                        « Modifier » beside the five above (audit C7). */}
-                    {validationIssues.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleCorriger}
-                        style={{
-                          background: "var(--cam-surface)",
-                          border: "1px solid var(--cam-border)",
-                          borderRadius: "var(--cam-radius-sm)",
-                          padding: "10px 18px",
-                          fontSize: "var(--cam-font-size-xs)",
-                          fontWeight: "var(--cam-font-weight-semibold)",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          color: "var(--cam-text)",
-                        }}
-                      >
-                        <span>{t("fixIssues", { count: validationIssues.length })}</span>
-                      </button>
-                    )}
+                  <aside className="cam-review-aside" aria-labelledby="mj-review-deposit-title">
+                    <h2 id="mj-review-deposit-title" className="cam-review-aside-title">
+                      {tVt("depositTitle")}
+                    </h2>
+                    <p className="cam-review-aside-body">{tVt("depositBody")}</p>
 
                     {onSubmitFinal && (
                       <button
                         type="button"
                         onClick={handleSubmitClick}
                         disabled={isSubmitting}
-                        style={{
-                          background: "var(--cam-green)",
-                          border: "none",
-                          color: "var(--cam-white)",
-                          borderRadius: "var(--cam-radius-sm)",
-                          padding: "10px 24px",
-                          fontSize: "var(--cam-font-size-xs)",
-                          fontWeight: "var(--cam-font-weight-bold)",
-                          cursor: isSubmitting ? "wait" : "pointer",
-                          opacity: isSubmitting ? 0.7 : 1,
-                          boxShadow: "0 2px 6px rgba(20, 74, 40, 0.25)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
+                        className="cam-button cam-button-primary"
                       >
                         {isSubmitting ? (
                           t("submitting")
@@ -1240,12 +1068,33 @@ export function ModernJobsWizard({
                                 opens the official copy, where « Confirmer et
                                 soumettre » sends it (audit C7). */}
                             <span>{t("submitDeclaration")}</span>
-                            <span aria-hidden="true">→</span>
+                            <span aria-hidden="true"> →</span>
                           </>
                         )}
                       </button>
                     )}
-                  </div>
+
+                    {onPreviewPdf && (
+                      <button
+                        type="button"
+                        onClick={() => onPreviewPdf(locale)}
+                        disabled={isGeneratingPdf}
+                        className="cam-button cam-button-secondary"
+                      >
+                        {isGeneratingPdf
+                          ? (locale === "fr" ? "Génération en cours..." : "Generating...")
+                          : t("pdfPreview")}
+                      </button>
+                    )}
+
+                    {/* With nothing to correct it only reopened Section 0, a sixth
+                        « Modifier » beside the five above (audit C7). */}
+                    {validationIssues.length > 0 && (
+                      <button type="button" onClick={handleCorriger} className="cam-button cam-button-secondary">
+                        {t("fixIssues", { count: validationIssues.length })}
+                      </button>
+                    )}
+                  </aside>
                 </div>
               </div>
             ) : (
