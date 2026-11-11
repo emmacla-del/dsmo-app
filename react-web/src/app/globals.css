@@ -434,27 +434,38 @@ body {
   cursor: pointer;
 }
 
+/* The receipt's details: the same answer sheet as the review (shaded
+   label column, every cell ruled), so the printout reads as an official
+   form. */
 .cam-auth-page .receipt-list {
   margin: var(--cam-space-6) 0 0;
-  border-top: var(--cam-border-width) solid var(--cam-border);
+  border: var(--cam-border-width) solid var(--cam-border);
   font-size: var(--cam-font-size-base);
 }
 
 .cam-auth-page .receipt-list-row {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr);
-  gap: var(--cam-space-3);
-  padding: var(--cam-space-3) 0;
   border-bottom: var(--cam-border-width) solid var(--cam-border);
 }
 
+.cam-auth-page .receipt-list-row:last-child {
+  border-bottom: 0;
+}
+
 .cam-auth-page .receipt-list dt {
+  padding: var(--cam-space-3);
+  border-right: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface-subtle);
   font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-text);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .cam-auth-page .receipt-list dd {
   margin: 0;
+  padding: var(--cam-space-3);
   color: var(--cam-text);
   overflow-wrap: anywhere;
 }
@@ -533,7 +544,10 @@ body {
   }
   .cam-auth-page .receipt-list-row {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--cam-space-1);
+  }
+  .cam-auth-page .receipt-list dt {
+    border-right: 0;
+    border-bottom: var(--cam-border-width) solid var(--cam-border);
   }
   .cam-auth-page .receipt-actions .btn-primary {
     width: 100%;
@@ -2628,12 +2642,7 @@ html:has(.cam-auth-page--wizard) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: var(--cam-space-4);
-  margin-bottom: var(--cam-space-2);
-}
-
-.cam-auth-page .review-header-row:first-of-type {
-  margin-top: 0;
+  gap: var(--cam-space-3);
 }
 
 .cam-auth-page .review-section-title {
@@ -2665,31 +2674,47 @@ html:has(.cam-auth-page--wizard) {
   outline-offset: 2px;
 }
 
-/* The review's summary list: row rules only (GOV.UK check-your-answers).
+/* The review's summary: an official answer sheet (owner, 2026-11-11, from
+   the government e-services form). Each section is a bar with its number,
+   title and « Modifier », then a grid: the question in a shaded column, the
+   answer beside it, every cell ruled. One pair per row: two would not fit
+   the 600px form column. Below 480px the question sits over its answer.
    It carries .table-official so the UI-grammar check knows it as the
-   wizard's table; these rules, one class heavier, take that class's grid,
-   grey label cells and tracking back off. */
+   wizard's table. */
+.cam-auth-page .review-header-row {
+  margin: var(--cam-space-5) 0 0;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  border: 1px solid var(--cam-border);
+  border-bottom: none;
+  border-left: 3px solid var(--cam-primary);
+  background: var(--cam-surface);
+}
+
+.cam-auth-page .review-header-row:first-of-type {
+  margin-top: 0;
+}
+
 .cam-auth-page .table-official.review-list {
   width: 100%;
-  border: none;
+  border: 1px solid var(--cam-border);
   border-collapse: collapse;
-  background: none;
+  background: var(--cam-surface);
   font-size: var(--cam-font-size-sm);
-  margin-bottom: var(--cam-space-5);
+  margin: 0;
 }
 
 .cam-auth-page .table-official.review-list th,
 .cam-auth-page .table-official.review-list td {
-  border: none;
-  border-bottom: 1px solid var(--cam-border);
-  padding: var(--cam-space-2) var(--cam-space-3) var(--cam-space-2) 0;
+  border: 1px solid var(--cam-border);
+  padding: var(--cam-space-2) var(--cam-space-3);
   text-align: left;
   vertical-align: top;
+  line-height: var(--cam-line-height-ui);
 }
 
 .cam-auth-page .table-official.review-list th {
   width: 40%;
-  background: none;
+  background: var(--cam-surface-subtle);
   letter-spacing: normal;
   font-weight: var(--cam-font-weight-semibold);
   color: var(--cam-text);
@@ -2698,18 +2723,44 @@ html:has(.cam-auth-page--wizard) {
 .cam-auth-page .table-official.review-list td {
   color: var(--cam-text);
   font-weight: var(--cam-font-weight-regular);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.cam-auth-page .review-list th {
-  width: 40%;
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-text);
+@media (max-width: 480px) {
+  .cam-auth-page .table-official.review-list,
+  .cam-auth-page .table-official.review-list tbody,
+  .cam-auth-page .table-official.review-list tr,
+  .cam-auth-page .table-official.review-list th,
+  .cam-auth-page .table-official.review-list td {
+    display: block;
+    width: 100%;
+  }
+  .cam-auth-page .table-official.review-list th,
+  .cam-auth-page .table-official.review-list td {
+    border-width: 0 0 1px;
+  }
 }
 
-.cam-auth-page .review-list td {
-  color: var(--cam-text);
-  word-break: break-word;
+@media print {
+  .cam-auth-page .table-official.review-list th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* « Supprimer » in a table row whose cells have no padding of their own
+   (Prestations offertes): room around the word, and a 32px target. */
+.cam-text-button.cam-row-remove {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: var(--cam-space-1) var(--cam-space-3);
+  border-radius: var(--cam-radius-sm);
+}
+
+.cam-text-button.cam-row-remove:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: -2px;
 }
 
 /* Password strength segments */

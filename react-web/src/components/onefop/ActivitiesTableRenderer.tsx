@@ -259,7 +259,7 @@ export function ActivitiesTableRenderer({
                 <Cell style={tdStyle}>
                   <button
                     type="button"
-                    className="cam-text-button is-danger"
+                    className="cam-text-button is-danger cam-row-remove"
                     onClick={() => removeRow(n)}
                     disabled={shown.length === 1 && started.length === 0}
                     aria-label={isEn ? `Remove line ${i + 1}` : `Supprimer la ligne ${i + 1}`}
