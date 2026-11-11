@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [{ source: "/admin/pilotage", destination: "/admin/inscriptions", permanent: false }];
   },
+  // Dev only, and only when asked for: CAMLEAP_DEV_API_PROXY=http://localhost:3004
+  // forwards /api/* to the local API, so the site and the API share one
+  // origin (set NEXT_PUBLIC_API_URL=http://localhost:3000/api with it). For
+  // browsers that only let a page reach its own origin, such as Claude's
+  // browser pane. Unset, nothing is forwarded; never used in production.
+  async rewrites() {
+    const target = process.env.NODE_ENV !== "production" ? process.env.CAMLEAP_DEV_API_PROXY : undefined;
+    return target ? [{ source: "/api/:path*", destination: `${target.replace(/\/$/, "")}/api/:path*` }] : [];
+  },
 };
 
 export default withNextIntl(nextConfig);
