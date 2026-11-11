@@ -987,6 +987,8 @@
     "removeRowButton": "Remove last row"
   },
   "vtValidationScreen": {
+    "depositTitle": "Submitting the questionnaire",
+    "depositBody": "After this check, the official document opens for a last read. Once submitted, the questionnaire can no longer be changed unless ONEFOP requests a correction.",
     "checkAnswersTitle": "Check your answers before submitting",
     "confidentialityTitle": "Statistical Secrecy & Data Protection",
     "confidentialityText": "The information collected is confidential and may not be used for legal proceedings, fiscal control or economic repression, in accordance with Law N° 2020/010 of 20 July 2020 regulating statistical activity in Cameroon.",

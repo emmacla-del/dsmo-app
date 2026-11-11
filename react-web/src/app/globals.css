@@ -5449,3 +5449,59 @@ textarea.sovereign-text-input {
     row-gap: var(--cam-space-4);
   }
 }
+
+/* ── Questionnaire review in two columns (owner, 2026-11-11) ──────────────
+   VtValidationScreen: the sections on the left; beside them, under a
+   vertical rule rather than in a card, what submitting means and the
+   actions. One column under 1100px, the actions then after the list. */
+.cam-review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--cam-space-7);
+  align-items: start;
+}
+
+.cam-review-main {
+  min-width: 0;
+}
+
+.cam-review-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  padding-left: var(--cam-space-6);
+  border-left: var(--cam-border-width) solid var(--cam-border);
+}
+
+.cam-review-aside-title {
+  margin: 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-semibold);
+  color: var(--cam-text);
+}
+
+.cam-review-aside-body {
+  margin: 0 0 var(--cam-space-2);
+  font-size: var(--cam-font-size-sm);
+  line-height: 1.5;
+  color: var(--cam-text-muted);
+}
+
+.cam-review-aside > button {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 1099.98px) {
+  .cam-review-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--cam-space-5);
+  }
+
+  .cam-review-aside {
+    padding-left: 0;
+    padding-top: var(--cam-space-5);
+    border-left: 0;
+    border-top: var(--cam-border-width) solid var(--cam-border);
+  }
+}

@@ -987,6 +987,8 @@
     "removeRowButton": "Supprimer la dernière ligne"
   },
   "vtValidationScreen": {
+    "depositTitle": "Dépôt du questionnaire",
+    "depositBody": "Après cette vérification, le document officiel s'affiche pour une dernière lecture. Une fois déposé, le questionnaire ne peut plus être modifié, sauf si l'ONEFOP demande une correction.",
     "checkAnswersTitle": "Vérifiez vos réponses avant de soumettre",
     "confidentialityTitle": "Secret statistique & Protection des données",
     "confidentialityText": "Les informations recueillies sont confidentielles et ne peuvent être utilisées à des fins de poursuites judiciaires, de contrôle fiscal ou de répression économique, conformément à la loi N° 2020/010 du 20 juillet 2020 régissant l'activité statistique au Cameroun.",

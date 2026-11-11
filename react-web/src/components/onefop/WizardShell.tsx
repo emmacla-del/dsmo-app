@@ -890,7 +890,10 @@ export function WizardShell({
             style={{
               flex: 1,
               minWidth: 0,
-              maxWidth: "var(--vt-content-max)",
+              // The review sets its sections beside the submission column
+              // (owner, 2026-11-11), so it takes the wide measure; the
+              // success screen keeps the reading one.
+              maxWidth: submissionResult ? "var(--vt-content-max)" : "var(--vt-content-max-wide)",
               margin: "0 auto",
               padding: contentGutter,
             }}
