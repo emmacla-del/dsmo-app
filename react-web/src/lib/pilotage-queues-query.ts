@@ -12,8 +12,8 @@ export const PILOTAGE_QUEUES_KEY = ["admin", "pilotage", "queues"] as const;
  */
 export function pilotageQueuesOptions(view: "queue" | "completed" = "queue", includeArchived = false) {
   return {
-    queryKey: [...PILOTAGE_QUEUES_KEY, view, view === "completed" ? includeArchived : false] as const,
-    queryFn: () => getPilotageQueuesForView(view, view === "completed" ? includeArchived : undefined),
+    queryKey: [...PILOTAGE_QUEUES_KEY, view, includeArchived] as const,
+    queryFn: () => getPilotageQueuesForView(view, includeArchived),
     staleTime: 60_000,
   };
 }

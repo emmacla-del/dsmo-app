@@ -20,7 +20,7 @@ When this file and the spec disagree, the spec wins; fix this file.
 ## Page frame
 
 - Root `.cam-admin-page`; header `AdminPageHeader` only, never a hand-built `<h1>` (G2, G3).
-- Page title = its nav label, or the view's label when the route has views (« Relances », « Dossiers terminés »), with a one-line purpose under it. Breadcrumb on every page below a hub. The console face is IBM Plex Sans, titles included.
+- Page title = its nav label, or the view's label when the route has a distinct resource (« Relances »), with a one-line purpose under it. Completed decisions are a status filter of « Dossiers de télédéclaration », not a page title. Breadcrumb on every page below a hub. The console face is IBM Plex Sans, titles included.
 - The header holds route actions (create, export of the route). **Search and filters never go in the header**; they sit with the results they change.
 - One primary button per view (G5).
 

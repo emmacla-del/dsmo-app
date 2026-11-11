@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -64,11 +64,15 @@ import {
   parseDossierQuality,
   parseDossierQuarter,
   parseDossierSort,
-  parseDossierStatus,
+  parseDossierStatusFilter,
+  dossierStatusRequest,
+  isTerminalDossierStatusFilter,
   parseDossierVue,
+  legacyCompletedDossierHref,
   recentDossierQuarters,
   type DossierSort,
   type DossierStatus,
+  type DossierStatusFilter,
   type DossierQueueView,
 } from "@/lib/admin-url";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -99,7 +103,7 @@ import {
  *
  * Every field is mapped from a GET /admin/questionnaires item. Fields the
  * record does not carry are `null` and render as an em dash; none of them has
- * a default. `quality` and `eligibility` are derived — see `toRow` for the
+ * a default. `quality` and `eligibility` are derived â€” see `toRow` for the
  * exact formulas.
  */
 interface DossierItem {
@@ -209,7 +213,7 @@ type ToneName = keyof typeof BADGE_VARIANT;
 // The organisation's own registration (account) status, as stored on
 // Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
 const FORM_TYPES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
-// Mirrors ADMIN_LIST_PERIODS; "" = Toutes les périodes (the default, so pending
+// Mirrors ADMIN_LIST_PERIODS; "" = Toutes les pÃ©riodes (the default, so pending
 // dossiers older than 30 days stay visible). `labelKey` is under adminDossiersPage.
 const PERIODS: Array<{ value: string; labelKey: string }> = [
   { value: "7d", labelKey: "period7d" },
@@ -230,18 +234,20 @@ const SEARCH_DEBOUNCE_MS = 300;
  *
  * Counts come from GET /admin/questionnaires/pilotage/queues: `statusCounts`
  * and `totalSubmissionsCount`, over the caller's whole territory, DRAFT
- * excluded — the same base as this list. They do not follow the type,
+ * excluded â€” the same base as this list. They do not follow the type,
  * region, period or search filters below.
  */
 // `labelKey` / `noteKey` are under adminDossiersPage.
-const STATUS_VIEWS: Array<{ status: DossierStatus | ""; labelKey: string; noteKey?: string }> = [
-  { status: "", labelKey: "statusAll" },
+const STATUS_VIEWS: Array<{ status: DossierStatusFilter | ""; labelKey: string; noteKey?: string }> = [
+  { status: "", labelKey: "statusQueueAll" },
   { status: "PENDING_REVIEW", labelKey: "statusPending", noteKey: "statusPendingNote" },
   { status: "CORRECTION_REQUESTED", labelKey: "statusCorrections", noteKey: "statusCorrectionsNote" },
+  { status: "COMPLETED", labelKey: "statusCompleted" },
   { status: "APPROVED", labelKey: "statusEndorsed" },
   { status: "REJECTED", labelKey: "statusRejected" },
   // Closed files, kept for the record; not in "All" nor in any count.
   { status: "SUPERSEDED", labelKey: "statusSuperseded", noteKey: "statusSupersededNote" },
+  { status: "ALL", labelKey: "statusAllRecords" },
 ];
 
 // Suspense because useSearchParams() requires it in the app router.
@@ -255,7 +261,17 @@ export default function DossiersPage() {
 
 function DossiersSingleView() {
   const searchParams = useSearchParams();
-  const activeView = parseDossierVue(searchParams.get("vue"));
+  const router = useRouter();
+  const rawView = searchParams.get("vue");
+  const legacyCompleted = rawView === "completed";
+  const parsedView = parseDossierVue(rawView);
+  const activeView = parsedView === "completed" ? "submissions" : parsedView;
+
+  useEffect(() => {
+    if (legacyCompleted) router.replace(legacyCompletedDossierHref(searchParams.toString()), { scroll: false });
+  }, [legacyCompleted, router, searchParams]);
+
+  if (legacyCompleted) return null;
 
   return (
     <div className="cam-admin-page cam-dossier-page cam-dossier-page--single">
@@ -268,7 +284,7 @@ function DossiersContent({
   view,
   showPageHeader = false,
 }: {
-  view: "submissions" | "completed" | "followup" | "coverage";
+  view: "submissions" | "followup" | "coverage";
   showPageHeader?: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -292,7 +308,7 @@ function DossiersContent({
    * The actor's own authorised scope, from the stored user record.
    *
    * An account whose role is territorial but whose territory is unset is
-   * reported as unaffected — not as national. The backend fails such a scope
+   * reported as unaffected â€” not as national. The backend fails such a scope
    * closed (territoryWhere), and labelling it "National" here would assert an
    * authorisation the account does not hold.
    */
@@ -306,11 +322,9 @@ function DossiersContent({
           : t("scopeUnassigned");
   const { regions: territoryRegions } = useTerritoryRegions(view !== "coverage");
 
-  // ADR-0001 / Phase 3: vue values will be renamed to registrations: queue |
-  // organisations | coverage; declarations: submissions | completed | coverage.
-  // vue is presentation only and grants no permission. Update parsers, tabs,
-  // link helpers, and labels together. See docs/plans/admin-modules-refactor.md
-  // Phase 3.
+  // ADR-0001 amendments A.3/A.4: this route has one submission-record list;
+  // completed decisions are status filters. `vue=completed` survives only as
+  // a legacy URL translated by DossiersSingleView.
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -322,9 +336,7 @@ function DossiersContent({
   const filterParam = (key: string) =>
     searchParams.get(`${view}${key[0].toUpperCase()}${key.slice(1)}`) ??
     (legacyFiltersApply ? searchParams.get(key) : null);
-  const baseStatusFilter = parseDossierStatus(filterParam("status"));
-  const statusRedirectPending = view === "submissions" && !requestedQueueView
-    && ["APPROVED", "REJECTED", "SUPERSEDED"].includes(baseStatusFilter);
+  const baseStatusFilter = parseDossierStatusFilter(filterParam("status"));
   // ?sort=oldest (the pilotage review-delay link) lists the longest-waiting
   // files first; URL state like the status, written by setSort.
   const sortOrder = parseDossierSort(filterParam("sort"));
@@ -334,7 +346,8 @@ function DossiersContent({
   const campaignIdFilter = searchParams.get("campaignId")?.trim() ?? "";
   const quarterCodeFilter = parseDossierQuarter(filterParam("quarterCode")) ?? "";
   const lateFilter = parseDossierFlag(filterParam("late"));
-  const overdueFilter = view === "completed" ? false : parseDossierFlag(filterParam("overdue"));
+  const terminalStatusSelected = isTerminalDossierStatusFilter(baseStatusFilter) || baseStatusFilter === "ALL";
+  const overdueFilter = terminalStatusSelected ? false : parseDossierFlag(filterParam("overdue"));
   const rawAssignment = filterParam("assignment");
   const explicitAssignment = parseDossierAssignment(rawAssignment);
   const assignedToMeFilter = parseDossierFlag(filterParam("assignedToMe")) && !explicitAssignment;
@@ -342,29 +355,29 @@ function DossiersContent({
   const qualityFilter = parseDossierQuality(filterParam("quality"));
   // The queue view. A link from another screen names the view it meant
   // (resolveDossierQueueView); only a bare URL waits for the reviewer's claim
-  // count to choose « Ma file » or « Non attribués », and the list query waits
+  // count to choose Â« Ma file Â» or Â« Non attribuÃ©s Â», and the list query waits
   // with it, so nothing is fetched under a view that is about to change.
   const hasOtherQueueFilters = hasDossierOtherFilters(filterParam, searchParams.get("campaignId")) || Boolean(legacyFiltersApply && searchParams.get("q"));
-  const hintedQueueView = view === "submissions" && !statusRedirectPending
+  const hintedQueueView = view === "submissions"
     ? resolveDossierQueueView({ requested: requestedQueueView, status: baseStatusFilter, assignment: baseAssignmentFilter, hasOtherFilters: hasOtherQueueFilters, readOnly })
     : null;
   const myQueueCountQuery = useQuery({
     queryKey: ["admin", "questionnaires", "queue-view-count", "mine"],
     queryFn: () => listAdminQuestionnaires({ status: "PENDING_REVIEW", view: "queue", assignment: "me", limit: 0, offset: 0 }),
-    enabled: view === "submissions" && !readOnly && Boolean(user?.id),
+    enabled: view === "submissions" && !terminalStatusSelected && !readOnly && Boolean(user?.id),
     staleTime: 60_000,
   });
   const defaultQueueView: DossierQueueView | null = myQueueCountQuery.isError
     ? "unassigned"
     : myQueueCountQuery.data ? (myQueueCountQuery.data.total > 0 ? "mine" : "unassigned") : null;
-  const activeQueueView: DossierQueueView | null = view === "submissions" && !statusRedirectPending
+  const activeQueueView: DossierQueueView | null = view === "submissions" && !terminalStatusSelected
     ? hintedQueueView ?? defaultQueueView
     : null;
-  const queueViewPending = view === "submissions" && !statusRedirectPending && activeQueueView === null;
+  const queueViewPending = view === "submissions" && !terminalStatusSelected && activeQueueView === null;
   const queueViewFilters = activeQueueView ? dossierQueueViewFilters(activeQueueView) : null;
-  const statusFilter: DossierStatus | "" = queueViewFilters ? queueViewFilters.status : baseStatusFilter;
-  // Each view fixes its own assignment; assignment=other now opens « Réclamés
-  // par un collègue » (resolveDossierQueueView).
+  const statusFilter: DossierStatusFilter | "" = queueViewFilters ? queueViewFilters.status : baseStatusFilter;
+  // Each view fixes its own assignment; assignment=other now opens Â« RÃ©clamÃ©s
+  // par un collÃ¨gue Â» (resolveDossierQueueView).
   const assignmentFilter = queueViewFilters
     ? queueViewFilters.assignment ?? ""
     : baseAssignmentFilter;
@@ -372,10 +385,9 @@ function DossiersContent({
   if (view === "submissions" && activeQueueView) returnParams.set("queueView", activeQueueView);
   const dossierReturnTo = buildDossierReturnTo(returnParams.toString());
   const vue = view;
-  const isCompletedView = vue === "completed";
-  const archivedParam = searchParams.get("completedIncludeArchived") ??
-    (legacyFiltersApply ? searchParams.get("includeArchived") : null);
-  const includeArchived = isCompletedView && archivedParam !== "false";
+  const isTerminalMode = isTerminalDossierStatusFilter(statusFilter);
+  const isAllRecordsMode = statusFilter === "ALL";
+  const includeArchived = parseDossierFlag(filterParam("includeArchived"));
   // The header search box pushes /admin/dossiers?q=<query>, so `q` seeds the
   // search box on arrival instead of being dropped.
   const requestedQuery = (filterParam("search") ?? (legacyFiltersApply ? searchParams.get("q") : null) ?? "").trim();
@@ -401,7 +413,7 @@ function DossiersContent({
     territoryStructure.isSuccess && validRequestedRegion && validRequestedDepartment
   );
   const { departments: territoryDepartments } = useTerritoryDepartments(regionFilter || undefined, view !== "coverage");
-  const normalizedDossierHref = (view === "submissions" || view === "completed")
+  const normalizedDossierHref = view === "submissions"
     && (!hasTerritoryFilters || territoryStructure.isSuccess)
     ? normalizeDossierListHref(searchParams.toString(), view, FORM_TYPES, territoryStructure.data)
     : null;
@@ -436,6 +448,7 @@ function DossiersContent({
     typeFilter,
     periodFilter,
     requestedQuery,
+    includeArchived ? "archived" : "",
   ].join("|");
   const requestedOffsetSignature = `${filterSignature}|page:${requestedPage}`;
   const [offsetSignature, setOffsetSignature] = useState(requestedOffsetSignature);
@@ -453,7 +466,7 @@ function DossiersContent({
     setSelectedIds(new Set());
     const scoped: Record<string, string | null> = {};
     for (const [key, value] of Object.entries(changes)) {
-      if (key === "campaignId") {
+      if (key === "campaignId" || key === "queueView") {
         scoped[key] = value;
         continue;
       }
@@ -489,13 +502,13 @@ function DossiersContent({
     setOffset(0);
     setSelectedIds(new Set());
   }
-  // Modal / Drawer state — bulk visa
+  // Modal / Drawer state â€” bulk visa
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [certifiedBulk, setCertifiedBulk] = useState(false);
   const [bulkNotes, setBulkNotes] = useState("");
   const [bulkResult, setBulkResult] = useState<Awaited<ReturnType<typeof bulkVisaDeclarations>> | null>(null);
 
-  // Modal state — bulk reject
+  // Modal state â€” bulk reject
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [certifiedReject, setCertifiedReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -523,7 +536,7 @@ function DossiersContent({
     };
   }, []);
 
-  // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
+  // TODO(backend, S): known limitation â€” CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
   const campaignsQuery = useQuery({
     queryKey: ["admin", "pilotage", "active-campaigns"],
     queryFn: getActiveCollectionCampaigns,
@@ -614,19 +627,6 @@ function DossiersContent({
     router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
   }, [followUpCampaignCatalogReady, followUpCampaignIsValid, pathname, router, searchParams, vue]);
 
-  // Old queue links could point directly at an endorsed/rejected record. Move
-  // those to the completed view so the URL, columns, and available actions
-  // all match the record's lifecycle state.
-  useEffect(() => {
-    if (!statusRedirectPending) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("vue", "completed");
-    params.set("completedStatus", statusFilter);
-    params.delete("status");
-    params.delete("submissionsStatus");
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [pathname, router, searchParams, statusFilter, statusRedirectPending, vue]);
-
   // Old bookmarks may still carry drawer state. Keep the queue and its filters,
   // but remove those obsolete parameters from the URL.
   useEffect(() => {
@@ -638,27 +638,29 @@ function DossiersContent({
   // Every filter is applied server-side (drafts excluded), so `total` is the
   // count of the filtered query and paging never hides matching rows.
   // The list's filters, shared by the list request and the pill counts (facets).
-  const listParamsFor = (status: DossierStatus | "", assignment: typeof assignmentParam) => ({
-    status: vue === "completed" || !status ? undefined : status,
-    statuses: vue === "completed"
-      ? (status === "APPROVED" || status === "REJECTED" || status === "SUPERSEDED" ? status : "APPROVED,REJECTED,SUPERSEDED")
-      : !status ? "PENDING_REVIEW,CORRECTION_REQUESTED" : undefined,
-    view: vue === "completed" ? "completed" as const : "queue" as const,
-    includeArchived,
-    formType: typeFilter || undefined,
-    period: periodFilter || undefined,
-    region: regionFilter || undefined,
-    department: departmentFilter || undefined,
-    campaignId: listCampaignId,
-    quarterCode: listQuarterCode,
-    late: lateFilter || undefined,
-    overdue: vue === "completed" ? undefined : overdueFilter || undefined,
-    quality: qualityParam,
-    assignment,
-    search: search || undefined,
-    companyId: companyIdFilter || undefined,
-  });
-  const listQueryFor = (status: DossierStatus | "", assignment: typeof assignmentParam) => ({
+  const statusRequest = dossierStatusRequest(statusFilter);
+  const claimableSelection = statusRequest.claimableSelection;
+  const listParamsFor = (status: DossierStatusFilter | "", assignment: typeof assignmentParam) => {
+    const request = dossierStatusRequest(status);
+    const { claimableSelection: requestClaimable, ...requestStatus } = request;
+    return {
+      ...requestStatus,
+      includeArchived,
+      formType: typeFilter || undefined,
+      period: periodFilter || undefined,
+      region: regionFilter || undefined,
+      department: departmentFilter || undefined,
+      campaignId: listCampaignId,
+      quarterCode: listQuarterCode,
+      late: lateFilter || undefined,
+      overdue: requestClaimable ? overdueFilter || undefined : undefined,
+      quality: qualityParam,
+      assignment: requestClaimable ? assignment : undefined,
+      search: search || undefined,
+      companyId: companyIdFilter || undefined,
+    };
+  };
+  const listQueryFor = (status: DossierStatusFilter | "", assignment: typeof assignmentParam) => ({
     queryKey: ["admin", "questionnaires", "list", vue, { statusFilter: status, typeFilter, regionFilter, departmentFilter, campaignId: listCampaignId ?? "", quarterCode: listQuarterCode ?? "", quality: qualityParam ?? "", assignment: assignment ?? "", lateFilter, overdueFilter, periodFilter, search, companyIdFilter, sortOrder, offset, includeArchived }],
     queryFn: async () => {
       const result = await listAdminQuestionnaires({
@@ -675,7 +677,7 @@ function DossiersContent({
     // Long enough that a list read ahead of the view choice below is not read twice.
     staleTime: 5_000,
   });
-  const facetsQueryFor = (status: DossierStatus | "", assignment: typeof assignmentParam) => {
+  const facetsQueryFor = (status: DossierStatusFilter | "", assignment: typeof assignmentParam) => {
     const params = listParamsFor(status, assignment);
     return {
       queryKey: ["admin", "questionnaires", "facets", params],
@@ -685,18 +687,18 @@ function DossiersContent({
   };
   const questionnairesQuery = useQuery({
     ...listQueryFor(statusFilter, assignmentParam),
-    enabled: (vue === "submissions" || vue === "completed") && territoryFiltersValid && !statusRedirectPending && !queueViewPending,
+    enabled: vue === "submissions" && territoryFiltersValid && !queueViewPending,
     placeholderData: keepPreviousData,
-    refetchInterval: vue === "submissions" ? 60_000 : false,
+    refetchInterval: isTerminalMode ? false : 60_000,
   });
   // Counts next to each pill option; same filters as the list.
   const facetsQuery = useQuery({
     ...facetsQueryFor(statusFilter, assignmentParam),
-    enabled: vue === "submissions" && territoryFiltersValid && !statusRedirectPending && !queueViewPending,
+    enabled: vue === "submissions" && territoryFiltersValid && !queueViewPending,
     placeholderData: keepPreviousData,
   });
   const facets = facetsQuery.data;
-  // While the claim count decides the view of a bare URL, read « Non attribués »
+  // While the claim count decides the view of a bare URL, read Â« Non attribuÃ©s Â»
   // ahead of it: that is the view of everyone holding no file, and the page
   // would otherwise wait for one request before starting the next. Nothing
   // shows until the count answers; a reviewer with claims wastes these two reads.
@@ -728,30 +730,40 @@ function DossiersContent({
     },
   });
 
-  const queuesQuery = useQuery({
-    ...pilotageQueuesOptions(vue === "completed" ? "completed" : "queue", includeArchived),
-    enabled: vue === "submissions" || vue === "completed",
+  const queueCountsQuery = useQuery({
+    ...pilotageQueuesOptions("queue", includeArchived),
+    enabled: vue === "submissions",
   });
-  const queues = queuesQuery.data ?? null;
+  const completedCountsQuery = useQuery({
+    ...pilotageQueuesOptions("completed", includeArchived),
+    enabled: vue === "submissions",
+  });
+  const queues = (isTerminalMode ? completedCountsQuery.data : queueCountsQuery.data) ?? null;
+  const showOperationalActions = vue === "submissions" && !readOnly && !isTerminalMode && !isAllRecordsMode && claimableSelection;
   // The overdue threshold set in /admin/parametres, as the server applies it
   // (audit D-3; the registration queue already uses the server's value).
   const overdueDays = queues?.reviewDelay.thresholdDays;
   const overdueOnlyLabel = overdueDays !== undefined ? t("overdueOnly", { days: overdueDays }) : t("overdueBadge");
   const queueStatusCounts = selectAdminViewCounts(
-    queues?.countsView,
+    queueCountsQuery.data?.countsView,
     "queue",
-    queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined,
+    queueCountsQuery.data?.statusCounts as Partial<Record<DossierStatus, number>> | undefined,
+  );
+  const completedStatusCounts = selectAdminViewCounts(
+    completedCountsQuery.data?.countsView,
+    "completed",
+    completedCountsQuery.data?.statusCounts as Partial<Record<DossierStatus, number>> | undefined,
   );
   const unassignedQueueCountQuery = useQuery({
-    queryKey: ["admin", "questionnaires", "queue-view-count", "unassigned"],
-    queryFn: () => listAdminQuestionnaires({ status: "PENDING_REVIEW", view: "queue", assignment: "unassigned", limit: 0, offset: 0 }),
-    enabled: vue === "submissions" && !readOnly,
+    queryKey: ["admin", "questionnaires", "queue-view-count", "unassigned", includeArchived],
+    queryFn: () => listAdminQuestionnaires({ status: "PENDING_REVIEW", view: "queue", assignment: "unassigned", includeArchived, limit: 0, offset: 0 }),
+    enabled: vue === "submissions" && !isTerminalMode && !isAllRecordsMode && !readOnly,
     staleTime: 60_000,
   });
   const othersQueueCountQuery = useQuery({
     queryKey: ["admin", "questionnaires", "queue-view-count", "others"],
     queryFn: () => listAdminQuestionnaires({ status: "PENDING_REVIEW", view: "queue", assignment: "other", limit: 0, offset: 0 }),
-    enabled: vue === "submissions" && !readOnly && Boolean(user?.id),
+    enabled: vue === "submissions" && !isTerminalMode && !isAllRecordsMode && !readOnly && Boolean(user?.id),
     staleTime: 60_000,
   });
   // A claim's time left moves on while the list is open.
@@ -772,31 +784,36 @@ function DossiersContent({
     typeof queueStatusCounts.CORRECTION_REQUESTED === "number"
       ? queueStatusCounts.PENDING_REVIEW + queueStatusCounts.CORRECTION_REQUESTED
       : undefined;
-  const dossierStatusSummary = (vue === "completed"
-    ? STATUS_VIEWS.filter((view) => !view.status || ["APPROVED", "REJECTED", "SUPERSEDED"].includes(view.status))
-    : STATUS_VIEWS.filter((view) => !view.status || ["PENDING_REVIEW", "CORRECTION_REQUESTED"].includes(view.status)))
-    .map((view) => {
-      const expectedView = vue === "completed" ? "completed" : "queue";
-      const statusCounts = selectAdminViewCounts(queues?.countsView, expectedView, queues?.statusCounts as Partial<Record<DossierStatus, number>> | undefined);
-      const value = view.status
-        ? statusCounts?.[view.status]
-        : vue === "completed"
-          ? selectAdminViewCounts(queues?.countsView, expectedView, queues?.totalSubmissionsCount) ?? undefined
-          : actionableQueueCount;
-      return {
-        key: view.status || "all",
-        label: !view.status && vue === "submissions" ? t("statusQueueAll") : t(view.labelKey),
-        value,
-      };
-    });
-  const dossierStatusBreakdown = vue === "submissions"
-    ? dossierStatusSummary.filter((item) => item.key !== "all")
-    : dossierStatusSummary;
+  const completedTotal = selectAdminViewCounts(
+    completedCountsQuery.data?.countsView,
+    "completed",
+    completedCountsQuery.data?.totalSubmissionsCount,
+  ) ?? undefined;
+  const queueTotal = selectAdminViewCounts(
+    queueCountsQuery.data?.countsView,
+    "queue",
+    queueCountsQuery.data?.totalSubmissionsCount,
+  ) ?? undefined;
+  const dossierStatusSummary = STATUS_VIEWS.map((statusView) => {
+    const value = statusView.status === "COMPLETED"
+      ? completedTotal
+      : statusView.status === "ALL"
+        ? queueTotal !== undefined && completedStatusCounts?.SUPERSEDED !== undefined
+          ? queueTotal + completedStatusCounts.SUPERSEDED
+          : undefined
+        : statusView.status === "APPROVED" || statusView.status === "REJECTED" || statusView.status === "SUPERSEDED"
+          ? completedStatusCounts?.[statusView.status]
+          : statusView.status
+            ? queueStatusCounts?.[statusView.status]
+            : actionableQueueCount;
+    return { key: statusView.status || "queue", label: t(statusView.labelKey), value };
+  });
+  const dossierStatusBreakdown = dossierStatusSummary.filter((item) => ["COMPLETED", "APPROVED", "REJECTED", "SUPERSEDED"].includes(item.key));
 
   /**
    * Queue counters come from the territory-scoped pilotage response. The
-   * review queue badge counts only actionable statuses; final decisions live
-   * in the Completed view.
+   * review queue badge counts only actionable statuses; final decisions are
+   * selected through the same list's status filter.
    */
   // Bulk visa mutation
   const bulkMutation = useMutation({
@@ -902,7 +919,13 @@ function DossiersContent({
 
   // Each section owns its filter state; campaignId remains shared.
 
-  const setStatus = (status: DossierStatus | "") => setUrlFilter({ status });
+  const setStatus = (status: DossierStatusFilter | "") => setUrlFilter({
+    status: status || null,
+    queueView: null,
+    assignment: null,
+    assignedToMe: null,
+    overdue: null,
+  });
   const setSort = (sort: DossierSort) => setUrlFilter({ sort });
   const setType = (type: string) => setUrlFilter({ formType: type || null });
   const setPeriod = (period: string) => setUrlFilter({ period: period || null });
@@ -931,10 +954,10 @@ function DossiersContent({
   // territory tree when a territory filter is present prevents an unsupported
   // region/department from reaching the list API before it can be removed.
   useEffect(() => {
-    if (!normalizedDossierHref || statusRedirectPending) return;
+    if (!normalizedDossierHref) return;
     const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
     if (normalizedDossierHref !== currentHref) router.replace(normalizedDossierHref, { scroll: false });
-  }, [normalizedDossierHref, pathname, router, searchParams, statusRedirectPending]);
+  }, [normalizedDossierHref, pathname, router, searchParams]);
 
   useEffect(() => {
     const trimmed = searchInput.trim();
@@ -946,11 +969,12 @@ function DossiersContent({
     return () => clearTimeout(timer);
   }, [searchInput, search, setUrlFilter]);
 
-  const page = questionnairesQuery.data;
+  const rawPage = questionnairesQuery.data ?? null;
+  const page = rawPage && !questionnairesQuery.isPlaceholderData ? rawPage : null;
 
   // Keep the reviewer's place: the position is saved as they scroll, under the
   // queue's canonical return URL, and restored once that list has rendered.
-  const queueScrollKey = (vue === "submissions" || vue === "completed") ? dossierQueueScrollKey(dossierReturnTo) : null;
+  const queueScrollKey = vue === "submissions" ? dossierQueueScrollKey(dossierReturnTo) : null;
   useEffect(() => {
     if (!queueScrollKey) return;
     let frame = 0;
@@ -969,7 +993,7 @@ function DossiersContent({
     if (position) window.requestAnimationFrame(() => window.scrollTo({ top: position }));
   }, [page, questionnairesQuery.isPlaceholderData, queueScrollKey]);
 
-  const rawItems = territoryFiltersValid && !statusRedirectPending ? page?.items ?? [] : [];
+  const rawItems = territoryFiltersValid ? page?.items ?? [] : [];
   // Real rows only. An empty result renders an empty state; there is no
   // sample dataset to substitute, and an error never becomes "no dossiers".
   const allDossiers: DossierItem[] = rawItems.map((sub: QuestionnaireListItem) => {
@@ -992,7 +1016,7 @@ function DossiersContent({
       region: sub.region ?? null,
       department: sub.department ?? null,
       subdivision: sub.subdivision ?? null,
-      // No default form type — an unset formType is reported, not guessed.
+      // No default form type â€” an unset formType is reported, not guessed.
       formType: sub.formType ?? null,
       adminStatus: sub.status ?? null,
       campaignName: sub.campaignName ?? null,
@@ -1025,7 +1049,7 @@ function DossiersContent({
   // leave `total` and the export describing a different set.
   const dossiers: DossierItem[] = allDossiers;
 
-  const typeColumnLabel = vue === "completed" ? t("typeColumn") : t("entityTypeColumn");
+  const typeColumnLabel = isTerminalMode ? t("typeColumn") : t("entityTypeColumn");
   const activeFilterChips: Array<{ key: string; label: string; remove: () => void }> = [];
   if (search) activeFilterChips.push({ key: "search", label: `${t("freeSearchLabel")}: ${search}`, remove: () => { setSearchInput(""); setSearch(""); setUrlFilter({ search: null, q: null }); } });
   if (campaignIdFilter) {
@@ -1039,8 +1063,8 @@ function DossiersContent({
   if (departmentFilter) activeFilterChips.push({ key: "department", label: `${t("departmentLabel")}: ${departmentFilter}`, remove: () => setDepartment("") });
   if (!campaignIdFilter && quarterCodeFilter) activeFilterChips.push({ key: "quarterCode", label: `${t("quarterLabel")}: ${quarterCodeFilter}`, remove: () => setQuarter("") });
   if (lateFilter) activeFilterChips.push({ key: "late", label: t("lateOnly"), remove: () => setLate(false) });
-  if (vue !== "completed" && overdueFilter) activeFilterChips.push({ key: "overdue", label: overdueOnlyLabel, remove: () => setOverdue(false) });
-  if (vue === "completed" && !includeArchived) activeFilterChips.push({ key: "includeArchived", label: t("archivedHiddenFilter"), remove: () => setUrlFilter({ includeArchived: "true" }) });
+  if (!isTerminalMode && !isAllRecordsMode && overdueFilter) activeFilterChips.push({ key: "overdue", label: overdueOnlyLabel, remove: () => setOverdue(false) });
+  if (includeArchived) activeFilterChips.push({ key: "includeArchived", label: t("showArchived"), remove: () => setUrlFilter({ includeArchived: null }) });
   if (qualityFilter) {
     const qualityLabels: Record<string, string> = {
       clean: t("qualityClean"),
@@ -1070,25 +1094,25 @@ function DossiersContent({
   if (companyIdFilter) {
     // Prefer the resolved company name from the first loaded row; the UUID is
     // only shown as a fallback when no matching row has been fetched yet.
-    const resolvedCompanyName = allDossiers.find((d) => d.companyName)?.companyName ?? companyIdFilter.slice(0, 8) + "…";
+    const resolvedCompanyName = allDossiers.find((d) => d.companyName)?.companyName ?? companyIdFilter.slice(0, 8) + "â€¦";
     activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${resolvedCompanyName}`, remove: () => setUrlFilter({ companyId: null }) });
   }
   if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
   // Filter bar (layout v2): search, up to four single-choice pills, and one
-  // « Filtres » panel holding every filter. A filter shown as a pill is not
+  // Â« Filtres Â» panel holding every filter. A filter shown as a pill is not
   // repeated as a chip; the panel button counts only what the pills don't show.
   const territoryPill = territoryPillFor(user?.role);
   const scopedDepartments = user?.role === "REGIONAL_ADMIN" && user.region && territoryStructure.isSuccess
     ? (territoryStructure.data.find((region) => region.name === user.region)?.departments.map((department) => department.name) ?? [])
     : territoryDepartments;
-  const showAssignmentPill = !activeQueueView;
+  const showAssignmentPill = !activeQueueView && !isTerminalMode && !isAllRecordsMode;
   const pillFilterKeys = ["search", "quality", "formType", ...(territoryPill ? [territoryPill] : []), ...(showAssignmentPill ? ["assignment"] : [])];
   const panelOnlyChips = activeFilterChips.filter(({ key }) => !pillFilterKeys.includes(key));
   const filterPanelCount = panelOnlyChips.filter(({ key }) =>
     !["status", "overdue"].includes(key) && !(key === "assignment" && assignmentFilter === "unassigned"),
   ).length;
   const hasAnyBarFilter = activeFilterChips.some(({ key }) => key !== "status" && key !== "overdue");
-  const clearAllFilters = () => setUrlFilter({ status: null, formType: null, period: null, region: null, department: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, assignment: null, quality: null, companyId: null, campaignId: null, includeArchived: "true", sort: null, search: null, q: null });
+  const clearAllFilters = () => setUrlFilter({ status: null, queueView: null, formType: null, period: null, region: null, department: null, quarterCode: null, late: null, overdue: null, assignedToMe: null, assignment: null, quality: null, companyId: null, campaignId: null, includeArchived: null, sort: null, search: null, q: null });
   const closeFilterPanel = useCallback(() => {
     setFiltersOpen(false);
     filterTriggerRef.current?.focus();
@@ -1116,38 +1140,38 @@ function DossiersContent({
   }, [filtersOpen, closeFilterPanel]);
 
   /**
-   * Source: GET /admin/questionnaires → `total`.
+   * Source: GET /admin/questionnaires â†’ `total`.
    * Counts the whole filtered query (territory + status + type + region +
-   * period + search, drafts excluded) under the caller's server-side scope —
+   * period + search, drafts excluded) under the caller's server-side scope â€”
    * the same scope that produced the rows above. `null` until the server
    * answers; never replaced by a literal.
    */
-  const totalCount = territoryFiltersValid && !statusRedirectPending ? page?.total ?? null : null;
+  const totalCount = territoryFiltersValid ? page?.total ?? null : null;
   const pageCount = totalCount === null ? null : Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const requestedCurrentPage = Math.floor(offset / PAGE_SIZE) + 1;
   const visibleOffset = displayedResultOffset(offset, page?.requestedOffset ?? offset, questionnairesQuery.isPlaceholderData);
   const displayedPage = Math.floor(visibleOffset / PAGE_SIZE) + 1;
-  const currentPage = page && territoryFiltersValid && !statusRedirectPending
+  const currentPage = page && territoryFiltersValid
     ? clampAdminListPage(displayedPage, page.total, PAGE_SIZE)
     : displayedPage;
   const displayOffset = (currentPage - 1) * PAGE_SIZE;
   const visibleRange = adminResultRange(displayOffset, dossiers.length, totalCount ?? 0);
 
   useEffect(() => {
-    if (!page || statusRedirectPending || questionnairesQuery.isPlaceholderData || (view !== "submissions" && view !== "completed")) return;
+    if (!page || questionnairesQuery.isPlaceholderData || view !== "submissions") return;
     if (currentPage !== requestedCurrentPage) {
       router.replace(hrefWith(pathname, searchParams.toString(), {
         [`${view}Page`]: currentPage > 1 ? String(currentPage) : null,
         page: null,
       }), { scroll: false });
     }
-  }, [currentPage, page, pathname, questionnairesQuery.isPlaceholderData, requestedCurrentPage, router, searchParams, statusRedirectPending, view]);
+  }, [currentPage, page, pathname, questionnairesQuery.isPlaceholderData, requestedCurrentPage, router, searchParams, view]);
 
   const tableState = resolveDataState({
-    isLoading: statusRedirectPending || questionnairesQuery.isLoading || (hasTerritoryFilters && !territoryStructure.isError && !territoryFiltersValid),
+    isLoading: questionnairesQuery.isLoading || questionnairesQuery.isPlaceholderData || (hasTerritoryFilters && !territoryStructure.isError && !territoryFiltersValid),
     isError: questionnairesQuery.isError || (hasTerritoryFilters && territoryStructure.isError),
     error: questionnairesQuery.error ?? (hasTerritoryFilters && territoryStructure.isError ? territoryStructure.error : undefined),
-    rowCount: territoryFiltersValid && !statusRedirectPending ? page?.items.length ?? null : statusRedirectPending ? null : 0,
+    rowCount: territoryFiltersValid ? page?.items.length ?? null : 0,
   });
   const tableError = questionnairesQuery.error ?? (hasTerritoryFilters && territoryStructure.isError ? territoryStructure.error : undefined);
   const retryTable = () => {
@@ -1157,7 +1181,7 @@ function DossiersContent({
 
   // The actor who will sign the operation, from the session's own user record.
   const signatoryLabel = user
-    ? `${[user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email} — ${scopeLabel}`
+    ? `${[user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email} â€” ${scopeLabel}`
     : NOT_PROVIDED;
 
   const bulkPreflight = assessBulkEligibility(
@@ -1171,11 +1195,14 @@ function DossiersContent({
   const rejectableSelected = bulkPreflight.rejectionEligible;
   const correctableSelected = bulkPreflight.correctionEligible;
   const selectedDossiers = dossiers.filter((dossier) => selectedIds.has(dossier.id));
+  const selectableDossiers = showOperationalActions
+    ? dossiers.filter((dossier) => !dossier.archivedAt && (dossier.adminStatus === "PENDING_REVIEW" || dossier.adminStatus === "CORRECTION_REQUESTED"))
+    : [];
   const claimableSelected = selectedDossiers.filter((dossier) =>
     !dossier.assigneeId && canManageDossierListClaim(dossier.adminStatus, Boolean(dossier.archivedAt), null, user?.id, user?.role),
   );
-  const selectedOnPageCount = dossiers.reduce((count, dossier) => count + Number(selectedIds.has(dossier.id)), 0);
-  const pageSelectionState: boolean | "indeterminate" = dossiers.length > 0 && selectedOnPageCount === dossiers.length
+  const selectedOnPageCount = selectableDossiers.reduce((count, dossier) => count + Number(selectedIds.has(dossier.id)), 0);
+  const pageSelectionState: boolean | "indeterminate" = selectableDossiers.length > 0 && selectedOnPageCount === selectableDossiers.length
     ? true
     : selectedOnPageCount > 0
       ? "indeterminate"
@@ -1190,7 +1217,7 @@ function DossiersContent({
 
   const toggleSelectPage = (checked: boolean) => {
     const next = new Set(selectedIds);
-    for (const dossier of dossiers) {
+    for (const dossier of selectableDossiers) {
       if (checked) next.add(dossier.id);
       else next.delete(dossier.id);
     }
@@ -1258,15 +1285,15 @@ function DossiersContent({
   const [exportInProgress, setExportInProgress] = useState(false);
 
   async function handleExport() {
-    if (exportInProgress || !territoryFiltersValid || statusRedirectPending) return;
+    if (exportInProgress || !territoryFiltersValid) return;
     setExportInProgress(true);
     try {
       const params = new URLSearchParams({ format: "xlsx" });
-      if (vue === "completed") {
-        params.set("statuses", statusFilter === "APPROVED" || statusFilter === "REJECTED" || statusFilter === "SUPERSEDED" ? statusFilter : "APPROVED,REJECTED,SUPERSEDED");
-        params.set("includeArchived", String(includeArchived));
-      } else if (statusFilter) params.set("status", statusFilter);
+      if (statusFilter === "COMPLETED") params.set("statuses", "APPROVED,REJECTED,SUPERSEDED");
+      else if (statusFilter === "ALL") params.set("statuses", "PENDING_REVIEW,CORRECTION_REQUESTED,APPROVED,REJECTED,SUPERSEDED");
+      else if (statusFilter) params.set("status", statusFilter);
       else params.set("statuses", "PENDING_REVIEW,CORRECTION_REQUESTED");
+      params.set("includeArchived", String(includeArchived));
       if (typeFilter) params.set("formType", typeFilter);
       if (regionFilter) params.set("region", regionFilter);
       if (departmentFilter) params.set("department", departmentFilter);
@@ -1274,9 +1301,9 @@ function DossiersContent({
       if (listQuarterCode) params.set("quarterCode", listQuarterCode);
       if (companyIdFilter) params.set("companyId", companyIdFilter);
       if (lateFilter) params.set("late", "1");
-      if (vue !== "completed" && overdueFilter) params.set("overdue", "1");
+      if (!isTerminalMode && !isAllRecordsMode && overdueFilter) params.set("overdue", "1");
       if (qualityParam) params.set("quality", qualityParam);
-      if (assignmentParam) params.set("assignment", assignmentParam);
+      if (!isTerminalMode && !isAllRecordsMode && assignmentParam) params.set("assignment", assignmentParam);
       if (periodFilter) params.set("period", periodFilter);
       if (search) params.set("search", search);
       const token = getToken();
@@ -1377,9 +1404,19 @@ function DossiersContent({
         <h3 id="cam-dossier-filter-panel-title" className="cam-dossier-filter-sidebar-title">{t("filtersButton")}</h3>
         <p className="cam-dossier-filter-sidebar-description">{t("filtersDescription")}</p>
       </div>
-      <button type="button" className="cam-dossier-filter-close" aria-label={t("closeFilters")} onClick={closeFilterPanel}>×</button>
+      <button type="button" className="cam-dossier-filter-close" aria-label={t("closeFilters")} onClick={closeFilterPanel}>Ã—</button>
     </div>
     <div className="cam-dossier-filter-sidebar-fields">
+      <div>
+        <Label htmlFor="dossiers-status-filter-panel">{t("statusFilterAriaLabel")}</Label>
+        <select id="dossiers-status-filter-panel" className="cam-admin-input w-full" value={activeQueueView ? "" : statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatusFilter | "")}>
+          {STATUS_VIEWS.map((item) => <option key={item.status || "queue"} value={item.status}>{t(item.labelKey)}</option>)}
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox id="dossiers-archived-filter-panel" checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : null })} />
+        <Label htmlFor="dossiers-archived-filter-panel" className="!mb-0 cursor-pointer">{t("showArchived")}</Label>
+      </div>
       <div>
         <Label htmlFor="dossiers-type-filter-panel">{typeColumnLabel}</Label>
         <select id="dossiers-type-filter-panel" className="cam-admin-input w-full" value={typeFilter} onChange={(event) => setType(event.target.value)}>
@@ -1415,7 +1452,7 @@ function DossiersContent({
           <option value="1">{t("lateOnly")}</option>
         </select>
       </div>
-      <div>
+      {!isTerminalMode && !isAllRecordsMode && <div>
         <Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label>
         <select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignmentFilter} onChange={(event) => setAssignment(event.target.value)}>
           <option value="">{t("assignedAll")}</option>
@@ -1423,7 +1460,7 @@ function DossiersContent({
           <option value="me">{t("assignedToMeOnly")}</option>
           <option value="other">{t("assignedOther")}</option>
         </select>
-      </div>
+      </div>}
       <div>
         <Label htmlFor="dossiers-controls">{t("controlsColumn")}</Label>
         <select id="dossiers-controls" className="cam-admin-input w-full" value={qualityFilter} onChange={(event) => setQuality(event.target.value)}>
@@ -1460,7 +1497,7 @@ function DossiersContent({
     </div>
   </aside> : null;
 
-  // The campaign narrows the list, so it sits with the list (spec §3: no
+  // The campaign narrows the list, so it sits with the list (spec Â§3: no
   // filters in the header; audit D-1), as /admin/cibles does.
   const campaignField = (
     <label className="cam-sort-control cam-campaign-control" htmlFor={`dossiers-list-campaign-${vue}`}>
@@ -1480,20 +1517,20 @@ function DossiersContent({
 
   const pageHeader = (
     <AdminPageHeader
-      breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations"), href: "/admin/dossiers" }, { label: activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers") }]}
+      breadcrumb={[{ label: tRoot("adminNav.hubs.teledeclarations"), href: "/admin/dossiers" }, { label: activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers") }]}
       // The purpose sits beside the title, in brackets, so the table gets the
       // height (owner, 2026-11-09, as on the registration queue).
       title={<>
-        {activeView === "completed" ? t("viewCompleted") : activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers")}{" "}
-        <span className="cam-admin-page-title-note">({activeView === "completed" ? t("completedSubtitle") : activeView === "followup" ? t("followUpSubtitle") : t("pageSubtitle")})</span>
+        {activeView === "followup" ? t("viewFollowUp") : tRoot("adminNav.routes.dossiers")}{" "}
+        <span className="cam-admin-page-title-note">({activeView === "followup" ? t("followUpSubtitle") : t("pageSubtitleUnified")})</span>
       </>}
       actions={(
         <div className="cam-dossier-header-actions">
           <AdminHeaderActions showCampaignPill={false} />
         </div>
       )}
-      // The three views are listed in the rail (owner, 2026-11-08: « release
-      // the space »); the page keeps its title, which names the view.
+      // The three views are listed in the rail (owner, 2026-11-08: Â« release
+      // the space Â»); the page keeps its title, which names the view.
       hideTabs
     />
   );
@@ -1565,7 +1602,7 @@ function DossiersContent({
       {pageNotice && (
         <Alert variant={pageNotice.tone === "error" ? "destructive" : "success"} role={pageNotice.tone === "error" ? "alert" : "status"} className="my-4 flex items-start justify-between gap-4">
           <AlertDescription>{pageNotice.text}</AlertDescription>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeNotice")} onClick={() => setPageNotice(null)}><span aria-hidden="true">×</span></Button>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeNotice")} onClick={() => setPageNotice(null)}><span aria-hidden="true">Ã—</span></Button>
         </Alert>
       )}
       {searchParams.get("endOfQueue") === "1" && searchParams.get("decisionNotice") && (
@@ -1576,10 +1613,10 @@ function DossiersContent({
 
 
 
-      {/* ── Status filter: one control, URL-backed (?status=) ── */}
+      {/* â”€â”€ Status filter: one control, URL-backed (?status=) â”€â”€ */}
       {/* The queue's own note, carried over from /admin/files-attente. Shown
           only for the status it describes. */}
-      {STATUS_VIEWS.filter((view) => vue !== "submissions" && view.noteKey && view.status === statusFilter).map((view) => (
+      {STATUS_VIEWS.filter((view) => view.noteKey && view.status === statusFilter).map((view) => (
         <Alert key={view.labelKey} variant="info" className="my-4">
           <AlertDescription>{view.noteKey && t(view.noteKey)}</AlertDescription>
         </Alert>
@@ -1587,13 +1624,13 @@ function DossiersContent({
 
       {/* Completed files: the decision counts as one strip of figures, each a
           filter on the list (canvas board 3; replaces the in-card summary). */}
-      {vue === "completed" && dossierStatusBreakdown.some((item) => item.value !== undefined) && (
+      {isTerminalMode && dossierStatusBreakdown.some((item) => item.value !== undefined) && (
         <AdminKpiStrip
           label={t("statusFilterAriaLabel")}
           loadingLabel={tRoot("adminLayout.loadingFigures")}
           errorLabel={tRoot("adminLayout.figuresUnavailable")}
           items={dossierStatusBreakdown.filter((item) => item.value !== undefined).map((item) => {
-            const status = item.key === "all" ? "" : (item.key as DossierStatus);
+            const status = item.key as DossierStatusFilter;
             return {
               key: item.key,
               label: item.label,
@@ -1608,16 +1645,16 @@ function DossiersContent({
 
       {/* Review queue: four figures from the server's queue counts over the
           reader's territory, each a filter on the list (canvas board
-          « Examen des télédéclarations »). The board's response rate needs
+          Â« Examen des tÃ©lÃ©dÃ©clarations Â»). The board's response rate needs
           the campaign's expected establishments, which this page does not
           read, so it is not shown rather than estimated. */}
-      {vue === "submissions" && queues && (
+      {!isTerminalMode && !isAllRecordsMode && queues && (
         <AdminKpiStrip
           label={t("queueFiguresLabel")}
           loadingLabel={tRoot("adminLayout.loadingFigures")}
           errorLabel={tRoot("adminLayout.figuresUnavailable")}
           items={[
-            { key: "pending", label: t("kpiToReview"), value: count(queues.statusCounts.PENDING_REVIEW ?? 0, locale), hint: t("kpiToReviewHint"), tone: "warning", pressed: filterParam("status") === "PENDING_REVIEW" && !qualityFilter && !overdueFilter, onSelect: () => setUrlFilter({ status: filterParam("status") === "PENDING_REVIEW" ? null : "PENDING_REVIEW", quality: null, overdue: null }), selectHint: t("kpiFilterHint") },
+            { key: "pending", label: t("kpiToReview"), value: count(queues.statusCounts.PENDING_REVIEW ?? 0, locale), hint: t("kpiToReviewHint"), tone: "warning", pressed: filterParam("status") === "PENDING_REVIEW" && !qualityFilter && !overdueFilter, onSelect: () => setUrlFilter({ status: filterParam("status") === "PENDING_REVIEW" ? null : "PENDING_REVIEW", queueView: null, assignment: null, assignedToMe: null, quality: null, overdue: null }), selectHint: t("kpiFilterHint") },
             { key: "blocking", label: t("kpiBlocking"), value: count(queues.blockingAnomaliesCount ?? 0, locale), hint: t("kpiBlockingHint"), tone: "danger", pressed: qualityFilter === "blocking", onSelect: () => setUrlFilter({ quality: qualityFilter === "blocking" ? null : "blocking" }), selectHint: t("kpiFilterHint") },
             { key: "overdue", label: overdueDays !== undefined ? t("kpiOverdue", { days: overdueDays }) : t("overdueBadge"), value: count(queues.reviewDelay.pendingOverThresholdCount ?? 0, locale), hint: t("kpiOverdueHint"), tone: "info", pressed: overdueFilter, onSelect: () => setOverdue(!overdueFilter), selectHint: t("kpiFilterHint") },
             { key: "corrections", label: t("kpiCorrections"), value: count(queues.statusCounts.CORRECTION_REQUESTED ?? 0, locale), hint: t("kpiCorrectionsHint"), tone: "info", pressed: statusFilter === "CORRECTION_REQUESTED", onSelect: () => setStatus(statusFilter === "CORRECTION_REQUESTED" ? "" : "CORRECTION_REQUESTED"), selectHint: t("kpiFilterHint") },
@@ -1625,11 +1662,11 @@ function DossiersContent({
         />
       )}
 
-      {/* ── Filters, toolbar and table share one card. ── */}
+      {/* â”€â”€ Filters, toolbar and table share one card. â”€â”€ */}
       <AdminTablePanel
         headingId={`dossiers-${vue}-heading`}
         showHeader={false}
-        cardClassName={vue === "submissions" ? "cam-dossier-submissions-card" : vue === "completed" ? "cam-dossier-completed-card" : undefined}
+        cardClassName={isTerminalMode ? "cam-dossier-completed-card" : "cam-dossier-submissions-card"}
         busy={isBackgroundRefreshing(questionnairesQuery.isFetching, questionnairesQuery.data)}
         busyLabel={t("updatingResults")}
         footer={(
@@ -1658,114 +1695,45 @@ function DossiersContent({
         )}
       >
         {/* Card heading as on the board: the list's name and what the figures cover. */}
-        {vue === "submissions" && <CardContent className="cam-dossier-completed-heading cam-dossier-queue-heading">
+        {!isTerminalMode && <CardContent className="cam-dossier-completed-heading cam-dossier-queue-heading">
           <div>
-            <h2 id={`dossiers-${vue}-heading`}>{t("queueHeading")}</h2>
-            <p>{t("queueFiguresNote")}</p>
+            <h2 id={`dossiers-${vue}-heading`}>{t(isAllRecordsMode ? "allRecordsHeading" : "queueHeading")}</h2>
+            <p>{t(isAllRecordsMode ? "allRecordsNote" : "queueFiguresNote")}</p>
           </div>
         </CardContent>}
-        {vue === "completed" && <CardContent className="cam-dossier-completed-heading">
+        {isTerminalMode && <CardContent className="cam-dossier-completed-heading">
           <h2 id={`dossiers-${vue}-heading`}>{t("completedHeading")}</h2>
-          {!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
         </CardContent>}
-        {vue === "completed" && <CardContent className="cam-dossier-completed-archive-filter">{campaignField}<label className="flex items-center gap-2 text-sm"><Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : "false" })} />{t("showArchived")}</label></CardContent>}
-        {vue === "submissions" && !readOnly && selectedIds.size > 0 && (
+        {showOperationalActions && selectedIds.size > 0 && (
           <div className="cam-dossier-selection-toolbar" aria-live="polite">
             <span className="text-sm font-medium text-foreground">{t("selectionEligibleSummary", { selected: selectedIds.size, eligible: bulkEligibleSelected.length, excluded: excludedSelected.length })}</span>
             {excludedSelected.length > 0 && <details className="text-sm"><summary className="cursor-pointer underline">{t("whyExcluded")}</summary><ul className="mt-2 list-disc ps-5">{excludedSelected.map((d) => <li key={d.id}>{t("excludedRecordReason", { name: d.companyName ?? d.submissionId, reason: d.assigneeId !== user?.id || d.claimExpired ? t("notClaimedByYouReason") : d.blockingCount > 0 ? t("blockingAnomalies", { count: d.blockingCount }) : t("notBulkEligibleReason") })}</li>)}</ul></details>}
             <div className="cam-dossier-selection-actions">
               <Button type="button" size="sm" variant="outline" onClick={handleAssignSelection} disabled={!user?.id || claimableSelected.length === 0 || assignMutation.isPending || bulkClaiming}>{t(bulkClaiming ? "assignSelectionRunning" : "assignSelectionButton", { count: claimableSelected.length })}</Button>
               <Button type="button" size="sm" variant="outline" onClick={handleExportSelection}>{t("exportSelectionButton")}</Button>
-              <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
+              <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">âœ“</span> {t("endorseSelectionButton")}</Button>
               <Button type="button" size="sm" variant="outline" onClick={handleOpenCorrectionModal} disabled={correctableSelected.length === 0}>{t("requestCorrectionSelectionButton")}</Button>
-              <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">×</span> {t("rejectSelectionButton")}</Button>
+              <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">Ã—</span> {t("rejectSelectionButton")}</Button>
             </div>
           </div>
         )}
-        {vue !== "submissions" && <CardContent className={`border-b pt-5${vue === "completed" ? " cam-dossier-completed-filters" : " cam-dossier-main-coverage-filters"}`}>
-          <>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-              <div>
-                <Label htmlFor={`dossiers-search-${vue}`}>{t("freeSearchLabel")}</Label>
-                <Input id={`dossiers-search-${vue}`} type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
-              </div>
-              {!activeQueueView && <div>
-                <Label htmlFor={`dossiers-status-${vue}`}>{t("statusFilterAriaLabel")}</Label>
-                <select id={`dossiers-status-${vue}`} className="cam-admin-input w-full" value={statusFilter} onChange={(event) => setStatus(event.target.value as DossierStatus | "")}>
-                  {dossierStatusSummary.map((item) => <option key={item.key} value={item.key === "all" ? "" : item.key}>{item.label}</option>)}
-                </select>
-              </div>}
-              <div>
-                <Label htmlFor={`dossiers-type-${vue}`}>{typeColumnLabel}</Label>
-                <select id={`dossiers-type-${vue}`} className="cam-admin-input w-full" value={typeFilter} onChange={(event) => setType(event.target.value)}>
-                  <option value="">{t("allFormTypes")}</option>
-                  {FORM_TYPES.map((value) => <option key={value} value={value}>{typeLabel(value)}</option>)}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor={`dossiers-region-${vue}`}>{t("regionColumn")}</Label>
-                <select id={`dossiers-region-${vue}`} className="cam-admin-input w-full" value={regionFilter} onChange={(event) => setRegion(event.target.value)}><option value="">{t("allRegions")}</option>{territoryRegions.map((value) => <option key={value} value={value}>{value}</option>)}</select>
-              </div>
-              <div>
-                <Label htmlFor={`dossiers-department-${vue}`}>{t("departmentLabel")}</Label>
-                <select id={`dossiers-department-${vue}`} className="cam-admin-input w-full" value={departmentFilter} onChange={(event) => setDepartment(event.target.value)}><option value="">{t("allDepartments")}</option>{territoryDepartments.map((value) => <option key={value} value={value}>{value}</option>)}</select>
-              </div>
-            </div>
-          </>
-          <div className="cam-dossier-submissions-filters">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <div>
-              <Label htmlFor={`dossiers-period-${vue}`}>{t("periodLabel")}</Label>
-              <select id={`dossiers-period-${vue}`} className="cam-admin-input w-full" value={periodFilter} onChange={(event) => setPeriod(event.target.value)}><option value="">{t("allPeriods")}</option>{PERIODS.map((period) => <option key={period.value} value={period.value}>{t(period.labelKey)}</option>)}</select>
-            </div>
-            <div>
-              <Label htmlFor={`dossiers-late-${vue}`}>{t("lateLabel")}</Label>
-              <select id={`dossiers-late-${vue}`} className="cam-admin-input w-full" value={lateFilter ? "1" : ""} onChange={(event) => setLate(event.target.value === "1")}><option value="">{t("lateAll")}</option><option value="1">{t("lateOnly")}</option></select>
-            </div>
-            {vue !== "completed" && <div>
-              <Label htmlFor={`dossiers-overdue-${vue}`}>{t("overdueLabel")}</Label>
-              <select id={`dossiers-overdue-${vue}`} className="cam-admin-input w-full" value={overdueFilter ? "1" : ""} onChange={(event) => setOverdue(event.target.value === "1")}><option value="">{t("overdueAll")}</option><option value="1">{overdueOnlyLabel}</option></select>
-            </div>}
-            {!activeQueueView && <div>
-              <Label htmlFor={`dossiers-assigned-${vue}`}>{t("assignedLabel")}</Label>
-              <select id={`dossiers-assigned-${vue}`} className="cam-admin-input w-full" value={assignmentFilter} onChange={(event) => setAssignment(event.target.value)}><option value="">{t("assignedAll")}</option><option value="unassigned">{t("unassigned")}</option><option value="me">{t("assignedToMeOnly")}</option><option value="other">{t("assignedOther")}</option></select>
-            </div>}
-            <div>
-              <Label htmlFor="dossiers-controls">{t("controlsColumn")}</Label>
-              <select id="dossiers-controls" className="cam-admin-input w-full" value={qualityFilter} onChange={(event) => setQuality(event.target.value)}><option value="">{t("statusAll")}</option><option value="clean">{t("qualityClean")}</option><option value="warnings">{t("qualityWarnings")}</option><option value="blocking">{t("qualityBlocking")}</option></select>
-            </div>
-            <div>
-              <Label htmlFor={`dossiers-sort-${vue}`}>{t("sortLabel")}</Label>
-              <select id={`dossiers-sort-${vue}`} className="cam-admin-input w-full" value={sortOrder || "newest"} onChange={(event) => setSort(parseDossierSort(event.target.value === "newest" ? "" : event.target.value))}><option value="newest">{t("sortNewest")}</option><option value="oldest">{t("sortOldest")}</option></select>
-            </div>
-            {!campaignIdFilter && <div>
-              <Label htmlFor={`dossiers-quarter-${vue}`}>{t("quarterLabel")}</Label>
-              <select id={`dossiers-quarter-${vue}`} className="cam-admin-input w-full" value={quarterCodeFilter} onChange={(event) => setQuarter(event.target.value)}><option value="">{t("allQuarters")}</option>{quarterOptions.map((code) => <option key={code} value={code}>{quarterLabel(code)}</option>)}</select>
-            </div>}
-          </div>
-          </div>
-          <AdminActiveFilterChips filters={activeFilterChips.map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} clearAllLabel={t("clearFilters")} onClearAll={clearAllFilters} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
-        </CardContent>}
-        {/* The completed view shares the table below; its filters are the
-            card above. (Until 2026-11-08 this whole block was submissions
-            only, so « Dossiers terminés » showed its filters but no list.) */}
-        {(vue === "submissions" || vue === "completed") && <div className={`cam-dossier-queue-layout${vue === "submissions" && filterPanelOpen ? " is-filter-open" : ""}`}>
+        {/* One status-filtered table holds both active review and past decisions. */}
+        {vue === "submissions" && <div className={`cam-dossier-queue-layout${filterPanelOpen ? " is-filter-open" : ""}`}>
         <div className="cam-dossier-queue-main">
-        {vue === "submissions" && <CardContent className="border-b cam-dossier-submissions-filters">
-          {!readOnly && <OwnClaimLapseNote kind="submissions" />}
+        <CardContent className="border-b cam-dossier-submissions-filters">
+          {!readOnly && !isTerminalMode && !isAllRecordsMode && <OwnClaimLapseNote kind="submissions" />}
           <div className="cam-dossier-queue-search-row">
-            {!readOnly && <Button type="button" size="sm" variant="outline" className="cam-dossier-queue-export" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid || statusRedirectPending}><Download aria-hidden="true" />{t("exportButton")}</Button>}
-            <div className="cam-dossier-quick-filters" role="group" aria-label={t("queueViewsLabel")}>
-              {/* « Traités » is the « Dossiers terminés » tab above, not a fifth button. */}
+            {!readOnly && <Button type="button" size="sm" variant="outline" className="cam-dossier-queue-export" onClick={() => handleExport()} disabled={exportInProgress || !territoryFiltersValid}><Download aria-hidden="true" />{t("exportButton")}</Button>}
+            {!isTerminalMode && !isAllRecordsMode && <div className="cam-dossier-quick-filters" role="group" aria-label={t("queueViewsLabel")}>
               {(readOnly ? READ_ONLY_DOSSIER_QUEUE_VIEWS : DOSSIER_QUEUE_VIEWS).map((queueView) => {
                 const count = queueViewCounts[queueView];
                 return <button key={queueView} type="button" className="cam-dossier-quick-filter" aria-pressed={activeQueueView === queueView} onClick={() => router.push(hrefWith(pathname, searchParams.toString(), { queueView, submissionsStatus: null, submissionsAssignment: null, status: null, assignment: null, assignedToMe: null, submissionsPage: null, page: null, preview: null }), { scroll: false })}>
-                  {t(`queueView.${queueView}`)} <span>{count === undefined ? "—" : new Intl.NumberFormat(locale).format(count)}</span>
+                  {t(`queueView.${queueView}`)} <span>{count === undefined ? "â€”" : new Intl.NumberFormat(locale).format(count)}</span>
                 </button>;
               })}
               <span className="cam-dossier-quick-filter-separator" aria-hidden="true" />
               <button type="button" className="cam-dossier-quick-filter" aria-pressed={overdueFilter} onClick={() => setOverdue(!overdueFilter)}>{overdueDays !== undefined ? t("overdueQuickFilter", { days: overdueDays }) : t("overdueBadge")}</button>
-            </div>
+            </div>}
           </div>
           <div className="cam-filter-bar" role="group" aria-label={t("filtersButton")}>
             <div className="cam-filter-bar-search">
@@ -1774,6 +1742,18 @@ function DossiersContent({
               <Input id="dossiers-search-submissions" type="search" placeholder={t("freeSearchPlaceholder")} value={searchInput} onChange={(event) => setSearchInput(event.target.value)} />
             </div>
             <AdminScopePill />
+            <AdminFilterPill
+              label={t("statusFilterAriaLabel")}
+              value={activeQueueView ? "" : statusFilter}
+              allLabel={t("statusQueueAll")}
+              clearLabel={t("removeFilterChip", { label: t("statusFilterAriaLabel") })}
+              onChange={(value) => setStatus(value as DossierStatusFilter | "")}
+              options={STATUS_VIEWS.filter((item) => item.status).map((item) => ({
+                value: item.status,
+                label: t(item.labelKey),
+                count: dossierStatusSummary.find((summary) => summary.key === item.status)?.value,
+              }))}
+            />
             <AdminFilterPill
               label={t("controlsColumn")}
               value={qualityFilter}
@@ -1827,6 +1807,10 @@ function DossiersContent({
               currentQuery={savedViewQuery(searchParams.toString())}
               onApply={(query) => router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false })}
             />}
+            <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+              <Checkbox checked={includeArchived} onCheckedChange={(checked) => setUrlFilter({ includeArchived: checked === true ? "true" : null })} />
+              {t("showArchived")}
+            </label>
             <button
               ref={filterTriggerRef}
               type="button"
@@ -1842,15 +1826,15 @@ function DossiersContent({
             {hasAnyBarFilter && <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{t("clearFilters")}</Button>}
           </div>
           <AdminActiveFilterChips filters={panelOnlyChips.filter(({ key }) => key !== "status" && key !== "overdue").map(({ key, label, remove }) => ({ key, label, onClear: remove }))} label={t("activeFiltersLabel")} removeFilterLabel={(label) => t("removeFilterChip", { label })} />
-        </CardContent>}
+        </CardContent>
         {/* cam-dossier-table-frame replaces the old per-view classes, whose
             fixed !important column widths (1380px, 960px) kept actions off
-            the card and squeezed phone rows (2026-11-08, spec §11). */}
+            the card and squeezed phone rows (2026-11-08, spec Â§11). */}
         <CardContent className="overflow-x-auto pt-5 cam-dossier-table-frame">
           <Table className="cam-table-stack cam-dossier-standard-table">
             <TableHeader>
               <TableRow>
-                {isCompletedView ? <>
+                {isTerminalMode ? <>
                   <TableHead scope="col">{t("organisationColumn")}</TableHead>
                   <TableHead scope="col">{t("territoryColumn")}</TableHead>
                   <TableHead scope="col">{t("campaignPeriodColumn")}</TableHead>
@@ -1858,8 +1842,8 @@ function DossiersContent({
                   <TableHead scope="col" aria-sort="descending">{t("decisionDateColumn")}</TableHead>
                   <TableHead scope="col" className="text-right">{t("actionsColumn")}</TableHead>
                 </> : <>
-                  {!readOnly && <TableHead scope="col" className="cam-dossier-select-column">
-                    <Checkbox checked={pageSelectionState} onCheckedChange={(checked) => toggleSelectPage(checked === true)} disabled={dossiers.length === 0} aria-label={t("selectAllAria")} />
+                  {showOperationalActions && <TableHead scope="col" className="cam-dossier-select-column">
+                    <Checkbox checked={pageSelectionState} onCheckedChange={(checked) => toggleSelectPage(checked === true)} disabled={selectableDossiers.length === 0} aria-label={t("selectAllAria")} />
                   </TableHead>}
                   <TableHead scope="col" className="cam-dossier-record-column">{t("entityColumn")}</TableHead>
                   <TableHead scope="col">{t("territoryColumn")}</TableHead>
@@ -1871,7 +1855,7 @@ function DossiersContent({
               </TableRow>
             </TableHeader>
             <TableBody>
-              <DataStateRow colSpan={isCompletedView ? 6 : readOnly ? 6 : 7} state={tableState} resource={t("filesResource")} error={tableError} onRetry={retryTable} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
+              <DataStateRow colSpan={isTerminalMode ? 6 : showOperationalActions ? 7 : 6} state={tableState} resource={t("filesResource")} error={tableError} onRetry={retryTable} title={tableState === "empty" ? t("noFilesTitle") : undefined} hint={tableState === "empty" ? t("noFilesHint") : undefined} />
               {dossiers.map((d) => {
                  const visaBadge: { label: string; tone: ToneName } = d.adminStatus === "APPROVED" ? { label: t("badgeEndorsed"), tone: "success" } : d.adminStatus === "CORRECTION_REQUESTED" ? { label: t("badgeCorrection"), tone: "warning" } : d.adminStatus === "REJECTED" ? { label: t("badgeRejected"), tone: "error" } : d.adminStatus === "PENDING_REVIEW" ? { label: t("badgePending"), tone: "warning" } : d.adminStatus === "SUPERSEDED" ? { label: t("badgeSuperseded"), tone: "neutral" } : { label: t("badgeNoStatus"), tone: "neutral" };
                 const statusBadgeClass = d.adminStatus === "PENDING_REVIEW" ? "pending"
@@ -1881,19 +1865,20 @@ function DossiersContent({
                         : d.adminStatus === "SUPERSEDED" ? "superseded" : "neutral";
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
-                const territoryTitle = [d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED;
-                const waiting = d.adminStatus === "PENDING_REVIEW" && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
-                const isReviewOverdue = d.adminStatus === "PENDING_REVIEW" && nowMs !== null && overdueDays !== undefined && elapsedMoreThanDays(d.submittedAt, nowMs, overdueDays);
+                const territoryTitle = [d.region, d.department].filter(Boolean).join(" Â· ") || NOT_PROVIDED;
+                const isPendingReview = d.adminStatus === "PENDING_REVIEW" && !d.archivedAt;
+                const waiting = isPendingReview && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
+                const isReviewOverdue = isPendingReview && nowMs !== null && overdueDays !== undefined && elapsedMoreThanDays(d.submittedAt, nowMs, overdueDays);
                 const canManageArchive = hasRole(user?.role, DOSSIER_ARCHIVE_ROLES);
                 const hasCompletedActions = (canReadAudit || canManageArchive || (canReopen && d.adminStatus === "APPROVED"));
                 const actionsLabel = t("rowActionsAria", { name: d.companyName ?? d.submissionId });
                 const detailHref = dossierWorkspaceHref(d.id, dossierReturnTo, {
                   readOnly: vue === "submissions" && !readOnly && Boolean(d.assigneeId) && d.assigneeId !== user?.id,
-                  includeArchived: isCompletedView && includeArchived,
+                  includeArchived: Boolean(d.archivedAt),
                 });
                 const primaryAction = selectDossierQueuePrimaryAction({ status: d.adminStatus, assigneeId: d.assigneeId, userId: user?.id, readOnly, validationDataAvailable: d.validationDataAvailable, blockingCount: d.blockingCount, warningCount: d.warningCount, archived: Boolean(d.archivedAt), claimExpired: Boolean(d.claimExpired), canClaim: canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), null, user?.id, user?.role) });
                 // One primary button per view (G5): the row's action is secondary,
-                // whatever it is; the « Valider » shortcut stays (owner, 2026-11-08).
+                // whatever it is; the Â« Valider Â» shortcut stays (owner, 2026-11-08).
                 const primaryActionButton = primaryAction === "claim"
                   ? <Button type="button" size="sm" variant="outline" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null, open: true })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
                   : primaryAction === "review-issues"
@@ -1914,7 +1899,7 @@ function DossiersContent({
                   </DropdownMenu>
                 );
 
-                return isCompletedView ? <TableRow key={d.id}>
+                return isTerminalMode ? <TableRow key={d.id}>
                   <TableCell>
                     <span className="cam-record-cell">
                       <span className="cam-record-cell-name" title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</span>
@@ -1924,7 +1909,7 @@ function DossiersContent({
                       </span>
                     </span>
                   </TableCell>
-                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
+                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[d.region, d.department].filter(Boolean).join(" Â· ") || NOT_PROVIDED}</TableCell>
                   <TableCell data-label={t("campaignPeriodColumn")} className="align-top whitespace-normal">
                     <span className="cam-dossier-cell-primary" title={campaignName}>{campaignName}</span>
                     <span className="cam-dossier-cell-secondary">{periodLabel}</span>
@@ -1944,13 +1929,13 @@ function DossiersContent({
                         {canReadAudit && <DropdownMenuItem asChild><Link href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link></DropdownMenuItem>}
                         {canManageArchive && !d.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(d)}>{t("archiveButton")}</DropdownMenuItem>}
                         {canManageArchive && d.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => restoreMutation.mutate(d.id)}>{t("restoreButton")}</DropdownMenuItem>}
-                        {canReopen && d.adminStatus === "APPROVED" && <DropdownMenuItem onSelect={() => { setPageNotice(null); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</DropdownMenuItem>}
+                        {canReopen && d.adminStatus === "APPROVED" && !d.archivedAt && <DropdownMenuItem onSelect={() => { setPageNotice(null); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</DropdownMenuItem>}
                       </>)}
                     </div>
                   </TableCell>
                 </TableRow> : <TableRow key={d.id}>
-                  {!readOnly && <TableCell className="cam-dossier-select-column cam-cell-hide-phone align-top">
-                    <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />
+                  {showOperationalActions && <TableCell className="cam-dossier-select-column cam-cell-hide-phone align-top">
+                    <Checkbox className="mt-1 shrink-0" checked={selectedIds.has(d.id)} disabled={!selectableDossiers.some((item) => item.id === d.id)} onCheckedChange={(checked) => toggleSelect(d.id, checked === true)} aria-label={t("selectRowAria", { name: d.companyName ?? d.respondentName ?? d.submissionId })} />
                   </TableCell>}
                   <TableCell className="cam-dossier-record-column align-top whitespace-normal">
                     {/* The respondent, the exact date and the replaced file are
@@ -1959,16 +1944,20 @@ function DossiersContent({
                       <Link className="cam-dossier-record-name cam-dossier-record-link" href={detailHref} title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</Link>
                       {/* Board row: the file number in mono, then the form. */}
                       <span className="cam-dossier-cell-secondary" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>
-                        {d.submissionId && <><span className="cam-record-cell-ref">{d.submissionId}</span> · </>}
+                        {d.submissionId && <><span className="cam-record-cell-ref">{d.submissionId}</span> Â· </>}
                         {d.formType ? queueTypeLabel(d.formType) : NOT_PROVIDED}
-                        {d.supersedes && <> · {t("correctionMarker")}</>}
+                        {d.supersedes && <> Â· {t("correctionMarker")}</>}
                       </span>
                       {/* Each view already names its status; only a row that differs says it. */}
-                      {d.adminStatus !== "PENDING_REVIEW" && <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>}
+                      {(d.adminStatus !== "PENDING_REVIEW" || d.archivedAt) && <span className="flex flex-wrap items-center gap-1.5">
+                        {d.adminStatus !== "PENDING_REVIEW" && <Badge className={`cam-dossier-status-badge cam-dossier-status-badge--${statusBadgeClass}`} variant={BADGE_VARIANT[visaBadge.tone]}>{visaBadge.label}</Badge>}
+                        {d.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}
+                      </span>}
+                      {d.reviewedAt && (d.adminStatus === "APPROVED" || d.adminStatus === "REJECTED" || d.adminStatus === "SUPERSEDED") && <span className="cam-dossier-cell-secondary">{stamp(d.reviewedAt, true, locale)}</span>}
                     </div>
                   </TableCell>
                   <TableCell data-label={t("territoryColumn")} className="align-top cam-cell-nowrap" title={territoryTitle}>
-                    <span className="cam-dossier-cell-primary">{[d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</span>
+                    <span className="cam-dossier-cell-primary">{[d.region, d.department].filter(Boolean).join(" Â· ") || NOT_PROVIDED}</span>
                   </TableCell>
                   <TableCell data-label={t("checksColumn")} className="align-top whitespace-normal">
                     <div className="cam-dossier-review-stack">
@@ -1978,7 +1967,7 @@ function DossiersContent({
                         {!d.validationDataAvailable
                           ? <span className="cam-dossier-cell-secondary">{t("validationDataUnavailable")}</span>
                           : d.blockingCount === 0 && d.warningCount === 0
-                            ? <span className="cam-dossier-checks-clear"><span aria-hidden="true">—</span><span className="sr-only">{t("noOpenIssuesRecorded")}</span></span>
+                            ? <span className="cam-dossier-checks-clear"><span aria-hidden="true">â€”</span><span className="sr-only">{t("noOpenIssuesRecorded")}</span></span>
                             : null}
                       </div>
                     </div>
@@ -2019,6 +2008,7 @@ function DossiersContent({
                         {canReadAudit && <DropdownMenuItem asChild><Link href={`/admin/journal-audit?resourceId=${encodeURIComponent(d.id)}`}>{t("historyLink")}</Link></DropdownMenuItem>}
                         {canManageArchive && !d.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(d)}>{t("archiveButton")}</DropdownMenuItem>}
                         {canManageArchive && d.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => restoreMutation.mutate(d.id)}>{t("restoreButton")}</DropdownMenuItem>}
+                        {canReopen && d.adminStatus === "APPROVED" && !d.archivedAt && <DropdownMenuItem onSelect={() => { setPageNotice(null); reopenMutation.reset(); setReopenTarget(d); setReopenReason(""); setCertifiedReopen(false); }}>{t("reopenButton")}</DropdownMenuItem>}
                       </>)}
                     </div>
                   </TableCell>
@@ -2046,12 +2036,12 @@ function DossiersContent({
           onRestore={() => {}}
         />}
       </AdminTablePanel>
-      {/* ── Bulk visa. AdminDialog is a native <dialog>, so the focus trap,
+      {/* â”€â”€ Bulk visa. AdminDialog is a native <dialog>, so the focus trap,
           Escape, inert background and focus return that the fixed-position
           overlay here declared with aria-modal but never implemented now
           actually hold. It is deliberately NOT replaced by the component
           library: this is the console's most consequential confirmation, and
-          its chrome is already audited. Only the controls inside it moved. ── */}
+          its chrome is already audited. Only the controls inside it moved. â”€â”€ */}
       <AdminDialog
         open={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
@@ -2129,7 +2119,7 @@ function DossiersContent({
                   <ul className="mt-2 ps-4 list-disc">
                     {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => {
                       const row = dossiers.find((d) => d.id === item.id);
-                      return <li key={item.id}>{row?.companyName ?? row?.submissionId ?? item.id} — {item.reason}</li>;
+                      return <li key={item.id}>{row?.companyName ?? row?.submissionId ?? item.id} â€” {item.reason}</li>;
                     })}
                   </ul>
                 )}
@@ -2151,7 +2141,7 @@ function DossiersContent({
         </p>
       </AdminDialog>
 
-      {/* ── Bulk reject (retained widget) ── */}
+      {/* â”€â”€ Bulk reject (retained widget) â”€â”€ */}
       <AdminDialog
         open={isRejectModalOpen}
         onClose={() => setIsRejectModalOpen(false)}
@@ -2241,7 +2231,7 @@ function DossiersContent({
         )}
       </AdminDialog>
 
-      {/* ── Bulk request correction (phase 5) ── */}
+      {/* â”€â”€ Bulk request correction (phase 5) â”€â”€ */}
       <AdminDialog
         open={isCorrectionModalOpen}
         onClose={() => setIsCorrectionModalOpen(false)}
@@ -2278,7 +2268,7 @@ function DossiersContent({
               {correctionResult.skippedItems?.length > 0 && (
                 <ul className="mt-2 ps-4 list-disc">
                   {correctionResult.skippedItems.map((item: { id: string; reason: string }) => (
-                    <li key={item.id}>{item.id} — {item.reason}</li>
+                    <li key={item.id}>{item.id} â€” {item.reason}</li>
                   ))}
                 </ul>
               )}

@@ -59,7 +59,7 @@ export default function QuestionnairesPage() {
       // limit: 0 returns the count and no rows. With limit: 1 each of these
       // seven queries pulled back a whole declaration, rawData included,
       // only to read `total`.
-      queryFn: () => listAdminQuestionnaires({ formType: q.formType, limit: 0 }),
+      queryFn: () => listAdminQuestionnaires({ formType: q.formType, statuses: "PENDING_REVIEW,CORRECTION_REQUESTED,APPROVED,REJECTED,SUPERSEDED", limit: 0 }),
       enabled: canReadSubmissions,
     })),
   });
@@ -155,7 +155,7 @@ export default function QuestionnairesPage() {
                         </button>
                         {canReadSubmissions ? (
                           <Link
-                            href={`/admin/dossiers?formType=${q.formType}`}
+                            href={`/admin/dossiers?vue=submissions&submissionsStatus=ALL&submissionsFormType=${q.formType}`}
                             className="cam-button cam-button-secondary cam-button-sm"
                             aria-label={t("viewFilesOf", { type: typeLabel(q.formType) })}
                           >
@@ -190,7 +190,7 @@ export default function QuestionnairesPage() {
               </button>
               {canReadSubmissions && (
                 <Link
-                  href={`/admin/dossiers?formType=${selectedPreview.formType}`}
+                  href={`/admin/dossiers?vue=submissions&submissionsStatus=ALL&submissionsFormType=${selectedPreview.formType}`}
                   className="cam-button cam-button-primary"
                   onClick={() => setSelectedPreview(null)}
                 >

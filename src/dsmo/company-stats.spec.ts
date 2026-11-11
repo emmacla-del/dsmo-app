@@ -32,4 +32,13 @@ describe('DsmoService.getCompanyStats', () => {
     expect(where.archivedAt).toBeNull();
     expect(where.company).toEqual({ is: { id: { in: [] } } });
   });
+
+  it('includes archived account groups only when explicitly requested', async () => {
+    const { service, groupBy } = serviceWith([]);
+    await service.getCompanyStats(undefined, true);
+    expect(groupBy.mock.calls[0][0].where.OR).toEqual([
+      { archivedAt: null },
+      { archivedAt: { not: null } },
+    ]);
+  });
 });

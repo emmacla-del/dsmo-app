@@ -34,7 +34,7 @@ import {
   stamp,
   shortRecordId,
 } from "@/lib/admin-data-state";
-import { AUDIT_ROLES, DIRECTORY_READ_ROLES, SETTINGS_ROLES, hasRole } from "@/lib/roles";
+import { AUDIT_ROLES, DIRECTORY_READ_ROLES, SETTINGS_ROLES, SURVEY_READ_ROLES, hasRole } from "@/lib/roles";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,6 +98,7 @@ function EtablissementDetail() {
   const canRead = hasRole(role, DIRECTORY_READ_ROLES);
   const canManageAccount = hasRole(role, SETTINGS_ROLES);
   const canReadAudit = hasRole(role, AUDIT_ROLES);
+  const canReadSubmissions = hasRole(role, SURVEY_READ_ROLES);
 
   const queryClient = useQueryClient();
   const tRoot = useTranslations();
@@ -138,7 +139,7 @@ function EtablissementDetail() {
   const companyQuery = useQuery({
     queryKey: ["dsmo", "companies", "by-establishment-id", id],
     queryFn: async () => {
-      const res = await listCompanies({ search: id, pageSize: 20 });
+      const res = await listCompanies({ search: id, registeredOnly: true, pageSize: 20 });
       return (
         res.companies.find((c) => c.establishmentId === id || c.registrationNumber === id) ?? null
       );
@@ -182,12 +183,12 @@ function EtablissementDetail() {
 
   const submissionsQuery = useQuery({
     queryKey: ["admin", "questionnaires", "by-company", company?.id],
-    queryFn: () => listAdminQuestionnaires({ companyId: company!.id, limit: 10 }),
-    enabled: canRead && !!company?.id,
+    queryFn: () => listAdminQuestionnaires({ companyId: company!.id, statuses: "PENDING_REVIEW,CORRECTION_REQUESTED,APPROVED,REJECTED,SUPERSEDED", limit: 10 }),
+    enabled: canRead && canReadSubmissions && !!company?.id,
   });
 
   const submissionsState = resolveDataState({
-    roleAllowed: canRead,
+    roleAllowed: canRead && canReadSubmissions,
     isLoading: submissionsQuery.isLoading,
     isError: submissionsQuery.isError,
     error: submissionsQuery.error,
@@ -393,7 +394,7 @@ function EtablissementDetail() {
           <AdminTablePanel
             title={`${t("submissionHistoryTitle")}${submissionsQuery.data?.total !== undefined ? ` (${count(submissionsQuery.data.total, locale)})` : ""}`}
             headingId="etab-submissions-title"
-            actions={<Button asChild variant="link" size="sm"><Link href={`/admin/dossiers?companyId=${encodeURIComponent(company.id)}`}>{t("allFilesLink")}</Link></Button>}
+            actions={canReadSubmissions ? <Button asChild variant="link" size="sm"><Link href={`/admin/dossiers?vue=submissions&submissionsStatus=ALL&submissionsCompanyId=${encodeURIComponent(company.id)}`}>{t("allFilesLink")}</Link></Button> : undefined}
           >
             <Table className="cam-table-stack cam-register-table cam-etab-submissions-table">
                 <TableHeader><TableRow>

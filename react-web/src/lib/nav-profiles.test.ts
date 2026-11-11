@@ -87,10 +87,10 @@ test("a shared hub resolves to a different landing route per role", () => {
   // Team monitoring is its own role-gated hub.
   const subs = (role: UserRole, key: string) =>
     navHubsFor(role).find((h) => h.key === key)?.subRoutes.map((r) => r.href);
-  assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "inscriptions"), ["/admin/inscriptions", "/admin/inscriptions?vue=organisations", "/admin/etablissements"]);
+  assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "inscriptions"), ["/admin/inscriptions", "/admin/etablissements"]);
   assert.deepEqual(subs("ADMIN_ONEFOP_REGISTRATIONS", "collecte"), ["/admin/cibles"]);
   assert.equal(landing("ADMIN_ONEFOP_REGISTRATIONS", "collecte"), "/admin/cibles");
-  assert.deepEqual(subs("ADMIN_ONEFOP_SUBMISSIONS", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=completed", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
+  assert.deepEqual(subs("ADMIN_ONEFOP_SUBMISSIONS", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
   assert.equal(subs("ADMIN_ONEFOP_REGISTRATIONS", "teledeclarations"), undefined);
   assert.equal(subs("ADMIN_ONEFOP_SUBMISSIONS", "inscriptions"), undefined);
   assert.deepEqual(subs("REGIONAL_ADMIN", "equipe"), ["/admin/equipe"]);
@@ -99,15 +99,15 @@ test("a shared hub resolves to a different landing route per role", () => {
 
   // Each decision queue sits with the object it decides on, and the hidden
   // entries (the registration form, the establishment detail page) stay out.
-  assert.deepEqual(subs("DIVISIONAL_ADMIN", "inscriptions"), ["/admin/inscriptions", "/admin/inscriptions?vue=organisations", "/admin/etablissements"]);
-  assert.deepEqual(subs("DIVISIONAL_ADMIN", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=completed", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
+  assert.deepEqual(subs("DIVISIONAL_ADMIN", "inscriptions"), ["/admin/inscriptions", "/admin/etablissements"]);
+  assert.deepEqual(subs("DIVISIONAL_ADMIN", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
 
   // CENTRAL_AGENT may look and never act. Outside APPROVAL_ROLES it gets the
   // register without the registration queue, so "inscriptions" lands on the
   // register; inside ADMIN_ROLES it reaches both declaration pages.
   assert.equal(landing("CENTRAL_AGENT", "inscriptions"), "/admin/etablissements");
   assert.deepEqual(subs("CENTRAL_AGENT", "inscriptions"), ["/admin/etablissements"]);
-  assert.deepEqual(subs("CENTRAL_AGENT", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=completed", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
+  assert.deepEqual(subs("CENTRAL_AGENT", "teledeclarations"), ["/admin/dossiers", "/admin/dossiers?vue=followup", "/admin/centre-qualite"]);
   assert.deepEqual(subs("CENTRAL_AGENT", "collecte"), ["/admin/cibles"]);
   assert.equal(landing("CENTRAL_AGENT", "collecte"), "/admin/cibles");
 

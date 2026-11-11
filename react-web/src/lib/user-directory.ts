@@ -179,8 +179,10 @@ export interface CompanyRegistrationItem {
   isActive: boolean;
   approvedAt: string | null;
   approvedBy: string | null;
+  approvedByName: string | null;
   rejectedAt: string | null;
   rejectedBy: string | null;
+  rejectedByName: string | null;
   archivedAt: string | null;
   archivedBy: string | null;
   archiveReason: string | null;

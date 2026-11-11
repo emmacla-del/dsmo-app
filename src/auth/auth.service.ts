@@ -2008,7 +2008,13 @@ export class AuthService {
         const resubmitted = await this.lastResubmissionByUser(companies.map((row) => row.user.id));
         const named = await loadRegistrationPeople(
           this.prisma,
-          companies.flatMap(({ user }) => [user.archivedBy, user.createdBy, user.assigneeId]),
+          companies.flatMap(({ user }) => [
+            user.archivedBy,
+            user.createdBy,
+            user.assigneeId,
+            user.approvedBy,
+            user.rejectedBy,
+          ]),
         );
         return [resubmitted, named] as const;
       })(),
@@ -2023,6 +2029,8 @@ export class AuthService {
         archivedByUser: archiver && { id: archiver.id, firstName: archiver.firstName, lastName: archiver.lastName },
         createdByName: displayNameOf(personOf(item.createdBy)),
         assigneeName: displayNameOf(personOf(item.assigneeId)),
+        approvedByName: displayNameOf(personOf(item.approvedBy)),
+        rejectedByName: displayNameOf(personOf(item.rejectedBy)),
         lastResubmission,
         // When the reviewers' wait began, and whether it is past
         // REGISTRATION_OVERDUE_DAYS. null / false when it is not their move.
@@ -3212,7 +3220,10 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new BadRequestException('Utilisateur non trouvé');
     assertTerritorialAuthority({ ...actorTerritory, role: actorRole }, user);
-    if (actorRole !== 'REGIONAL_ADMIN' && actorRole !== 'DIVISIONAL_ADMIN') {
+    if (user.role === 'COMPANY' && user.status !== 'ACTIVE') {
+      throw new BadRequestException("Seul le compte d'un établissement approuvé peut être suspendu ou réactivé.");
+    }
+    if (user.role !== 'COMPANY' && actorRole !== 'REGIONAL_ADMIN' && actorRole !== 'DIVISIONAL_ADMIN') {
       assertCanManageRole(actorRole, user.role);
     }
     const updated = await this.prisma.user.update({

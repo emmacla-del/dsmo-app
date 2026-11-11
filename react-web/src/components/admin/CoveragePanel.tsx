@@ -7,8 +7,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { asUiLocale } from "@/lib/register-i18n";
 import { useAuthStore } from "@/lib/auth-store";
 import { formatCampaignDisplayName, listCampaigns } from "@/lib/campaigns";
-import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
-import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
+import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel, establishmentsListHref } from "@/lib/companies-directory";
+import { APPROVAL_ROLES, DIRECTORY_READ_ROLES, hasRole } from "@/lib/roles";
 import { CoverageBarChart, type CoverageBarItem } from "@/components/admin/CoverageBarChart";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { CoveragePeriodSelector } from "@/components/admin/CoveragePeriodSelector";
@@ -17,7 +17,6 @@ import { DataState } from "@/components/admin/DataState";
 import { canListCampaigns, doualaCalendarYear, formatApiError, getAnnualCoverage, getQuarterCoverage, getSemesterCoverage, YEAR_MIN, type CoverageEntityTypeRow, type CoverageResponse } from "@/lib/pilotage-targets";
 import { count, percent } from "@/lib/admin-data-state";
 import { listCompanyRegistrations } from "@/lib/user-directory";
-import { organisationsListHref } from "@/lib/inscriptions";
 import { oldestPendingHref } from "@/lib/registration-queue";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -79,21 +78,20 @@ function CoverageContent({
     staleTime: 60_000,
   });
   /**
-   * A ranked entity type links to the registered organisations of that type:
-   * coverage counts approvals, so that is the list behind the figure, not the
-   * pending queue. `entityType` is the stored code the view's filter sends;
-   * the reader's own scope still bounds the answer server-side.
+   * Coverage counts active approved accounts, so its drill-down opens the
+   * approved register with the active-account filter rather than a second
+   * organisations table. The server still bounds it to the reader's scope.
    */
-  const typeQueueHref = hasRole(role, APPROVAL_ROLES)
-    ? (entityType: string) => organisationsListHref({ type: entityType })
+  const typeQueueHref = hasRole(role, DIRECTORY_READ_ROLES)
+    ? (entityType: string) => establishmentsListHref({ type: entityType, status: "ACTIVE" })
     : null;
   const tRootPanel = useTranslations();
   const typeLabel = (entityType: string) =>
     ENTITY_TYPE_OPTION_KEYS[entityType]
       ? tRootPanel(ENTITY_TYPE_OPTION_KEYS[entityType])
       : entityTypeLabel(entityType);
-  const queueHref = hasRole(role, APPROVAL_ROLES)
-    ? (regionName: string, departmentName?: string) => organisationsListHref({ region: regionName, department: departmentName })
+  const queueHref = hasRole(role, DIRECTORY_READ_ROLES)
+    ? (regionName: string, departmentName?: string) => establishmentsListHref({ region: regionName, department: departmentName, status: "ACTIVE" })
     : null;
   const overdueQueueHref = canReadRegistrationQueue
     ? (filters: { region?: string; department?: string; entityType?: string }) => oldestPendingHref(filters, role)

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   buildDossierReturnTo,
-  buildRegistrationReturnTo,
+  buildEstablishmentReturnTo,
   resolveDossierReturnTo,
   resolveEstablishmentReturnTo,
 } from "./admin-return";
@@ -11,14 +11,14 @@ import {
 test("a Dossiers detail return restores the active view, scoped filters, campaign, and page", () => {
   assert.equal(
     buildDossierReturnTo("vue=completed&completedStatus=REJECTED&completedRegion=Centre&completedPage=4&submissionsStatus=APPROVED&campaignId=c1&unknown=drop"),
-    "/admin/dossiers?vue=completed&campaignId=c1&completedStatus=REJECTED&completedRegion=Centre&completedPage=4",
+    "/admin/dossiers?vue=submissions&campaignId=c1&submissionsStatus=REJECTED&submissionsRegion=Centre&submissionsIncludeArchived=true&submissionsPage=4",
   );
 });
 
 test("legacy dossier list filters are converted to scoped return state", () => {
   assert.equal(
     buildDossierReturnTo("vue=completed&status=REJECTED&q=atelier&page=3&includeArchived=true&unrelated=drop"),
-    "/admin/dossiers?vue=completed&completedStatus=REJECTED&completedIncludeArchived=true&completedSearch=atelier&completedPage=3",
+    "/admin/dossiers?vue=submissions&submissionsStatus=REJECTED&submissionsSearch=atelier&submissionsIncludeArchived=true&submissionsPage=3",
   );
 });
 
@@ -38,15 +38,14 @@ test("a dossier return round trip keeps view, filters, and page", () => {
   );
 });
 
-test("an establishment return restores Organisations context and excludes queue-only or unknown filters", () => {
+test("an establishment return restores register context and excludes registration-only or unknown filters", () => {
   assert.equal(
-    buildRegistrationReturnTo("vue=organisations&organisation=atelier&status=ACTIVE&region=Centre&page=2&assignedToMe=1&duplicates=with&createdBy=u1&unknown=drop"),
-    // createdBy belongs to Organisations since the team page lists one agent's files there.
-    "/admin/inscriptions?vue=organisations&search=atelier&status=ACTIVE&region=Centre&createdBy=u1&page=2",
+    buildEstablishmentReturnTo("search=atelier&status=ACTIVE&region=Centre&department=Mfoundi&page=2&createdBy=u1&unknown=drop"),
+    "/admin/etablissements?search=atelier&region=Centre&department=Mfoundi&status=ACTIVE&page=2",
   );
   assert.equal(
-    buildRegistrationReturnTo("vue=organisations&status=PENDING_APPROVAL&assignedToMe=1"),
-    "/admin/inscriptions?vue=organisations",
+    buildEstablishmentReturnTo("status=REJECTED&includeArchived=false"),
+    "/admin/etablissements",
   );
 });
 
@@ -56,8 +55,16 @@ test("detail returns accept only validated local list routes and allowlisted que
     "/admin/dossiers?vue=submissions&submissionsSearch=atelier&submissionsPage=2",
   );
   assert.equal(
-    resolveEstablishmentReturnTo("/admin/inscriptions?vue=organisations&region=Centre&next=javascript%3Aalert(1)"),
-    "/admin/inscriptions?vue=organisations&region=Centre",
+    resolveEstablishmentReturnTo("/admin/inscriptions?vue=organisations&status=ACTIVE&search=atelier&region=Centre&page=2"),
+    "/admin/etablissements?search=atelier&region=Centre&page=2",
+  );
+  assert.equal(
+    resolveEstablishmentReturnTo("/admin/inscriptions?vue=organisations&status=REJECTED&search=atelier"),
+    "/admin/inscriptions?vue=queue&status=REJECTED&search=atelier",
+  );
+  assert.equal(
+    resolveEstablishmentReturnTo("/admin/etablissements?region=Centre&status=SUSPENDED&next=javascript%3Aalert(1)"),
+    "/admin/etablissements?region=Centre&status=SUSPENDED",
   );
 });
 
@@ -65,8 +72,8 @@ test("direct detail visits, external URLs, and unsupported paths use safe fallba
   for (const value of [null, "https://evil.example/admin/dossiers", "//evil.example/admin/dossiers", "javascript:alert(1)", "/admin/users"]) {
     assert.equal(resolveDossierReturnTo(value), "/admin/dossiers");
   }
-  for (const value of [null, "https://evil.example/admin/inscriptions?vue=organisations", "//evil.example", "/admin/inscriptions?vue=queue"]) {
+  for (const value of [null, "https://evil.example/admin/etablissements", "//evil.example", "/admin/inscriptions?vue=queue"]) {
     assert.equal(resolveEstablishmentReturnTo(value), "/admin/etablissements");
   }
-  assert.equal(resolveEstablishmentReturnTo("/admin/etablissements?next=https://evil.example"), "/admin/etablissements");
+  assert.equal(resolveEstablishmentReturnTo("/admin/etablissements?search=atelier&next=https://evil.example"), "/admin/etablissements?search=atelier");
 });

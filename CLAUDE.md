@@ -1646,6 +1646,51 @@ Approved changes on record:
   until the migration adds `registrationClaimedAt`, so they are checked after
   the deploy only.
 
+- 2026-11-09 — registration records and the establishment register have two
+  primary destinations, not three (workflow/navigation; owner decision in
+  chat). Issue: « Organisations enregistrées » listed ACTIVE + REJECTED
+  company/account rows while `/admin/etablissements` listed the same rows plus
+  pending accounts, so neither name described a distinct administrative
+  object. Decision: `/admin/inscriptions` is one registration-record list;
+  PENDING_APPROVAL remains its default claim queue, while
+  COMPLEMENTS_REQUESTED, REJECTED and ALL are status filters of the same list.
+  `/admin/etablissements` is the approved register only: `User.status=ACTIVE`,
+  with `isActive` distinguishing active and suspended accounts. Rejected
+  applications never appear in that register. The organisations navigation
+  entry and table are removed; old `vue=organisations` URLs redirect by intent,
+  team drill-down opens registrations, and coverage drill-down opens the active
+  approved register. Archive stays orthogonal and reversible (`archivedAt`,
+  `archivedBy`, `archiveReason`): rejected archive/restore is managed from the
+  registrations status filter, approved archive/restore from the register's
+  explicit include-archived filter. It is exceptional record removal, not a
+  rejection, suspension or closure status. Account lifecycle actions move to
+  the register. `/companies` gains opt-in `registeredOnly`, `includeArchived`
+  and department filters; defaults for other web/Flutter consumers are
+  unchanged, and explicit geography is ANDed with the caller's server scope.
+  No schema, statistical variable, questionnaire, export, PDF or dataset
+  version change.
+
+- 2026-11-09 — survey review and completed decisions use one submission-record
+  list (workflow/navigation; owner decision in chat, applying the registration
+  table audit to survey submissions). Issue: « Examen des télédéclarations »
+  and « Dossiers terminés » queried and rendered the same OnefopSubmission
+  records through `GET /admin/questionnaires`, differing only by status set,
+  archive default, columns and actions. Decision: `/admin/dossiers` defaults to
+  PENDING_REVIEW + CORRECTION_REQUESTED; COMPLETED
+  (APPROVED + REJECTED + SUPERSEDED), individual statuses and ALL are filters
+  of that same list. The separate completed navigation entry is removed and
+  old `vue=completed` URLs migrate with their filters and archive state. Claims,
+  waiting signals and bulk decisions remain limited to claimable statuses;
+  terminal selections retain decision columns, archive/restore, audit and
+  reopen-for-correction (only unarchived APPROVED files and existing roles).
+  Archive inclusion is explicit for every status, which also makes archived
+  pending/correction records recoverable. Follow-up remains separate because
+  it lists establishments without a received campaign file; the quality centre
+  remains separate because it lists anomalies. The backend's `view` parameter
+  remains only an internal count/archive compatibility contract; status or
+  statuses determines list membership. No schema, questionnaire, statistical
+  variable, PDF or dataset version change.
+
 ---
 
 # 22. DEFAULT OPERATING PRINCIPLE

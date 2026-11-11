@@ -103,8 +103,10 @@ export async function loadReviewPace(
   scope: Record<string, unknown>,
   overdueBefore: Date,
   windowStart: Date,
+  includeArchived = false,
 ): Promise<ReviewPaceRow> {
   const territory = territorySql(scope);
+  const archive = includeArchived ? Prisma.sql`TRUE` : Prisma.sql`s."archivedAt" IS NULL`;
   const rows = await prisma.$queryRaw<ReviewPaceRow[]>(Prisma.sql`
     SELECT pending."oldestPending", pending.overdue, decided."decidedDays"
     FROM (
@@ -112,7 +114,7 @@ export async function loadReviewPace(
         MIN(s."submissionDate") AS "oldestPending",
         (COUNT(*) FILTER (WHERE s."submissionDate" < ${utc(overdueBefore)}))::int AS overdue
       FROM "onefop_submissions" s
-      WHERE ${territory} AND s.status::text = 'PENDING_REVIEW' AND s."archivedAt" IS NULL
+      WHERE ${territory} AND s.status::text = 'PENDING_REVIEW' AND ${archive}
     ) pending
     CROSS JOIN (
       SELECT array_agg(
@@ -122,7 +124,7 @@ export async function loadReviewPace(
       WHERE ${territory}
         AND s.status::text IN ('APPROVED', 'REJECTED', 'CORRECTION_REQUESTED', 'SUPERSEDED')
         AND s."reviewedAt" >= ${utc(windowStart)}
-        AND s."archivedAt" IS NULL
+        AND ${archive}
         AND NOT EXISTS (
           SELECT 1 FROM "audit_logs" reopening
           WHERE reopening.action = 'AUDIT_REOPEN'

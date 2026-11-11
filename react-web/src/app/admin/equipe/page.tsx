@@ -16,7 +16,7 @@ import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
 import { AdminScopePill } from "@/components/admin/AdminFilterBarParts";
 import { Button } from "@/components/ui/button";
 import { hrefWith } from "@/lib/admin-url";
-import { organisationsListHref } from "@/lib/inscriptions";
+import { registrationRecordsHref } from "@/lib/inscriptions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -547,7 +547,7 @@ function ActorRow({ actor, showLapses, onNudge }: { actor: ActorSummaryActor; sh
               {t("viewLogLink")}
             </Link>
           )}
-          <Link href={organisationsListHref({ createdBy: actor.userId })} className="cam-text-button">
+          <Link href={registrationRecordsHref({ status: "ALL", createdBy: actor.userId })} className="cam-text-button">
             {t("viewRegistrationsLink")}
           </Link>
         </div>

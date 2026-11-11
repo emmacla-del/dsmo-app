@@ -88,7 +88,7 @@ test("lists pending, unclaimed registrations in five columns with the summary", 
   renderQueue();
 
   await screen.findByText("Organisation r1");
-  assert.ok(screen.getByRole("heading", { level: 1, name: /^Registration queue \(Find, prioritise and claim registrations/ }));
+  assert.ok(screen.getByRole("heading", { level: 1, name: /^Registration applications \(Review applications and consult registrations/ }));
   const headers = screen.getAllByRole("columnheader").map((cell) => cell.textContent?.split(".")[0].trim());
   assert.deepEqual(headers, ["Organisation / Reference", "Territory", "Waiting time", "Assigned to", "Action"]);
 
@@ -99,6 +99,7 @@ test("lists pending, unclaimed registrations in five columns with the summary", 
   assert.match(available.textContent ?? "", /3/);
   assert.match(mine.textContent ?? "", /1/);
   assert.ok(screen.getByText("Oldest awaiting review"));
+  assert.ok(screen.getByRole("option", { name: "All registrations" }));
   assert.equal(screen.queryByRole("button", { name: /Oldest awaiting review/ }), null);
 
   const list = calls.lists.at(-1)!;
@@ -123,6 +124,36 @@ test("selecting « Claimed by me » writes the ownership view to the address", a
   await screen.findByText("Organisation r1");
   await user.click(screen.getByRole("button", { name: /Claimed by me/ }));
   assert.equal(window.location.search, "?vue=queue&owner=mine&search=acme&sort=newest");
+});
+
+test("rejected applications are a status filter of the same registrations page", async () => {
+  const calls = installFetch({
+    list: () => json(page([row("rejected", {
+      establishmentId: null,
+      registrationNumber: "INS-42",
+      status: "REJECTED",
+      rejectedAt: "2026-11-08T10:00:00.000Z",
+      rejectedByName: "Awa Ndi",
+      rejectionReason: "Duplicate application",
+      archivedAt: null,
+    })])),
+  });
+  renderQueue("status=REJECTED");
+  await screen.findByText("Organisation rejected");
+
+  const list = calls.lists.at(-1)!;
+  assert.equal(list.get("status"), "REJECTED");
+  assert.equal(list.get("view"), "organisations");
+  assert.equal(list.get("unassigned"), null);
+  assert.deepEqual(screen.getAllByRole("columnheader").map((cell) => cell.textContent?.trim()), [
+    "Organisation / Reference", "Registration status", "Territory", "Decision", "Action",
+  ]);
+  const rejectedRow = screen.getByText("Organisation rejected").closest("tr")!;
+  assert.ok(within(rejectedRow).getByText("Rejected"));
+  assert.ok(within(rejectedRow).getByText("Duplicate application"));
+  assert.ok(within(rejectedRow).getByText("Awa Ndi"));
+  assert.equal(screen.queryByRole("button", { name: /Claim and open/ }), null);
+  assert.ok(screen.getByRole("checkbox", { name: "Include archived records" }));
 });
 
 test("the « Claimed by me » view asks for the officer's files and offers Open review", async () => {
