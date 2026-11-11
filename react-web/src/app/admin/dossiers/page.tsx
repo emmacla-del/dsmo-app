@@ -103,7 +103,7 @@ import {
  *
  * Every field is mapped from a GET /admin/questionnaires item. Fields the
  * record does not carry are `null` and render as an em dash; none of them has
- * a default. `quality` and `eligibility` are derived â€” see `toRow` for the
+ * a default. `quality` and `eligibility` are derived — see `toRow` for the
  * exact formulas.
  */
 interface DossierItem {
@@ -213,7 +213,7 @@ type ToneName = keyof typeof BADGE_VARIANT;
 // The organisation's own registration (account) status, as stored on
 // Mirrors ADMIN_LIST_FORM_TYPES (backend admin-list-filter.ts), labelled by entityTypeLabel.
 const FORM_TYPES = ["ENTREPRISE", "COOPERATIVE", "CTD", "ONG", "ADMINISTRATION", "PROJECT_PROGRAM", "VOCATIONAL_TRAINING"];
-// Mirrors ADMIN_LIST_PERIODS; "" = Toutes les pÃ©riodes (the default, so pending
+// Mirrors ADMIN_LIST_PERIODS; "" = Toutes les périodes (the default, so pending
 // dossiers older than 30 days stay visible). `labelKey` is under adminDossiersPage.
 const PERIODS: Array<{ value: string; labelKey: string }> = [
   { value: "7d", labelKey: "period7d" },
@@ -234,7 +234,7 @@ const SEARCH_DEBOUNCE_MS = 300;
  *
  * Counts come from GET /admin/questionnaires/pilotage/queues: `statusCounts`
  * and `totalSubmissionsCount`, over the caller's whole territory, DRAFT
- * excluded â€” the same base as this list. They do not follow the type,
+ * excluded — the same base as this list. They do not follow the type,
  * region, period or search filters below.
  */
 // `labelKey` / `noteKey` are under adminDossiersPage.
@@ -308,7 +308,7 @@ function DossiersContent({
    * The actor's own authorised scope, from the stored user record.
    *
    * An account whose role is territorial but whose territory is unset is
-   * reported as unaffected â€” not as national. The backend fails such a scope
+   * reported as unaffected — not as national. The backend fails such a scope
    * closed (territoryWhere), and labelling it "National" here would assert an
    * authorisation the account does not hold.
    */
@@ -355,7 +355,7 @@ function DossiersContent({
   const qualityFilter = parseDossierQuality(filterParam("quality"));
   // The queue view. A link from another screen names the view it meant
   // (resolveDossierQueueView); only a bare URL waits for the reviewer's claim
-  // count to choose Â« Ma file Â» or Â« Non attribuÃ©s Â», and the list query waits
+  // count to choose « Ma file » or « Non attribués », and the list query waits
   // with it, so nothing is fetched under a view that is about to change.
   const hasOtherQueueFilters = hasDossierOtherFilters(filterParam, searchParams.get("campaignId")) || Boolean(legacyFiltersApply && searchParams.get("q"));
   const hintedQueueView = view === "submissions"
@@ -376,8 +376,8 @@ function DossiersContent({
   const queueViewPending = view === "submissions" && !terminalStatusSelected && activeQueueView === null;
   const queueViewFilters = activeQueueView ? dossierQueueViewFilters(activeQueueView) : null;
   const statusFilter: DossierStatusFilter | "" = queueViewFilters ? queueViewFilters.status : baseStatusFilter;
-  // Each view fixes its own assignment; assignment=other now opens Â« RÃ©clamÃ©s
-  // par un collÃ¨gue Â» (resolveDossierQueueView).
+  // Each view fixes its own assignment; assignment=other now opens « Réclamés
+  // par un collègue » (resolveDossierQueueView).
   const assignmentFilter = queueViewFilters
     ? queueViewFilters.assignment ?? ""
     : baseAssignmentFilter;
@@ -502,13 +502,13 @@ function DossiersContent({
     setOffset(0);
     setSelectedIds(new Set());
   }
-  // Modal / Drawer state â€” bulk visa
+  // Modal / Drawer state — bulk visa
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [certifiedBulk, setCertifiedBulk] = useState(false);
   const [bulkNotes, setBulkNotes] = useState("");
   const [bulkResult, setBulkResult] = useState<Awaited<ReturnType<typeof bulkVisaDeclarations>> | null>(null);
 
-  // Modal state â€” bulk reject
+  // Modal state — bulk reject
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [certifiedReject, setCertifiedReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -536,7 +536,7 @@ function DossiersContent({
     };
   }, []);
 
-  // TODO(backend, S): known limitation â€” CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
+  // TODO(backend, S): known limitation — CTD dossiers are searchable only by ID or respondent name (OnefopCtdDetail has no name column; server search no longer reads rawData)
   const campaignsQuery = useQuery({
     queryKey: ["admin", "pilotage", "active-campaigns"],
     queryFn: getActiveCollectionCampaigns,
@@ -698,7 +698,7 @@ function DossiersContent({
     placeholderData: keepPreviousData,
   });
   const facets = facetsQuery.data;
-  // While the claim count decides the view of a bare URL, read Â« Non attribuÃ©s Â»
+  // While the claim count decides the view of a bare URL, read « Non attribués »
   // ahead of it: that is the view of everyone holding no file, and the page
   // would otherwise wait for one request before starting the next. Nothing
   // shows until the count answers; a reviewer with claims wastes these two reads.
@@ -1016,7 +1016,7 @@ function DossiersContent({
       region: sub.region ?? null,
       department: sub.department ?? null,
       subdivision: sub.subdivision ?? null,
-      // No default form type â€” an unset formType is reported, not guessed.
+      // No default form type — an unset formType is reported, not guessed.
       formType: sub.formType ?? null,
       adminStatus: sub.status ?? null,
       campaignName: sub.campaignName ?? null,
@@ -1094,12 +1094,12 @@ function DossiersContent({
   if (companyIdFilter) {
     // Prefer the resolved company name from the first loaded row; the UUID is
     // only shown as a fallback when no matching row has been fetched yet.
-    const resolvedCompanyName = allDossiers.find((d) => d.companyName)?.companyName ?? companyIdFilter.slice(0, 8) + "â€¦";
+    const resolvedCompanyName = allDossiers.find((d) => d.companyName)?.companyName ?? companyIdFilter.slice(0, 8) + "…";
     activeFilterChips.push({ key: "companyId", label: `${t("organisationColumn")}: ${resolvedCompanyName}`, remove: () => setUrlFilter({ companyId: null }) });
   }
   if (sortOrder) activeFilterChips.push({ key: "sort", label: t("sortOldest"), remove: () => setSort("") });
   // Filter bar (layout v2): search, up to four single-choice pills, and one
-  // Â« Filtres Â» panel holding every filter. A filter shown as a pill is not
+  // « Filtres » panel holding every filter. A filter shown as a pill is not
   // repeated as a chip; the panel button counts only what the pills don't show.
   const territoryPill = territoryPillFor(user?.role);
   const scopedDepartments = user?.role === "REGIONAL_ADMIN" && user.region && territoryStructure.isSuccess
@@ -1140,9 +1140,9 @@ function DossiersContent({
   }, [filtersOpen, closeFilterPanel]);
 
   /**
-   * Source: GET /admin/questionnaires â†’ `total`.
+   * Source: GET /admin/questionnaires → `total`.
    * Counts the whole filtered query (territory + status + type + region +
-   * period + search, drafts excluded) under the caller's server-side scope â€”
+   * period + search, drafts excluded) under the caller's server-side scope —
    * the same scope that produced the rows above. `null` until the server
    * answers; never replaced by a literal.
    */
@@ -1181,7 +1181,7 @@ function DossiersContent({
 
   // The actor who will sign the operation, from the session's own user record.
   const signatoryLabel = user
-    ? `${[user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email} â€” ${scopeLabel}`
+    ? `${[user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email} — ${scopeLabel}`
     : NOT_PROVIDED;
 
   const bulkPreflight = assessBulkEligibility(
@@ -1404,7 +1404,7 @@ function DossiersContent({
         <h3 id="cam-dossier-filter-panel-title" className="cam-dossier-filter-sidebar-title">{t("filtersButton")}</h3>
         <p className="cam-dossier-filter-sidebar-description">{t("filtersDescription")}</p>
       </div>
-      <button type="button" className="cam-dossier-filter-close" aria-label={t("closeFilters")} onClick={closeFilterPanel}>Ã—</button>
+      <button type="button" className="cam-dossier-filter-close" aria-label={t("closeFilters")} onClick={closeFilterPanel}>×</button>
     </div>
     <div className="cam-dossier-filter-sidebar-fields">
       <div>
@@ -1497,7 +1497,7 @@ function DossiersContent({
     </div>
   </aside> : null;
 
-  // The campaign narrows the list, so it sits with the list (spec Â§3: no
+  // The campaign narrows the list, so it sits with the list (spec §3: no
   // filters in the header; audit D-1), as /admin/cibles does.
   const campaignField = (
     <label className="cam-sort-control cam-campaign-control" htmlFor={`dossiers-list-campaign-${vue}`}>
@@ -1529,8 +1529,8 @@ function DossiersContent({
           <AdminHeaderActions showCampaignPill={false} />
         </div>
       )}
-      // The three views are listed in the rail (owner, 2026-11-08: Â« release
-      // the space Â»); the page keeps its title, which names the view.
+      // The three views are listed in the rail (owner, 2026-11-08: « release
+      // the space »); the page keeps its title, which names the view.
       hideTabs
     />
   );
@@ -1602,7 +1602,7 @@ function DossiersContent({
       {pageNotice && (
         <Alert variant={pageNotice.tone === "error" ? "destructive" : "success"} role={pageNotice.tone === "error" ? "alert" : "status"} className="my-4 flex items-start justify-between gap-4">
           <AlertDescription>{pageNotice.text}</AlertDescription>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeNotice")} onClick={() => setPageNotice(null)}><span aria-hidden="true">Ã—</span></Button>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeNotice")} onClick={() => setPageNotice(null)}><span aria-hidden="true">×</span></Button>
         </Alert>
       )}
       {searchParams.get("endOfQueue") === "1" && searchParams.get("decisionNotice") && (
@@ -1613,7 +1613,7 @@ function DossiersContent({
 
 
 
-      {/* â”€â”€ Status filter: one control, URL-backed (?status=) â”€â”€ */}
+      {/* ── Status filter: one control, URL-backed (?status=) ── */}
       {/* The queue's own note, carried over from /admin/files-attente. Shown
           only for the status it describes. */}
       {STATUS_VIEWS.filter((view) => view.noteKey && view.status === statusFilter).map((view) => (
@@ -1645,7 +1645,7 @@ function DossiersContent({
 
       {/* Review queue: four figures from the server's queue counts over the
           reader's territory, each a filter on the list (canvas board
-          Â« Examen des tÃ©lÃ©dÃ©clarations Â»). The board's response rate needs
+          « Examen des télédéclarations »). The board's response rate needs
           the campaign's expected establishments, which this page does not
           read, so it is not shown rather than estimated. */}
       {!isTerminalMode && !isAllRecordsMode && queues && (
@@ -1662,7 +1662,7 @@ function DossiersContent({
         />
       )}
 
-      {/* â”€â”€ Filters, toolbar and table share one card. â”€â”€ */}
+      {/* ── Filters, toolbar and table share one card. ── */}
       <AdminTablePanel
         headingId={`dossiers-${vue}-heading`}
         showHeader={false}
@@ -1711,9 +1711,9 @@ function DossiersContent({
             <div className="cam-dossier-selection-actions">
               <Button type="button" size="sm" variant="outline" onClick={handleAssignSelection} disabled={!user?.id || claimableSelected.length === 0 || assignMutation.isPending || bulkClaiming}>{t(bulkClaiming ? "assignSelectionRunning" : "assignSelectionButton", { count: claimableSelected.length })}</Button>
               <Button type="button" size="sm" variant="outline" onClick={handleExportSelection}>{t("exportSelectionButton")}</Button>
-              <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">âœ“</span> {t("endorseSelectionButton")}</Button>
+              <Button type="button" size="sm" onClick={handleOpenBulkModal} disabled={bulkEligibleSelected.length === 0 || cleanPendingSelected.length === 0}><span aria-hidden="true">✓</span> {t("endorseSelectionButton")}</Button>
               <Button type="button" size="sm" variant="outline" onClick={handleOpenCorrectionModal} disabled={correctableSelected.length === 0}>{t("requestCorrectionSelectionButton")}</Button>
-              <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">Ã—</span> {t("rejectSelectionButton")}</Button>
+              <Button type="button" size="sm" variant="destructive" onClick={handleOpenRejectModal} disabled={bulkEligibleSelected.length === 0 || rejectableSelected.length === 0}><span aria-hidden="true">×</span> {t("rejectSelectionButton")}</Button>
             </div>
           </div>
         )}
@@ -1728,7 +1728,7 @@ function DossiersContent({
               {(readOnly ? READ_ONLY_DOSSIER_QUEUE_VIEWS : DOSSIER_QUEUE_VIEWS).map((queueView) => {
                 const count = queueViewCounts[queueView];
                 return <button key={queueView} type="button" className="cam-dossier-quick-filter" aria-pressed={activeQueueView === queueView} onClick={() => router.push(hrefWith(pathname, searchParams.toString(), { queueView, submissionsStatus: null, submissionsAssignment: null, status: null, assignment: null, assignedToMe: null, submissionsPage: null, page: null, preview: null }), { scroll: false })}>
-                  {t(`queueView.${queueView}`)} <span>{count === undefined ? "â€”" : new Intl.NumberFormat(locale).format(count)}</span>
+                  {t(`queueView.${queueView}`)} <span>{count === undefined ? "—" : new Intl.NumberFormat(locale).format(count)}</span>
                 </button>;
               })}
               <span className="cam-dossier-quick-filter-separator" aria-hidden="true" />
@@ -1829,7 +1829,7 @@ function DossiersContent({
         </CardContent>
         {/* cam-dossier-table-frame replaces the old per-view classes, whose
             fixed !important column widths (1380px, 960px) kept actions off
-            the card and squeezed phone rows (2026-11-08, spec Â§11). */}
+            the card and squeezed phone rows (2026-11-08, spec §11). */}
         <CardContent className="overflow-x-auto pt-5 cam-dossier-table-frame">
           <Table className="cam-table-stack cam-dossier-standard-table">
             <TableHeader>
@@ -1865,7 +1865,7 @@ function DossiersContent({
                         : d.adminStatus === "SUPERSEDED" ? "superseded" : "neutral";
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
-                const territoryTitle = [d.region, d.department].filter(Boolean).join(" Â· ") || NOT_PROVIDED;
+                const territoryTitle = [d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED;
                 const isPendingReview = d.adminStatus === "PENDING_REVIEW" && !d.archivedAt;
                 const waiting = isPendingReview && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
                 const isReviewOverdue = isPendingReview && nowMs !== null && overdueDays !== undefined && elapsedMoreThanDays(d.submittedAt, nowMs, overdueDays);
@@ -1878,7 +1878,7 @@ function DossiersContent({
                 });
                 const primaryAction = selectDossierQueuePrimaryAction({ status: d.adminStatus, assigneeId: d.assigneeId, userId: user?.id, readOnly, validationDataAvailable: d.validationDataAvailable, blockingCount: d.blockingCount, warningCount: d.warningCount, archived: Boolean(d.archivedAt), claimExpired: Boolean(d.claimExpired), canClaim: canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), null, user?.id, user?.role) });
                 // One primary button per view (G5): the row's action is secondary,
-                // whatever it is; the Â« Valider Â» shortcut stays (owner, 2026-11-08).
+                // whatever it is; the « Valider » shortcut stays (owner, 2026-11-08).
                 const primaryActionButton = primaryAction === "claim"
                   ? <Button type="button" size="sm" variant="outline" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null, open: true })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
                   : primaryAction === "review-issues"
@@ -1909,7 +1909,7 @@ function DossiersContent({
                       </span>
                     </span>
                   </TableCell>
-                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[d.region, d.department].filter(Boolean).join(" Â· ") || NOT_PROVIDED}</TableCell>
+                  <TableCell data-label={t("territoryColumn")} className="cam-cell-nowrap">{[d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</TableCell>
                   <TableCell data-label={t("campaignPeriodColumn")} className="align-top whitespace-normal">
                     <span className="cam-dossier-cell-primary" title={campaignName}>{campaignName}</span>
                     <span className="cam-dossier-cell-secondary">{periodLabel}</span>
@@ -1944,9 +1944,9 @@ function DossiersContent({
                       <Link className="cam-dossier-record-name cam-dossier-record-link" href={detailHref} title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</Link>
                       {/* Board row: the file number in mono, then the form. */}
                       <span className="cam-dossier-cell-secondary" title={d.formType ? typeLabel(d.formType) : NOT_PROVIDED}>
-                        {d.submissionId && <><span className="cam-record-cell-ref">{d.submissionId}</span> Â· </>}
+                        {d.submissionId && <><span className="cam-record-cell-ref">{d.submissionId}</span> · </>}
                         {d.formType ? queueTypeLabel(d.formType) : NOT_PROVIDED}
-                        {d.supersedes && <> Â· {t("correctionMarker")}</>}
+                        {d.supersedes && <> · {t("correctionMarker")}</>}
                       </span>
                       {/* Each view already names its status; only a row that differs says it. */}
                       {(d.adminStatus !== "PENDING_REVIEW" || d.archivedAt) && <span className="flex flex-wrap items-center gap-1.5">
@@ -1957,7 +1957,7 @@ function DossiersContent({
                     </div>
                   </TableCell>
                   <TableCell data-label={t("territoryColumn")} className="align-top cam-cell-nowrap" title={territoryTitle}>
-                    <span className="cam-dossier-cell-primary">{[d.region, d.department].filter(Boolean).join(" Â· ") || NOT_PROVIDED}</span>
+                    <span className="cam-dossier-cell-primary">{[d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED}</span>
                   </TableCell>
                   <TableCell data-label={t("checksColumn")} className="align-top whitespace-normal">
                     <div className="cam-dossier-review-stack">
@@ -1967,7 +1967,7 @@ function DossiersContent({
                         {!d.validationDataAvailable
                           ? <span className="cam-dossier-cell-secondary">{t("validationDataUnavailable")}</span>
                           : d.blockingCount === 0 && d.warningCount === 0
-                            ? <span className="cam-dossier-checks-clear"><span aria-hidden="true">â€”</span><span className="sr-only">{t("noOpenIssuesRecorded")}</span></span>
+                            ? <span className="cam-dossier-checks-clear"><span aria-hidden="true">—</span><span className="sr-only">{t("noOpenIssuesRecorded")}</span></span>
                             : null}
                       </div>
                     </div>
@@ -2036,12 +2036,12 @@ function DossiersContent({
           onRestore={() => {}}
         />}
       </AdminTablePanel>
-      {/* â”€â”€ Bulk visa. AdminDialog is a native <dialog>, so the focus trap,
+      {/* ── Bulk visa. AdminDialog is a native <dialog>, so the focus trap,
           Escape, inert background and focus return that the fixed-position
           overlay here declared with aria-modal but never implemented now
           actually hold. It is deliberately NOT replaced by the component
           library: this is the console's most consequential confirmation, and
-          its chrome is already audited. Only the controls inside it moved. â”€â”€ */}
+          its chrome is already audited. Only the controls inside it moved. ── */}
       <AdminDialog
         open={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
@@ -2119,7 +2119,7 @@ function DossiersContent({
                   <ul className="mt-2 ps-4 list-disc">
                     {bulkResult.rejectedItems.map((item: { id: string; reason: string }) => {
                       const row = dossiers.find((d) => d.id === item.id);
-                      return <li key={item.id}>{row?.companyName ?? row?.submissionId ?? item.id} â€” {item.reason}</li>;
+                      return <li key={item.id}>{row?.companyName ?? row?.submissionId ?? item.id} — {item.reason}</li>;
                     })}
                   </ul>
                 )}
@@ -2141,7 +2141,7 @@ function DossiersContent({
         </p>
       </AdminDialog>
 
-      {/* â”€â”€ Bulk reject (retained widget) â”€â”€ */}
+      {/* ── Bulk reject (retained widget) ── */}
       <AdminDialog
         open={isRejectModalOpen}
         onClose={() => setIsRejectModalOpen(false)}
@@ -2231,7 +2231,7 @@ function DossiersContent({
         )}
       </AdminDialog>
 
-      {/* â”€â”€ Bulk request correction (phase 5) â”€â”€ */}
+      {/* ── Bulk request correction (phase 5) ── */}
       <AdminDialog
         open={isCorrectionModalOpen}
         onClose={() => setIsCorrectionModalOpen(false)}
@@ -2268,7 +2268,7 @@ function DossiersContent({
               {correctionResult.skippedItems?.length > 0 && (
                 <ul className="mt-2 ps-4 list-disc">
                   {correctionResult.skippedItems.map((item: { id: string; reason: string }) => (
-                    <li key={item.id}>{item.id} â€” {item.reason}</li>
+                    <li key={item.id}>{item.id} — {item.reason}</li>
                   ))}
                 </ul>
               )}
