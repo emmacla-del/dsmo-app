@@ -257,14 +257,14 @@ function EquipeContent() {
               <tr>
                 <th scope="col">{t("adminEquipePage.column.actor")}</th>
                 <th scope="col">{t("adminEquipePage.column.territory")}</th>
-                <th scope="col" className="is-num">{t("adminEquipePage.column.registrations")}</th>
-                <th scope="col" className="is-num">{t("adminEquipePage.column.conversions")}</th>
+                {/* Short headers (owner, 2026-11-11); the full name in the tooltip. */}
+                <th scope="col" className="is-num" title={t("adminEquipePage.column.registrationsFull")}>{t("adminEquipePage.column.registrations")}</th>
+                <th scope="col" className="is-num" title={t("adminEquipePage.column.conversionsFull")}>{t("adminEquipePage.column.conversions")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.coverage")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.backlog")}</th>
-                <th scope="col" className="is-num">
-                  {staleAfterDays != null
-                    ? t("adminEquipePage.column.staleDays", { days: staleAfterDays })
-                    : t("adminEquipePage.column.stale")}
+                {/* « En retard »; the threshold in the tooltip. */}
+                <th scope="col" className="is-num" title={staleAfterDays != null ? t("adminEquipePage.column.staleDays", { days: staleAfterDays }) : undefined}>
+                  {t("adminEquipePage.column.stale")}
                 </th>
                 {lapsesVisible && <th scope="col" className="is-num" title={t("adminEquipePage.claimLapsesTitle")}>{t("adminEquipePage.column.claimLapses")}</th>}
                 <th scope="col">{t("adminEquipePage.column.decisions")}</th>
