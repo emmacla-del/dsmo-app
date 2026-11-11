@@ -57,7 +57,12 @@ import {
   subdivisionsStatusOf,
 } from "@/lib/register-reference";
 import { bundledSubdivisions } from "@/lib/location-nomenclature";
-import { firstIncompleteWithin } from "@/lib/register-rail";
+import {
+  firstIncompleteWithin,
+  railItemState,
+  railStateLabelKey,
+  type RailItemState,
+} from "@/lib/register-rail";
 import {
   lastFieldId,
   missingFieldsToReport,
@@ -97,6 +102,8 @@ import { PasswordVisibilityToggle } from "@/components/auth/PasswordVisibilityTo
 import { RegistrationProgress } from "@/components/auth/RegistrationProgress";
 import { RegistrationReview } from "@/components/auth/RegistrationReview";
 import { StepHeader } from "@/components/auth/StepHeader";
+import { WizardRail } from "@/components/wizard/WizardRail";
+import { WizardStepList, type WizardStepState } from "@/components/wizard/WizardStepList";
 
 // CAM-LEAP public self-registration wizard.
 
@@ -185,7 +192,26 @@ function isFormField(el: Element): boolean {
   );
 }
 
+// « Effacer le brouillon » starts the form again from nothing. Remounting the
+// wizard under a new key is what makes that complete: every answer, flag,
+// cursor and in-flight request belongs to the old instance and goes with it,
+// so no field can be forgotten by a hand-written reset. The stored draft is
+// cleared first, so the new instance finds none to restore.
 export default function RegisterPage() {
+  const [run, setRun] = useState(0);
+  return <RegisterWizard key={run} onRestart={() => setRun((n) => n + 1)} />;
+}
+
+// The rail's state names, in the shared step list's words.
+const RAIL_TO_STEP_STATE = {
+  done: "done",
+  current: "current",
+  currentComplete: "currentComplete",
+  revealed: "inProgress",
+  locked: "locked",
+} as const satisfies Record<RailItemState, WizardStepState>;
+
+function RegisterWizard({ onRestart }: { onRestart: () => void }) {
   const t = useTranslations();
   // The language the questionnaire's own strings are read in -- field labels,
   // hints, option answers and the entity type's name. They are {fr, en} data
@@ -204,6 +230,11 @@ export default function RegisterPage() {
   // is re-derived from `certified`, so ticking the box clears it.
   const [certifyFlagged, setCertifyFlagged] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  // The section a restored draft landed on. The notice saying so, with its
+  // « Effacer le brouillon », stays on that section until the respondent
+  // moves on (canvas, option D); null once there is nothing to say.
+  const [draftNoticeIndex, setDraftNoticeIndex] = useState<number | null>(null);
+  const [confirmClearDraft, setConfirmClearDraft] = useState(false);
   // Item 11: the DOM ids of the fields a trigger has flagged. Only a FLAG is
   // stored, never an error message -- whether a flagged field still shows one
   // is re-derived from its value on every render, so an error clears the
@@ -1612,23 +1643,25 @@ export default function RegisterPage() {
     // Land on the first thing still missing rather than on the furthest
     // section reached: with the password gone, that is almost always the
     // security section, which is exactly where the work resumes.
-    setCurrent(
-      firstIncompleteWithin(STEPS, restored, (step) =>
-        isSectionComplete(step, restoredState)
-      )
+    const landing = firstIncompleteWithin(STEPS, restored, (step) =>
+      isSectionComplete(step, restoredState)
     );
+    setCurrent(landing);
     // The notice used to sit at the top of the frame, above the section, and
     // cost the Declarant step a scrollbar at 1366x680 for a sentence that was
     // only true once. It is two separate facts, each delivered where it is
-    // relevant: "your draft came back" is a transient event, so it goes
-    // through the snackbar the page already has; "your password did not come
-    // back" is about one section, so it waits inside that section.
-    setSnackbar(t("registerPage.draftRestoredNotice"));
+    // relevant: "your draft came back" is said once, on the section the
+    // respondent lands on, with the way to throw it away beside it (canvas,
+    // option D, 2026-11-11; it was a snackbar that left after six seconds,
+    // taking the only explanation of where the answers were kept with it);
+    // "your password did not come back" is about one section, so it waits
+    // inside that section.
+    setDraftNoticeIndex(landing);
     setDraftRestored(true);
     /* eslint-enable react-hooks/set-state-in-effect */
-    // `t` is in the deps because the snackbar text above is translated. It
-    // cannot cause a second restore: draftLoadedRef short-circuits the body
-    // on every run after the first.
+    // `t` stays in the deps, as before this effect stopped using it. It cannot cause a
+    // second restore: draftLoadedRef short-circuits the body on every run
+    // after the first.
     // applyEntityTypeFromLink is redeclared every render, so listing it would
     // reschedule this effect each time; draftLoadedRef already makes the body
     // run exactly once, and it reads only the URL, which does not change.
@@ -1834,6 +1867,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-entityType"
+              eyebrow={stepEyebrow("entityType")}
               title={t("registerPage.stepEntityType")}
               subtitle={t("registerPage.entityTypeSubtitle")}
             />
@@ -1880,6 +1914,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-respondent"
+              eyebrow={stepEyebrow("respondent")}
               title={t("registerPage.stepRespondent")}
               subtitle={t("registerPage.respondentSubtitle")}
             />
@@ -2066,6 +2101,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-entityInfo"
+              eyebrow={stepEyebrow("entityInfo")}
               title={t("registerPage.stepEntityInfo")}
               subtitle={localized(config.identification, locale)}
             />
@@ -2108,6 +2144,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-location"
+              eyebrow={stepEyebrow("location")}
               title={t("registerPage.locationTitle")}
               subtitle={t("registerPage.locationSubtitle")}
             />
@@ -2218,6 +2255,7 @@ export default function RegisterPage() {
                 ruled note stacked on top of the instruction. */}
             <StepHeader
               titleId="reg-section-title-security"
+              eyebrow={stepEyebrow("security")}
               title={t("registerPage.stepSecurity")}
               subtitle={
                 draftRestored
@@ -2325,6 +2363,7 @@ export default function RegisterPage() {
           <>
             <StepHeader
               titleId="reg-section-title-review"
+              eyebrow={stepEyebrow("review")}
               title={t("registerPage.reviewTitle")}
               subtitle={t("registerPage.reviewSubtitle")}
             />
@@ -2395,6 +2434,31 @@ export default function RegisterPage() {
     </span>
   );
 
+  // « Étape 4 sur 6 » over each section's title.
+  function stepEyebrow(id: RegistrationStepId): string {
+    return t("registerPage.stepIndicator", { current: STEPS.indexOf(id) + 1, total: STEPS.length });
+  }
+
+  // The step list in the side column on a wide screen (canvas, option D,
+  // 2026-11-11). Same states and same click behaviour as the rail in the
+  // header, which takes over below 1080px: both read railItemState() and
+  // call goToSection(), so a locked step still answers its click by naming
+  // what the current section is missing.
+  const stepName = (index: number) => t(`registerPage.${REGISTRATION_STEPS[index].labelKey}`);
+  const railSteps = STEPS.map((id, index) => {
+    const state = railItemState(index, { currentIndex: current, reached, completed });
+    return {
+      key: id,
+      marker: index + 1,
+      name: stepName(index),
+      state: RAIL_TO_STEP_STATE[state],
+      stateLabel: t(`registerPage.${railStateLabelKey(state)}`),
+      detail: state === "done" ? railSummaries[index] || undefined : undefined,
+      onSelect: () => goToSection(index),
+    };
+  });
+  const doneCount = completed.filter(Boolean).length;
+
   // The one way out the wizard keeps at the foot: help (owner, 2026-10-15).
   // Signing in and the portal are one click away through the logo; the
   // language link sits beside the logo. The number is not printed: the link
@@ -2450,6 +2514,14 @@ export default function RegisterPage() {
       </p>
 
       <div className="flow-split">
+        {/* Wide screens only (globals.css); the header's rail below 1080px. */}
+        <WizardRail
+          className="flow-rail"
+          progress={{ done: doneCount, total: STEPS.length }}
+          foot={helpLink}
+        >
+          <WizardStepList label={t("registerPage.railLabel")} steps={railSteps} />
+        </WizardRail>
         <div className="flow-body">
           {/* The frame: the current section and its buttons, in one column. */}
           <div className="flow-frame">
@@ -2465,6 +2537,24 @@ export default function RegisterPage() {
               <div className="wizard-snackbar-region" role="status" aria-live="polite">
                 {snackbar && <div className="wizard-snackbar">{snackbar}</div>}
               </div>
+
+              {/* Where the restored answers were kept, and the way to throw
+                  them away. Only on the section the draft landed on. */}
+              {draftNoticeIndex === current && (
+                <div className="flow-draft-notice" role="status">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <p>{t("registerPage.draftRestoredDetail")}</p>
+                  <button
+                    type="button"
+                    className="flow-draft-clear"
+                    onClick={() => setConfirmClearDraft(true)}
+                  >
+                    {t("registerPage.draftClearButton")}
+                  </button>
+                </div>
+              )}
 
               {/* Field errors appear under each control. Announce the count
                   once after the final submit attempt. */}
@@ -2593,7 +2683,7 @@ export default function RegisterPage() {
                     onClick={() => goToSection(current - 1)}
                   >
                     <span aria-hidden="true">←</span>
-                    {t("registerPage.backButton")}
+                    {t("registerPage.backToStep", { step: stepName(current - 1) })}
                   </button>
                 )}
                 {current < LAST_INDEX && (
@@ -2603,7 +2693,7 @@ export default function RegisterPage() {
                     data-flow-continue
                     onClick={tryContinue}
                   >
-                    {t("registerPage.continueButton")}
+                    {t("registerPage.continueToStep", { step: stepName(current + 1) })}
                     <span aria-hidden="true">→</span>
                   </button>
                 )}
@@ -2644,6 +2734,24 @@ export default function RegisterPage() {
             const next = pendingEntityType;
             setPendingEntityType(null);
             applyEntityType(next, true);
+          }}
+        />
+      )}
+
+      {/* Clearing the restored draft. Everything entered goes, so it is
+          asked first; Cancel changes nothing. */}
+      {confirmClearDraft && (
+        <ConfirmDialog
+          id="reg-clear-draft"
+          title={t("registerPage.draftClearTitle")}
+          body={t("registerPage.draftClearBody")}
+          cancelLabel={t("registerPage.draftClearCancel")}
+          confirmLabel={t("registerPage.draftClearConfirm")}
+          onCancel={() => setConfirmClearDraft(false)}
+          onConfirm={() => {
+            clearStoredDraft();
+            onRestart();
+            window.scrollTo({ top: 0, behavior: "instant" });
           }}
         />
       )}
