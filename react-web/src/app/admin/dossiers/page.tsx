@@ -10,6 +10,7 @@ import { Download, MoreHorizontal, Search, SlidersHorizontal } from "lucide-reac
 import { API_BASE_URL, archiveDossier, restoreDossier, bulkVisaDeclarations, bulkRejectDeclarations, bulkRequestCorrectionDeclarations, assignDossier, getAdminListFacets, getToken, listAdminQuestionnaires, localeHeader, reopenDossierForCorrection } from "@/lib/api-client";
 import { canManageDossierListClaim, isDossierRevisionConflict, selectDossierQueuePrimaryAction } from "@/lib/dossier-review-state";
 import { claimTimeLeft, waitingDuration } from "@/lib/registration-queue";
+import { DossierPreviewChecks, QueuePreviewPanel } from "@/components/admin/QueuePreviewPanel";
 import { OwnClaimLapseNote } from "@/components/admin/OwnClaimLapseNote";
 import { useAuthStore } from "@/lib/auth-store";
 import { ENTITY_TYPE_OPTION_KEYS, entityTypeLabel } from "@/lib/companies-directory";
@@ -453,6 +454,8 @@ function DossiersContent({
   const requestedOffsetSignature = `${filterSignature}|page:${requestedPage}`;
   const [offsetSignature, setOffsetSignature] = useState(requestedOffsetSignature);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // The instruction desk's preview: the id of the file shown, null when shut.
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [bulkClaiming, setBulkClaiming] = useState(false);
   if (offsetSignature !== requestedOffsetSignature) {
     setOffsetSignature(requestedOffsetSignature);
@@ -1596,6 +1599,53 @@ function DossiersContent({
     );
   }
 
+  // The pieces of a queue row that the preview shows too (owner,
+  // 2026-11-11): computed once, so the row and the panel never disagree.
+  const queueRowParts = (d: DossierItem) => {
+    const isPendingReview = d.adminStatus === "PENDING_REVIEW" && !d.archivedAt;
+    const waiting = isPendingReview && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
+    const isReviewOverdue = isPendingReview && nowMs !== null && overdueDays !== undefined && elapsedMoreThanDays(d.submittedAt, nowMs, overdueDays);
+    const detailHref = dossierWorkspaceHref(d.id, dossierReturnTo, {
+      readOnly: vue === "submissions" && !readOnly && Boolean(d.assigneeId) && d.assigneeId !== user?.id,
+      includeArchived: Boolean(d.archivedAt),
+    });
+    const primaryAction = selectDossierQueuePrimaryAction({ status: d.adminStatus, assigneeId: d.assigneeId, userId: user?.id, readOnly, validationDataAvailable: d.validationDataAvailable, blockingCount: d.blockingCount, warningCount: d.warningCount, archived: Boolean(d.archivedAt), claimExpired: Boolean(d.claimExpired), canClaim: canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), null, user?.id, user?.role) });
+    // One primary button per view (G5): the row's action is secondary,
+    // whatever it is; the « Valider » shortcut stays (owner, 2026-11-08).
+    const primaryActionButton = primaryAction === "claim"
+      ? <Button type="button" size="sm" variant="outline" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null, open: true })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
+      : primaryAction === "review-issues"
+        ? <Button asChild size="sm" variant="outline"><Link href={dossierWorkspaceHref(d.id, dossierReturnTo, { focusVerify: true })}>{t("reviewIssuesButton")}</Link></Button>
+        : primaryAction === "validate"
+          ? <Button type="button" size="sm" variant="outline" onClick={() => { setPreviewId(null); openQuickValidation(d); }}>{t("validateQueueButton")}</Button>
+          : primaryAction === "history"
+            ? <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("correctionHistoryButton")}</Link></Button>
+            : <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("openFileButton")}</Link></Button>;
+    // To the minute, as on the registration queue (owner, 2026-11-09); days
+    // stay the overdue rule. The time on its line, « en retard » as a tag
+    // under it (2026-11-11): the two in one badge broke anywhere.
+    const elapsed = waiting === null || nowMs === null ? null : waitingDuration(d.submittedAt, new Date(nowMs), locale);
+    const waitingNode = waiting === null || elapsed === null
+      ? <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>
+      : isReviewOverdue
+        ? <span className="cam-dossier-waiting-stack"><span className="cam-dossier-waiting">{elapsed}</span><Badge className="cam-dossier-overdue-badge" variant="info">{t("waitingOverdueTag")}</Badge></span>
+        : <span className="cam-dossier-waiting">{elapsed}</span>;
+    const claimLeft = d.assigneeId ? claimTimeLeft(d.claimExpiresAt, claimNow, locale) : null;
+    const agentNode = (
+      <div className="cam-dossier-owner-action">
+        <span className="cam-dossier-assignee-name">{d.assigneeId ? d.assigneeName ?? NOT_PROVIDED : t("noReviewerAssigned")}</span>
+        {d.claimExpired && d.assigneeId && <Badge variant="warning">{t("claimExpiredBadge")}</Badge>}
+        {/* The claim's deadline in words; amber, same words, in its last 30 minutes. */}
+        {claimLeft && (
+          <span className={claimLeft.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"} title={t("claimTimeHelp")}>
+            {claimLeft.lapsed ? t("claimExpiredBadge") : t("claimTimeLeft", { time: claimLeft.label })}
+          </span>
+        )}
+      </div>
+    );
+    return { detailHref, primaryActionButton, waitingNode, agentNode };
+  };
+
   return (
     <section id={`dossier-view-${vue}`} className={`cam-dossier-view cam-dossier-view--${vue}${vue === "submissions" && filterPanelOpen ? " is-filter-open" : ""}`}>
       {showPageHeader && pageHeader}
@@ -1866,28 +1916,10 @@ function DossiersContent({
                 const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : NOT_PROVIDED;
                 const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : NOT_PROVIDED;
                 const territoryTitle = [d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED;
-                const isPendingReview = d.adminStatus === "PENDING_REVIEW" && !d.archivedAt;
-                const waiting = isPendingReview && nowMs !== null ? elapsedDays(d.submittedAt, nowMs) : null;
-                const isReviewOverdue = isPendingReview && nowMs !== null && overdueDays !== undefined && elapsedMoreThanDays(d.submittedAt, nowMs, overdueDays);
                 const canManageArchive = hasRole(user?.role, DOSSIER_ARCHIVE_ROLES);
                 const hasCompletedActions = (canReadAudit || canManageArchive || (canReopen && d.adminStatus === "APPROVED"));
                 const actionsLabel = t("rowActionsAria", { name: d.companyName ?? d.submissionId });
-                const detailHref = dossierWorkspaceHref(d.id, dossierReturnTo, {
-                  readOnly: vue === "submissions" && !readOnly && Boolean(d.assigneeId) && d.assigneeId !== user?.id,
-                  includeArchived: Boolean(d.archivedAt),
-                });
-                const primaryAction = selectDossierQueuePrimaryAction({ status: d.adminStatus, assigneeId: d.assigneeId, userId: user?.id, readOnly, validationDataAvailable: d.validationDataAvailable, blockingCount: d.blockingCount, warningCount: d.warningCount, archived: Boolean(d.archivedAt), claimExpired: Boolean(d.claimExpired), canClaim: canManageDossierListClaim(d.adminStatus, Boolean(d.archivedAt), null, user?.id, user?.role) });
-                // One primary button per view (G5): the row's action is secondary,
-                // whatever it is; the « Valider » shortcut stays (owner, 2026-11-08).
-                const primaryActionButton = primaryAction === "claim"
-                  ? <Button type="button" size="sm" variant="outline" disabled={assignMutation.isPending && assignMutation.variables?.id === d.id} onClick={() => assignMutation.mutate({ id: d.id, assigneeId: user?.id ?? null, open: true })}>{t(assignMutation.isPending && assignMutation.variables?.id === d.id ? "claimingButton" : "claimButton")}</Button>
-                  : primaryAction === "review-issues"
-                    ? <Button asChild size="sm" variant="outline"><Link href={dossierWorkspaceHref(d.id, dossierReturnTo, { focusVerify: true })}>{t("reviewIssuesButton")}</Link></Button>
-                    : primaryAction === "validate"
-                      ? <Button type="button" size="sm" variant="outline" onClick={() => openQuickValidation(d)}>{t("validateQueueButton")}</Button>
-                      : primaryAction === "history"
-                        ? <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("correctionHistoryButton")}</Link></Button>
-                        : <Button asChild size="sm" variant="outline"><Link href={detailHref}>{t("openFileButton")}</Link></Button>;
+                const { primaryActionButton, waitingNode, agentNode } = queueRowParts(d);
                 const rowMenu = (menuItems: ReactNode) => (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -1941,7 +1973,9 @@ function DossiersContent({
                     {/* The respondent, the exact date and the replaced file are
                         read in the file itself; the queue says what to pick up. */}
                     <div className="cam-dossier-record-stack">
-                      <Link className="cam-dossier-record-name cam-dossier-record-link" href={detailHref} title={d.companyName ?? NOT_PROVIDED}>{d.companyName ?? NOT_PROVIDED}</Link>
+                      {/* The name opens the desk's preview; the row's button,
+                          and the preview's own link, open the file. */}
+                      <button type="button" className="cam-dossier-record-name cam-dossier-record-link cam-dossier-preview-opener" aria-haspopup="dialog" data-preview-opener={d.id} title={t("previewOpenTitle")} onClick={() => setPreviewId(d.id)}>{d.companyName ?? NOT_PROVIDED}</button>
                       {/* Board row: the file number in mono, then the form. */}
                       {/* The file number in mono, then the form as a tag, as in
                           the registration queue: a narrow column wraps between
@@ -1980,32 +2014,10 @@ function DossiersContent({
                   </TableCell>
                   {/* One signal: how long the file has waited, flagged once when overdue. */}
                   <TableCell data-label={t("waitingColumn")} className="cam-dossier-waiting-cell align-top whitespace-nowrap" title={stamp(d.submittedAt, true, locale)}>
-                    {/* To the minute, as on the registration queue (owner, 2026-11-09); days stay the overdue rule. */}
-                    {(() => {
-                      const elapsed = waiting === null || nowMs === null ? null : waitingDuration(d.submittedAt, new Date(nowMs), locale);
-                      if (waiting === null || elapsed === null) return <span className="cam-dossier-cell-secondary">{NOT_PROVIDED}</span>;
-                      // The time on its line, « en retard » as a tag under it
-                      // (2026-11-11): the two in one badge broke anywhere.
-                      return isReviewOverdue
-                        ? <span className="cam-dossier-waiting-stack"><span className="cam-dossier-waiting">{elapsed}</span><Badge className="cam-dossier-overdue-badge" variant="info">{t("waitingOverdueTag")}</Badge></span>
-                        : <span className="cam-dossier-waiting">{elapsed}</span>;
-                    })()}
+                    {waitingNode}
                   </TableCell>
                   <TableCell data-label={t("assignedReviewerColumn")} className="cam-dossier-assignee-cell align-top whitespace-normal">
-                    <div className="cam-dossier-owner-action">
-                      <span className="cam-dossier-assignee-name">{d.assigneeId ? d.assigneeName ?? NOT_PROVIDED : t("noReviewerAssigned")}</span>
-                      {d.claimExpired && d.assigneeId && <Badge variant="warning">{t("claimExpiredBadge")}</Badge>}
-                      {/* The claim's deadline in words; amber, same words, in its last 30 minutes. */}
-                      {(() => {
-                        const left = d.assigneeId ? claimTimeLeft(d.claimExpiresAt, claimNow, locale) : null;
-                        if (!left) return null;
-                        return (
-                          <span className={left.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"} title={t("claimTimeHelp")}>
-                            {left.lapsed ? t("claimExpiredBadge") : t("claimTimeLeft", { time: left.label })}
-                          </span>
-                        );
-                      })()}
-                    </div>
+                    {agentNode}
                   </TableCell>
                   <TableCell className="cam-dossier-action-cell cam-cell-action align-top">
                     <div className="cam-dossier-row-actions">
@@ -2028,6 +2040,44 @@ function DossiersContent({
         </div>
         {vue === "submissions" && filterPanelOpen && submissionFilterSidebar}
         </div>}
+        {(() => {
+          // The desk's preview: the file chosen in the queue, stepped through
+          // in the queue's current order. Gone if a refetch drops the file.
+          const index = previewId ? dossiers.findIndex((item) => item.id === previewId) : -1;
+          if (index < 0) return null;
+          const d = dossiers[index];
+          const parts = queueRowParts(d);
+          const campaignName = d.campaignName ? formatCampaignDisplayName(d.campaignName) : null;
+          const periodLabel = d.quarterCode ? referencePeriodLabel(d.quarterCode, locale) : null;
+          return (
+            <QueuePreviewPanel
+              openerKey={d.id}
+              title={d.companyName ?? d.respondentName ?? d.submissionId}
+              reference={d.submissionId ?? null}
+              filedOn={d.submittedAt ? stamp(d.submittedAt, true, locale) : null}
+              description={t("previewDescription")}
+              factsTitle={t("previewFacts")}
+              decisionNote={t("previewDecisionNote")}
+              openFile={{ href: parts.detailHref, label: t("previewOpenFile") }}
+              facts={[
+                { label: t("previewQuestionnaire"), value: d.formType ? typeLabel(d.formType) : NOT_PROVIDED },
+                { label: t("territoryColumn"), value: [d.region, d.department].filter(Boolean).join(" · ") || NOT_PROVIDED },
+                { label: t("previewRespondent"), value: d.respondentName ?? NOT_PROVIDED },
+                // The period only when the campaign's name does not already say it.
+                { label: t("campaignPeriodColumn"), value: [campaignName, periodLabel && !(campaignName ?? "").includes(periodLabel) ? periodLabel : null].filter(Boolean).join(" · ") || NOT_PROVIDED },
+                { label: t("waitingColumn"), value: parts.waitingNode },
+                { label: t("assignedReviewerColumn"), value: parts.agentNode },
+              ]}
+              action={parts.primaryActionButton}
+              position={{ index, total: dossiers.length }}
+              onPrevious={index > 0 ? () => setPreviewId(dossiers[index - 1].id) : null}
+              onNext={index < dossiers.length - 1 ? () => setPreviewId(dossiers[index + 1].id) : null}
+              onClose={() => setPreviewId(null)}
+            >
+              <DossierPreviewChecks dossierId={d.id} />
+            </QueuePreviewPanel>
+          );
+        })()}
         {archiveTarget && <ArchiveActions
           archived={false}
           canManage={hasRole(user?.role, DOSSIER_ARCHIVE_ROLES)}

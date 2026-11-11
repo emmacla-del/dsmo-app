@@ -1442,3 +1442,138 @@ button.cam-kpi[aria-pressed="true"] {
   .cam-admin.cam-admin .cam-audit-table td:first-child { white-space: nowrap; }
   .cam-admin.cam-admin .cam-audit-table .cam-audit-resource-id { white-space: nowrap; }
 }
+
+/* ── 23. The instruction desk's preview (owner, 2026-11-11) ────────────────
+   DossierPreviewPanel and the registration queue's preview: a panel from
+   the right over the queue, opened from a row's name. It decides nothing;
+   its one action is the row's own button. Rendered in a portal, outside
+   .cam-admin, so these rules are not scoped to it. */
+.cam-dossier-preview[data-slot="sheet-content"] {
+  width: min(520px, 100vw);
+  max-width: 100vw;
+  gap: 0;
+  padding: 0;
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-family: var(--cam-font-sans);
+  overflow-y: auto;
+}
+.cam-dossier-preview-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-3) var(--cam-space-5);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+  font-size: var(--cam-font-size-sm);
+}
+.cam-dossier-preview-position { color: var(--cam-text-muted); }
+.cam-dossier-preview-steps { display: inline-flex; gap: var(--cam-space-4); }
+.cam-dossier-preview-steps .cam-text-button:disabled { color: var(--cam-text-muted); cursor: default; text-decoration: none; }
+.cam-dossier-preview-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
+}
+.cam-dossier-preview-filed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cam-space-2);
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+.cam-dossier-preview-title {
+  margin: 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-official);
+}
+.cam-dossier-preview-section {
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+.cam-dossier-preview-h3 {
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-dossier-preview-muted { margin: 0; font-size: var(--cam-font-size-sm); color: var(--cam-text-muted); }
+.cam-dossier-preview-findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+}
+.cam-dossier-preview-findings li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding-left: var(--cam-space-3);
+  border-left: 3px solid var(--cam-warning);
+}
+.cam-dossier-preview-findings li { border-left-color: var(--cam-amber-border); }
+.cam-dossier-preview-findings li.is-blocking { border-left-color: var(--cam-error); }
+/* The queue behind is inert while the preview is open; the scrim says so. */
+body:has(.cam-dossier-preview) [data-slot="sheet-overlay"] { background: var(--cam-scrim); }
+.cam-dossier-preview-severity { font-size: var(--cam-font-size-2xs); font-weight: var(--cam-font-weight-semibold); color: var(--cam-text-muted); }
+.cam-dossier-preview-facts { margin: 0; font-size: var(--cam-font-size-sm); }
+.cam-dossier-preview-facts > div {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-2) 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border-subtle);
+}
+.cam-dossier-preview-facts > div:last-child { border-bottom: 0; }
+.cam-dossier-preview-facts dt { color: var(--cam-text-muted); }
+.cam-dossier-preview-facts dd { margin: 0; min-width: 0; }
+.cam-dossier-preview-foot {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+}
+.cam-dossier-preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cam-space-4);
+  flex-wrap: wrap;
+}
+/* The row's name is a button that opens the preview; it keeps the look of
+   the name link it replaces. */
+.cam-dossier-preview-opener {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cam-dossier-preview-opener:hover {
+  color: var(--cam-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cam-dossier-preview-opener:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+  border-radius: var(--cam-radius-sm);
+}

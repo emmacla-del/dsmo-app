@@ -46,6 +46,7 @@ import { AdminKpiStrip, type KpiItem } from "@/components/admin/AdminKpiStrip";
 import { OwnClaimLapseNote } from "@/components/admin/OwnClaimLapseNote";
 import { ArchiveActions } from "@/components/admin/ArchiveActions";
 import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
+import { QueuePreviewPanel, QueuePreviewPoints } from "@/components/admin/QueuePreviewPanel";
 import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { DataStateRow } from "@/components/admin/DataState";
@@ -232,6 +233,8 @@ export function RegistrationQueue() {
   // changes the holder only; the file stays pending review.
   const claimLock = useRef(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  // The instruction desk's preview: the request shown, null when shut.
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const openReview = (item: CompanyRegistrationItem) => {
     saveRegistrationTrail({
       returnTo: currentHref,
@@ -339,6 +342,62 @@ export function RegistrationQueue() {
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? "";
   const entityShort = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(`adminInscriptionsPage.entityShort.${value}`) : value ?? "";
+  // The pieces of a pending row the preview shows too (owner, 2026-11-11),
+  // computed once so the row and the panel never disagree.
+  const pendingRowParts = (item: CompanyRegistrationItem) => {
+    const mine = item.assigneeId != null && item.assigneeId === userId;
+    const colleague = item.assigneeId != null && !mine;
+    const claiming = claimingId === item.id;
+    const left = item.assigneeId ? claimTimeLeft(item.claimExpiresAt, now, locale) : null;
+    const duration = waitingDuration(item.submittedAt, now, locale);
+    const stampText = receiptStamp(item.submittedAt, locale);
+    const waitingNode = duration && stampText ? (
+      <time dateTime={item.submittedAt} title={t("receivedAt", { stamp: stampText })}>
+        {duration}
+        <span className="sr-only"> ({t("receivedAt", { stamp: stampText })})</span>
+      </time>
+    ) : (
+      <span className="cam-cell-muted" title={t("receiptUnavailable")}>{t("unavailable")}</span>
+    );
+    const assignedNode = (
+      <span className="cam-cell-stack">
+        <span className={mine || colleague ? undefined : "cam-cell-muted"}>
+          {mine ? t("you") : colleague ? item.assigneeName || t("colleagueUnnamed") : t("unassigned")}
+        </span>
+        {/* The claim's deadline, in words; amber in its last 30 minutes. */}
+        {left && (
+          <span className={left.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"} title={t("timeLeftHelp")}>
+            {left.lapsed ? t("claimLapsed") : t("timeLeft", { time: left.label })}
+          </span>
+        )}
+      </span>
+    );
+    const actionButton = mine ? (
+      <Button type="button" size="sm" variant="outline" aria-label={t("openAria", { organisation: item.organisation })} onClick={() => openReview(item)}>
+        {t("openReview")}
+      </Button>
+    ) : colleague ? (
+      // A colleague's file opens read-only; the review page
+      // offers the confirmed, logged takeover.
+      <Button type="button" size="sm" variant="outline" aria-label={t("openColleagueAria", { organisation: item.organisation, name: item.assigneeName || t("colleagueUnnamed") })} onClick={() => openReview(item)}>
+        {t("openColleague")}
+      </Button>
+    ) : (
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-label={t("claimAria", { organisation: item.organisation })}
+        aria-busy={claiming || undefined}
+        disabled={claimingId !== null}
+        onClick={() => void claimAndOpen(item)}
+      >
+        {claiming ? t("claiming") : t("claimAndOpen")}
+      </Button>
+    );
+    return { waitingNode, assignedNode, actionButton };
+  };
+
   const statusLabel = (status: string) => status === "REJECTED"
     ? t("statusRejected")
     : status === "COMPLEMENTS_REQUESTED"
@@ -551,18 +610,15 @@ export function RegistrationQueue() {
                   ) : undefined}
                 />
                 {tableState === "ready" && rows.map((item) => {
-                  const duration = waitingDuration(item.submittedAt, now, locale);
-                  const stampText = receiptStamp(item.submittedAt, locale);
                   const place = territoryParts(item, role).join(" · ");
-                  const mine = item.assigneeId != null && item.assigneeId === userId;
-                  const colleague = item.assigneeId != null && !mine;
-                  const claiming = claimingId === item.id;
-                  const left = item.assigneeId ? claimTimeLeft(item.claimExpiresAt, now, locale) : null;
+                  const { waitingNode, assignedNode, actionButton } = pendingRowParts(item);
                   return (
                     <TableRow key={item.id}>
                       <TableHead scope="row">
                         <span className="cam-record-cell">
-                          <span className="cam-record-cell-name" title={item.organisation}>{item.organisation}</span>
+                          {/* The name opens the desk's preview; the row's
+                              button opens the request itself. */}
+                          <button type="button" className="cam-record-cell-name cam-dossier-preview-opener" aria-haspopup="dialog" data-preview-opener={item.id} title={t("previewOpenTitle")} onClick={() => setPreviewId(item.id)}>{item.organisation}</button>
                           <span className="cam-record-cell-meta">
                             <span className="cam-record-cell-ref">{item.establishmentId || t("noReference")}</span>
                             {item.entityType && <span className="cam-tag" title={entityLabel(item.entityType)}>{entityShort(item.entityType)}</span>}
@@ -571,52 +627,13 @@ export function RegistrationQueue() {
                       </TableHead>
                       <TableCell data-label={t("colTerritory")}>{place || "—"}</TableCell>
                       <TableCell data-label={t("colWaiting")} className="cam-cell-nowrap">
-                        {duration && stampText ? (
-                          <time dateTime={item.submittedAt} title={t("receivedAt", { stamp: stampText })}>
-                            {duration}
-                            <span className="sr-only"> ({t("receivedAt", { stamp: stampText })})</span>
-                          </time>
-                        ) : (
-                          <span className="cam-cell-muted" title={t("receiptUnavailable")}>{t("unavailable")}</span>
-                        )}
+                        {waitingNode}
                       </TableCell>
                       <TableCell data-label={t("colAssigned")}>
-                        <span className="cam-cell-stack">
-                          <span className={mine || colleague ? undefined : "cam-cell-muted"}>
-                            {mine ? t("you") : colleague ? item.assigneeName || t("colleagueUnnamed") : t("unassigned")}
-                          </span>
-                          {/* The claim's deadline, in words; amber in its last 30 minutes. */}
-                          {left && (
-                            <span className={left.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"} title={t("timeLeftHelp")}>
-                              {left.lapsed ? t("claimLapsed") : t("timeLeft", { time: left.label })}
-                            </span>
-                          )}
-                        </span>
+                        {assignedNode}
                       </TableCell>
                       <TableCell className="cam-cell-action">
-                        {mine ? (
-                          <Button type="button" size="sm" variant="outline" aria-label={t("openAria", { organisation: item.organisation })} onClick={() => openReview(item)}>
-                            {t("openReview")}
-                          </Button>
-                        ) : colleague ? (
-                          // A colleague's file opens read-only; the review page
-                          // offers the confirmed, logged takeover.
-                          <Button type="button" size="sm" variant="outline" aria-label={t("openColleagueAria", { organisation: item.organisation, name: item.assigneeName || t("colleagueUnnamed") })} onClick={() => openReview(item)}>
-                            {t("openColleague")}
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            aria-label={t("claimAria", { organisation: item.organisation })}
-                            aria-busy={claiming || undefined}
-                            disabled={claimingId !== null}
-                            onClick={() => void claimAndOpen(item)}
-                          >
-                            {claiming ? t("claiming") : t("claimAndOpen")}
-                          </Button>
-                        )}
+                        {actionButton}
                       </TableCell>
                     </TableRow>
                   );
@@ -712,6 +729,54 @@ export function RegistrationQueue() {
           </div>
         </AdminTablePanel>
       )}
+      {isPendingQueue && (() => {
+        // The desk's preview: the request chosen in the queue, stepped through
+        // in the queue's current order. Gone if a refetch drops it.
+        const index = previewId ? rows.findIndex((row) => row.id === previewId) : -1;
+        if (index < 0) return null;
+        const item = rows[index];
+        const parts = pendingRowParts(item);
+        const tReview = (key: string, values?: Record<string, string | number>) => tRoot(`adminRegistrationReview.${key}`, values);
+        const respondent = [[item.respondentFirstName, item.respondentLastName].filter(Boolean).join(" "), item.respondentFunction].filter(Boolean).join(", ");
+        const points = [
+          ...item.duplicateHints.map((hint, i) => ({ key: `dup-${i}`, blocking: false, label: tReview("duplicatesTitle"), text: hint })),
+          ...(item.requiresCentralStructureCheck ? [{ key: "central", blocking: false, label: tReview("verifyNavLabel"), text: t("previewCentral") }] : []),
+          ...(item.lastResubmission ? [{ key: "changes", blocking: false, label: tReview("changesTitle"), text: tReview("changesWhen", { date: stamp(item.lastResubmission.at, true, locale) }) }] : []),
+        ];
+        return (
+          <QueuePreviewPanel
+            openerKey={item.id}
+            title={item.organisation}
+            reference={item.establishmentId || null}
+            filedOn={item.submittedAt ? stamp(item.submittedAt, true, locale) : null}
+            description={t("previewDescription")}
+            factsTitle={t("previewFacts")}
+            decisionNote={t("previewDecisionNote")}
+            facts={[
+              { label: t("previewType"), value: entityLabel(item.entityType) || "—" },
+              { label: t("colTerritory"), value: [item.region, item.department, item.subdivision].filter(Boolean).join(" · ") || "—" },
+              { label: t("previewAddress"), value: item.address || "—" },
+              { label: t("previewActivity"), value: item.mainActivity || "—" },
+              { label: tReview("taxNumberLabel"), value: item.taxNumber ? <span className="cam-record-cell-ref">{item.taxNumber}</span> : "—" },
+              { label: tReview("cnpsLabel"), value: item.cnpsNumber ? <span className="cam-record-cell-ref">{item.cnpsNumber}</span> : "—" },
+              { label: t("previewRespondent"), value: respondent || "—" },
+              { label: t("previewContact"), value: [item.email, item.respondentPhone, item.respondentPhone2].filter(Boolean).join(" · ") || "—" },
+              { label: t("previewMethod"), value: item.registrationMethod === "ASSISTED" || item.registrationMethod === "ADMIN_CREATED"
+                ? item.createdByName ? t("previewAssisted", { name: item.createdByName }) : t("previewAssistedUnnamed")
+                : t("previewSelf") },
+              { label: t("colWaiting"), value: parts.waitingNode },
+              { label: t("colAssigned"), value: parts.assignedNode },
+            ]}
+            action={parts.actionButton}
+            position={{ index, total: rows.length }}
+            onPrevious={index > 0 ? () => setPreviewId(rows[index - 1].id) : null}
+            onNext={index < rows.length - 1 ? () => setPreviewId(rows[index + 1].id) : null}
+            onClose={() => setPreviewId(null)}
+          >
+            <QueuePreviewPoints title={t("previewPoints")} points={points} emptyText={t("previewNoPoints")} />
+          </QueuePreviewPanel>
+        );
+      })()}
       {archiveTarget && <ArchiveActions
         archived={false}
         canManage={hasRole(role, USER_ARCHIVE_ROLES)}

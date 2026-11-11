@@ -39,7 +39,8 @@ When this file and the spec disagree, the spec wins; fix this file.
 - Tabs decide *whose* items are listed; filters narrow them. Don't mix the two.
 - Table conventions (spec §11): a record cell first (name, then reference and short type tag); « Région · Département » in one column; relative age with the full stamp as `title`; the order control always visible at the end of the filter bar; `AdminNumberedPager` in the panel footer; 14px text; **no sticky first column**.
 - Mark list tables `.cam-table-stack` and give every cell but the first and the action a `data-label`: below 640px they become stacked records with a full-width action. A cell holding several lines wraps them in one `.cam-cell-stack` so the stacked grid keeps them together.
-- Wide tables that remain scroll inside their own region (labelled, focusable).
+- From 1280px every list table fits its card (no sideways scroll): let long text wrap at word boundaries, keep identifiers, e-mails, dates and figures whole, and let headers take two lines before adding a minimum width. Below that, wide tables scroll inside their own region (labelled, focusable).
+- The instruction queues (registrations, declarations) are a desk: a row's name opens `QueuePreviewPanel` (what to check, the row's facts, Précédent / Suivant, the row's own button). The panel never decides: approval, correction and rejection stay on the review page, after the claim (owner, 2026-11-11). Build a new queue's preview from the row's own parts so the two never disagree.
 
 ## Colour meaning
 
