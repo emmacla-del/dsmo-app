@@ -11,7 +11,7 @@ import styles from "../portal.module.css";
 // On the official navy since 2026-11-11 (option D), with the ONEFOP emblem
 // at 64px (never below 56px, brand.md) and the flag ribbon closing the page.
 // Three columns since the home page redesign (2026-11-24): who runs the
-// platform (emblem and the reversed CAMLEAP logo), the pages, the contacts;
+// platform (the emblem and the CAMLEAP logo, each on its white plate), the pages, the contacts;
 // the legal basis under them.
 
 export function SiteFooter() {
@@ -27,8 +27,10 @@ export function SiteFooter() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/images/onefop_logo.png" alt="" width={64} height={63} />
             </span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/camleap-logo-reversed.svg" alt="CAMLEAP" width={150} height={21} className={styles.footerLogo} />
+            <span className={styles.logoPlate}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={150} height={21} className={styles.footerLogo} />
+            </span>
           </div>
           <p className={styles.footerOrg}>{t("footerOrg")}</p>
           <p>{t("footerMinistry")}</p>

@@ -1468,7 +1468,16 @@
 }
 
 .logo {
-  height: 26px;
+  height: 24px;
+}
+
+/* The logo's own ground: white, so its navy and greens read as drawn. */
+.logoPlate {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--cam-space-2) var(--cam-space-3);
+  border-radius: var(--cam-radius-sm);
+  background: var(--cam-white);
 }
 
 .endorsement {
@@ -1677,7 +1686,11 @@
 
 @media (max-width: 820px) {
   .logo {
-    height: 18px;
+    height: 16px;
+  }
+
+  .logoPlate {
+    padding: 6px var(--cam-space-2);
   }
 
   .signIn {
@@ -1848,7 +1861,8 @@
   background: var(--cam-primary-dark);
 }
 
-/* 2. The navigation bar: official navy, sticky; the reversed logo. It is
+/* 2. The navigation bar: official navy, sticky; the CAMLEAP logo in its
+   own colours on a white plate (never recoloured, owner 2026-11-24). It is
    the only sticky part (the identity row scrolls away), so anchors clear
    its 72px. */
 .page {
@@ -2382,4 +2396,28 @@
 
 .footerLegal {
   margin-top: var(--cam-space-7);
+}
+
+/* A small phone: the plated logo, sign-in and Menu keep one row. */
+@media (max-width: 440px) {
+  .mastheadInner {
+    gap: 0 var(--cam-space-2);
+  }
+
+  .logoPlate {
+    padding: 5px 6px;
+  }
+
+  .logo {
+    height: 14px;
+  }
+
+  .signIn {
+    padding: 4px var(--cam-space-2);
+    font-size: 14px;
+  }
+
+  .menuToggle {
+    font-size: 14px;
+  }
 }

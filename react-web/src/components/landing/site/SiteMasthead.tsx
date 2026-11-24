@@ -9,7 +9,8 @@
 //    name; on the right the other language, « Nous contacter » (e-mail) and
 //    the one way in, « Inscrire mon organisation ». The mock-up's search
 //    box is not built: the public site has nothing to search.
-// 3. The navigation bar, official navy, sticky: the reversed CAMLEAP logo
+// 3. The navigation bar, official navy, sticky: the CAMLEAP logo as it is,
+//    on a white plate (owner, 2026-11-24: no recoloured version),
 //    with the platform's full name and « Une plateforme de l'ONEFOP »,
 //    three tabs (the current one on teal), and sign-in.
 //
@@ -96,8 +97,10 @@ export function SiteMasthead() {
       <header className={styles.masthead}>
         <div className={`${styles.container} ${styles.mastheadInner}`}>
           <Link href="/" className={styles.lockup}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/camleap-logo-reversed.svg" alt="CAMLEAP" width={170} height={24} className={styles.logo} />
+            <span className={styles.logoPlate}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={170} height={24} className={styles.logo} />
+            </span>
             <span className={styles.endorsement}>
               <span className={styles.platformName}>{tAuth("subtitle")}</span>
               <span>{t("platformOf")}</span>
