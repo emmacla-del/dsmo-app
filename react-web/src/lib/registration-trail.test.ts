@@ -61,6 +61,8 @@ test("only the decisions that keep a file in the filter leave it listed", () => 
   assert.equal(decisionStaysListed({ status: "PENDING_APPROVAL" }, "complements"), false);
   assert.equal(decisionStaysListed({ overdue: true }, "complements"), false);
   assert.equal(decisionStaysListed({ status: "ALL" }, "rejected"), true);
+  assert.equal(decisionStaysListed({ statuses: "PENDING_APPROVAL,COMPLEMENTS_REQUESTED,ACTIVE,REJECTED" }, "approved"), true);
+  assert.equal(decisionStaysListed({ statuses: "REJECTED" }, "approved"), false);
 });
 
 /** A live queue of `rows`, paged as the server pages it. */

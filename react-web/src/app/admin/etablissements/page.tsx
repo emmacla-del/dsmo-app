@@ -1,11 +1,11 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Download, Plus, Search } from "lucide-react";
+import { Download, MoreHorizontal, Plus, Search } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   ENTITY_TYPE_OPTION_KEYS,
@@ -14,9 +14,9 @@ import {
   entityTypeLabel,
   type Company,
 } from "@/lib/companies-directory";
+import { activateUser, archiveUser, restoreUser, suspendUser } from "@/lib/user-directory";
 import { asUiLocale } from "@/lib/register-i18n";
-import { getDataManagementStats } from "@/lib/api-client";
-import { DIRECTORY_READ_ROLES, isReadOnlyRole } from "@/lib/roles";
+import { DIRECTORY_READ_ROLES, SURVEY_READ_ROLES, USER_ARCHIVE_ROLES, USER_LIFECYCLE_ROLES, hasRole, isReadOnlyRole } from "@/lib/roles";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
@@ -27,16 +27,21 @@ import { clampAdminListPage, hrefWith, parseAdminListPage } from "@/lib/admin-ur
 import { AdminKpiStrip } from "@/components/admin/AdminKpiStrip";
 import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { DataStateRow } from "@/components/admin/DataState";
+import { ArchiveActions } from "@/components/admin/ArchiveActions";
+import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
 import {
   NOT_PROVIDED,
   count,
   resolveDataState,
   stamp,
 } from "@/lib/admin-data-state";
-import { useTerritoryRegions } from "@/hooks/useTerritoryStructure";
+import { useTerritoryDepartments, useTerritoryRegions } from "@/hooks/useTerritoryStructure";
 import { YEAR_MIN } from "@/lib/pilotage-targets";
 import { doualaIsoDate, doualaYear } from "@/lib/douala-date";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -47,6 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const PAGE_SIZE = 8;
 type Semester = 1 | 2;
@@ -94,8 +100,6 @@ const ENTITY_TYPE_VALUES = [
 const ACCOUNT_STATUSES = [
   { value: "ALL", labelKey: "allMasculine" },
   { value: "ACTIVE", labelKey: "status.ACTIF" },
-  { value: "PENDING_APPROVAL", labelKey: "status.EN_ATTENTE" },
-  { value: "REJECTED", labelKey: "status.REJETE" },
   { value: "SUSPENDED", labelKey: "status.SUSPENDU" },
 ];
 
@@ -112,6 +116,7 @@ const ACCOUNT_STATUSES = [
 interface EtabItem {
   id: string;
   companyId: string;
+  userId: string;
   name: string | null;
   type: string | null;
   /** French label, for the CSV export (whose columns do not follow the locale). */
@@ -125,6 +130,8 @@ interface EtabItem {
   contactEmail: string | null;
   contactPhone: string | null;
   dateInscription: string | null;
+  archivedAt: string | null;
+  archiveReason: string | null;
   year: number | null;
   semester: Semester | null;
   quarter: Quarter | null;
@@ -154,6 +161,9 @@ function EtablissementsContent() {
   const searchParams = useSearchParams();
   const currentQuery = searchParams.toString();
   const userId = useAuthStore((s) => s.user?.id);
+  const userRegion = useAuthStore((s) => s.user?.region);
+  const userDepartment = useAuthStore((s) => s.user?.department);
+  const queryClient = useQueryClient();
   const tRoot = useTranslations();
   const t = useTranslations("adminEtablissementsPage");
   const tStats = useTranslations("adminLayout");
@@ -170,6 +180,9 @@ function EtablissementsContent() {
   // Central agents consult the register: no export, no registration on a
   // company's behalf, no account management.
   const readOnly = isReadOnlyRole(role);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<EtabItem | null>(null);
+  const [accountAction, setAccountAction] = useState<{ kind: "suspend" | "activate" | "restore"; item: EtabItem } | null>(null);
 
   const { regions: territoryRegions } = useTerritoryRegions();
 
@@ -185,6 +198,12 @@ function EtablissementsContent() {
   const rawType = searchParams.get("type") ?? "";
   const selectedType = (ENTITY_TYPE_VALUES as readonly string[]).includes(rawType) ? rawType : "ALL";
   const selectedRegion = searchParams.get("region")?.trim() || "Toutes";
+  const selectedDepartment = searchParams.get("department")?.trim() ?? "";
+  const includeArchived = searchParams.get("includeArchived") === "true";
+  const territoryPill = territoryPillFor(role);
+  const departmentRegion = role === "REGIONAL_ADMIN" ? userRegion : selectedRegion === "Toutes" ? undefined : selectedRegion;
+  const { departments: territoryDepartments } = useTerritoryDepartments(departmentRegion);
+  const departmentOptions = role === "DIVISIONAL_ADMIN" ? (userDepartment ? [userDepartment] : []) : territoryDepartments;
   const rawStatus = searchParams.get("status") ?? "";
   const selectedStatus = ACCOUNT_STATUSES.some((status) => status.value === rawStatus) ? rawStatus : "ALL";
   const sortOrder: "oldest" | "newest" = searchParams.get("sort") === "oldest" ? "oldest" : "newest";
@@ -199,6 +218,11 @@ function EtablissementsContent() {
     : null;
   const page = parseAdminListPage(searchParams.get("page"));
   const setPage = (next: number) => setFilters({ page: next <= 1 ? null : next });
+
+  useEffect(() => {
+    if (!rawStatus || ACCOUNT_STATUSES.some((status) => status.value === rawStatus)) return;
+    window.history.replaceState(null, "", hrefWith(pathname, window.location.search.slice(1), { status: null, page: null }));
+  }, [pathname, rawStatus]);
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   // A saved view or the back button changes the URL under the box: follow it.
@@ -228,33 +252,29 @@ function EtablissementsContent() {
   }, [searchInput, urlSearch, pathname]);
 
   const companyStatsQuery = useQuery({
-    queryKey: ["dsmo", "companies", "stats"],
-    queryFn: getCompanyStats,
+    queryKey: ["dsmo", "companies", "stats", includeArchived],
+    queryFn: () => getCompanyStats(includeArchived),
     enabled: canRead,
-  });
-
-  // Only the fallback for the total, and far slower than GET /companies/stats:
-  // read when that request has failed, not on every load of the register.
-  const statsQuery = useQuery({
-    queryKey: ["admin", "data-management", "stats"],
-    queryFn: getDataManagementStats,
-    enabled: companyStatsQuery.isError,
   });
 
   // Sent to GET /companies, which filters and counts over the whole
   // territory-scoped register rather than over the page already fetched.
   const serverStatus = selectedStatus !== "ALL" ? selectedStatus : undefined;
   const serverRegion = selectedRegion !== "Toutes" ? selectedRegion : undefined;
+  const serverDepartment = selectedDepartment || undefined;
   const serverType = selectedType !== "ALL" ? selectedType : undefined;
 
   const companiesQuery = useQuery({
-    queryKey: ["dsmo", "companies", urlSearch, serverStatus ?? "ALL", serverRegion ?? "ALL", serverType ?? "ALL", sortOrder, periodYear, periodSemester, periodQuarter, page],
+    queryKey: ["dsmo", "companies", "registered", urlSearch, serverStatus ?? "ALL", serverRegion ?? "ALL", serverDepartment ?? "ALL", serverType ?? "ALL", includeArchived, sortOrder, periodYear, periodSemester, periodQuarter, page],
     queryFn: () =>
       listCompanies({
         search: urlSearch || undefined,
         status: serverStatus,
         region: serverRegion,
+        department: serverDepartment,
         entityType: serverType,
+        registeredOnly: true,
+        includeArchived,
         sortOrder,
         year: periodYear ?? undefined,
         semester: periodSemester ?? undefined,
@@ -275,14 +295,13 @@ function EtablissementsContent() {
     window.history.replaceState(null, "", hrefWith(pathname, window.location.search.slice(1), { page: validPage <= 1 ? null : validPage }));
   }, [companiesTotal, page, pathname]);
 
-  const stats = statsQuery.data;
   const companyStats = companyStatsQuery.data;
 
   /**
    * Total establishments.
-   * Sourced directly from GET /companies/stats (or GET /data-management/stats).
+   * Approved stock is the active and suspended buckets from GET /companies/stats.
    */
-  const totalEtablissements = companyStats?.total ?? stats?.totals?.companies ?? stats?.totalCompanies ?? null;
+  const totalEtablissements = companyStats ? companyStats.active + companyStats.suspended : null;
 
   const rawRows: Company[] = companiesQuery.data?.companies ?? [];
 
@@ -290,6 +309,7 @@ function EtablissementsContent() {
   const displayRows: EtabItem[] = rawRows.map((c) => ({
     id: c.establishmentId || c.id,
     companyId: c.id,
+    userId: c.user?.id ?? "",
     name: c.name ?? null,
     type: c.entityType?.toUpperCase() ?? null,
     typeLabel: c.entityType ? entityTypeLabel(c.entityType) : null,
@@ -305,18 +325,10 @@ function EtablissementsContent() {
     contactEmail: c.user?.email ?? null,
     contactPhone: c.respondentPhone ?? c.phone ?? null,
     dateInscription: c.createdAt ?? null,
+    archivedAt: c.user?.archivedAt ?? null,
+    archiveReason: c.user?.archiveReason ?? null,
     ...registrationPeriod(c.createdAt),
-    // Derived from the linked account's own stored state. A company with no
-    // linked account yields "INCONNU" rather than being called suspended.
-    status: !c.user
-      ? "INCONNU"
-      : c.user.status === "REJECTED"
-        ? "REJETE"
-        : c.user.status === "PENDING_APPROVAL"
-        ? "EN_ATTENTE"
-        : c.user.isActive
-          ? "ACTIF"
-          : "SUSPENDU",
+    status: c.user?.isActive ? "ACTIF" : "SUSPENDU",
   }));
 
   // Type and « Suspendu » are filtered by GET /companies too (2026-11-03), so
@@ -347,17 +359,20 @@ function EtablissementsContent() {
   // Filter bar (spec §4F): search, scope, type / region / status pills,
   // « Filtres » for the period and the order. Chips only for what has no pill.
   const tq = (key: string, values?: Record<string, string>) => tRoot(`adminInscriptionsPage.${key}`, values);
-  const showRegionPill = territoryPillFor(role) === "region";
+  const showRegionPill = territoryPill === "region";
+  const showDepartmentPill = territoryPill === "department";
   const panelChips = [
+    selectedDepartment && !showDepartmentPill && { key: "department", label: `${tRoot("companiesDirectory.departmentColumn")} : ${selectedDepartment}`, clear: () => setFilters({ department: null }) },
     periodYear != null && { key: "year", label: `${t("yearColumn")} : ${periodYear}`, clear: () => setFilters({ year: null }) },
     periodSemester != null && { key: "semester", label: `${t("semesterColumn")} : S${periodSemester}`, clear: () => setFilters({ semester: null, quarter: null }) },
     periodQuarter != null && { key: "quarter", label: `${t("quarterColumn")} : Q${periodQuarter}`, clear: () => setFilters({ quarter: null }) },
     sortOrder !== "newest" && { key: "sort", label: tRoot("adminDossiersPage.sortOldest"), clear: () => setFilters({ sort: null }) },
+    includeArchived && { key: "includeArchived", label: t("showArchived"), clear: () => setFilters({ includeArchived: null }) },
   ].filter(Boolean) as { key: string; label: string; clear: () => void }[];
   const hasAnyFilter = panelChips.length > 0 || searchInput.trim() !== "" || selectedType !== "ALL" || selectedRegion !== "Toutes" || selectedStatus !== "ALL";
   const clearAllFilters = () => {
     setSearchInput("");
-    setFilters({ search: null, type: null, region: null, status: null, sort: null, year: null, semester: null, quarter: null });
+    setFilters({ search: null, type: null, region: null, department: null, status: null, includeArchived: null, sort: null, year: null, semester: null, quarter: null });
   };
 
   /**
@@ -403,20 +418,51 @@ function EtablissementsContent() {
 
   // Register volume. Authoritative metrics sourced from GET /companies/stats.
   const volume = [
-    { key: "total", label: t("kpiTotal"), loading: companyStatsQuery.isLoading || statsQuery.isLoading, value: totalEtablissements, hint: t("kpiTotalHint") },
+    { key: "total", label: t("kpiTotal"), loading: companyStatsQuery.isLoading, value: totalEtablissements, hint: t("kpiTotalHint") },
     { key: "active", label: t("kpiActive"), loading: companyStatsQuery.isLoading, value: companyStats?.active, hint: t("kpiActiveHint") },
-    { key: "pending", label: t("kpiPending"), loading: companyStatsQuery.isLoading, value: companyStats?.pendingValidation, hint: t("kpiPendingHint") },
     { key: "suspended", label: t("kpiSuspended"), loading: companyStatsQuery.isLoading, value: companyStats?.suspended, hint: t("kpiSuspendedHint") },
   ];
+
+  const invalidateRegister = () => {
+    void queryClient.invalidateQueries({ queryKey: ["dsmo", "companies"] });
+    void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+  };
+  const archiveMutation = useMutation({
+    mutationFn: ({ item, reason }: { item: EtabItem; reason: string }) => archiveUser(item.userId, reason),
+    onSuccess: (_data, { item }) => {
+      setNotice({ tone: "success", text: t("archiveDone", { establishment: item.name ?? NOT_PROVIDED }) });
+      invalidateRegister();
+    },
+    onError: (error) => setNotice({ tone: "error", text: `${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim() }),
+  });
+  const restoreMutation = useMutation({
+    mutationFn: (item: EtabItem) => restoreUser(item.userId),
+    onSuccess: (_data, item) => {
+      setNotice({ tone: "success", text: t("restoreDone", { establishment: item.name ?? NOT_PROVIDED }) });
+      invalidateRegister();
+    },
+    onError: (error) => setNotice({ tone: "error", text: `${t("restoreFailed")} ${error instanceof Error ? error.message : ""}`.trim() }),
+  });
+  const lifecycleMutation = useMutation({
+    mutationFn: ({ kind, item }: { kind: "suspend" | "activate"; item: EtabItem }) => kind === "suspend" ? suspendUser(item.userId) : activateUser(item.userId),
+    onSuccess: (_data, { kind, item }) => {
+      setNotice({ tone: "success", text: t(kind === "suspend" ? "suspendDone" : "activateDone", { establishment: item.name ?? NOT_PROVIDED }) });
+      invalidateRegister();
+    },
+    onError: (error, { kind }) => setNotice({ tone: "error", text: `${t(kind === "suspend" ? "suspendFailed" : "activateFailed")} ${error instanceof Error ? error.message : ""}`.trim() }),
+  });
+  const runAccountAction = () => {
+    if (!accountAction) return;
+    if (accountAction.kind === "restore") restoreMutation.mutate(accountAction.item);
+    else lifecycleMutation.mutate({ kind: accountAction.kind, item: accountAction.item });
+    setAccountAction(null);
+  };
 
   return (
     <div className="cam-admin-page">
       {/* Page actions sit in the header; this destination is the establishment
           register under its own navigation group. Annuaire moved to
           Administration. */}
-      {/* The same single tab bar as /admin/inscriptions, so the two pages of
-          this hub read as one place with three destinations rather than two
-          screens each restating where they are. */}
       <AdminPageHeader
         breadcrumb={[{ label: tRoot("adminNav.hubs.inscriptions"), href: "/admin/inscriptions" }, { label: tRoot("adminNav.routes.etablissements") }]}
         title={tRoot("adminNav.routes.etablissements")}
@@ -453,21 +499,23 @@ function EtablissementsContent() {
         label={tStats("keyFigures")}
         loadingLabel={tStats("loadingFigures")}
         loading={volume.some((k) => k.loading)}
-        error={companyStatsQuery.isError || statsQuery.isError}
+        error={companyStatsQuery.isError}
         errorLabel={tStats("figuresUnavailable")}
         items={volume.map((k) => {
-          const status = k.key === "active" ? "ACTIVE" : k.key === "pending" ? "PENDING_APPROVAL" : k.key === "suspended" ? "SUSPENDED" : "ALL";
+          const status = k.key === "active" ? "ACTIVE" : k.key === "suspended" ? "SUSPENDED" : "ALL";
           return {
             key: k.key,
             value: count(k.value, locale),
             label: k.label,
             hint: k.hint,
-            tone: k.key === "active" ? "success" : k.key === "pending" ? "warning" : "neutral",
+            tone: k.key === "active" ? "success" : "neutral",
             pressed: selectedStatus === status,
             onSelect: () => setFilters({ status: status === "ALL" || selectedStatus === status ? null : status }),
           };
         })}
       />
+
+      {notice && <Alert role={notice.tone === "error" ? "alert" : "status"} variant={notice.tone === "error" ? "destructive" : "success"} className="my-4">{notice.text}</Alert>}
 
       <AdminTablePanel
         footer={
@@ -508,8 +556,16 @@ function EtablissementsContent() {
                 value={selectedRegion === "Toutes" ? "" : selectedRegion}
                 allLabel={t("allRegions")}
                 clearLabel={tq("removeFilterChip", { label: tRoot("companiesDirectory.regionColumn") })}
-                onChange={(value) => setFilters({ region: value || null })}
+                onChange={(value) => setFilters({ region: value || null, department: null })}
                 options={territoryRegions.map((value) => ({ value, label: value }))}
+              />}
+              {showDepartmentPill && <AdminFilterPill
+                label={tRoot("companiesDirectory.departmentColumn")}
+                value={selectedDepartment}
+                allLabel={t("allDepartments")}
+                clearLabel={tq("removeFilterChip", { label: tRoot("companiesDirectory.departmentColumn") })}
+                onChange={(value) => setFilters({ department: value || null })}
+                options={departmentOptions.map((value) => ({ value, label: value }))}
               />}
               <AdminFilterPill
                 label={t("statusFilterLabel")}
@@ -521,6 +577,12 @@ function EtablissementsContent() {
               />
               {userId && <AdminSavedViews storageKey={`camleap.savedViews.etablissements.${userId}`} currentQuery={savedViewQuery(currentQuery)} onApply={(query) => router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false })} />}
               <AdminFilterMore label={tRoot("adminDossiersPage.filtersButton")} count={panelChips.length}>
+                {showRegionPill && <AdminFilterField id="etab-department" label={tRoot("companiesDirectory.departmentColumn")}>
+                  <select id="etab-department" className="cam-admin-input w-full" value={selectedDepartment} onChange={(event) => setFilters({ department: event.target.value || null })}>
+                    <option value="">{t("allDepartments")}</option>
+                    {departmentOptions.map((department) => <option key={department} value={department}>{department}</option>)}
+                  </select>
+                </AdminFilterField>}
                 <AdminFilterField id="etab-year" label={t("yearColumn")}>
                   <select
                     id="etab-year"
@@ -578,6 +640,10 @@ function EtablissementsContent() {
                     <option value="oldest">{tRoot("adminDossiersPage.sortOldest")}</option>
                   </select>
                 </AdminFilterField>
+                <div className="cam-filter-more-field is-wide cam-filter-more-check">
+                  <Checkbox id="etab-include-archived" checked={includeArchived} onCheckedChange={(checked) => setFilters({ includeArchived: checked === true ? "true" : null })} />
+                  <Label htmlFor="etab-include-archived" className="!mb-0 cursor-pointer">{t("showArchived")}</Label>
+                </div>
               </AdminFilterMore>
               {hasAnyFilter && <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>{tq("clearFilters")}</Button>}
             </div>
@@ -589,6 +655,7 @@ function EtablissementsContent() {
             <TableHeader>
               <TableRow>
                 <TableHead scope="col">{t("establishmentColumn")}</TableHead>
+                <TableHead scope="col">{t("statusFilterLabel")}</TableHead>
                 <TableHead scope="col">{t("territoryColumn")}</TableHead>
                 <TableHead scope="col">{t("contactColumn")}</TableHead>
                 <TableHead scope="col">{t("registrationDateColumn")}</TableHead>
@@ -597,7 +664,7 @@ function EtablissementsContent() {
             </TableHeader>
             <TableBody>
               <DataStateRow
-                colSpan={5}
+                colSpan={6}
                 state={tableState}
                 resource={t("registerResource")}
                 error={companiesQuery.error}
@@ -607,7 +674,7 @@ function EtablissementsContent() {
               />
               {filteredRows.map((item) => {
                 const detailIdentifier = item.identifier || item.registrationNumber;
-                const detailHref = detailIdentifier ? `/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}` : null;
+                const detailHref = !item.archivedAt && detailIdentifier ? `/admin/etablissement-detail?id=${encodeURIComponent(detailIdentifier)}&returnTo=${encodeURIComponent(`${pathname}${currentQuery ? `?${currentQuery}` : ""}`)}` : null;
                 const territory = [item.region, item.department, item.subdivision].filter(Boolean).join(" · ") || NOT_PROVIDED;
                 const contactDisplay = item.responsable ?? item.contactEmail ?? item.contactPhone ?? NOT_PROVIDED;
                 const contactTitle = Array.from(new Set(
@@ -624,6 +691,15 @@ function EtablissementsContent() {
                         </span>
                       </span>
                     </TableCell>
+                    <TableCell data-label={t("statusFilterLabel")}>
+                      <span className="cam-cell-stack">
+                        <span className="flex flex-wrap gap-1.5">
+                          <Badge variant={item.status === "ACTIF" ? "success" : "neutral"}>{t(`status.${item.status}`)}</Badge>
+                          {item.archivedAt && <Badge variant="neutral">{t("archivedBadge")}</Badge>}
+                        </span>
+                        {item.archivedAt && item.archiveReason && <span className="cam-cell-sub">{item.archiveReason}</span>}
+                      </span>
+                    </TableCell>
                     <TableCell data-label={t("territoryColumn")} title={territory}>
                       {[item.region, item.department].filter(Boolean).join(" · ") || NOT_PROVIDED}
                       {item.subdivision && <span className="cam-cell-sub">{item.subdivision}</span>}
@@ -636,11 +712,26 @@ function EtablissementsContent() {
                       <span className="cam-cell-muted">{stamp(item.dateInscription, false, locale)}</span>
                     </TableCell>
                     <TableCell className="cam-cell-action text-right">
-                      {detailHref ? (
-                        <Link className="cam-button cam-button-secondary cam-button-sm" href={detailHref}>{t("viewDetails")}</Link>
-                      ) : (
-                        <span aria-disabled="true" className="cam-button cam-button-secondary cam-button-sm">{t("viewDetails")}</span>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {detailHref ? (
+                          <Link className="cam-button cam-button-secondary cam-button-sm" href={detailHref}>{t("viewDetails")}</Link>
+                        ) : (
+                          <span aria-disabled="true" className="cam-button cam-button-secondary cam-button-sm">{t("viewDetails")}</span>
+                        )}
+                        {item.userId && <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" size="icon-sm" variant="ghost" aria-label={t("moreActions", { establishment: item.name ?? NOT_PROVIDED })}>
+                              <MoreHorizontal aria-hidden="true" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {hasRole(role, SURVEY_READ_ROLES) && <DropdownMenuItem asChild><Link href={`/admin/dossiers?vue=submissions&submissionsStatus=ALL&submissionsCompanyId=${encodeURIComponent(item.companyId)}`}>{t("declarationsLink")}</Link></DropdownMenuItem>}
+                            {hasRole(role, USER_LIFECYCLE_ROLES) && !item.archivedAt && <DropdownMenuItem disabled={lifecycleMutation.isPending} onSelect={() => setAccountAction({ kind: item.status === "ACTIF" ? "suspend" : "activate", item })}>{t(item.status === "ACTIF" ? "suspendButton" : "activateButton")}</DropdownMenuItem>}
+                            {hasRole(role, USER_ARCHIVE_ROLES) && !item.archivedAt && <DropdownMenuItem onSelect={() => setArchiveTarget(item)}>{t("archiveButton")}</DropdownMenuItem>}
+                            {hasRole(role, USER_ARCHIVE_ROLES) && item.archivedAt && <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => setAccountAction({ kind: "restore", item })}>{t("restoreButton")}</DropdownMenuItem>}
+                          </DropdownMenuContent>
+                        </DropdownMenu>}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -648,6 +739,31 @@ function EtablissementsContent() {
             </TableBody>
           </Table>
       </AdminTablePanel>
+
+      {archiveTarget && <ArchiveActions
+        archived={false}
+        canManage={hasRole(role, USER_ARCHIVE_ROLES)}
+        resourceName={archiveTarget.name ?? NOT_PROVIDED}
+        archiveLabel={t("archiveButton")}
+        restoreLabel={t("restoreButton")}
+        confirmTitle={t("archiveConfirmTitle")}
+        reasonLabel={t("archiveReasonLabel")}
+        cancelLabel={tRoot("common.cancel")}
+        hideTrigger
+        dialogOpen
+        onDialogOpenChange={(open) => { if (!open) setArchiveTarget(null); }}
+        onArchive={(reason) => { archiveMutation.mutate({ item: archiveTarget, reason }); setArchiveTarget(null); }}
+        onRestore={() => {}}
+      />}
+      {accountAction && <ConfirmDialog
+        id="establishment-account-action"
+        title={t(`${accountAction.kind}ConfirmTitle`, { establishment: accountAction.item.name ?? NOT_PROVIDED })}
+        body={t(`${accountAction.kind}ConfirmBody`)}
+        cancelLabel={tRoot("common.cancel")}
+        confirmLabel={t(`${accountAction.kind}Button`)}
+        onCancel={() => setAccountAction(null)}
+        onConfirm={runAccountAction}
+      />}
 
     </div>
   );

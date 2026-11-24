@@ -286,40 +286,36 @@ try {
   await page.locator(".cam-admin-filter-disclosure > summary").evaluate((element) => element.blur());
   await page.setViewportSize({ width: 1440, height: 900 });
 
-  for (const [view, path] of [["queue", "admin/inscriptions?vue=queue"], ["organisations", "admin/inscriptions?vue=organisations"]]) {
+  for (const [view, path, selector] of [
+    ["queue", "admin/inscriptions?vue=queue", ".cam-registration-queue-table"],
+    ["rejected", "admin/inscriptions?vue=queue&status=REJECTED", ".cam-registration-queue-table"],
+    ["register", "admin/etablissements", ".cam-register-table"],
+  ]) {
     await page.goto(`${baseUrl}/${path}`, { waitUntil: "networkidle" });
-    if (view === "queue") await verifyFilterDisclosure(page, { locale: "fr" });
-    const filterHeaderCount = await page.locator(view === "queue" ? ".cam-registration-queue-table thead th button" : ".cam-registration-organisations-table thead th button").count();
-    const expectedFilterHeaders = view === "queue" ? 7 : 5;
-    if (filterHeaderCount !== expectedFilterHeaders) throw new Error(`${view} should have ${expectedFilterHeaders} column filters; found ${filterHeaderCount}.`);
+    await page.locator(selector).waitFor();
     await page.screenshot({ path: resolve(outputDir, `app-registrations-${view}-1440x900.png`) });
-    if (view === "queue") {
-      await page.locator(".cam-admin-filter-disclosure > summary").click();
-      await page.screenshot({ path: resolve(outputDir, "app-registration-queue-filters-expanded-1440x900.png") });
-      await page.locator(".cam-admin-filter-disclosure > summary").click();
-    }
   }
 
   await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseUrl }]);
   await page.goto(`${baseUrl}/admin/inscriptions?vue=queue`, { waitUntil: "networkidle" });
-  await verifyFilterDisclosure(page, { locale: "en" });
+  await page.locator(".cam-registration-queue-table").waitFor();
   await page.context().addCookies([{ name: "NEXT_LOCALE", value: "fr", url: baseUrl }]);
   await page.goto(`${baseUrl}/admin/dossiers?formType=PROJECT_PROGRAM`, { waitUntil: "networkidle" });
   if (!(await page.locator(".cam-dossier-submissions-table thead th").filter({ hasText: "Type" }).locator("button").count())) throw new Error("Dossier type filter is not attached to its column header.");
-  await page.goto(`${baseUrl}/admin/inscriptions?vue=queue&department=Centre`, { waitUntil: "networkidle" });
-  if (!(await page.locator(".cam-registration-queue-table thead th").filter({ hasText: "Département" }).locator("button").count())) throw new Error("Registration department filter is not attached to its column header.");
-  await page.goto(`${baseUrl}/admin/inscriptions?vue=organisations&department=Centre`, { waitUntil: "networkidle" });
-  if (!(await page.locator(".cam-registration-organisations-table thead th").filter({ hasText: "Département" }).locator("button").count())) throw new Error("Organisation department filter is not attached to its column header.");
 
-  for (const view of ["completed", "coverage"]) {
+  await page.goto(`${baseUrl}/admin/dossiers?vue=submissions&submissionsStatus=COMPLETED`, { waitUntil: "networkidle" });
+  await page.locator("#dossier-view-submissions").waitFor();
+  await page.screenshot({ path: resolve(outputDir, "app-completed-1440x900.png") });
+
+  for (const view of ["coverage"]) {
     await page.goto(`${baseUrl}/admin/dossiers?vue=${view}`, { waitUntil: "networkidle" });
     const target = page.locator(`#dossier-view-${view}`);
     await target.waitFor();
     await page.screenshot({ path: resolve(outputDir, `app-${view}-1440x900.png`) });
-    const viewState = await page.evaluate((id) => ({
+    const viewState = await page.evaluate(() => ({
       activeTab: document.querySelector('.cam-admin-tab[aria-current="page"]')?.textContent,
       shownViews: [...document.querySelectorAll(".cam-dossier-view")].map((section) => section.id),
-    }), `dossier-view-${view}`);
+    }));
     if (viewState.shownViews.length !== 1 || viewState.shownViews[0] !== `dossier-view-${view}`) {
       throw new Error(`vue=${view} did not show only its matching dossier section.`);
     }

@@ -47,13 +47,16 @@ const DIAGNOSTIC: DossierDiagnostic = {
   warningAnomalies: [],
 };
 
-function Harness({ returnTo, openApprove = false, focusVerify = false }: { returnTo?: string; openApprove?: boolean; focusVerify?: boolean }) {
+function setNavigation({ returnTo, openApprove = false, focusVerify = false }: { returnTo?: string; openApprove?: boolean; focusVerify?: boolean } = {}) {
   navigationMock.params = { id: DOSSIER.id };
   navigationMock.searchParams = new URLSearchParams({
     ...(returnTo ? { returnTo } : {}),
     ...(openApprove ? { openApprove: "1" } : {}),
     ...(focusVerify ? { focus: "verify" } : {}),
   });
+}
+
+function Harness() {
   return <SubmissionDetailPage />;
 }
 
@@ -72,7 +75,7 @@ function renderDetail(returnTo?: string, dossier = DOSSIER) {
     mutations: { retry: false, gcTime: 0 },
   });
 
-  return renderWithProviders(<Harness returnTo={returnTo} />, {
+  const rendered = renderWithProviders(<Harness />, {
     locale: "en",
     queryClient,
     queryData: [
@@ -82,6 +85,9 @@ function renderDetail(returnTo?: string, dossier = DOSSIER) {
       [["onefop-schema"], loadOnefopSchema()],
     ],
   });
+  setNavigation({ returnTo });
+  rendered.rerender(<Harness />);
+  return rendered;
 }
 
 test("the visible back link restores an allowlisted filtered Dossiers view", () => {
@@ -89,7 +95,7 @@ test("the visible back link restores an allowlisted filtered Dossiers view", () 
 
   assert.equal(
     screen.getByRole("link", { name: "Back" }).getAttribute("href"),
-    "/admin/dossiers?vue=completed&completedStatus=REJECTED&completedPage=3",
+    "/admin/dossiers?vue=submissions&submissionsStatus=REJECTED&submissionsIncludeArchived=true&submissionsPage=3",
   );
 });
 
@@ -235,7 +241,7 @@ test("confirming the dialog reopens this dossier for correction through the API"
 function renderOpenApprove(diagnostic: DossierDiagnostic) {
   useAuthStore.setState({ status: "authenticated", user: { id: "user-1", role: "ADMIN_ONEFOP" } as never });
   const queryClient = createTestQueryClient();
-  return renderWithProviders(<Harness returnTo="/admin/dossiers?vue=submissions&queueView=mine" openApprove />, {
+  const rendered = renderWithProviders(<Harness />, {
     locale: "en",
     queryClient,
     queryData: [
@@ -245,6 +251,9 @@ function renderOpenApprove(diagnostic: DossierDiagnostic) {
       [["onefop-schema"], loadOnefopSchema()],
     ],
   });
+  setNavigation({ returnTo: "/admin/dossiers?vue=submissions&queueView=mine", openApprove: true });
+  rendered.rerender(<Harness />);
+  return rendered;
 }
 
 test("Valider on a file with a blocking anomaly stays on the workspace and says why", async () => {
@@ -275,7 +284,7 @@ const FINDINGS: DossierDiagnostic = {
 
 function renderWorkspace(options: { diagnostic?: DossierDiagnostic; dossier?: AdminDossier; progress?: unknown; focusVerify?: boolean } = {}) {
   useAuthStore.setState({ status: "authenticated", user: { id: "user-1", role: "ADMIN_ONEFOP" } as never });
-  return renderWithProviders(<Harness focusVerify={options.focusVerify} />, {
+  const rendered = renderWithProviders(<Harness />, {
     locale: "en",
     queryClient: createTestQueryClient(),
     queryData: [
@@ -288,6 +297,9 @@ function renderWorkspace(options: { diagnostic?: DossierDiagnostic; dossier?: Ad
       [["onefop-schema"], loadOnefopSchema()],
     ],
   });
+  setNavigation({ focusVerify: options.focusVerify });
+  rendered.rerender(<Harness />);
+  return rendered;
 }
 
 test("the rail counts the open findings and every link in its index reaches a section on the page", () => {

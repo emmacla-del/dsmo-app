@@ -13,6 +13,7 @@ import {
 } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
+import { SurveyTrack } from "@/components/home/SurveyTrack";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import { activeQuarterQueryOptions, meQueryOptions, myCompanyQueryOptions, mySubmissionsQueryOptions, myNotificationsQueryOptions } from "@/lib/shared-queries";
 import { campaignPhrase, respondentTypeLabel } from "@/lib/respondent-identity";
@@ -303,6 +304,8 @@ export default function HomeLandingPage() {
               : t("homeLandingPage.surveyRejected")}
           </span>
         </div>
+        {/* Where this survey stands in the whole process (owner, 2026-11-11). */}
+        {quarter?.isOpen && !surveyLoading && <SurveyTrack state={surveyState} />}
         {quarter?.isOpen && surveyState === "correction" && correctionReason && (
           <p className="cam-home-body">{correctionReason}</p>
         )}

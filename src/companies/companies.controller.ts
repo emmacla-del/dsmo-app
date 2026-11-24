@@ -30,6 +30,10 @@ function parseOptionalPeriodNumber(value: string | undefined, name: string, min:
   return parsed;
 }
 
+function parseOptionalBoolean(value: string | undefined): boolean {
+  return value === 'true';
+}
+
 @Controller('companies')
 @UseGuards(JwtAuthGuard, RolesGuard, ActiveCompanyGuard)
 export class CompaniesController {
@@ -46,9 +50,12 @@ export class CompaniesController {
   // swallow `companies/stats`.
   @Get('stats')
   @Roles(...DIRECTORY_ROLES)
-  async getCompanyStats(@Req() req: any) {
+  async getCompanyStats(@Req() req: any, @Query('includeArchived') includeArchived?: string) {
+    if (includeArchived !== undefined && includeArchived !== 'true' && includeArchived !== 'false') {
+      throw new BadRequestException('includeArchived must be true or false.');
+    }
     const territory = territoryFromUser(req?.user);
-    return this.dsmoService.getCompanyStats(territory);
+    return this.dsmoService.getCompanyStats(territory, parseOptionalBoolean(includeArchived));
   }
 
   @Get()
@@ -57,7 +64,10 @@ export class CompaniesController {
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('region') region?: string,
+    @Query('department') department?: string,
     @Query('entityType') entityType?: string,
+    @Query('registeredOnly') registeredOnly?: string,
+    @Query('includeArchived') includeArchived?: string,
     @Query('sortOrder') sortOrder?: string,
     @Query('year') year?: string,
     @Query('semester') semester?: string,
@@ -77,11 +87,20 @@ export class CompaniesController {
     ) {
       throw new BadRequestException('The quarter does not belong to the selected semester.');
     }
+    if (registeredOnly !== undefined && registeredOnly !== 'true' && registeredOnly !== 'false') {
+      throw new BadRequestException('registeredOnly must be true or false.');
+    }
+    if (includeArchived !== undefined && includeArchived !== 'true' && includeArchived !== 'false') {
+      throw new BadRequestException('includeArchived must be true or false.');
+    }
     return this.dsmoService.listCompanies({
       search,
       status,
       region,
+      department,
       entityType,
+      registeredOnly: parseOptionalBoolean(registeredOnly),
+      includeArchived: parseOptionalBoolean(includeArchived),
       sortOrder: sortOrder === 'oldest' ? 'oldest' : 'newest',
       year: periodYear,
       semester: periodSemester,

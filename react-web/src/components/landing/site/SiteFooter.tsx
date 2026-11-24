@@ -8,6 +8,8 @@ import styles from "../portal.module.css";
 
 // The footer every public page shares: who runs the platform, the two
 // published contacts, the legal basis of the collection, and the nav.
+// On the official navy since 2026-11-11 (option D), with the ONEFOP emblem
+// at 64px (never below 56px, brand.md) and the flag ribbon closing the page.
 
 export function SiteFooter() {
   const t = useTranslations("site");
@@ -16,7 +18,12 @@ export function SiteFooter() {
   return (
     <footer className={styles.footer}>
       <div className={`${styles.container} ${styles.footerInner}`}>
-        <div>
+        <div className={styles.footerIdentity}>
+          <span className={styles.footerEmblem}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/onefop_logo.png" alt="" width={64} height={63} />
+          </span>
+          <div>
           <p className={styles.footerOrg}>{t("footerOrg")}</p>
           <p>{t("footerMinistry")}</p>
           <p className={styles.footerContact}>
@@ -26,6 +33,7 @@ export function SiteFooter() {
             {" · "}
             <a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a>
           </p>
+          </div>
         </div>
         <nav className={styles.footerNav} aria-label={t("navLabel")}>
           {SITE_NAV.map(({ key, href }) => (
@@ -39,6 +47,7 @@ export function SiteFooter() {
       <div className={styles.container}>
         <p className={styles.footerLegal}>{t("footerLegal")}</p>
       </div>
+      <div className={styles.flagRibbon} aria-hidden="true" />
     </footer>
   );
 }

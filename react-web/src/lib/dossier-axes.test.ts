@@ -81,6 +81,7 @@ test("submission administrators may reopen an endorsed file", async () => {
   assert.equal(canReopenForCorrection("APPROVED", "SUPER_ADMIN"), true);
   assert.equal(canReopenForCorrection("APPROVED", "ADMIN_ONEFOP"), true);
   assert.equal(canReopenForCorrection("APPROVED", "ADMIN_ONEFOP_SUBMISSIONS"), true);
+  assert.equal(canReopenForCorrection("APPROVED", "SUPER_ADMIN", "2026-01-01T00:00:00Z"), false);
   for (const role of ["ADMIN_ONEFOP_REGISTRATIONS", "REGIONAL_ADMIN", "DIVISIONAL_ADMIN", "CENTRAL_AGENT", "COMPANY", null, undefined]) {
     assert.equal(canReopenForCorrection("APPROVED", role), false, String(role));
   }

@@ -155,6 +155,11 @@ export function trailWithout(trail: RegistrationTrail, id: string, stillListed =
  */
 export function decisionStaysListed(params: RegistrationListParams, kind: "approved" | "rejected" | "complements"): boolean {
   if (params.status === "ALL") return true;
+  if (params.statuses) {
+    const statuses = new Set(params.statuses.split(","));
+    const decidedStatus = kind === "approved" ? "ACTIVE" : kind === "rejected" ? "REJECTED" : "COMPLEMENTS_REQUESTED";
+    return statuses.has(decidedStatus);
+  }
   if (kind !== "complements") return false;
   return params.status === "COMPLEMENTS_REQUESTED" || (!params.status && !params.overdue);
 }

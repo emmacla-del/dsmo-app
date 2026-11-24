@@ -11,6 +11,7 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { navItemsForRole, resolveEffectiveRole, roleLabelKey } from "@/lib/role-navigation";
 import { respondentRailItems } from "@/lib/respondent-rail";
 import { LanguageLink } from "@/components/LanguageLink";
+import { OfficialBand } from "@/components/brand/OfficialBand";
 import { AuthLoadingSplash } from "@/components/auth/AuthLoadingSplash";
 import { NewDeclarationDialog } from "@/components/NewDeclarationDialog";
 import {
@@ -190,6 +191,9 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
     (surveyState === "none" || surveyState === "draft" || surveyState === "correction");
 
   return (
+    <>
+    {/* The State in words above the workspace (owner, 2026-11-11). */}
+    <OfficialBand slim />
     <div className={`cam-home${menuOpen ? " is-menu-open" : ""}`}>
       <div className="cam-home-mobilebar">
         <button
@@ -335,5 +339,6 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
         onClose={() => setIsNewDeclarationOpen(false)}
       />
     </div>
+    </>
   );
 }

@@ -2,22 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { Search, X } from "lucide-react";
+import { MoreHorizontal, Search, X } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   applyRegistrationClaim,
+  archiveUser,
   assignRegistrationUser,
   decidedOrganisation,
   listCompanyRegistrations,
+  restoreUser,
   type CompanyRegistrationItem,
 } from "@/lib/user-directory";
-import { APPROVAL_ROLES, hasRole } from "@/lib/roles";
+import { APPROVAL_ROLES, USER_ARCHIVE_ROLES, hasRole } from "@/lib/roles";
 import { asUiLocale } from "@/lib/register-i18n";
 import { ENTITY_TYPE_OPTION_KEYS } from "@/lib/companies-directory";
 import { REGISTRATION_ENTITY_TYPES } from "@/lib/inscriptions";
-import { count, resolveDataState } from "@/lib/admin-data-state";
+import { count, resolveDataState, stamp } from "@/lib/admin-data-state";
 import { registrationReviewHref, saveRegistrationTrail } from "@/lib/registration-trail";
 import {
   REGISTRATION_QUEUE_PAGE_SIZE as PAGE_SIZE,
@@ -33,6 +35,7 @@ import {
   territoryParts,
   waitingDuration,
   claimTimeLeft,
+  type RegistrationStatusFilter,
   type QueueOwnership,
   type QueueUrlState,
 } from "@/lib/registration-queue";
@@ -41,14 +44,20 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTablePanel } from "@/components/admin/AdminTablePanel";
 import { AdminKpiStrip, type KpiItem } from "@/components/admin/AdminKpiStrip";
 import { OwnClaimLapseNote } from "@/components/admin/OwnClaimLapseNote";
+import { ArchiveActions } from "@/components/admin/ArchiveActions";
+import { ConfirmDialog } from "@/components/auth/ConfirmDialog";
+import { QueuePreviewPanel, QueuePreviewPoints } from "@/components/admin/QueuePreviewPanel";
 import { AdminNumberedPager } from "@/components/admin/AdminPager";
 import { AdminLiveResultCount } from "@/components/admin/AdminLiveResultCount";
 import { DataStateRow } from "@/components/admin/DataState";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 /**
  * Writes the queue state to the address at once. Through the router the
@@ -106,6 +115,7 @@ export function RegistrationQueue() {
   const state: QueueUrlState = useMemo(() => (geoValid ? urlState : { ...urlState, geo: "" }), [geoValid, urlState]);
   const geoPending = !!urlState.geo && geoOptions === null && !territory.isError;
   const currentHref = queueHref(state, role);
+  const isPendingQueue = state.status === "PENDING_APPROVAL";
 
   // Canonical address (defaults out, legacy parameters gone, invalid geography
   // dropped), without a history entry.
@@ -152,12 +162,31 @@ export function RegistrationQueue() {
         : tRoot(`adminInscriptionsPage.${arrivedDecision === "approved" ? "approvedNotice" : arrivedDecision === "rejected" ? "rejectedNotice" : "complementsNotice"}`),
     };
   });
+  const [archiveTarget, setArchiveTarget] = useState<CompanyRegistrationItem | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<CompanyRegistrationItem | null>(null);
+  const archiveMutation = useMutation({
+    mutationFn: ({ item, reason }: { item: CompanyRegistrationItem; reason: string }) => archiveUser(item.id, reason),
+    onSuccess: (_data, { item }) => {
+      setNotice({ tone: "success", text: t("archiveDone", { organisation: item.organisation }) });
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+    },
+    onError: (error) => setNotice({ tone: "error", text: `${t("archiveFailed")} ${error instanceof Error ? error.message : ""}`.trim() }),
+  });
+  const restoreMutation = useMutation({
+    mutationFn: (item: CompanyRegistrationItem) => restoreUser(item.id),
+    onSuccess: (_data, item) => {
+      setNotice({ tone: "success", text: t("restoreDone", { organisation: item.organisation }) });
+      void queryClient.invalidateQueries({ queryKey: ["auth", "company-registrations"] });
+    },
+    onError: (error) => setNotice({ tone: "error", text: `${t("restoreFailed")} ${error instanceof Error ? error.message : ""}`.trim() }),
+  });
 
   const enabled = canRead && !!userId && !geoPending;
+  const summaryEnabled = enabled && isPendingQueue;
   const summaryQuery = (ownership: QueueOwnership) => ({
     queryKey: ["auth", "company-registrations", "pending-queue-summary", ownership, level, state.geo] as const,
     queryFn: () => listCompanyRegistrations(queueSummaryParams(ownership, state.geo, role)),
-    enabled,
+    enabled: summaryEnabled,
     staleTime: 15_000,
   });
   const availableQuery = useQuery(summaryQuery("available"));
@@ -172,7 +201,10 @@ export function RegistrationQueue() {
     // Keep the rows on screen while a filter or page changes, but not across
     // ownership views: the other view's rows are not this view's records.
     placeholderData: (previous, previousQuery) =>
-      previousQuery?.queryKey[3] === state.ownership ? keepPreviousData(previous) : undefined,
+      previousQuery?.queryKey[3] === state.ownership
+        && (previousQuery.queryKey[4] as { status?: string } | undefined)?.status === listParams.status
+        ? keepPreviousData(previous)
+        : undefined,
     staleTime: 15_000,
   });
 
@@ -184,20 +216,25 @@ export function RegistrationQueue() {
     if (state.page > lastPage) update({ page: lastPage }, "replace");
   }, [listQuery.data, listQuery.isPlaceholderData, state.page, update]);
 
-  const rows = (listQuery.data?.items ?? []).filter((row) => rowInView(row, state.ownership, userId));
+  const rows = isPendingQueue
+    ? (listQuery.data?.items ?? []).filter((row) => rowInView(row, state.ownership, userId))
+    : (listQuery.data?.items ?? []);
   // Rows the server sent but the view excludes: only an older server that
   // ignores `unassigned` or `assignedToOthers` does this.
-  const hiddenRows = listQuery.isPlaceholderData ? 0 : (listQuery.data?.items.length ?? 0) - rows.length;
+  const hiddenRows = !isPendingQueue || listQuery.isPlaceholderData ? 0 : (listQuery.data?.items.length ?? 0) - rows.length;
   const total = listQuery.data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const displayedPage = listQuery.data?.page ?? state.page;
   const filtersActive = hasActiveQueueFilters(state);
+  const listNarrowed = Boolean(state.search || state.geo || state.type || state.includeArchived || state.createdBy);
 
   // ── Claim and open ──────────────────────────────────────────────────────
   // One claim at a time, on the server, before leaving the page. The claim
   // changes the holder only; the file stays pending review.
   const claimLock = useRef(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  // The instruction desk's preview: the request shown, null when shut.
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const openReview = (item: CompanyRegistrationItem) => {
     saveRegistrationTrail({
       returnTo: currentHref,
@@ -291,18 +328,111 @@ export function RegistrationQueue() {
     error: listQuery.error ?? territory.error,
     rowCount: listQuery.data ? rows.length : null,
   });
-  const emptyTitle = filtersActive
+  const emptyTitle = listNarrowed
     ? t("noMatch")
-    : state.ownership === "mine" ? t("emptyMine") : state.ownership === "others" ? t("emptyOthers") : t("emptyAvailable");
+    : !isPendingQueue
+      ? t("emptyStatus")
+      : state.ownership === "mine" ? t("emptyMine") : state.ownership === "others" ? t("emptyOthers") : t("emptyAvailable");
   const clearFilters = () => {
     setSearchInput("");
-    update({ search: "", geo: "", type: "" });
+    update({ status: "PENDING_APPROVAL", ownership: "available", search: "", geo: "", type: "", sort: "oldest", includeArchived: false, createdBy: "" });
   };
 
   const entityLabel = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(ENTITY_TYPE_OPTION_KEYS[value]) : value ?? "";
   const entityShort = (value: string | null) =>
     value && ENTITY_TYPE_OPTION_KEYS[value] ? tRoot(`adminInscriptionsPage.entityShort.${value}`) : value ?? "";
+  // The pieces of a pending row the preview shows too (owner, 2026-11-11),
+  // computed once so the row and the panel never disagree.
+  const pendingRowParts = (item: CompanyRegistrationItem) => {
+    const mine = item.assigneeId != null && item.assigneeId === userId;
+    const colleague = item.assigneeId != null && !mine;
+    const claiming = claimingId === item.id;
+    const left = item.assigneeId ? claimTimeLeft(item.claimExpiresAt, now, locale) : null;
+    const duration = waitingDuration(item.submittedAt, now, locale);
+    const stampText = receiptStamp(item.submittedAt, locale);
+    const waitingNode = duration && stampText ? (
+      <time dateTime={item.submittedAt} title={t("receivedAt", { stamp: stampText })}>
+        {duration}
+        <span className="sr-only"> ({t("receivedAt", { stamp: stampText })})</span>
+      </time>
+    ) : (
+      <span className="cam-cell-muted" title={t("receiptUnavailable")}>{t("unavailable")}</span>
+    );
+    const assignedNode = (
+      <span className="cam-cell-stack">
+        <span className={mine || colleague ? undefined : "cam-cell-muted"}>
+          {mine ? t("you") : colleague ? item.assigneeName || t("colleagueUnnamed") : t("unassigned")}
+        </span>
+        {/* The claim's deadline, in words; amber in its last 30 minutes. */}
+        {left && (
+          <span className={left.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"} title={t("timeLeftHelp")}>
+            {left.lapsed ? t("claimLapsed") : t("timeLeft", { time: left.label })}
+          </span>
+        )}
+      </span>
+    );
+    const actionButton = mine ? (
+      <Button type="button" size="sm" variant="outline" aria-label={t("openAria", { organisation: item.organisation })} onClick={() => openReview(item)}>
+        {t("openReview")}
+      </Button>
+    ) : colleague ? (
+      // A colleague's file opens read-only; the review page
+      // offers the confirmed, logged takeover.
+      <Button type="button" size="sm" variant="outline" aria-label={t("openColleagueAria", { organisation: item.organisation, name: item.assigneeName || t("colleagueUnnamed") })} onClick={() => openReview(item)}>
+        {t("openColleague")}
+      </Button>
+    ) : (
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-label={t("claimAria", { organisation: item.organisation })}
+        aria-busy={claiming || undefined}
+        disabled={claimingId !== null}
+        onClick={() => void claimAndOpen(item)}
+      >
+        {claiming ? t("claiming") : t("claimAndOpen")}
+      </Button>
+    );
+    return { waitingNode, assignedNode, actionButton };
+  };
+
+  const statusLabel = (status: string) => status === "REJECTED"
+    ? t("statusRejected")
+    : status === "COMPLEMENTS_REQUESTED"
+      ? t("statusComplements")
+      : status === "ACTIVE"
+        ? t("statusApproved")
+        : status === "DRAFT"
+          ? t("statusDraft")
+          : status === "UNDER_REVIEW"
+            ? t("statusUnderReview")
+            : status === "DOCUMENTS_INCOMPLETE"
+              ? t("statusDocumentsIncomplete")
+        : t("statusPending");
+  const statusTone = (status: string): "success" | "danger" | "info" | "warning" => status === "REJECTED"
+    ? "danger"
+    : status === "ACTIVE"
+      ? "success"
+      : status === "COMPLEMENTS_REQUESTED"
+        ? "info"
+        : status === "UNDER_REVIEW"
+          ? "info"
+        : "warning";
+  const selectedListTitle = state.status === "REJECTED"
+    ? t("rejectedTitle")
+    : state.status === "COMPLEMENTS_REQUESTED"
+      ? t("complementsTitle")
+      : state.status === "ACTIVE"
+        ? t("approvedTitle")
+      : state.status === "ALL"
+        ? t("allTitle")
+        : state.ownership === "mine"
+          ? t("mine")
+          : state.ownership === "others"
+            ? t("others")
+            : t("available");
 
   const geoLabel = level === "region" ? t("geoRegion") : level === "department" ? t("geoDepartment") : t("geoSubdivision");
   const geoAll = level === "region" ? t("allRegions") : level === "department" ? t("allDepartments") : t("allSubdivisions");
@@ -324,7 +454,7 @@ export function RegistrationQueue() {
         hideTabs
       />
 
-      {canRead && (
+      {canRead && isPendingQueue && (
         <AdminKpiStrip
           items={summaryItems}
           label={t("summaryLabel")}
@@ -335,7 +465,7 @@ export function RegistrationQueue() {
           note={t("summaryCaption")}
         />
       )}
-      {canRead && <OwnClaimLapseNote kind="registrations" enabled={enabled} />}
+      {canRead && isPendingQueue && <OwnClaimLapseNote kind="registrations" enabled={enabled} />}
 
       {notice && (
         <Alert
@@ -352,7 +482,7 @@ export function RegistrationQueue() {
 
       {canRead && (
         <AdminTablePanel
-          title={state.ownership === "mine" ? t("mine") : state.ownership === "others" ? t("others") : t("available")}
+          title={selectedListTitle}
           headingId="registration-queue-table-title"
           busy={busy}
           busyLabel={t("updating")}
@@ -386,6 +516,29 @@ export function RegistrationQueue() {
                   <Input id="queue-search" type="search" value={searchInput} placeholder={t("searchPlaceholder")} onChange={(event) => setSearchInput(event.target.value)} />
                 </div>
               </div>
+              <div className="cam-queue-field">
+                <Label htmlFor="queue-status">{t("statusLabel")}</Label>
+                <select
+                  id="queue-status"
+                  className="cam-admin-input"
+                  value={state.status}
+                  onChange={(event) => {
+                    const status = event.target.value as RegistrationStatusFilter;
+                    update({
+                      status,
+                      ownership: "available",
+                      includeArchived: false,
+                      sort: status === "PENDING_APPROVAL" ? "oldest" : "newest",
+                    });
+                  }}
+                >
+                  <option value="PENDING_APPROVAL">{t("statusPending")}</option>
+                  <option value="COMPLEMENTS_REQUESTED">{t("statusComplements")}</option>
+                  {state.status === "ACTIVE" && <option value="ACTIVE">{t("statusApproved")}</option>}
+                  <option value="REJECTED">{t("statusRejected")}</option>
+                  <option value="ALL">{t("statusAll")}</option>
+                </select>
+              </div>
               {level && (
                 <div className="cam-queue-field">
                   <Label htmlFor="queue-geo">{geoLabel}</Label>
@@ -409,16 +562,28 @@ export function RegistrationQueue() {
                   <option value="newest">{t("sortNewest")}</option>
                 </select>
               </div>
+              {!isPendingQueue && (
+                <div className="cam-queue-field cam-filter-more-check">
+                  <Checkbox
+                    id="queue-include-archived"
+                    checked={state.includeArchived}
+                    onCheckedChange={(checked) => update({ includeArchived: checked === true })}
+                  />
+                  <Label htmlFor="queue-include-archived" className="!mb-0 cursor-pointer">{t("showArchived")}</Label>
+                </div>
+              )}
               {filtersActive && (
                 <Button type="button" variant="ghost" size="sm" className="cam-queue-clear" onClick={clearFilters}>{t("clearFilters")}</Button>
               )}
             </div>
 
+            {state.createdBy && <p className="cam-dash-context">{t("createdByNotice")}</p>}
+
             {hiddenRows > 0 && (
               <Alert role="status" variant="warning" className="my-3 flex">{t("hiddenClaimed")}</Alert>
             )}
 
-            <Table className="cam-registration-queue-table cam-table-stack" aria-labelledby="registration-queue-table-title">
+            {isPendingQueue ? <Table className="cam-registration-queue-table cam-table-stack" aria-labelledby="registration-queue-table-title">
               <TableHeader><TableRow>
                 <TableHead scope="col">{t("colOrganisation")}</TableHead>
                 <TableHead scope="col">{t("colTerritory")}</TableHead>
@@ -437,7 +602,7 @@ export function RegistrationQueue() {
                   error={listQuery.error ?? territory.error}
                   onRetry={() => { if (territory.isError) void territory.refetch(); void listQuery.refetch(); }}
                   title={tableState === "loading" ? t("loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noAccess") : tableState === "empty" ? emptyTitle : undefined}
-                  hint={tableState === "empty" && filtersActive ? (
+                  hint={tableState === "empty" && listNarrowed ? (
                     <>
                       {t("noMatchHint")}{" "}
                       <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={clearFilters}>{t("clearFilters")}</Button>
@@ -445,18 +610,15 @@ export function RegistrationQueue() {
                   ) : undefined}
                 />
                 {tableState === "ready" && rows.map((item) => {
-                  const duration = waitingDuration(item.submittedAt, now, locale);
-                  const stampText = receiptStamp(item.submittedAt, locale);
                   const place = territoryParts(item, role).join(" · ");
-                  const mine = item.assigneeId != null && item.assigneeId === userId;
-                  const colleague = item.assigneeId != null && !mine;
-                  const claiming = claimingId === item.id;
-                  const left = item.assigneeId ? claimTimeLeft(item.claimExpiresAt, now, locale) : null;
+                  const { waitingNode, assignedNode, actionButton } = pendingRowParts(item);
                   return (
                     <TableRow key={item.id}>
                       <TableHead scope="row">
                         <span className="cam-record-cell">
-                          <span className="cam-record-cell-name" title={item.organisation}>{item.organisation}</span>
+                          {/* The name opens the desk's preview; the row's
+                              button opens the request itself. */}
+                          <button type="button" className="cam-record-cell-name cam-dossier-preview-opener" aria-haspopup="dialog" data-preview-opener={item.id} title={t("previewOpenTitle")} onClick={() => setPreviewId(item.id)}>{item.organisation}</button>
                           <span className="cam-record-cell-meta">
                             <span className="cam-record-cell-ref">{item.establishmentId || t("noReference")}</span>
                             {item.entityType && <span className="cam-tag" title={entityLabel(item.entityType)}>{entityShort(item.entityType)}</span>}
@@ -465,61 +627,180 @@ export function RegistrationQueue() {
                       </TableHead>
                       <TableCell data-label={t("colTerritory")}>{place || "—"}</TableCell>
                       <TableCell data-label={t("colWaiting")} className="cam-cell-nowrap">
-                        {duration && stampText ? (
-                          <time dateTime={item.submittedAt} title={t("receivedAt", { stamp: stampText })}>
-                            {duration}
-                            <span className="sr-only"> ({t("receivedAt", { stamp: stampText })})</span>
-                          </time>
-                        ) : (
-                          <span className="cam-cell-muted" title={t("receiptUnavailable")}>{t("unavailable")}</span>
-                        )}
+                        {waitingNode}
                       </TableCell>
                       <TableCell data-label={t("colAssigned")}>
-                        <span className="cam-cell-stack">
-                          <span className={mine || colleague ? undefined : "cam-cell-muted"}>
-                            {mine ? t("you") : colleague ? item.assigneeName || t("colleagueUnnamed") : t("unassigned")}
-                          </span>
-                          {/* The claim's deadline, in words; amber in its last 30 minutes. */}
-                          {left && (
-                            <span className={left.urgent ? "cam-claim-time is-urgent" : "cam-claim-time"} title={t("timeLeftHelp")}>
-                              {left.lapsed ? t("claimLapsed") : t("timeLeft", { time: left.label })}
-                            </span>
-                          )}
-                        </span>
+                        {assignedNode}
                       </TableCell>
                       <TableCell className="cam-cell-action">
-                        {mine ? (
-                          <Button type="button" size="sm" variant="outline" aria-label={t("openAria", { organisation: item.organisation })} onClick={() => openReview(item)}>
-                            {t("openReview")}
-                          </Button>
-                        ) : colleague ? (
-                          // A colleague's file opens read-only; the review page
-                          // offers the confirmed, logged takeover.
-                          <Button type="button" size="sm" variant="outline" aria-label={t("openColleagueAria", { organisation: item.organisation, name: item.assigneeName || t("colleagueUnnamed") })} onClick={() => openReview(item)}>
-                            {t("openColleague")}
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            aria-label={t("claimAria", { organisation: item.organisation })}
-                            aria-busy={claiming || undefined}
-                            disabled={claimingId !== null}
-                            onClick={() => void claimAndOpen(item)}
-                          >
-                            {claiming ? t("claiming") : t("claimAndOpen")}
-                          </Button>
-                        )}
+                        {actionButton}
                       </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
-            </Table>
+            </Table> : <Table className="cam-registration-queue-table cam-table-stack" aria-labelledby="registration-queue-table-title">
+              <TableHeader><TableRow>
+                <TableHead scope="col">{t("colOrganisation")}</TableHead>
+                <TableHead scope="col">{t("statusLabel")}</TableHead>
+                <TableHead scope="col">{t("colTerritory")}</TableHead>
+                <TableHead scope="col">{t("colDecision")}</TableHead>
+                <TableHead scope="col" className="text-right">{t("colAction")}</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                <DataStateRow
+                  colSpan={5}
+                  state={tableState}
+                  resource={t("resource")}
+                  error={listQuery.error ?? territory.error}
+                  onRetry={() => { if (territory.isError) void territory.refetch(); void listQuery.refetch(); }}
+                  title={tableState === "loading" ? t("loading") : tableState === "error" ? t("loadError") : tableState === "forbidden" ? t("noAccess") : tableState === "empty" ? emptyTitle : undefined}
+                  hint={tableState === "empty" && listNarrowed ? (
+                    <>
+                      {t("noMatchHint")}{" "}
+                      <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={clearFilters}>{t("clearFilters")}</Button>
+                    </>
+                  ) : undefined}
+                />
+                {tableState === "ready" && rows.map((item) => {
+                  const place = territoryParts(item, role).join(" · ");
+                  const decisionAt = item.status === "REJECTED" ? item.rejectedAt : item.status === "ACTIVE" ? item.approvedAt : item.updatedAt;
+                  const decisionBy = item.status === "REJECTED" ? item.rejectedByName : item.status === "ACTIVE" ? item.approvedByName : null;
+                  const canArchive = hasRole(role, USER_ARCHIVE_ROLES) && item.status === "REJECTED";
+                  return (
+                    <TableRow key={item.id}>
+                      <TableHead scope="row">
+                        <span className="cam-record-cell">
+                          <span className="cam-record-cell-name" title={item.organisation}>{item.organisation}</span>
+                          <span className="cam-record-cell-meta">
+                            <span className="cam-record-cell-ref">{item.establishmentId || item.registrationNumber || t("noReference")}</span>
+                            {item.entityType && <span className="cam-tag" title={entityLabel(item.entityType)}>{entityShort(item.entityType)}</span>}
+                          </span>
+                        </span>
+                      </TableHead>
+                      <TableCell data-label={t("statusLabel")}>
+                        <span className="cam-cell-stack">
+                          <span className="flex flex-wrap gap-1.5">
+                            <Badge variant={statusTone(item.status)}>{statusLabel(item.status)}</Badge>
+                            {item.archivedAt && <Badge variant="neutral">{t("archived")}</Badge>}
+                          </span>
+                          {item.status === "REJECTED" && item.rejectionReason && <span className="cam-cell-sub">{item.rejectionReason}</span>}
+                        </span>
+                      </TableCell>
+                      <TableCell data-label={t("colTerritory")}>{place || "—"}</TableCell>
+                      <TableCell data-label={t("colDecision")}>
+                        <span className="cam-cell-stack">
+                          <span className="cam-cell-nowrap">{stamp(decisionAt, false, locale)}</span>
+                          {decisionBy && <span className="cam-cell-sub">{decisionBy}</span>}
+                        </span>
+                      </TableCell>
+                      <TableCell className="cam-cell-action">
+                        <div className="flex items-center justify-end gap-1">
+                          {item.archivedAt ? (
+                            <span aria-disabled="true" className="cam-button cam-button-secondary cam-button-sm">{t("openReview")}</span>
+                          ) : (
+                            <Button type="button" size="sm" variant="outline" aria-label={t("openAria", { organisation: item.organisation })} onClick={() => openReview(item)}>
+                              {t("openReview")}
+                            </Button>
+                          )}
+                          {canArchive && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button type="button" size="icon-sm" variant="ghost" aria-label={t("moreActions", { organisation: item.organisation })}>
+                                  <MoreHorizontal aria-hidden="true" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {item.archivedAt ? (
+                                  <DropdownMenuItem disabled={restoreMutation.isPending} onSelect={() => setRestoreTarget(item)}>{t("restore")}</DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onSelect={() => setArchiveTarget(item)}>{t("archive")}</DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>}
           </div>
         </AdminTablePanel>
       )}
+      {isPendingQueue && (() => {
+        // The desk's preview: the request chosen in the queue, stepped through
+        // in the queue's current order. Gone if a refetch drops it.
+        const index = previewId ? rows.findIndex((row) => row.id === previewId) : -1;
+        if (index < 0) return null;
+        const item = rows[index];
+        const parts = pendingRowParts(item);
+        const tReview = (key: string, values?: Record<string, string | number>) => tRoot(`adminRegistrationReview.${key}`, values);
+        const respondent = [[item.respondentFirstName, item.respondentLastName].filter(Boolean).join(" "), item.respondentFunction].filter(Boolean).join(", ");
+        const points = [
+          ...item.duplicateHints.map((hint, i) => ({ key: `dup-${i}`, blocking: false, label: tReview("duplicatesTitle"), text: hint })),
+          ...(item.requiresCentralStructureCheck ? [{ key: "central", blocking: false, label: tReview("verifyNavLabel"), text: t("previewCentral") }] : []),
+          ...(item.lastResubmission ? [{ key: "changes", blocking: false, label: tReview("changesTitle"), text: tReview("changesWhen", { date: stamp(item.lastResubmission.at, true, locale) }) }] : []),
+        ];
+        return (
+          <QueuePreviewPanel
+            openerKey={item.id}
+            title={item.organisation}
+            reference={item.establishmentId || null}
+            filedOn={item.submittedAt ? stamp(item.submittedAt, true, locale) : null}
+            description={t("previewDescription")}
+            factsTitle={t("previewFacts")}
+            decisionNote={t("previewDecisionNote")}
+            facts={[
+              { label: t("previewType"), value: entityLabel(item.entityType) || "—" },
+              { label: t("colTerritory"), value: [item.region, item.department, item.subdivision].filter(Boolean).join(" · ") || "—" },
+              { label: t("previewAddress"), value: item.address || "—" },
+              { label: t("previewActivity"), value: item.mainActivity || "—" },
+              { label: tReview("taxNumberLabel"), value: item.taxNumber ? <span className="cam-record-cell-ref">{item.taxNumber}</span> : "—" },
+              { label: tReview("cnpsLabel"), value: item.cnpsNumber ? <span className="cam-record-cell-ref">{item.cnpsNumber}</span> : "—" },
+              { label: t("previewRespondent"), value: respondent || "—" },
+              { label: t("previewContact"), value: [item.email, item.respondentPhone, item.respondentPhone2].filter(Boolean).join(" · ") || "—" },
+              { label: t("previewMethod"), value: item.registrationMethod === "ASSISTED" || item.registrationMethod === "ADMIN_CREATED"
+                ? item.createdByName ? t("previewAssisted", { name: item.createdByName }) : t("previewAssistedUnnamed")
+                : t("previewSelf") },
+              { label: t("colWaiting"), value: parts.waitingNode },
+              { label: t("colAssigned"), value: parts.assignedNode },
+            ]}
+            action={parts.actionButton}
+            position={{ index, total: rows.length }}
+            onPrevious={index > 0 ? () => setPreviewId(rows[index - 1].id) : null}
+            onNext={index < rows.length - 1 ? () => setPreviewId(rows[index + 1].id) : null}
+            onClose={() => setPreviewId(null)}
+          >
+            <QueuePreviewPoints title={t("previewPoints")} points={points} emptyText={t("previewNoPoints")} />
+          </QueuePreviewPanel>
+        );
+      })()}
+      {archiveTarget && <ArchiveActions
+        archived={false}
+        canManage={hasRole(role, USER_ARCHIVE_ROLES)}
+        resourceName={archiveTarget.organisation}
+        archiveLabel={t("archive")}
+        restoreLabel={t("restore")}
+        confirmTitle={t("archiveConfirmTitle")}
+        reasonLabel={t("archiveReason")}
+        cancelLabel={tRoot("common.cancel")}
+        hideTrigger
+        dialogOpen
+        onDialogOpenChange={(open) => { if (!open) setArchiveTarget(null); }}
+        onArchive={(reason) => { archiveMutation.mutate({ item: archiveTarget, reason }); setArchiveTarget(null); }}
+        onRestore={() => {}}
+      />}
+      {restoreTarget && <ConfirmDialog
+        id="restore-registration"
+        title={t("restoreConfirmTitle", { organisation: restoreTarget.organisation })}
+        body={t("restoreConfirmBody")}
+        cancelLabel={tRoot("common.cancel")}
+        confirmLabel={t("restore")}
+        onCancel={() => setRestoreTarget(null)}
+        onConfirm={() => { restoreMutation.mutate(restoreTarget); setRestoreTarget(null); }}
+      />}
       {!canRead && role && (
         <Alert role="status" variant="warning" className="my-4">{t("noAccess")}</Alert>
       )}

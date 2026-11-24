@@ -95,6 +95,8 @@ export const ERROR_MESSAGES: BilingualMessage[] = [
   { fr: "Le compte est déjà archivé.", en: 'The account is already archived.' },
   { fr: "Le compte n'est pas archivé.", en: 'The account is not archived.' },
   { fr: 'includeArchived doit valoir true ou false.', en: 'includeArchived must be true or false.' },
+  { fr: 'registeredOnly doit valoir true ou false.', en: 'registeredOnly must be true or false.' },
+  { fr: "Seul le compte d'un établissement approuvé peut être suspendu ou réactivé.", en: 'Only an approved establishment account can be suspended or reactivated.' },
   { fr: "Seuls les comptes d'organisation peuvent être archivés depuis ce module.", en: "Only organisation accounts can be archived from this module." },
   { fr: 'Vous ne pouvez pas archiver votre propre compte.', en: 'You cannot archive your own account.' },
   { fr: 'Vous ne pouvez pas restaurer votre propre compte.', en: 'You cannot restore your own account.' },

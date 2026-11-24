@@ -1,7 +1,7 @@
 # Admin console — UI/UX rules
 
 Applies to everything under `src/app/admin/**` and `src/components/admin/**`.
-Layout map: `docs/standards/admin-layout-spec.md` (revision 3; §11 lists what changed). Shared revision-3 rules: `src/app/admin-console-standard.css`, loaded after `admin-console.css`. Classes and components: `docs/standards/ui-grammar.md` (G1–G17). Values: `src/app/tokens.css`.
+Layout map: `docs/standards/admin-layout-spec.md` (revision 4; §11 and §12 list what changed). Shared revision-3 rules: `src/app/admin-console-standard.css`, loaded after `admin-console.css`. Classes and components: `docs/standards/ui-grammar.md` (G1–G17). Values: `src/app/tokens.css`.
 When this file and the spec disagree, the spec wins; fix this file.
 
 ## Before you change a screen
@@ -13,14 +13,14 @@ When this file and the spec disagree, the spec wins; fix this file.
 
 ## Console rail
 
-- Every console page opens with the institutional masthead (`AdminMasthead`): tricolour line, coat of arms and « République du Cameroun », then CAMLEAP, « Console des agents », the locked scope and notifications. Don't build page-level brand bars.
-- One rail on every page (`layout.tsx`, `AdminSidebar`): light, **labelled by default** from 1024px; the open hub lists its pages under it. « Réduire le menu » turns it into an icon strip, remembered per browser (`lib/admin-rail-preference.ts`, stored only as `"0"`). Don't add page-specific rail rules; the shell classes are `is-rail-compact` / `is-rail-expanded`.
+- Every console page opens with the institutional masthead (`AdminMasthead`): tricolour line, the official band (`OfficialBand console`: « République du Cameroun », the ONEFOP emblem at 56px, the ministry; no coat of arms, option D, 2026-11-11), then CAMLEAP, « Console des agents », the locked scope and notifications. Don't build page-level brand bars.
+- One rail on every page (`layout.tsx`, `AdminSidebar`): official navy, in four sections (Instruction, Collecte, Données, Système), **labelled by default** from 1024px; the open hub lists its pages under it. « Réduire le menu » turns it into an icon strip, remembered per browser (`lib/admin-rail-preference.ts`, stored only as `"0"`). Don't add page-specific rail rules; the shell classes are `is-rail-compact` / `is-rail-expanded`.
 - Below 1024px the rail is the drawer; flyouts and the expand control are hidden there.
 
 ## Page frame
 
 - Root `.cam-admin-page`; header `AdminPageHeader` only, never a hand-built `<h1>` (G2, G3).
-- Page title = its nav label, or the view's label when the route has views (« Relances », « Dossiers terminés »), with a one-line purpose under it. Breadcrumb on every page below a hub. The console face is IBM Plex Sans, titles included.
+- Page title = its nav label, or the view's label when the route has a distinct resource (« Relances »), with a one-line purpose under it. Completed decisions are a status filter of « Dossiers de télédéclaration », not a page title. Breadcrumb on every page below a hub. The console face is IBM Plex Sans, titles included.
 - The header holds route actions (create, export of the route). **Search and filters never go in the header**; they sit with the results they change.
 - One primary button per view (G5).
 
@@ -39,7 +39,8 @@ When this file and the spec disagree, the spec wins; fix this file.
 - Tabs decide *whose* items are listed; filters narrow them. Don't mix the two.
 - Table conventions (spec §11): a record cell first (name, then reference and short type tag); « Région · Département » in one column; relative age with the full stamp as `title`; the order control always visible at the end of the filter bar; `AdminNumberedPager` in the panel footer; 14px text; **no sticky first column**.
 - Mark list tables `.cam-table-stack` and give every cell but the first and the action a `data-label`: below 640px they become stacked records with a full-width action. A cell holding several lines wraps them in one `.cam-cell-stack` so the stacked grid keeps them together.
-- Wide tables that remain scroll inside their own region (labelled, focusable).
+- From 1280px every list table fits its card (no sideways scroll): let long text wrap at word boundaries, keep identifiers, e-mails, dates and figures whole, and let headers take two lines before adding a minimum width. Below that, wide tables scroll inside their own region (labelled, focusable).
+- The instruction queues (registrations, declarations) are a desk: a row's name opens `QueuePreviewPanel` (what to check, the row's facts, Précédent / Suivant, the row's own button). The panel never decides: approval, correction and rejection stay on the review page, after the claim (owner, 2026-11-11). Build a new queue's preview from the row's own parts so the two never disagree.
 
 ## Colour meaning
 

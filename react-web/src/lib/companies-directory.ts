@@ -14,6 +14,9 @@ export interface CompanyUser {
   email: string;
   isActive: boolean;
   status: string;
+  archivedAt: string | null;
+  archivedBy: string | null;
+  archiveReason: string | null;
 }
 
 export interface Company {
@@ -73,8 +76,8 @@ export interface CompanyRegistrationTrend {
   }>;
 }
 
-export function getCompanyStats() {
-  return apiFetch<CompanyStats>("/companies/stats");
+export function getCompanyStats(includeArchived = false) {
+  return apiFetch<CompanyStats>(`/companies/stats${includeArchived ? "?includeArchived=true" : ""}`);
 }
 
 export function getCompanyRegistrationTrend() {
@@ -87,8 +90,13 @@ export function listCompanies(params: {
   pageSize?: number;
   status?: string;
   region?: string;
+  department?: string;
   /** An entity type code (ENTITY_TYPE_VALUES). */
   entityType?: string;
+  /** Only approved registrations, whether their account is active or suspended. */
+  registeredOnly?: boolean;
+  /** Include soft-archived owners; ordinary company reads exclude them. */
+  includeArchived?: boolean;
   sortOrder?: "oldest" | "newest";
   year?: number;
   semester?: 1 | 2;
@@ -100,13 +108,40 @@ export function listCompanies(params: {
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   if (params.status) query.set("status", params.status);
   if (params.region) query.set("region", params.region);
+  if (params.department) query.set("department", params.department);
   if (params.entityType) query.set("entityType", params.entityType);
+  if (params.registeredOnly) query.set("registeredOnly", "true");
+  if (params.includeArchived) query.set("includeArchived", "true");
   if (params.sortOrder) query.set("sortOrder", params.sortOrder);
   if (params.year != null) query.set("year", String(params.year));
   if (params.semester != null) query.set("semester", String(params.semester));
   if (params.quarter != null) query.set("quarter", String(params.quarter));
   const qs = query.toString();
   return apiFetch<ListCompaniesResult>(`/companies${qs ? `?${qs}` : ""}`);
+}
+
+/** A filtered destination in the approved-establishment register. */
+export function establishmentsListHref(filters: {
+  search?: string;
+  region?: string;
+  department?: string;
+  type?: string;
+  status?: "ACTIVE" | "SUSPENDED";
+  includeArchived?: boolean;
+  sort?: "oldest" | "newest";
+  page?: number;
+}): string {
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  if (filters.region) params.set("region", filters.region);
+  if (filters.department) params.set("department", filters.department);
+  if (filters.type) params.set("type", filters.type);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.includeArchived) params.set("includeArchived", "true");
+  if (filters.sort === "oldest") params.set("sort", "oldest");
+  if (filters.page && filters.page > 1) params.set("page", String(Math.trunc(filters.page)));
+  const query = params.toString();
+  return `/admin/etablissements${query ? `?${query}` : ""}`;
 }
 
 // Ported labels — CompaniesScreen's _entityTypeLabel (companies_screen.dart).

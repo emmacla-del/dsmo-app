@@ -60,6 +60,25 @@
   --cam-portal-foot-muted: var(--cam-portal-closing-muted);
   --cam-portal-flow: #cbd5e1;
 
+  /* ── Official band (owner, 2026-11-11: masthead option D) ──
+     The public portal's top band: « République du Cameroun / Paix – Travail –
+     Patrie » on the left, the ONEFOP emblem centred on a white disc, the
+     ministry and ONEFOP on the right. Navy is the logo's own navy
+     (--cam-logo-navy): the band is the State's ground, not a UI colour.
+     Gold is the motto only (7.1:1 on the navy). */
+  --cam-official: var(--cam-logo-navy, #021f40);
+  --cam-on-official: var(--cam-white);
+  --cam-on-official-muted: color-mix(in srgb, var(--cam-white) 80%, transparent);
+  --cam-official-motto: var(--cam-gold);
+  --cam-official-rule: color-mix(in srgb, var(--cam-white) 18%, transparent);
+  --cam-official-disc: 72px;
+  /* The staff console's band: the smallest disc around the 56px emblem. */
+  --cam-official-disc-console: 64px;
+  /* The navy console rail (option D): white washes on --cam-official. */
+  --cam-official-hover: color-mix(in srgb, var(--cam-white) 8%, transparent);
+  --cam-official-active: color-mix(in srgb, var(--cam-white) 14%, transparent);
+  --cam-on-official-soft: color-mix(in srgb, var(--cam-white) 62%, transparent);
+
   /* ── Institutional national tricolor ──
      Kept for the VT status colours that alias them. The portal no longer
      draws a tricolor bar (owner, 2026-10-14). */
@@ -240,10 +259,13 @@
      the star inside the flag circle. Raising either to 11px would change a
      size that was chosen small on purpose, so the ladder gains a step
      instead. Nothing new should reach for it. */
-  --cam-font-size-4xs: 0.5625rem;
-  /* 9px */
-  --cam-font-size-3xs: 0.6875rem;
-  /* 11px */
+  /* Both raised to 12px on 2026-11-11: no text below 12px, anywhere
+     (owner's rule). The two names stay so the 43 call sites need no edit;
+     nothing new should reach for them, use --cam-font-size-2xs. */
+  --cam-font-size-4xs: 0.75rem;
+  /* 12px (was 9px) */
+  --cam-font-size-3xs: 0.75rem;
+  /* 12px (was 11px) */
   --cam-font-size-2xs: 0.75rem;
   /* 12px */
   --cam-font-size-xs: 0.8125rem;
@@ -902,4 +924,14 @@
   --cam-console-teal-06: #216647; /* L26 ×1 */
   --cam-console-teal-07: #12604c; /* L22 ×2 */
   --cam-console-teal-08: #075b45; /* L19 ×3 */
+}
+
+/* Below 1400px wide the side rails (wizard sommaire, respondent rail) give
+   40px back to the content (owner, 2026-11-11): at 1280px the widest
+   statistical tables (981px, eight 95px columns) need the room to sit
+   whole instead of scrolling inside their frame. */
+@media (max-width: 1399.98px) {
+  :root {
+    --cam-side-rail-width: 240px;
+  }
 }

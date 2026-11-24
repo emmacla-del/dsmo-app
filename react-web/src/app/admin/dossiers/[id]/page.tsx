@@ -312,7 +312,7 @@ function SubmissionDetailContent() {
   const neighboursQuery = useQuery({
     queryKey: ["admin", "dossier-neighbours", id, neighbourQuery.filters],
     queryFn: () => getDossierNeighbours(id, neighbourQuery.filters),
-    enabled: Boolean(id) && neighbourQuery.view !== null,
+    enabled: Boolean(id) && neighbourQuery.hasListContext,
     retry: false,
     staleTime: 0,
     refetchOnMount: "always",
@@ -1455,7 +1455,7 @@ function SubmissionDetailContent() {
         {!readOnly && !canReviewDossier && hasRole(role, SURVEY_ROLES) && (decisions.approve || decisions.requestCorrection || decisions.reject) && (
           <p className="cam-dossier-review-card cam-dossier-review-prompt">{t("claimToDecide")}</p>
         )}
-        {!readOnly && (decidedLine || canReopenForCorrection(dossier.status, role) || (canReviewDossier && (decisions.approve || decisions.requestCorrection || decisions.reject))) && (
+        {!readOnly && (decidedLine || canReopenForCorrection(dossier.status, role, dossier.archivedAt) || (canReviewDossier && (decisions.approve || decisions.requestCorrection || decisions.reject))) && (
           <section className="cam-dossier-review-card cam-dossier-review-decisions" aria-labelledby="dossier-decision-title">
             <h2 id="dossier-decision-title">{t("decisionHeading")}</h2>
             {decidedLine && <span className="cam-admin-meta">{decidedLine}</span>}
@@ -1475,7 +1475,7 @@ function SubmissionDetailContent() {
             {decisions.approve && canReviewDossier && <button type="button" className={`cam-button ${approvalChecksReady ? "cam-button-primary" : "cam-button-secondary"}`} disabled={!approvalChecksReady} onClick={openApproveModal}>{t("validateArchiveButton")}</button>}
             {decisions.requestCorrection && canReviewDossier && !(decisions.approve && !approvalChecksReady) && <button type="button" className="cam-button cam-button-secondary" onClick={openCorrectionModal}>{t("requestCorrectionButton")}</button>}
             {decisions.reject && canReviewDossier && <button type="button" className="cam-button cam-button-danger" onClick={openRejectModal}>{t("rejectFormButton")}</button>}
-            {canReopenForCorrection(dossier.status, role) && <button type="button" className="cam-button cam-button-secondary" onClick={openReopenModal}>{t("reopenButton")}</button>}
+            {canReopenForCorrection(dossier.status, role, dossier.archivedAt) && <button type="button" className="cam-button cam-button-secondary" onClick={openReopenModal}>{t("reopenButton")}</button>}
           </section>
         )}
         <a className="cam-dossier-review-history-link" href="#dossier-history">{t("notesAndHistoryTitle")}<span aria-hidden="true" className="cam-dossier-review-arrow" /></a>

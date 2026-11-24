@@ -55,6 +55,19 @@ const territories = [
   { name: "Littoral", departments: [{ name: "Wouri" }] },
 ];
 
+// The follow-up filters are pills (AdminFilterPill): a button named after the
+// filter, which reads « Region: Littoral » once a value is chosen. The value
+// a pill shows is what the URL holds, so these read it from the pill.
+function pill(name: string): HTMLElement {
+  return screen.getByRole("button", { name: new RegExp(`^${name}`) });
+}
+
+function pillValue(name: string): string {
+  const button = pill(name);
+  if (!button.classList.contains("is-active")) return "";
+  return (button.querySelector("strong")?.textContent ?? "").replace(/^:\s*/, "");
+}
+
 test("follow-up controls, chips and page restore from URL state", () => {
   const savedQuery = "vue=followup&campaignId=round-1&submissionsStatus=APPROVED&followupSearch=Establishment&followupRegion=Littoral&followupDepartment=Wouri&followupType=ONG&followupOutcome=CONTACTED&followupPage=2";
   const result = renderWithProviders(
@@ -66,12 +79,12 @@ test("follow-up controls, chips and page restore from URL state", () => {
   result.rerender(<CampaignNonRespondentsTable data={data} canShowContacts territories={territories} />);
 
   assert.equal((screen.getByLabelText("Search") as HTMLInputElement).value, "Establishment");
-  assert.equal((screen.getByLabelText("Filter by region") as HTMLSelectElement).value, "Littoral");
-  assert.equal((screen.getByLabelText("Filter by department") as HTMLSelectElement).value, "Wouri");
-  assert.equal((screen.getByLabelText("Filter by type") as HTMLSelectElement).value, "ONG");
-  assert.equal((screen.getByLabelText("Follow-up status") as HTMLSelectElement).value, "CONTACTED");
-  assert.ok(screen.getByRole("group", { name: "Active filters" }));
-  assert.ok(screen.getByText("Page 2 of 2"));
+  assert.equal(pillValue("Region"), "Littoral");
+  assert.equal(pillValue("Department"), "Wouri");
+  assert.notEqual(pillValue("Type"), "");
+  assert.notEqual(pillValue("Follow-up status"), "");
+  assert.ok(screen.getByRole("button", { name: "Clear all filters" }));
+  assert.equal(screen.getByRole("button", { name: "Page 2" }).getAttribute("aria-current"), "page");
   assert.ok(screen.getByText("Showing 16–16 of 16 establishments"));
   assert.equal(navigationMock.replaced.length, 0);
 
@@ -80,16 +93,16 @@ test("follow-up controls, chips and page restore from URL state", () => {
   navigationMock.searchParams = new URLSearchParams("vue=followup&campaignId=round-1&submissionsStatus=APPROVED");
   result.rerender(<CampaignNonRespondentsTable data={data} canShowContacts territories={territories} />);
   assert.equal((screen.getByLabelText("Search") as HTMLInputElement).value, "");
-  assert.equal((screen.getByLabelText("Filter by region") as HTMLSelectElement).value, "");
-  assert.equal((screen.getByLabelText("Filter by department") as HTMLSelectElement).value, "");
-  assert.equal(screen.queryByRole("group", { name: "Active filters" }), null);
+  assert.equal(pillValue("Region"), "");
+  assert.equal(screen.queryByRole("button", { name: /^Department/ }) === null, true, "the department pill waits for a region");
+  assert.equal(screen.queryByRole("button", { name: "Clear all filters" }), null);
   assert.ok(screen.getByText("Establishment 1"));
 
   navigationMock.searchParams = new URLSearchParams(savedQuery);
   result.rerender(<CampaignNonRespondentsTable data={data} canShowContacts territories={territories} />);
-  assert.equal((screen.getByLabelText("Filter by region") as HTMLSelectElement).value, "Littoral");
-  assert.equal((screen.getByLabelText("Filter by department") as HTMLSelectElement).value, "Wouri");
-  assert.ok(screen.getByText("Page 2 of 2"));
+  assert.equal(pillValue("Region"), "Littoral");
+  assert.equal(pillValue("Department"), "Wouri");
+  assert.equal(screen.getByRole("button", { name: "Page 2" }).getAttribute("aria-current"), "page");
 });
 
 test("follow-up pagination labels are translated in French", () => {
@@ -104,7 +117,7 @@ test("follow-up pagination labels are translated in French", () => {
   result.rerender(<CampaignNonRespondentsTable data={data} canShowContacts territories={territories} />);
 
   assert.ok(screen.getByText("Affichage de 16 à 16 sur 16 établissements"));
-  assert.ok(screen.getByText("Page 2 sur 2"));
+  assert.equal(screen.getByRole("button", { name: "Page 2" }).getAttribute("aria-current"), "page");
   assert.ok(screen.getByRole("button", { name: "Précédent" }));
   assert.ok(screen.getAllByRole("button", { name: "Suivant" }).length >= 1);
 });
@@ -134,7 +147,8 @@ test("region changes clear an incompatible department and page while keeping par
   );
   result.rerender(<CampaignNonRespondentsTable data={data} canShowContacts territories={territories} />);
 
-  await result.user.selectOptions(screen.getByLabelText("Filter by region"), "Littoral");
+  await result.user.click(pill("Region"));
+  await result.user.click(screen.getByRole("option", { name: "Littoral" }));
 
   assert.equal(navigationMock.pushed.length, 1);
   const pushed = new URL(navigationMock.pushed[0], "https://local.invalid");
@@ -148,8 +162,8 @@ test("region changes clear an incompatible department and page while keeping par
 
   navigationMock.searchParams = pushed.searchParams;
   result.rerender(<CampaignNonRespondentsTable data={data} canShowContacts territories={territories} />);
-  assert.equal((screen.getByLabelText("Filter by region") as HTMLSelectElement).value, "Littoral");
-  assert.equal((screen.getByLabelText("Filter by department") as HTMLSelectElement).value, "");
+  assert.equal(pillValue("Region"), "Littoral");
+  assert.equal(pillValue("Department"), "");
   assert.ok(screen.getByText(/16 establishments match these filters\./));
 
   await result.user.click(screen.getByRole("button", { name: "Clear all filters" }));

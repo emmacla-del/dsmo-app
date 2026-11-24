@@ -1,5 +1,14 @@
 # Admin modules refactor plan
 
+> Registration-view amendment (2026-11-09): the owner removed the separate
+> `vue=organisations` destination. Registration statuses now filter the single
+> `/admin/inscriptions` list, and `/admin/etablissements` is approved stock
+> only. See `docs/adr/0001-admin-modules-restructure.md` §A.3. References below
+> to adding or retaining the organisations UI are historical and superseded.
+> The same 2026-11-09 amendment also removes the separate completed-submissions
+> destination: completed decisions are status filters of `/admin/dossiers`.
+> Follow-up remains separate. See ADR-0001 §§A.3–A.4.
+
 ## Locked decisions
 
 ## A.2 Locked decisions (recorded, not open)

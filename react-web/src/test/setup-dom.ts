@@ -6,6 +6,12 @@ import globalJsdom from "global-jsdom";
 
 globalJsdom(undefined, { url: "http://localhost:3000/" });
 
+// Node has its own CustomEvent, so global-jsdom leaves it in place, and jsdom
+// refuses to dispatch it ("parameter 1 is not of type 'Event'"). Radix's
+// popover and focus scope build theirs from the global, so opening any
+// popover in a test threw. Use the window's, which jsdom accepts.
+globalThis.CustomEvent = window.CustomEvent as unknown as typeof CustomEvent;
+
 // Tells React 19 that updates are wrapped in act() (Testing Library does so).
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -15,6 +21,17 @@ if (!window.HTMLElement.prototype.scrollIntoView) {
 }
 if (!window.HTMLElement.prototype.scrollTo) {
   window.HTMLElement.prototype.scrollTo = function scrollTo() {};
+}
+// Radix Popover/Popper measures its trigger with ResizeObserver, which jsdom
+// lacks: opening any popover (a filter pill, for one) threw inside act().
+if (!("ResizeObserver" in globalThis)) {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (globalThis as { ResizeObserver?: unknown }).ResizeObserver = ResizeObserverStub;
+  (window as unknown as { ResizeObserver?: unknown }).ResizeObserver = ResizeObserverStub;
 }
 if (!window.matchMedia) {
   window.matchMedia = (query: string): MediaQueryList =>

@@ -88,10 +88,7 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: DIRECTORY_READ_ROLES,
     matchPrefixes: ["/admin/inscriptions", "/admin/etablissements", "/admin/etablissement-detail"],
     subRoutes: [
-      { label: "File des inscriptions", labelKey: "inscriptions", href: "/admin/inscriptions", allowedRoles: APPROVAL_ROLES },
-      // A view of the same page, listed in the rail rather than as a tab row
-      // over the page (owner, 2026-11-08: « release the space »).
-      { label: "Organisations enregistrées", labelKey: "organisations", href: "/admin/inscriptions?vue=organisations", allowedRoles: APPROVAL_ROLES },
+      { label: "Demandes d'inscription", labelKey: "inscriptions", href: "/admin/inscriptions", allowedRoles: APPROVAL_ROLES },
       // The register is what an approved registration becomes, so it sits in
       // the same hub instead of the one-page "declarants" hub it had.
       { label: "Registre des établissements", labelKey: "etablissements", href: "/admin/etablissements", allowedRoles: DIRECTORY_READ_ROLES },
@@ -118,9 +115,8 @@ export const ADMIN_HUBS: AdminHub[] = [
     allowedRoles: SURVEY_READ_ROLES,
     matchPrefixes: ["/admin/dossiers", "/admin/centre-qualite"],
     subRoutes: [
-      { label: "Examen des télédéclarations", labelKey: "dossiers", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: SURVEY_READ_ROLES },
+      { label: "Dossiers de télédéclaration", labelKey: "dossiers", href: "/admin/dossiers", badgeKey: "pending", allowedRoles: SURVEY_READ_ROLES },
       // Views of the same page, in the rail rather than a tab row (owner, 2026-11-08).
-      { label: "Dossiers terminés", labelKey: "dossiersTermines", href: "/admin/dossiers?vue=completed", allowedRoles: SURVEY_READ_ROLES },
       { label: "Relances", labelKey: "relances", href: "/admin/dossiers?vue=followup", allowedRoles: SURVEY_READ_ROLES },
       // Moved here from the former "qualite" hub: an anomaly is a reason to
       // send a file back, so it belongs beside the queue that sends it.

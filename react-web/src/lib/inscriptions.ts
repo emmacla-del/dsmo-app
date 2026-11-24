@@ -22,6 +22,7 @@
 // does not have.
 import { apiFetch } from "./api-client";
 import { parseAdminListPage } from "./admin-url";
+import { establishmentsListHref } from "./companies-directory";
 import { REGISTRATION_NATIONAL_ROLES, hasRole } from "./roles";
 import type { CompanyRegistrationItem, DirectoryUser } from "./user-directory";
 import type { UiLocale } from "./register-i18n";
@@ -360,14 +361,57 @@ export function organisationsStatusesForFilter(statusFilter: string, createdBy =
   return createdBy ? "PENDING_APPROVAL,COMPLEMENTS_REQUESTED,ACTIVE,REJECTED" : "ACTIVE,REJECTED";
 }
 
-/** The Organisations view narrowed to a territory, a type or one agent's files. */
-export function organisationsListHref(filters: { region?: string; department?: string; type?: string; createdBy?: string }): string {
-  const params = new URLSearchParams({ vue: "organisations" });
+/** Registration records narrowed to a status, territory, type or entering officer. */
+export function registrationRecordsHref(filters: {
+  status?: "PENDING_APPROVAL" | "COMPLEMENTS_REQUESTED" | "ACTIVE" | "REJECTED" | "ALL";
+  region?: string;
+  department?: string;
+  type?: string;
+  createdBy?: string;
+  includeArchived?: boolean;
+  search?: string;
+  sort?: "oldest" | "newest";
+  page?: number;
+}): string {
+  const params = new URLSearchParams({ vue: "queue" });
+  if (filters.status && filters.status !== "PENDING_APPROVAL") params.set("status", filters.status);
   if (filters.region) params.set("region", filters.region);
   if (filters.department) params.set("department", filters.department);
   if (filters.type) params.set("type", filters.type);
   if (filters.createdBy) params.set("createdBy", filters.createdBy);
+  if (filters.includeArchived && filters.status !== "PENDING_APPROVAL") params.set("includeArchived", "true");
+  if (filters.search) params.set("search", filters.search);
+  const defaultSort = filters.status && filters.status !== "PENDING_APPROVAL" ? "newest" : "oldest";
+  if (filters.sort && filters.sort !== defaultSort) params.set("sort", filters.sort);
+  if (filters.page && filters.page > 1) params.set("page", String(Math.trunc(filters.page)));
   return `/admin/inscriptions?${params.toString()}`;
+}
+
+/** Maps removed `vue=organisations` bookmarks to one of the two surviving lists. */
+export function legacyOrganisationsDestination(query: string | URLSearchParams): string {
+  const params = typeof query === "string" ? new URLSearchParams(query) : new URLSearchParams(query.toString());
+  const status = params.get("status")?.trim().toUpperCase();
+  const createdBy = params.get("createdBy")?.trim() || undefined;
+  const search = (params.get("search") ?? params.get("organisation"))?.trim() || undefined;
+  const sort: "oldest" | "newest" | undefined = params.get("sort") === "oldest" ? "oldest" : params.get("sort") === "newest" ? "newest" : undefined;
+  const rawPage = Number(params.get("page"));
+  const page = Number.isInteger(rawPage) && rawPage > 1 ? rawPage : undefined;
+  const shared = {
+    region: params.get("region")?.trim() || undefined,
+    department: params.get("department")?.trim() || undefined,
+    type: params.get("type")?.trim() || undefined,
+    includeArchived: params.get("includeArchived") === "true",
+    search,
+    sort,
+    page,
+  };
+  if (createdBy || status === "REJECTED" || status === "COMPLEMENTS_REQUESTED" || status === "PENDING_APPROVAL" || status === "ALL") {
+    const recordStatus = status === "REJECTED" || status === "COMPLEMENTS_REQUESTED" || status === "PENDING_APPROVAL" || status === "ACTIVE" || status === "ALL"
+      ? status
+      : "ALL";
+    return registrationRecordsHref({ ...shared, status: recordStatus, createdBy });
+  }
+  return establishmentsListHref(shared);
 }
 
 function registrationQueryForView(current: string, view: InscriptionsView, preservePage: boolean): URLSearchParams {

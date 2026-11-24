@@ -1,4 +1,6 @@
 ﻿// main.ts
+// First: fills process.env from .env before any module reads it.
+import './load-env';
 import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';

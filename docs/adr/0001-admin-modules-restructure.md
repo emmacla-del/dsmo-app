@@ -4,8 +4,8 @@
 
 ## A.1 Purpose of the two modules
 
-Two back-office modules, each with three views, implemented as `vue`
-query-param values on the EXISTING routes (not new routes):
+This section records the original 2026-10-27 design. The registration portion
+was amended on 2026-11-09 below; the declarations design is unchanged.
 
 REGISTRATIONS (currently /admin/inscriptions)
   vue=queue         -> Registration queue (today: vue=file)
@@ -46,10 +46,58 @@ D5. Module separation is enforced at the EXISTING controller-guard level
     territorial. CENTRAL_AGENT is read-only national and is excluded from
     survey mutations and survey export.
 
+## A.3 Amendment — registration list and establishment register (2026-11-09)
+
+The owner replaced the registration portion of D2 after reviewing the overlap
+between Registered organisations and the establishment register:
+
+- There are two primary registration destinations: `/admin/inscriptions` and
+  `/admin/etablissements`.
+- `/admin/inscriptions` is one registration-record list. Pending review is its
+  default operational mode; complements requested, rejected and all records
+  are status filters, not separate navigation destinations.
+- `/admin/etablissements` contains approved registrations only
+  (`User.status=ACTIVE`), including active and suspended accounts
+  (`User.isActive=true|false`). Rejected applications are not establishments.
+- The `vue=organisations` UI and navigation are removed. Existing URLs redirect
+  to the approved register or registrations list according to their filters.
+- Archive remains the existing orthogonal, reversible soft-removal flag. It is
+  shown only through an explicit include-archived filter and does not replace
+  rejection, suspension or an establishment lifecycle status.
+- The API's `view=organisations` count/archive contract remains temporarily as
+  an internal compatibility path for registration-list requests; it is no
+  longer a user-facing view.
+
+## A.4 Amendment — survey submission records (2026-11-09)
+
+The owner applied the same consolidation to survey submissions after auditing
+the review queue and completed records:
+
+- `/admin/dossiers` has one submission-record list. Pending/correction work,
+  completed decisions, individual statuses and all records are status filters
+  of that list.
+- The separate `vue=completed` navigation destination is removed. Existing
+  completed URLs migrate to `vue=submissions&submissionsStatus=...` and retain
+  their completed filters and archive choice.
+- Claim ownership, waiting time and bulk decisions remain available only for
+  claimable statuses. Approved/rejected/replaced selections retain the decision
+  columns, archive/restore, audit and reopen actions where allowed.
+- Archive remains orthogonal and is explicit for every status selection. The
+  unified list therefore also provides a restore surface for archived pending
+  or correction-requested records.
+- Follow-up remains separate because it lists registered establishments with
+  no received campaign submission, not submission records. The quality centre
+  remains separate because it lists anomaly records.
+- Backend `view=queue|completed` count/archive behavior remains an internal API
+  compatibility contract; status/statuses select the actual list population.
+
+This and §A.3 supersede D2's user-facing registration and completed-view split.
+D1, D3, D4 and D5 remain in force. No schema change is introduced.
+
 
 ## Consequences
 
-## A.4 What changed vs earlier assumptions (record in the doc)
+## A.5 What changed vs earlier assumptions (record in the doc)
 
 - Permission model: module separation already exists at controller guards
   (staff-scope.ts role sets). No grant model is built.
@@ -58,13 +106,13 @@ D5. Module separation is enforced at the EXISTING controller-guard level
   not [BACKEND-DEP].
 - Reopen: PATCH /admin/questionnaires/:id/reopen-for-correction already
   exists and is audited (src/questionnaires/admin-questionnaires.controller.ts:387,
-  AUDIT_REOPEN at :383). Surfacing it in the completed view is [MODIFY].
+  AUDIT_REOPEN at :383). Surfacing it under completed status filters is [MODIFY].
 - Assignment: assigneeId already exists on registration
   (prisma/schema.prisma:221). Assignment is [MODIFY], not a schema change.
 - Deactivate/reactivate: PATCH /auth/users/:id/suspend and /activate exist
   (src/auth/auth.controller.ts:564, :571) as USER-account operations. They
   use USER_LIFECYCLE_ROLES and enforce territorial authority in the service.
-- Export from completed view: export endpoint exists
+- Export from completed status filters: export endpoint exists
   (src/questionnaires/admin-questionnaires.controller.ts:288) and accepts
   one status; extending it to a status set is [MODIFY].
 - Search: backend accepts `search` covering company name, tax number, CNPS

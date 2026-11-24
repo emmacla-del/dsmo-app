@@ -205,8 +205,14 @@ export default function LoginPage() {
     }).catch(() => {});
   }
 
+  const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register";
+
+  // Two columns (owner, 2026-11-11): the sign-in card, and beside it the way
+  // in for an organisation that has no account yet. That panel replaced the
+  // card's « Pas de compte ? Créer un compte » footer, with the same link.
   return (
-    <main className="cam-auth-page">
+    <main className="cam-auth-page cam-auth-page--split">
+      <div className="auth-split">
       <div className="wrap">
         <AuthHeader wordmarkAs="h1" title={t("loginPage.portalHeading")} showEndorsement={false} />
         <div className="card">
@@ -391,14 +397,6 @@ export default function LoginPage() {
             )}
           </div>
 
-          <div className="card-footer">
-            <span className="create-account">
-              {t("loginPage.noAccountText")}{" "}
-              <Link href={returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register"}>
-                {t("loginPage.createAccountLink")}
-              </Link>
-            </span>
-          </div>
         </div>
 
         <p className="help">
@@ -424,6 +422,16 @@ export default function LoginPage() {
             {t("loginPage.backToPortalLink")}
           </Link>
         </div>
+      </div>
+
+      <aside className="auth-aside" aria-labelledby="new-org-title">
+        <h2 id="new-org-title">{t("loginPage.newOrgTitle")}</h2>
+        <p>{t("loginPage.newOrgBody")}</p>
+        <Link className="btn-secondary auth-aside-action" href={registerHref}>
+          {t("loginPage.newOrgAction")}
+        </Link>
+        <p className="auth-aside-note">{t("loginPage.staffNote")}</p>
+      </aside>
       </div>
     </main>
   );

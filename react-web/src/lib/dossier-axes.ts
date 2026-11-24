@@ -116,8 +116,8 @@ export const REOPEN_ROLES = ["SUPER_ADMIN", "ADMIN_ONEFOP", "ADMIN_ONEFOP_SUBMIS
  * central ONEFOP roles only (defect 13 of the 2026-10-16 VT run). The server
  * enforces the same rule (QuestionnairesService.reopenForCorrection).
  */
-export function canReopenForCorrection(status: string | null | undefined, role: string | null | undefined): boolean {
-  return status === "APPROVED" && (REOPEN_ROLES as readonly string[]).includes(role ?? "");
+export function canReopenForCorrection(status: string | null | undefined, role: string | null | undefined, archivedAt?: string | null): boolean {
+  return status === "APPROVED" && !archivedAt && (REOPEN_ROLES as readonly string[]).includes(role ?? "");
 }
 
 export function allowedDecisions(status: string | null | undefined): AllowedDecisions {

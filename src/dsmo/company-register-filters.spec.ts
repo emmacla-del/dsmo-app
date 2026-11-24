@@ -41,4 +41,38 @@ describe('DsmoService.listCompanies register filters', () => {
     expect(accounts[1]).toMatchObject({ status: 'ACTIVE', isActive: true });
     expect(accounts[2]).toEqual({ archivedAt: null, status: 'REJECTED' });
   });
+
+  it('can scope the establishment register to every approved account', async () => {
+    const { service, company } = makeService();
+    await service.listCompanies({ registeredOnly: true }, national);
+    await service.listCompanies({ registeredOnly: true, status: 'ACTIVE' }, national);
+    await service.listCompanies({ registeredOnly: true, status: 'SUSPENDED' }, national);
+    const accounts = (company.findMany.mock.calls as any[][]).map((call) => call[0].where.user.is);
+    expect(accounts[0]).toEqual({ archivedAt: null, status: 'ACTIVE' });
+    expect(accounts[1]).toEqual({ archivedAt: null, status: 'ACTIVE', isActive: true });
+    expect(accounts[2]).toEqual({ archivedAt: null, status: 'ACTIVE', isActive: false });
+  });
+
+  it('includes archived approved owners only when explicitly requested', async () => {
+    const { service, company } = makeService();
+    await service.listCompanies({ registeredOnly: true, includeArchived: true }, national);
+    expect((company.findMany.mock.calls[0] as any[])[0].where.user.is).toEqual({
+      status: 'ACTIVE',
+      OR: [{ archivedAt: null }, { archivedAt: { not: null } }],
+    });
+  });
+
+  it('ANDs explicit territory filters with the caller scope', async () => {
+    const { service, company } = makeService();
+    await service.listCompanies(
+      { region: 'Littoral', department: 'Wouri' },
+      { role: 'REGIONAL_ADMIN', region: 'Centre' } as any,
+    );
+    const where = (company.findMany.mock.calls[0] as any[])[0].where;
+    expect(where.AND).toEqual(expect.arrayContaining([
+      { region: { equals: 'Centre', mode: 'insensitive' } },
+      { region: { equals: 'Littoral', mode: 'insensitive' } },
+      { department: { equals: 'Wouri', mode: 'insensitive' } },
+    ]));
+  });
 });

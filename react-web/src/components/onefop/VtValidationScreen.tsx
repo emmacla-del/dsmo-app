@@ -312,6 +312,12 @@ export function VtValidationScreen({
         </div>
       )}
 
+      {/* Two columns from 1100px (owner, 2026-11-11): the sections on the
+          left, and beside them, under a rule, what submitting means and the
+          one primary action. One column below. Not a card: respondent
+          screens have none (ui-grammar §G4). */}
+      <div className="cam-review-layout">
+      <div className="cam-review-main">
       {/* One row per section: name, status, counts, answers, change link. */}
       <ol style={{ listStyle: "none", margin: "0 0 var(--cam-space-6)", padding: 0, borderBottom: "1px solid var(--cam-border)" }}>
         {sectionSummaries.map(({ index, section, stats }) => (
@@ -360,17 +366,19 @@ export function VtValidationScreen({
         ))}
       </ol>
 
-      {/* Actions: Back and Save draft are secondary; one primary action. */}
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "var(--cam-space-3)" }}>
+
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--cam-space-3)" }}>
         <button type="button" onClick={onBack} style={secondaryButton}>
           ← {t("vtValidationScreen.backButton")}
         </button>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--cam-space-3)" }}>
-          {onSaveDraft && (
-            <button type="button" onClick={onSaveDraft} style={secondaryButton}>
-              {t("vtValidationScreen.saveDraftButton")}
-            </button>
-          )}
+      </div>
+      </div>
+
+      <aside className="cam-review-aside" aria-labelledby="vt-review-deposit-title">
+        <h2 id="vt-review-deposit-title" className="cam-review-aside-title">
+          {t("vtValidationScreen.depositTitle")}
+        </h2>
+        <p className="cam-review-aside-body">{t("vtValidationScreen.depositBody")}</p>
           {onSubmitFinal && (
             <button
               type="button"
@@ -409,7 +417,12 @@ export function VtValidationScreen({
                     : t("vtValidationScreen.continueButton")}
             </button>
           )}
-        </div>
+          {onSaveDraft && (
+            <button type="button" onClick={onSaveDraft} style={secondaryButton}>
+              {t("vtValidationScreen.saveDraftButton")}
+            </button>
+          )}
+      </aside>
       </div>
     </div>
   );

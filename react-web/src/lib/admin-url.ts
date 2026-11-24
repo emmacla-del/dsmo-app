@@ -41,6 +41,8 @@ export function clampAdminListPage(page: number, total: number, pageSize: number
 // SUPERSEDED: files a newer submission replaced; listed only on request.
 export const DOSSIER_STATUSES = ["PENDING_REVIEW", "CORRECTION_REQUESTED", "APPROVED", "REJECTED", "SUPERSEDED"] as const;
 export type DossierStatus = (typeof DOSSIER_STATUSES)[number];
+export const DOSSIER_STATUS_FILTERS = [...DOSSIER_STATUSES, "COMPLETED", "ALL"] as const;
+export type DossierStatusFilter = (typeof DOSSIER_STATUS_FILTERS)[number];
 
 export const DOSSIER_QUALITIES = ["clean", "warnings", "blocking"] as const;
 export type DossierQuality = (typeof DOSSIER_QUALITIES)[number];
@@ -65,8 +67,8 @@ export function hasDossierOtherFilters(
 }
 
 /**
- * The review queue's views (?queueView= on the submissions tab). « Traités »
- * is not one of them: it is the existing completed tab (?vue=completed).
+ * The review queue's ownership shortcuts (?queueView= on the submissions list).
+ * Completed decisions are selected by the list's status filter, not a view.
  * « Réclamés par un collègue » (others) lists the pending files another
  * officer holds on a live claim, with their name and time left (claims
  * lapse 12 hours after they are taken, CLAUDE.md §21, 2026-11-09).
@@ -99,11 +101,11 @@ export function dossierQueueViewFilters(view: DossierQueueView): {
  * ?companyId=, the overdue link) name the view they meant, so they are never
  * overridden by a default. Returns null only for a bare URL, where the caller
  * picks « Ma file » or « Non attribués » from the reviewer's claims.
- * Completed statuses return null too: the page sends those to the completed tab.
+ * Completed/grouped statuses return null too: they bypass claim ownership.
  */
 export function resolveDossierQueueView(input: {
   requested: DossierQueueView | "";
-  status: DossierStatus | "";
+  status: DossierStatusFilter | "";
   assignment: DossierAssignment | "";
   hasOtherFilters: boolean;
   readOnly: boolean;
@@ -123,6 +125,37 @@ export function resolveDossierQueueView(input: {
 /** ?status= on /admin/dossiers; "" (every status) for absent or unknown values. */
 export function parseDossierStatus(raw: string | null): DossierStatus | "" {
   return (DOSSIER_STATUSES as readonly string[]).includes(raw ?? "") ? (raw as DossierStatus) : "";
+}
+
+/** UI status filter, including the completed and all-record groups. */
+export function parseDossierStatusFilter(raw: string | null): DossierStatusFilter | "" {
+  return (DOSSIER_STATUS_FILTERS as readonly string[]).includes(raw ?? "") ? (raw as DossierStatusFilter) : "";
+}
+
+export function isTerminalDossierStatusFilter(status: DossierStatusFilter | ""): boolean {
+  return status === "COMPLETED" || status === "APPROVED" || status === "REJECTED" || status === "SUPERSEDED";
+}
+
+/** Exact list API status contract behind one user-facing status selection. */
+export function dossierStatusRequest(status: DossierStatusFilter | ""): {
+  status?: DossierStatus;
+  statuses?: string;
+  view: "queue" | "completed" | "all";
+  claimableSelection: boolean;
+} {
+  const terminal = isTerminalDossierStatusFilter(status);
+  const allRecords = status === "ALL";
+  const singleStatus = (DOSSIER_STATUSES as readonly string[]).includes(status) ? status as DossierStatus : undefined;
+  return {
+    status: singleStatus,
+    statuses: status === "COMPLETED"
+      ? "APPROVED,REJECTED,SUPERSEDED"
+      : status === "ALL"
+        ? "PENDING_REVIEW,CORRECTION_REQUESTED,APPROVED,REJECTED,SUPERSEDED"
+        : !status ? "PENDING_REVIEW,CORRECTION_REQUESTED" : undefined,
+    view: terminal ? "completed" : allRecords ? "all" : "queue",
+    claimableSelection: !terminal && !allRecords,
+  };
 }
 
 export function parseDossierQuality(raw: string | null): DossierQuality | "" {
@@ -170,10 +203,10 @@ export function normalizeDossierListHref(
   writeFilter("search", rawSearch?.trim() || null);
   if (legacyApplies) params.delete("q");
 
-  const status = parseDossierStatus(readFilter("status"));
-  const viewStatus = view === "completed"
-    ? ["APPROVED", "REJECTED", "SUPERSEDED"].includes(status)
-    : Boolean(status);
+  const status = view === "completed"
+    ? parseDossierStatus(readFilter("status"))
+    : parseDossierStatusFilter(readFilter("status"));
+  const viewStatus = view === "completed" ? ["APPROVED", "REJECTED", "SUPERSEDED"].includes(status) : Boolean(status);
   writeFilter("status", viewStatus ? status : null);
 
   const sort = parseDossierSort(readFilter("sort"));
@@ -200,7 +233,9 @@ export function normalizeDossierListHref(
   writeFilter("region", region || null);
   writeFilter("department", department || null);
 
-  const assignment = parseDossierAssignment(readFilter("assignment"));
+  const terminalSelection = isTerminalDossierStatusFilter(status) || status === "ALL";
+  if (terminalSelection) params.delete("queueView");
+  const assignment = terminalSelection ? "" : parseDossierAssignment(readFilter("assignment"));
   const legacyAssignedToMe = parseDossierFlag(readFilter("assignedToMe"));
   writeFilter("assignment", assignment || (legacyAssignedToMe ? "me" : null));
   writeFilter("assignedToMe", null);
@@ -209,11 +244,13 @@ export function normalizeDossierListHref(
   writeFilter("quality", quality || null);
   const late = parseDossierFlag(readFilter("late"));
   writeFilter("late", late ? "1" : null);
-  const overdue = view === "completed" ? false : parseDossierFlag(readFilter("overdue"));
+  const overdue = view === "completed" || terminalSelection ? false : parseDossierFlag(readFilter("overdue"));
   writeFilter("overdue", overdue ? "1" : null);
 
-  const includeArchived = view === "completed" && readFilter("includeArchived") === "false";
-  writeFilter("includeArchived", includeArchived ? "false" : null);
+  const includeArchived = view === "completed"
+    ? readFilter("includeArchived") !== "false"
+    : parseDossierFlag(readFilter("includeArchived"));
+  writeFilter("includeArchived", includeArchived ? "true" : null);
 
   const companyId = readFilter("companyId")?.trim() ?? "";
   writeFilter("companyId", companyId || null);
@@ -231,6 +268,32 @@ export function normalizeDossierListHref(
 
   const query = params.toString();
   return `/admin/dossiers${query ? `?${query}` : ""}`;
+}
+
+/** Translate the removed completed destination into the unified submissions list. */
+export function legacyCompletedDossierHref(current: string): string {
+  const source = new URLSearchParams(current);
+  const result = new URLSearchParams();
+  result.set("vue", "submissions");
+  const copy = (suffix: string, legacyKey: string = suffix[0].toLowerCase() + suffix.slice(1)) => {
+    const value = source.get(`completed${suffix}`) ?? source.get(legacyKey);
+    if (value) result.set(`submissions${suffix}`, value);
+  };
+  for (const suffix of ["Search", "FormType", "Region", "Department", "Period", "QuarterCode", "Late", "Quality", "CompanyId", "Sort", "Page"] as const) copy(suffix);
+  if (!result.has("submissionsSearch")) {
+    const search = source.get("q")?.trim();
+    if (search) result.set("submissionsSearch", search);
+  }
+  const status = parseDossierStatus(source.get("completedStatus") ?? source.get("status"));
+  result.set("submissionsStatus", ["APPROVED", "REJECTED", "SUPERSEDED"].includes(status) ? status : "COMPLETED");
+  const includeArchived = source.get("completedIncludeArchived") ?? source.get("includeArchived");
+  if (includeArchived !== "false") result.set("submissionsIncludeArchived", "true");
+  const campaignId = source.get("campaignId")?.trim();
+  if (campaignId) result.set("campaignId", campaignId);
+  for (const [key, value] of source.entries()) {
+    if (key === "context" || key === "returnTo") result.set(key, value);
+  }
+  return `/admin/dossiers?${result.toString()}`;
 }
 
 /** ?sort=oldest on /admin/dossiers lists the longest-waiting files first. */

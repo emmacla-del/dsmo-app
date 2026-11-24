@@ -60,6 +60,8 @@ describe('AuthService user management enforces the scope server-side', () => {
     blankRegion: { id: 'blankRegion', role: 'ADMIN_ONEFOP', status: 'ACTIVE', region: '', department: null },
     dsmoAdmin: { id: 'dsmoAdmin', role: 'SUPER_ADMIN', status: 'ACTIVE' },
     otherRegional: { id: 'otherRegional', role: 'REGIONAL_ADMIN', status: 'ACTIVE', region: 'Centre', department: 'Mfoundi' },
+    company: { id: 'company', role: 'COMPANY', status: 'ACTIVE', region: 'Littoral', department: 'Wouri' },
+    rejectedCompany: { id: 'rejectedCompany', role: 'COMPANY', status: 'REJECTED', region: 'Littoral', department: 'Wouri' },
   };
   let prisma: any;
   let service: AuthService;
@@ -178,6 +180,15 @@ describe('AuthService user management enforces the scope server-side', () => {
         details: { isActive: true, actorRole: 'ADMIN_ONEFOP' },
       }),
     });
+  });
+
+  it('lets lifecycle roles manage approved company accounts, but never rejected registrations', async () => {
+    await expect(service.setUserActive('company', false, 'actor', 'ADMIN_ONEFOP')).resolves.toMatchObject({ isActive: false });
+    await expect(service.setUserActive(
+      'company', true, 'actor', 'REGIONAL_ADMIN',
+      { role: 'REGIONAL_ADMIN', region: 'Littoral' },
+    )).resolves.toMatchObject({ isActive: true });
+    await expect(service.setUserActive('rejectedCompany', true, 'actor', 'SUPER_ADMIN')).rejects.toThrow(BadRequestException);
   });
 
   it('lists only in-scope roles for the ONEFOP administrator', async () => {

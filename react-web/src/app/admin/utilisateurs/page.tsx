@@ -356,7 +356,7 @@ function OnefopUsersContent() {
                 <th scope="col">{t("roleColumn")}</th>
                 <th scope="col">{t("territoryColumn")}</th>
                 <th scope="col">{t("staffNumberColumn")}</th>
-                <th scope="col" className="is-num">{t("formsColumn")}</th>
+                <th scope="col" className="is-num" title={t("formsLabel")}>{t("formsColumn")}</th>
                 <th scope="col">{t("lastSignInColumn")}</th>
                 <th scope="col">{t("createdColumn")}</th>
                 <th scope="col">{t("statusColumn")}</th>

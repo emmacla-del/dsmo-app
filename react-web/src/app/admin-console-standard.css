@@ -1198,9 +1198,14 @@ button.cam-kpi[aria-pressed="true"] {
     max-width: none !important;
   }
   .cam-admin.cam-admin.cam-admin .cam-register-table thead th:first-child { width: 34% !important; }
+  /* The establishment's name wraps (2026-11-11): one long name made the
+     column 612px and the register scrolled sideways at 1440px. */
+  .cam-admin.cam-admin.cam-admin .cam-register-table tbody td:first-child { white-space: normal; }
   .cam-admin.cam-admin.cam-admin .cam-registration-organisations-table thead th:first-child { width: 46% !important; }
   .cam-admin.cam-admin.cam-admin .cam-registration-organisations-table thead th:nth-child(2) { width: 20% !important; }
-  .cam-admin.cam-admin.cam-admin .cam-registration-queue-table thead th:first-child { width: 28% !important; }
+  /* 40 %, not 28 % (2026-11-11): at 1280px the organisation wrapped and
+     was cut while the territory column stood half empty. */
+  .cam-admin.cam-admin.cam-admin .cam-registration-queue-table thead th:first-child { width: 40% !important; }
   .cam-admin.cam-admin.cam-admin :is(.cam-dossier-standard-table, .cam-dossier-completed-table) thead th.cam-dossier-record-column,
   .cam-admin.cam-admin.cam-admin .cam-dossier-completed-table thead th:first-child { width: 28% !important; }
   .cam-admin.cam-admin.cam-admin :is(.cam-dossier-standard-table, .cam-dossier-completed-table) thead th.cam-dossier-select-column { width: 44px !important; }
@@ -1270,4 +1275,305 @@ button.cam-kpi[aria-pressed="true"] {
   color: var(--cam-warning);
   font-size: var(--cam-font-size-sm);
   font-weight: 600;
+}
+
+/* ── 19. Option D: the navy rail (owner, 2026-11-11) ───────────────────────
+   The rail takes the official navy of the band above it (--cam-official),
+   as on the canvas board « Pilotage ONEFOP » (2026-11-11): same groups,
+   same hubs, same behaviour; only the colours change. White text, muted
+   white for the rest, white washes for hover and the open hub, gold for the
+   counts and the focus ring. The icon strip's flyouts and the account menu
+   stay white panels. Replaces section 3's light rail. */
+.cam-admin.cam-admin .cam-admin-rail {
+  background: var(--cam-official);
+  border-right: 0;
+  color: var(--cam-on-official);
+}
+/* The drawer (below 1024px) still names the platform at its top. */
+.cam-admin.cam-admin .cam-admin-rail-brand-name { color: var(--cam-on-official); }
+.cam-admin.cam-admin .cam-admin-rail-brand-sub { color: var(--cam-on-official-soft); }
+.cam-admin.cam-admin .cam-admin-rail-group-title { color: var(--cam-on-official-soft); }
+.cam-admin.cam-admin .cam-admin-rail-hub { color: var(--cam-on-official-muted); }
+.cam-admin.cam-admin .cam-admin-rail-hub:hover:not([aria-current="page"]) {
+  background: var(--cam-official-hover);
+  color: var(--cam-on-official);
+}
+.cam-admin.cam-admin .cam-admin-rail-hub[aria-current="page"],
+.cam-admin.cam-admin.is-dossier-workflow .cam-admin-rail-hub[aria-current="page"] {
+  background: var(--cam-official-active);
+  color: var(--cam-on-official);
+  font-weight: var(--cam-font-weight-semibold);
+  box-shadow: none;
+}
+.cam-admin.cam-admin .cam-admin-rail :is(.cam-admin-rail-hub, .cam-admin-rail-subnav-link, .cam-admin-rail-toggle):focus-visible {
+  outline: 2px solid var(--cam-official-motto);
+  outline-offset: -2px;
+}
+.cam-admin.cam-admin .cam-admin-rail-badge {
+  background: var(--cam-official-motto);
+  color: var(--cam-official);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-admin-rail-subnav { border-left-color: var(--cam-official-rule); }
+.cam-admin.cam-admin .cam-admin-rail-subnav-link { color: var(--cam-on-official-muted); }
+.cam-admin.cam-admin .cam-admin-rail-subnav-link:hover {
+  background: var(--cam-official-hover);
+  color: var(--cam-on-official);
+}
+.cam-admin.cam-admin .cam-admin-rail-subnav-link[aria-current="page"] {
+  color: var(--cam-on-official);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-admin.cam-admin .cam-admin-rail-toggle { color: var(--cam-on-official-muted); }
+.cam-admin.cam-admin .cam-admin-rail-toggle:hover {
+  background: var(--cam-official-hover);
+  color: var(--cam-on-official);
+}
+.cam-admin.cam-admin .cam-admin-rail-foot {
+  border-top-color: var(--cam-official-rule);
+  color: var(--cam-on-official-soft);
+}
+@media (min-width: 1024px) {
+  /* The rail reads as one navy column down the page. */
+  .cam-admin.cam-admin { background: linear-gradient(to right, var(--cam-official) var(--cam-side-rail-width), var(--cam-bg) var(--cam-side-rail-width)); }
+  .cam-admin.cam-admin .cam-admin-body { border-left: 0; }
+}
+
+/* ── 21. The dossier queue fits its card from 1280px (2026-11-11) ──────────
+   At 1280px the table was 1102px in a 971px card and scrolled sideways, and
+   the entity column was left 139px. Each cell now breaks where it is meant
+   to, never mid-phrase: the record's reference and type each stay whole;
+   the region sits over the department; the waiting time stays on one line
+   with « en retard » as a tag under it; a control badge may take two
+   balanced lines; the row button keeps one line (« Examiner », not
+   « Examiner les problèmes »: the controls column already names them). */
+@media (min-width: 640px) {
+  .cam-admin.cam-admin .cam-dossier-standard-table :is(.cam-record-cell-ref, .cam-tag) { white-space: nowrap; }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-cell-secondary.cam-record-cell-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cam-space-1) var(--cam-space-2);
+    margin-top: var(--cam-space-1);
+  }
+  /* One vertical alignment for the whole row: the cells centred on the
+     row, as in the registration queue (the entity was top-aligned and the
+     rest centred, so multi-line rows did not line up). */
+  .cam-admin.cam-admin.cam-admin .cam-dossier-standard-table td { vertical-align: middle; }
+  .cam-admin.cam-admin.cam-admin .cam-dossier-standard-table td.cam-dossier-territory-cell { white-space: normal !important; }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-territory-cell > span { display: block; white-space: nowrap; }
+  .cam-admin.cam-admin .cam-dossier-waiting-stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--cam-space-1);
+  }
+  .cam-admin.cam-admin.cam-admin .cam-dossier-standard-table td.cam-dossier-validation-cell,
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-validation-summary { min-width: 8.5rem; }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-validation-summary [data-slot="badge"] {
+    width: fit-content;
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+    text-wrap: balance;
+    text-align: left;
+    line-height: var(--cam-line-height-ui);
+  }
+  .cam-admin.cam-admin .cam-dossier-standard-table .cam-dossier-row-actions { flex-wrap: nowrap; }
+}
+/* The navy column also runs down the dossier pages, whose shell sets its
+   own background (section 2). */
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin.is-dossier-workflow { background: linear-gradient(to right, var(--cam-official) var(--cam-side-rail-width), var(--cam-bg) var(--cam-side-rail-width)); }
+}
+/* The queue's page header was pinned 68px from the top, under a masthead
+   that no longer stays in view, and section 18 made it transparent: the
+   title floated over the rows on scroll. It scrolls with the page. */
+.cam-admin.cam-admin.is-dossier-workflow .cam-dossier-view--submissions > .cam-admin-page-header {
+  position: static;
+}
+
+/* ── 22. The wide staff tables fit their card from 1024px (2026-11-11) ─────
+   « Utilisateurs & rôles », « Équipe territoriale » and the audit journal
+   had fixed minimum widths (1040px, 1240px, 900px) and scrolled sideways
+   inside their card even at 1440px, with two agents' columns and the team's
+   last columns out of view. The minimums go; headers may take two lines
+   (most of the width was « Inscriptions assistées » over a single figure),
+   and long text wraps while identifiers, dates and figures stay on one
+   line. The scroll region stays as the fallback on narrower screens. */
+@media (min-width: 1024px) {
+  .cam-admin.cam-admin :is(.cam-agents-table, .cam-equipe-table, .cam-audit-table) {
+    min-width: 0;
+    width: 100%;
+  }
+  .cam-admin.cam-admin :is(.cam-agents-table, .cam-equipe-table, .cam-audit-table) th {
+    white-space: normal;
+    text-wrap: balance;
+    vertical-align: bottom;
+  }
+  /* Agents: the role wraps; the staff number never breaks at its hyphen. */
+  .cam-admin.cam-admin .cam-agents-table td:nth-child(2) { white-space: normal !important; }
+  .cam-admin.cam-admin .cam-agents-table td:nth-child(4) { white-space: nowrap; }
+  .cam-admin.cam-admin .cam-equipe-table td:first-child,
+  .cam-admin.cam-admin .cam-equipe-table th:first-child { min-width: 9.5rem; }
+  /* Notes under a figure may wrap: « Dernière : » over its date. */
+  .cam-admin.cam-admin .cam-equipe-table .cam-equipe-sub { white-space: normal; }
+  /* Agents: the name and e-mail may wrap (an e-mail breaks anywhere rather
+     than widen the table); « Profil » and « Réassigner » stack. */
+  .cam-admin.cam-admin .cam-agents-table td:first-child { white-space: normal !important; }
+  /* The e-mail never breaks: a broken address cannot be read back. */
+  .cam-admin.cam-admin .cam-agents-table td:first-child .cam-admin-meta { white-space: nowrap; }
+  /* « par Paul Essomba » may take a second line under the date. */
+  .cam-admin.cam-admin .cam-agents-table .cam-agent-created { white-space: normal; }
+  .cam-admin.cam-admin .cam-agents-table td:last-child > div {
+    flex-direction: column !important;
+    align-items: flex-end;
+    gap: var(--cam-space-1) !important;
+  }
+  /* Team: the row's links may take two lines (« Voir les / inscriptions »). */
+  .cam-admin.cam-admin .cam-equipe-actions { white-space: normal; }
+  /* Nine and eleven columns: 8px each side instead of 12, the outer edges kept. */
+  .cam-admin.cam-admin :is(.cam-equipe-table, .cam-agents-table) :is(th, td) { padding-inline: var(--cam-space-2); }
+  .cam-admin.cam-admin :is(.cam-equipe-table, .cam-agents-table) :is(th, td):first-child { padding-inline-start: var(--cam-space-3); }
+  .cam-admin.cam-admin :is(.cam-equipe-table, .cam-agents-table) :is(th, td):last-child { padding-inline-end: var(--cam-space-3); }
+  .cam-admin.cam-admin .cam-agents-table thead th:first-child { width: 20%; }
+  .cam-admin.cam-admin .cam-equipe-actions > * { white-space: nowrap; text-align: right; }
+  .cam-admin.cam-admin .cam-audit-table td { white-space: normal; }
+  .cam-admin.cam-admin .cam-audit-table td:first-child { white-space: nowrap; }
+  .cam-admin.cam-admin .cam-audit-table .cam-audit-resource-id { white-space: nowrap; }
+}
+
+/* ── 23. The instruction desk's preview (owner, 2026-11-11) ────────────────
+   DossierPreviewPanel and the registration queue's preview: a panel from
+   the right over the queue, opened from a row's name. It decides nothing;
+   its one action is the row's own button. Rendered in a portal, outside
+   .cam-admin, so these rules are not scoped to it. */
+.cam-dossier-preview[data-slot="sheet-content"] {
+  width: min(520px, 100vw);
+  max-width: 100vw;
+  gap: 0;
+  padding: 0;
+  background: var(--cam-surface);
+  color: var(--cam-text);
+  font-family: var(--cam-font-sans);
+  overflow-y: auto;
+}
+.cam-dossier-preview-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-3) var(--cam-space-5);
+  border-bottom: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+  font-size: var(--cam-font-size-sm);
+}
+.cam-dossier-preview-position { color: var(--cam-text-muted); }
+.cam-dossier-preview-steps { display: inline-flex; gap: var(--cam-space-4); }
+.cam-dossier-preview-steps .cam-text-button:disabled { color: var(--cam-text-muted); cursor: default; text-decoration: none; }
+.cam-dossier-preview-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding: var(--cam-space-5) var(--cam-space-5) var(--cam-space-4);
+}
+.cam-dossier-preview-filed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cam-space-2);
+  margin: 0;
+  font-size: var(--cam-font-size-sm);
+  color: var(--cam-text-muted);
+}
+.cam-dossier-preview-title {
+  margin: 0;
+  font-size: var(--cam-font-size-lg);
+  font-weight: var(--cam-font-weight-bold);
+  line-height: var(--cam-line-height-title);
+  color: var(--cam-official);
+}
+.cam-dossier-preview-section {
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+}
+.cam-dossier-preview-h3 {
+  margin: 0 0 var(--cam-space-3);
+  font-size: var(--cam-font-size-base);
+  font-weight: var(--cam-font-weight-semibold);
+}
+.cam-dossier-preview-muted { margin: 0; font-size: var(--cam-font-size-sm); color: var(--cam-text-muted); }
+.cam-dossier-preview-findings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  font-size: var(--cam-font-size-sm);
+  line-height: var(--cam-line-height-copy);
+}
+.cam-dossier-preview-findings li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-1);
+  padding-left: var(--cam-space-3);
+  border-left: 3px solid var(--cam-warning);
+}
+.cam-dossier-preview-findings li { border-left-color: var(--cam-amber-border); }
+.cam-dossier-preview-findings li.is-blocking { border-left-color: var(--cam-error); }
+/* The queue behind is inert while the preview is open; the scrim says so. */
+body:has(.cam-dossier-preview) [data-slot="sheet-overlay"] { background: var(--cam-scrim); }
+.cam-dossier-preview-severity { font-size: var(--cam-font-size-2xs); font-weight: var(--cam-font-weight-semibold); color: var(--cam-text-muted); }
+.cam-dossier-preview-facts { margin: 0; font-size: var(--cam-font-size-sm); }
+.cam-dossier-preview-facts > div {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-2) 0;
+  border-bottom: var(--cam-border-width) solid var(--cam-border-subtle);
+}
+.cam-dossier-preview-facts > div:last-child { border-bottom: 0; }
+.cam-dossier-preview-facts dt { color: var(--cam-text-muted); }
+.cam-dossier-preview-facts dd { margin: 0; min-width: 0; }
+.cam-dossier-preview-foot {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cam-space-3);
+  padding: var(--cam-space-4) var(--cam-space-5);
+  border-top: var(--cam-border-width) solid var(--cam-border);
+  background: var(--cam-surface);
+}
+.cam-dossier-preview-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cam-space-4);
+  flex-wrap: wrap;
+}
+/* The row's name is a button that opens the preview; it keeps the look of
+   the name link it replaces. */
+.cam-dossier-preview-opener {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cam-dossier-preview-opener:hover {
+  color: var(--cam-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cam-dossier-preview-opener:focus-visible {
+  outline: 2px solid var(--cam-focus);
+  outline-offset: 2px;
+  border-radius: var(--cam-radius-sm);
 }

@@ -30,13 +30,13 @@ test("each level picks one territory below its own, and nobody below divisional"
 
 test("the queue opens on available, oldest first, page 1", () => {
   assert.deepEqual(parseQueueUrl("", "ADMIN_ONEFOP"), {
-    ownership: "available", search: "", geo: "", type: "", sort: "oldest", page: 1,
+    status: "PENDING_APPROVAL", ownership: "available", search: "", geo: "", type: "", sort: "oldest", page: 1, includeArchived: false, createdBy: "",
   });
 });
 
 test("the URL keeps ownership, search, geography, type, order and page", () => {
   const state = parseQueueUrl("vue=queue&owner=mine&search=Acme&department=Wouri&type=ONG&sort=newest&page=3", "REGIONAL_ADMIN");
-  assert.deepEqual(state, { ownership: "mine", search: "Acme", geo: "Wouri", type: "ONG", sort: "newest", page: 3 });
+  assert.deepEqual(state, { status: "PENDING_APPROVAL", ownership: "mine", search: "Acme", geo: "Wouri", type: "ONG", sort: "newest", page: 3, includeArchived: false, createdBy: "" });
   assert.equal(queueHref(state, "REGIONAL_ADMIN"), "/admin/inscriptions?vue=queue&owner=mine&search=Acme&department=Wouri&type=ONG&sort=newest&page=3");
   assert.deepEqual(parseQueueUrl(queueHref(state, "REGIONAL_ADMIN").split("?")[1], "REGIONAL_ADMIN"), state);
 });
@@ -52,15 +52,17 @@ test("legacy and unknown values fall back to safe defaults", () => {
   assert.equal(parseQueueUrl("type=UNKNOWN", "ADMIN_ONEFOP").type, "");
   assert.equal(parseQueueUrl("sort=sideways", "ADMIN_ONEFOP").sort, "oldest");
   assert.equal(parseQueueUrl("page=-2", "ADMIN_ONEFOP").page, 1);
-  // Old queue parameters (status, createdBy, duplicates) are not carried.
-  assert.equal(queueHref(parseQueueUrl("status=ALL&createdBy=u1&duplicates=with", "ADMIN_ONEFOP"), "ADMIN_ONEFOP"), "/admin/inscriptions?vue=queue");
+  // Registration status and author are real list filters; obsolete duplicates are dropped.
+  assert.equal(queueHref(parseQueueUrl("status=ALL&createdBy=u1&duplicates=with", "ADMIN_ONEFOP"), "ADMIN_ONEFOP"), "/admin/inscriptions?vue=queue&status=ALL&createdBy=u1");
 });
 
 test("ownership and order are not filters; search, geography and type are", () => {
-  assert.equal(hasActiveQueueFilters({ search: "", geo: "", type: "" }), false);
-  assert.equal(hasActiveQueueFilters({ search: "x", geo: "", type: "" }), true);
-  assert.equal(hasActiveQueueFilters({ search: "", geo: "Centre", type: "" }), true);
-  assert.equal(hasActiveQueueFilters({ search: "", geo: "", type: "ONG" }), true);
+  const base = { status: "PENDING_APPROVAL" as const, includeArchived: false, createdBy: "" };
+  assert.equal(hasActiveQueueFilters({ ...base, search: "", geo: "", type: "" }), false);
+  assert.equal(hasActiveQueueFilters({ ...base, search: "x", geo: "", type: "" }), true);
+  assert.equal(hasActiveQueueFilters({ ...base, search: "", geo: "Centre", type: "" }), true);
+  assert.equal(hasActiveQueueFilters({ ...base, search: "", geo: "", type: "ONG" }), true);
+  assert.equal(hasActiveQueueFilters({ ...base, status: "REJECTED", search: "", geo: "", type: "" }), true);
 });
 
 test("the list asks for pending files only, by ownership, with every filter", () => {
@@ -85,6 +87,24 @@ test("the summary follows geography only: one row, oldest first", () => {
   assert.equal(mine.assignedToMe, true);
   assert.equal("search" in mine, false);
   assert.equal("entityType" in mine, false);
+});
+
+test("rejected registrations use the same list without claim ownership and may include archived records", () => {
+  const state = parseQueueUrl("status=REJECTED&owner=mine&includeArchived=true&createdBy=agent-1", "ADMIN_ONEFOP");
+  assert.equal(queueHref(state, "ADMIN_ONEFOP"), "/admin/inscriptions?vue=queue&status=REJECTED&includeArchived=true&createdBy=agent-1");
+  assert.deepEqual(queueListParams(state, "ADMIN_ONEFOP"), {
+    view: "organisations",
+    status: "REJECTED",
+    includeArchived: true,
+    createdBy: "agent-1",
+    sortOrder: "newest",
+  });
+});
+
+test("the officer drill-down asks for every stored registration status", () => {
+  const params = queueListParams(parseQueueUrl("status=ALL&createdBy=agent-1", "ADMIN_ONEFOP"), "ADMIN_ONEFOP");
+  assert.equal(params.status, "ALL");
+  assert.equal(params.createdBy, "agent-1");
 });
 
 test("each file is in exactly one view: free, mine, or a colleague's", () => {
