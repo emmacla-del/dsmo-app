@@ -10,6 +10,9 @@ import styles from "../portal.module.css";
 // published contacts, the legal basis of the collection, and the nav.
 // On the official navy since 2026-11-11 (option D), with the ONEFOP emblem
 // at 64px (never below 56px, brand.md) and the flag ribbon closing the page.
+// Three columns since the home page redesign (2026-11-24): who runs the
+// platform (emblem and the reversed CAMLEAP logo), the pages, the contacts;
+// the legal basis under them.
 
 export function SiteFooter() {
   const t = useTranslations("site");
@@ -17,25 +20,21 @@ export function SiteFooter() {
 
   return (
     <footer className={styles.footer}>
-      <div className={`${styles.container} ${styles.footerInner}`}>
+      <div className={`${styles.container} ${styles.footerColumns}`}>
         <div className={styles.footerIdentity}>
-          <span className={styles.footerEmblem}>
+          <div className={styles.footerMarks}>
+            <span className={styles.footerEmblem}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/images/onefop_logo.png" alt="" width={64} height={63} />
+            </span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/onefop_logo.png" alt="" width={64} height={63} />
-          </span>
-          <div>
+            <img src="/images/camleap-logo-reversed.svg" alt="CAMLEAP" width={150} height={21} className={styles.footerLogo} />
+          </div>
           <p className={styles.footerOrg}>{t("footerOrg")}</p>
           <p>{t("footerMinistry")}</p>
-          <p className={styles.footerContact}>
-            <a href={SITE_CONTACT.whatsappHref} target="_blank" rel="noopener noreferrer">
-              {t("contactWhatsappLabel")} {SITE_CONTACT.whatsappDisplay}
-            </a>
-            {" · "}
-            <a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a>
-          </p>
-          </div>
         </div>
-        <nav className={styles.footerNav} aria-label={t("navLabel")}>
+        <nav className={styles.footerColumn} aria-label={t("navLabel")}>
+          <h2 className={styles.footerHeading}>{t("footerNavTitle")}</h2>
           {SITE_NAV.map(({ key, href }) => (
             <Link key={key} href={href}>
               {t(key)}
@@ -43,6 +42,13 @@ export function SiteFooter() {
           ))}
           <Link href={entry.spaceHref}>{entry.spaceLabel}</Link>
         </nav>
+        <div className={styles.footerColumn}>
+          <h2 className={styles.footerHeading}>{t("footerContactTitle")}</h2>
+          <a href={SITE_CONTACT.whatsappHref} target="_blank" rel="noopener noreferrer">
+            {t("contactWhatsappLabel")} {SITE_CONTACT.whatsappDisplay}
+          </a>
+          <a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a>
+        </div>
       </div>
       <div className={styles.container}>
         <p className={styles.footerLegal}>{t("footerLegal")}</p>

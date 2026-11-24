@@ -3,7 +3,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { HOME_PHASES } from "./site-content";
+import { ArrowRight, Briefcase, Building2, CircleHelp, ClipboardList, GraduationCap, LockKeyhole } from "lucide-react";
+import { HOME_PHASES, SITE_CONTACT } from "./site-content";
 import { PortalEntryLink } from "./PortalEntryLink";
 import { SiteCta } from "./SiteCta";
 import { usePortalEntry } from "./use-portal-entry";
@@ -39,35 +40,52 @@ export function HomeView({ visual }: { visual: ReactNode }) {
               </Link>
             </div>
           </div>
-          <div className={styles.heroVisual}>
+          {/* On a tinted panel, as in the mock-up (2026-11-24). */}
+          <div className={`${styles.heroVisual} ${styles.heroPanel}`}>
             {visual}
           </div>
         </div>
       </section>
 
-      {/* 01b · Online services (owner, 2026-11-11): the three things a
-          visitor comes to do, as one row of doors. Links, not a list: the
-          phases below stay the page's one list. Signed in, the first door
-          already returns to the survey, so the second is not repeated. */}
-      <nav className={styles.services} aria-labelledby="guichet">
+      {/* 01b · Online services (owner, 2026-11-11; cards, 2026-11-24): the
+          three things a visitor comes to do. Each card is one link; its
+          title, sentence and cue are read as its name, the arrow is not.
+          The coloured top edge tells them apart: teal for the way in, gold
+          for coming back, navy for help (the mock-up's green, orange, navy).
+          Signed in, the first card already returns to the survey, so the
+          second is not repeated. */}
+      <nav className={`${styles.services} ${styles.sectionWash}`} aria-labelledby="guichet">
         <div className={styles.container}>
-          <h2 id="guichet" className={styles.servicesTitle}>
-            {t("homeServicesTitle")}
-          </h2>
+          <div className={styles.sectionHead}>
+            <span className={styles.kicker}>{t("homeServicesTitle")}</span>
+            <h2 id="guichet">{t("homeServicesHeading")}</h2>
+          </div>
           <div className={styles.servicesGrid}>
-            <Link href={entry.actionHref} className={styles.service}>
+            <Link href={entry.actionHref} className={`${styles.service} ${styles.serviceTeal}`}>
+              <Building2 aria-hidden="true" size={30} strokeWidth={1.8} className={styles.serviceIcon} />
               <span className={styles.serviceTitle}>{entry.actionLabel(t("homeServiceRegisterTitle"))}</span>
               <span className={styles.serviceBody}>{t("homeServiceRegisterBody")}</span>
+              <span className={styles.serviceCue}>
+                {t("homeServiceRegisterCue")} <ArrowRight aria-hidden="true" size={16} />
+              </span>
             </Link>
             {!entry.isAuthenticated && (
-              <Link href={entry.spaceHref} className={styles.service}>
+              <Link href={entry.spaceHref} className={`${styles.service} ${styles.serviceGold}`}>
+                <ClipboardList aria-hidden="true" size={30} strokeWidth={1.8} className={styles.serviceIcon} />
                 <span className={styles.serviceTitle}>{t("homeServiceResumeTitle")}</span>
                 <span className={styles.serviceBody}>{t("homeServiceResumeBody")}</span>
+                <span className={styles.serviceCue}>
+                  {t("homeServiceResumeCue")} <ArrowRight aria-hidden="true" size={16} />
+                </span>
               </Link>
             )}
-            <Link href="/assistance" className={styles.service}>
+            <Link href="/assistance" className={`${styles.service} ${styles.serviceNavy}`}>
+              <CircleHelp aria-hidden="true" size={30} strokeWidth={1.8} className={styles.serviceIcon} />
               <span className={styles.serviceTitle}>{t("navHelp")}</span>
               <span className={styles.serviceBody}>{t("homeServiceHelpBody")}</span>
+              <span className={styles.serviceCue}>
+                {t("homeServiceHelpCue")} <ArrowRight aria-hidden="true" size={16} />
+              </span>
             </Link>
           </div>
         </div>
@@ -80,17 +98,20 @@ export function HomeView({ visual }: { visual: ReactNode }) {
             <span className={styles.kicker}>{t("homeProgrammeTitle")}</span>
             <h2>{t("homeProgrammeLede")}</h2>
           </div>
-          {/* Numbered marker, state, title, sentence: no icon tile and no
-              pill. The state names the pilot itself; the list's order gives
-              the number to screen readers, so the marker is hidden from them
-              (2026-10-21). */}
+          {/* Numbered marker, state, title, sentence. The state names the
+              pilot itself; the list's order gives the number to screen
+              readers, so the marker is hidden from them (2026-10-21). */}
           <ol className={styles.phases}>
             {HOME_PHASES.map(({ n, now }) => (
               <li key={n} className={now ? styles.phaseNow : undefined}>
-                <span className={styles.phaseMarker} aria-hidden="true">
-                  {String(n).padStart(2, "0")}
-                </span>
-                <span className={styles.state}>{t(`homePhase${n}State`)}</span>
+                {/* A card per phase (2026-11-24): the number, and the state
+                    as a tag on the same line. */}
+                <div className={styles.phaseHead}>
+                  <span className={styles.phaseMarker} aria-hidden="true">
+                    {String(n).padStart(2, "0")}
+                  </span>
+                  <span className={`${styles.state} ${styles[`phaseTag${n}`]}`}>{t(`homePhase${n}State`)}</span>
+                </div>
                 <h3>{t(`homePhase${n}Title`)}</h3>
                 <p>{t(`homePhase${n}Body`)}</p>
               </li>
@@ -107,19 +128,20 @@ export function HomeView({ visual }: { visual: ReactNode }) {
         </div>
       </section>
 
-      {/* 03 · Who participates (Two groups) */}
-      <section className={styles.section}>
+      {/* 03 · Who participates, and 04 · the promise made about their data,
+          on one tinted ground (2026-11-24). Each family's link is its
+          heading, stretched over the card: the link's name is the family,
+          and "See eligibility" is the visual cue only (2026-10-21). The
+          icons are plain marks, not tiles. */}
+      <section className={`${styles.section} ${styles.sectionWash}`}>
         <div className={styles.container}>
           <div className={styles.sectionHead}>
             <span className={styles.kicker}>{t("homeWhoEyebrow")}</span>
             <h2>{t("homeWhoTitle")}</h2>
           </div>
-          {/* Each block's link is its heading, stretched over the block: the
-              link's name is the family, not the whole block read aloud, and
-              "See eligibility" is the visual cue only. No icon tile, as in the
-              phases above (2026-10-21). */}
           <div className={styles.grid2}>
             <div className={styles.participant}>
+              <Briefcase aria-hidden="true" size={32} strokeWidth={1.8} className={styles.participantIcon} />
               <h3>
                 <Link href="/assistance#employeurs">{t("homeWhoEmployersTitle")}</Link>
               </h3>
@@ -129,6 +151,7 @@ export function HomeView({ visual }: { visual: ReactNode }) {
               </span>
             </div>
             <div className={styles.participant}>
+              <GraduationCap aria-hidden="true" size={32} strokeWidth={1.8} className={styles.participantIcon} />
               <h3>
                 <Link href="/assistance#centres">{t("homeWhoCentresTitle")}</Link>
               </h3>
@@ -138,30 +161,37 @@ export function HomeView({ visual }: { visual: ReactNode }) {
               </span>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* 04 · Confidentiality */}
-      <section className={`${styles.section} ${styles.sectionWash}`}>
-        {/* The section heading every other section uses, on the left edge.
-            The outlined shield beside it pushed the heading 72px in and was
-            the page's one boxed ornament (2026-10-21). */}
-        <div className={styles.container}>
-          <div className={styles.sectionHead}>
-            <h2>{t("homeDataTitle")}</h2>
-            <p className={styles.lede}>{t("homeDataBody")}</p>
-            <Link href="/assistance#confidentialite" className={styles.textLink}>
+          <div className={styles.privacyBand}>
+            <LockKeyhole aria-hidden="true" size={44} strokeWidth={1.8} className={styles.privacyIcon} />
+            <div className={styles.privacyText}>
+              <h2>{t("homeDataTitle")}</h2>
+              <p>{t("homeDataBody")}</p>
+            </div>
+            <Link href="/assistance#confidentialite" className={styles.privacyAction}>
               {t("readPrivacyNotice")}
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 05 · FAQ */}
+      {/* 05 · FAQ: the questions on the right; on the left, where to write
+          when the answer is not there (2026-11-24). */}
       <section id="faq" className={styles.section}>
-        <div className={styles.container}>
-          <div className={styles.sectionHead}>
+        <div className={`${styles.container} ${styles.faqLayout}`}>
+          <div className={styles.faqIntro}>
+            <span className={styles.kicker}>{t("navHelp")}</span>
             <h2>{t("helpFaqTitle")}</h2>
+            <p className={styles.muted}>
+              {t.rich("homeFaqContact", {
+                email: () => <a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a>,
+                whatsapp: (chunks) => (
+                  <a href={SITE_CONTACT.whatsappHref} target="_blank" rel="noopener noreferrer">
+                    {chunks}
+                  </a>
+                ),
+              })}
+            </p>
           </div>
           <div className={styles.faq}>
             <details>
