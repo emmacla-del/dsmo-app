@@ -16,7 +16,7 @@ import { AdminFilterPill } from "@/components/admin/AdminFilterPill";
 import { AdminScopePill } from "@/components/admin/AdminFilterBarParts";
 import { Button } from "@/components/ui/button";
 import { hrefWith } from "@/lib/admin-url";
-import { registrationRecordsHref } from "@/lib/inscriptions";
+import { organisationsListHref } from "@/lib/inscriptions";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { DataState, DataStateRow } from "@/components/admin/DataState";
 import { NOT_PROVIDED, count, percent, resolveDataState, stamp } from "@/lib/admin-data-state";
@@ -257,14 +257,14 @@ function EquipeContent() {
               <tr>
                 <th scope="col">{t("adminEquipePage.column.actor")}</th>
                 <th scope="col">{t("adminEquipePage.column.territory")}</th>
-                {/* Short headers (owner, 2026-11-11); the full name in the tooltip. */}
-                <th scope="col" className="is-num" title={t("adminEquipePage.column.registrationsFull")}>{t("adminEquipePage.column.registrations")}</th>
-                <th scope="col" className="is-num" title={t("adminEquipePage.column.conversionsFull")}>{t("adminEquipePage.column.conversions")}</th>
+                <th scope="col" className="is-num">{t("adminEquipePage.column.registrations")}</th>
+                <th scope="col" className="is-num">{t("adminEquipePage.column.conversions")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.coverage")}</th>
                 <th scope="col" className="is-num">{t("adminEquipePage.column.backlog")}</th>
-                {/* « En retard »; the threshold in the tooltip. */}
-                <th scope="col" className="is-num" title={staleAfterDays != null ? t("adminEquipePage.column.staleDays", { days: staleAfterDays }) : undefined}>
-                  {t("adminEquipePage.column.stale")}
+                <th scope="col" className="is-num">
+                  {staleAfterDays != null
+                    ? t("adminEquipePage.column.staleDays", { days: staleAfterDays })
+                    : t("adminEquipePage.column.stale")}
                 </th>
                 {lapsesVisible && <th scope="col" className="is-num" title={t("adminEquipePage.claimLapsesTitle")}>{t("adminEquipePage.column.claimLapses")}</th>}
                 <th scope="col">{t("adminEquipePage.column.decisions")}</th>
@@ -543,11 +543,11 @@ function ActorRow({ actor, showLapses, onNudge }: { actor: ActorSummaryActor; sh
             {t("nudgeButton")}
           </button>
           {canReadAudit && (
-            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button" aria-label={t("viewLogAria", { name: actor.displayName })}>
+            <Link href={`/admin/journal-audit?actor=${encodeURIComponent(actor.userId)}`} className="cam-text-button">
               {t("viewLogLink")}
             </Link>
           )}
-          <Link href={registrationRecordsHref({ status: "ALL", createdBy: actor.userId })} className="cam-text-button" aria-label={t("viewRegistrationsAria", { name: actor.displayName })}>
+          <Link href={organisationsListHref({ createdBy: actor.userId })} className="cam-text-button">
             {t("viewRegistrationsLink")}
           </Link>
         </div>

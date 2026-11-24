@@ -54,10 +54,6 @@ function makeService(options: {
   const overdue = options.overdue ?? 0;
   const rows = options.rows ?? [];
   const prisma: any = {
-    $queryRaw: jest.fn(async () => [
-      { id: 'reviewer-1', firstName: 'Awa', lastName: 'Ndi', email: 'awa@example.cm' },
-      { id: 'reviewer-2', firstName: 'Paul', lastName: 'Eko', email: 'paul@example.cm' },
-    ]),
     company: {
       count: jest.fn(async ({ where }: any) => where?.user?.status === UserStatus.PENDING_APPROVAL ? overdue : total),
       findMany: jest.fn().mockResolvedValueOnce(rows).mockResolvedValue([]),
@@ -201,7 +197,7 @@ describe('Phase 1 registrations statuses and counts contract', () => {
       approvedAt: true, approvedBy: true, rejectedAt: true, rejectedBy: true,
     });
     expect(result.items[0]).toMatchObject({
-      approvedAt: date(2).toISOString(), approvedBy: 'reviewer-1', approvedByName: 'Awa Ndi', rejectedAt: null, rejectedBy: null,
+      approvedAt: date(2).toISOString(), approvedBy: 'reviewer-1', rejectedAt: null, rejectedBy: null,
     });
   });
 
@@ -215,7 +211,6 @@ describe('Phase 1 registrations statuses and counts contract', () => {
     const { service } = makeService({ rows: [oldRow, newRow] });
     const result = await service.listCompanyRegistrations({ role: 'ADMIN_ONEFOP' }, { statuses: 'REJECTED' });
     expect(result.items.map((item: any) => item.rejectedBy)).toEqual([null, 'reviewer-2']);
-    expect(result.items.map((item: any) => item.rejectedByName)).toEqual([null, 'Paul Eko']);
     expect(result.items.every((item: any) => item.rejectedAt)).toBe(true);
   });
 

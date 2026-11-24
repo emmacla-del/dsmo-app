@@ -15,10 +15,9 @@ import {
   inscriptionsViewHref,
   inscriptionsHref,
   isValidSocialCapital,
-  legacyOrganisationsDestination,
   normalizeInscriptionsHref,
   normalizeRegistrationStatus,
-  registrationRecordsHref,
+  organisationsListHref,
   organisationsStatusesForFilter,
   registrationTerritoryChoice,
   verificationFlags,
@@ -96,30 +95,11 @@ test("organisation status normalization keeps the control, chip, and request sco
   assert.equal(organisationsStatusesForFilter("REJECTED", "agent-1"), "REJECTED");
 });
 
-test("links into registration records carry status, territory, type and author", () => {
-  assert.equal(registrationRecordsHref({}), "/admin/inscriptions?vue=queue");
+test("links into the Organisations view carry territory, type and author", () => {
+  assert.equal(organisationsListHref({}), "/admin/inscriptions?vue=organisations");
   assert.equal(
-    registrationRecordsHref({ status: "ALL", region: "Centre", department: "Mfoundi", type: "ONG", createdBy: "agent 1" }),
-    "/admin/inscriptions?vue=queue&status=ALL&region=Centre&department=Mfoundi&type=ONG&createdBy=agent+1",
-  );
-});
-
-test("removed organisations URLs keep their useful list intent", () => {
-  assert.equal(
-    legacyOrganisationsDestination("vue=organisations&status=ACTIVE&search=atelier&region=Centre&sort=oldest&page=2"),
-    "/admin/etablissements?search=atelier&region=Centre&sort=oldest&page=2",
-  );
-  assert.equal(
-    legacyOrganisationsDestination("vue=organisations&status=REJECTED&search=atelier&includeArchived=true"),
-    "/admin/inscriptions?vue=queue&status=REJECTED&includeArchived=true&search=atelier",
-  );
-  assert.equal(
-    legacyOrganisationsDestination("vue=organisations&createdBy=agent-1&page=3"),
-    "/admin/inscriptions?vue=queue&status=ALL&createdBy=agent-1&page=3",
-  );
-  assert.equal(
-    legacyOrganisationsDestination("vue=organisations&status=ACTIVE&createdBy=agent-1"),
-    "/admin/inscriptions?vue=queue&status=ACTIVE&createdBy=agent-1",
+    organisationsListHref({ region: "Centre", department: "Mfoundi", type: "ONG", createdBy: "agent 1" }),
+    "/admin/inscriptions?vue=organisations&region=Centre&department=Mfoundi&type=ONG&createdBy=agent+1",
   );
 });
 

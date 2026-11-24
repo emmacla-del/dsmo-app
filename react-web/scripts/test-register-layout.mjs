@@ -33,10 +33,7 @@ const VIEWPORTS = [
 ];
 
 const FRAME_MAX_WIDTH = 600;
-// The respondent field height (--cam-respondent-field-height in tokens.css):
-// the registration boxes match the questionnaires' since 2026-10, not the
-// 40px admin height.
-const FIELD_HEIGHT = 36;
+const FIELD_HEIGHT = 40;
 
 let failures = 0;
 let checks = 0;
@@ -128,9 +125,6 @@ const measureLayout = () => {
   const borderedExtras = [];
   for (const el of document.querySelectorAll(".flow-frame-content *")) {
     if (skip.includes(el.tagName)) continue;
-    // A choice row is a control too: the radio's whole label, boxed like an
-    // input (owner, 2026-11-11).
-    if (el.matches(".choice-option, .entity-type-option")) continue;
     const cs = getComputedStyle(el);
     if (cs.display === "none") continue;
     const sides = ["Top", "Right", "Bottom", "Left"].filter(
@@ -251,20 +245,20 @@ const measurePlaceholderVsLabel = () => {
   };
 };
 
-// The step navigation is the questionnaires' step list (WizardStepList): a
-// side column from 1024px, and the same list in a drawer behind the
-// « Sommaire » button below it (owner, 2026-11-11). Every rail check reads
-// whichever one is on screen. The state class sits on the <li> around the
-// button.
-const RAIL_ITEMS = ".flow-rail .cam-step-button, .cam-sheet .cam-step-button";
+// The step navigation is the horizontal rail on a narrow screen and the
+// dossier panel's vertical list from 1080px; only one of the two is rendered
+// at a time. Both carry the same states and accessible names, so every rail
+// check reads whichever one is on screen. On the list, the state class sits
+// on the <li> around the button.
+const RAIL_ITEMS = ".progress-rail .progress-step-item, .step-list .step-list-button";
 
 const railStates = () =>
   Array.from(
-    document.querySelectorAll(".flow-rail .cam-step-button, .cam-sheet .cam-step-button")
+    document.querySelectorAll(".progress-rail .progress-step-item, .step-list .step-list-button")
   ).filter((b) => b.offsetParent !== null).map((b) => {
-    const circle = b.querySelector(".cam-step-marker");
-    const labelEl = b.querySelector(".cam-step-name");
-    const stateEl = b.closest(".cam-step") || b;
+    const circle = b.querySelector(".progress-step-circle");
+    const labelEl = b.querySelector(".progress-step-label, .step-list-name");
+    const stateEl = b.closest(".step-list-item") || b;
     return {
       label: labelEl ? labelEl.textContent.trim() : "",
       labelHidden: labelEl ? getComputedStyle(labelEl).display === "none" : true,
@@ -444,19 +438,18 @@ async function runViewport(browser, vp) {
     }
   }
 
-  // Below 1024px the steps are behind the « Sommaire » button, in a drawer.
-  if (vp.width < 1024) {
-    check(
-      (await page.isVisible(".flow-steps-opener")) && !(await page.isVisible(".flow-rail")),
-      "below 1024px the steps open from the Sommaire button"
-    );
-    await page.click(".flow-steps-opener");
-    await page.waitForTimeout(300);
+  // Narrow: circles stay, labels go.
+  if (vp.width < 560) {
     const rail = await page.evaluate(railStates);
-    check(rail.length === 6, "the drawer lists the six steps", String(rail.length));
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(300);
-    check(!(await page.isVisible(".cam-sheet")), "Escape closes the drawer");
+    check(
+      rail.every((r) => r.labelHidden),
+      "rail labels hidden below 560px"
+    );
+    check(
+      rail.every((r) => Math.abs(r.circleSize - 30) <= 1),
+      "rail circles stay 30px",
+      rail.map((r) => r.circleSize).join("/")
+    );
   }
 
   await context.close();
@@ -466,13 +459,13 @@ async function runRail(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
   await page.goto(PAGE_URL, { waitUntil: "networkidle", timeout: 45000 });
-  await page.waitForSelector(".flow-rail");
+  await page.waitForSelector(".step-list");
 
-  console.log("\n── step navigation (1280x720: the side column) ──");
+  console.log("\n── step navigation (1280x720: the dossier panel) ──");
 
   check(
-    (await page.isVisible(".flow-rail")) && !(await page.isVisible(".flow-steps-opener")),
-    "the side column carries the steps at 1280px"
+    await page.isVisible(".flow-panel") && !(await page.isVisible(".flow-header")),
+    "the dossier panel replaces the header at 1280px"
   );
 
   let rail = await page.evaluate(railStates);
@@ -491,20 +484,10 @@ async function runRail(browser) {
   await page.click('input[name="entityType"][value="enterprise"]');
   await page.waitForTimeout(300);
 
-  // Picking a type answers the step but does not leave it: the respondent
-  // moves on with Continuer, as on every other step.
-  rail = await page.evaluate(railStates);
-  check(
-    rail[0].cls === "is-currentComplete",
-    "picking a type marks the step answered while it stays current",
-    rail[0].cls
-  );
-  await continueOn(page);
-
   rail = await page.evaluate(railStates);
   check(
     rail[0].cls === "is-done" && rail[0].hasCheck,
-    "after Continuer the first circle is green with a check",
+    "picking a type turns the first circle green with a check",
     rail[0].cls
   );
   check(
@@ -529,7 +512,7 @@ async function runRail(browser) {
   check(
     /Entreprise|Company/.test(rail[0].ariaLabel || "") &&
       /Entreprise|Company/.test(
-        (await page.textContent(".flow-rail .cam-step.is-done .cam-step-detail").catch(() => "")) || ""
+        (await page.textContent(".step-list-item.is-done .step-list-summary").catch(() => "")) || ""
       ),
     "a completed item shows its summary and carries it in its accessible name",
     rail[0].ariaLabel || ""
@@ -549,7 +532,7 @@ async function runRail(browser) {
     rail[0].cls
   );
   check(
-    rail[1].cls === "is-inProgress" && rail[1].circleBorderStyle === "dashed",
+    rail[1].cls === "is-revealed" && rail[1].circleBorderStyle === "dashed",
     "the section left behind, still empty, is a dashed gold ring",
     rail[1].cls + " / " + rail[1].circleBorderStyle
   );
@@ -710,8 +693,6 @@ const measureLabels = () => {
 const measureInputWidths = () => {
   const out = [];
   for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
-    // Choice rows (a fieldset of radios) have no text box to measure.
-    if (field.matches("fieldset.choice-fieldset")) continue;
     const control = field.querySelector("input, select");
     if (!control) continue;
     const r = control.getBoundingClientRect();
@@ -737,7 +718,6 @@ async function openEntitySection(page, type) {
   await page.waitForSelector(".flow-frame-content");
   await page.click('input[name="entityType"][value="' + type + '"]');
   await page.waitForTimeout(250);
-  await continueOn(page);
   await page.fill("#reg-first-name", "Marie");
   await page.fill("#reg-last-name", "Ngono");
   await page.selectOption("#reg-function", { index: 1 });
@@ -875,22 +855,10 @@ async function runRequiredOnly(browser) {
       check(false, type + ": Respondent did not advance on required fields alone");
       continue;
     }
-    // Fill section 3's required, visible fields and nothing else. Twice: a
-    // select fed by another (the branch, by the sector) has its options only
-    // after the first pass has re-rendered, and an answer can reveal more
-    // required fields (an authorized centre asks for its order's number and
-    // date).
-    const fillRequired = () => page.evaluate(() => {
+    // Fill section 3's required, visible fields and nothing else.
+    const filled = await page.evaluate(() => {
       const touched = [];
       for (const field of document.querySelectorAll(".wizard-section:not([hidden]) .field")) {
-        // A short list of options is a fieldset of choice rows (radios);
-        // the fieldset carries aria-required, and answering is a click.
-        if (field.matches("fieldset.choice-fieldset")) {
-          if (field.getAttribute("aria-required") !== "true") continue;
-          field.querySelector('input[type="radio"]')?.click();
-          touched.push(field.id);
-          continue;
-        }
         const control = field.querySelector("input, select");
         if (!control) continue;
         if (control.getAttribute("aria-required") !== "true") continue;
@@ -906,42 +874,19 @@ async function runRequiredOnly(browser) {
         } else {
           // Year and amount fields are digits-only text inputs (numeric
           // keypad, non-digits filtered out), so they need a number.
-          // A phone must pass the Cameroon format check.
-          set(
-            control,
-            control.type === "tel"
-              ? "677123456"
-              : control.type === "date"
-                ? "2020-01-15"
-                : control.inputMode === "numeric"
-                  ? "2020"
-                  : "Test"
-          );
+          set(control, control.inputMode === "numeric" ? "2020" : "Test");
         }
         touched.push(control.id);
       }
       return touched;
     });
-    await fillRequired();
-    await page.waitForTimeout(300);
-    const filled = await fillRequired();
     await page.waitForTimeout(500);
 
     const untouchedOptional = await page.evaluate(() =>
       [...document.querySelectorAll(".wizard-section:not([hidden]) .field")]
-        .map((f) =>
-          f.matches("fieldset.choice-fieldset")
-            ? {
-                id: f.id,
-                required: f.getAttribute("aria-required") === "true",
-                value: f.querySelector("input:checked")?.value ?? "",
-              }
-            : (() => {
-                const c = f.querySelector("input, select");
-                return c && { id: c.id, required: c.getAttribute("aria-required") === "true", value: c.value };
-              })()
-        )
-        .filter((c) => c && !c.required)
+        .map((f) => f.querySelector("input, select"))
+        .filter((c) => c && c.getAttribute("aria-required") !== "true")
+        .map((c) => ({ id: c.id, value: c.value }))
     );
     check(
       untouchedOptional.every((c) => c.value === ""),
@@ -969,21 +914,20 @@ async function runRequiredOnly(browser) {
       await page.click(".flow-continue-link", { force: true });
       await page.waitForTimeout(300);
       const loc = await page.evaluate(() => ({
-        announce: [...document.querySelectorAll('.flow-frame-content .sr-only[role="status"]')]
-          .map((e) => e.textContent?.trim() ?? "")
-          .join(""),
+        notice: document.querySelector(".flow-missing-notice")?.textContent?.trim() ?? "",
         invalid: [
           ...document.querySelectorAll('.wizard-section:not([hidden]) [aria-invalid="true"]'),
         ].map((e) => e.id),
       }));
       check(
-        /2 champs|2 required/i.test(loc.announce),
-        "empty Localisation counts the region and the area, not the gated selects",
-        loc.announce
+        /2 champs|2 required/i.test(loc.notice) &&
+          !/D[ée]partement|Division|Arrondissement|Subdivision/i.test(loc.notice),
+        "empty Localisation names the region and the area, not the gated selects",
+        loc.notice
       );
       check(
-        loc.invalid.join(",") === "reg-region,reg-area",
-        "and marks those two alone",
+        loc.invalid.length === 1 && loc.invalid[0] === "reg-region",
+        "and marks the region alone",
         loc.invalid.join(", ")
       );
     }
@@ -994,24 +938,21 @@ async function runRequiredOnly(browser) {
 }
 
 // ── The four prompt triggers (item 11) ───────────────────────────────────
-//
-// What a missing answer looks like (since the 2026-10 form redesign): every
-// missing field in the section is marked and carries its own line under the
-// control, focus goes to the first one, and one polite status line counts
-// them for a screen reader. The boxed summary above the section is kept for
-// format errors (a malformed phone, a short password), not for blanks.
 
 const promptState = () => ({
+  notice: document.querySelector(".flow-missing-notice")?.textContent?.trim() ?? null,
   invalid: [
     ...document.querySelectorAll('.wizard-section:not([hidden]) [aria-invalid="true"]'),
   ].map((e) => e.id),
-  errors: [...document.querySelectorAll(".wizard-section:not([hidden]) .field-error")].map((e) => e.id),
-  announce: [...document.querySelectorAll('.flow-frame-content .sr-only[role="status"]')]
-    .map((e) => e.textContent?.trim() ?? "")
-    .join(""),
-  focused: document.activeElement?.id || document.activeElement?.getAttribute("name") || null,
+  errors: [...document.querySelectorAll(".wizard-section:not([hidden]) .field-error")].length,
+  focused: document.activeElement?.id ?? null,
   describedBy: document.querySelector("#reg-first-name")?.getAttribute("aria-describedby") ?? null,
-  section: document.querySelector(".wizard-section:not([hidden])")?.getAttribute("aria-labelledby") ?? null,
+  links: [...document.querySelectorAll(".flow-missing-notice a")].map((a) => a.getAttribute("href")),
+  noticeAboveFields: (() => {
+    const n = document.querySelector(".flow-missing-notice");
+    const f = document.querySelector(".wizard-section:not([hidden]) .field");
+    return !!n && !!f && n.getBoundingClientRect().bottom <= f.getBoundingClientRect().top;
+  })(),
 });
 
 async function runPrompts(browser) {
@@ -1025,7 +966,7 @@ async function runPrompts(browser) {
   // Nothing is flagged before a trigger fires.
   let st = await page.evaluate(promptState);
   check(
-    st.invalid.length === 0 && st.errors.length === 0 && st.announce === "",
+    st.notice === null && st.invalid.length === 0 && st.errors === 0,
     "no error is shown before any trigger fires"
   );
 
@@ -1034,41 +975,55 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    st.invalid.length === 1 && st.errors.length === 1 && /1 champ|1 required/i.test(st.announce),
-    "(b) continue on an empty section marks the one thing missing and counts it",
-    st.invalid.join(", ") + " / " + st.announce
+    st.notice !== null && /1 champ|1 required/i.test(st.notice),
+    "(b) continue on an empty section names the one thing missing",
+    st.notice || ""
   );
-  check(st.focused === "entityType", "and focuses the type list", st.focused || "");
 
   await page.click('input[name="entityType"][value="enterprise"]');
   await page.waitForTimeout(400);
   st = await page.evaluate(promptState);
-  check(
-    st.invalid.length === 0 && st.errors.length === 0,
-    "the flag clears when the section is satisfied"
-  );
-  await continueOn(page);
+  check(st.notice === null, "the notice clears when the section is satisfied");
 
-  // (d) a locked rail item, from the empty Respondent section.
+  // (d) a locked rail item.
   await railItem(page, 5).click({ force: true });
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
+  // One message: the notice names all five, only the first control is
+  // marked, and no field carries a "Champ obligatoire" line of its own.
   check(
-    st.section === "reg-section-title-respondent",
-    "(d) a locked rail click does not leave the section",
-    st.section || ""
+    st.notice !== null && /5 champs|5 required/i.test(st.notice),
+    "(d) a locked rail click names every missing field in one notice",
+    st.notice || ""
   );
   check(
-    st.invalid.length === 5 && st.errors.length === 5,
-    "every missing field is marked, each with its own line",
-    st.invalid.join(", ") + " / " + st.errors.length + " field errors"
+    st.invalid.length === 1 && st.invalid[0] === "reg-first-name" && st.errors === 0,
+    "only the first missing field is marked, and no per-field message",
+    st.invalid.join(", ") + " / " + st.errors + " field errors"
   );
-  check(/5 champs|5 required/i.test(st.announce), "one status line counts all five", st.announce);
   check(st.focused === "reg-first-name", "it focuses the first one", st.focused || "");
   check(
-    st.describedBy === "reg-first-name-error",
-    "and points that control at its own error line",
+    st.describedBy === "reg-missing-notice",
+    "and points that control at the notice",
     st.describedBy || ""
+  );
+  check(st.noticeAboveFields, "the summary sits above the section's fields");
+  check(
+    st.links.length === 5 && st.links[0] === "#reg-first-name",
+    "every missing field in the summary is a link to its control",
+    st.links.join(", ")
+  );
+  await page.click('.flow-missing-notice a[href="#reg-email"]');
+  await page.waitForTimeout(100);
+  check(
+    (await page.evaluate(() => document.activeElement?.id)) === "reg-email",
+    "a summary link focuses its field"
+  );
+  const stillHere = await page.getAttribute(".wizard-section:not([hidden])", "aria-labelledby");
+  check(
+    stillHere === "reg-section-title-respondent",
+    "and does not navigate anywhere",
+    stillHere || ""
   );
 
   // Errors clear per field as each is fixed.
@@ -1076,9 +1031,10 @@ async function runPrompts(browser) {
   await page.waitForTimeout(250);
   st = await page.evaluate(promptState);
   check(
-    st.invalid.length === 4 && !st.invalid.includes("reg-first-name"),
-    "fixing one field clears its flag and leaves the others",
-    st.invalid.join(", ")
+    st.notice !== null && /4 champs|4 required/i.test(st.notice) &&
+      st.invalid.length === 1 && st.invalid[0] === "reg-last-name",
+    "fixing one field drops it from the notice and the marker moves on",
+    (st.notice || "") + " / " + st.invalid.join(", ")
   );
 
   // (c) Enter on the section's last field.
@@ -1087,9 +1043,9 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    /4 champs|4 required/i.test(st.announce) && st.focused === "reg-last-name",
-    "(c) Enter on the last field raises the prompt and focuses the first gap",
-    st.announce + " / " + (st.focused || "")
+    st.notice !== null && /4 champs|4 required/i.test(st.notice) && st.invalid.length === 1,
+    "(c) Enter on the last field raises the prompt",
+    st.notice || ""
   );
 
   // (a) focus leaving the last field for somewhere outside the section.
@@ -1103,10 +1059,10 @@ async function runPrompts(browser) {
   await page.waitForTimeout(300);
   st = await page.evaluate(promptState);
   check(
-    /2 champs|2 required/i.test(st.announce) &&
-      st.invalid.length === 2 && st.invalid[0] === "reg-email",
+    st.notice !== null && /2 champs|2 required/i.test(st.notice) &&
+      st.invalid.length === 1 && st.invalid[0] === "reg-email",
     "(a) leaving the last field for outside the section raises the prompt",
-    st.announce + " / " + st.invalid.join(", ")
+    (st.notice || "") + " / " + st.invalid.join(", ")
   );
 
   // Finishing the section clears everything.
@@ -1115,9 +1071,9 @@ async function runPrompts(browser) {
   await page.waitForTimeout(700);
   st = await page.evaluate(promptState);
   check(
-    st.invalid.length === 0 && st.errors.length === 0 && st.announce === "",
-    "completing the section clears every flag and the count",
-    st.invalid.join(", ")
+    st.notice === null && st.invalid.length === 0,
+    "completing the section clears the notice and every flag",
+    st.notice || ""
   );
 
   await context.close();

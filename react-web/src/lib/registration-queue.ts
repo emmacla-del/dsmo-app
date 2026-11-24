@@ -1,10 +1,11 @@
 // src/lib/registration-queue.ts
 //
-// The registrations list (/admin/inscriptions): its URL state, the
-// role-aware geography filter, and the pending queue's waiting time.
+// The pending-review registration queue (/admin/inscriptions, default view):
+// its URL state, the role-aware geography filter, and the waiting time.
 //
-// What the default queue lists is decided by the server, not here:
-//   status=PENDING_APPROVAL — pending review only;
+// What the queue lists is decided by the server, not here:
+//   status=PENDING_APPROVAL — pending review only. COMPLEMENTS_REQUESTED (the
+//     declarant's move), ACTIVE and REJECTED are never in it;
 //   unassigned=true          — « À réclamer », files nobody holds;
 //   assignedToMe=true        — « Réclamées par moi », the officer's own files;
 //   assignedToOthers=true    — « Réclamées par un collègue », files another
@@ -20,7 +21,6 @@ import type { UiLocale } from "./register-i18n";
 
 export type QueueOwnership = "available" | "mine" | "others";
 export type QueueSort = "oldest" | "newest";
-export type RegistrationStatusFilter = "PENDING_APPROVAL" | "COMPLEMENTS_REQUESTED" | "ACTIVE" | "REJECTED" | "ALL";
 
 /** Which level of the territory the officer may pick, one below their own. */
 export type QueueGeoLevel = "region" | "department" | "subdivision" | null;
@@ -29,7 +29,6 @@ export const REGISTRATION_QUEUE_PAGE_SIZE = 20;
 export const REGISTRATION_QUEUE_PATH = "/admin/inscriptions";
 
 export interface QueueUrlState {
-  status: RegistrationStatusFilter;
   ownership: QueueOwnership;
   search: string;
   /** One value, at the level `geoLevelFor(role)` names. */
@@ -37,9 +36,6 @@ export interface QueueUrlState {
   type: string;
   sort: QueueSort;
   page: number;
-  includeArchived: boolean;
-  /** Audit drill-down from the territorial-team page. */
-  createdBy: string;
 }
 
 /** National picks a region, regional a department, divisional a subdivision; anyone else nothing. */
@@ -67,21 +63,13 @@ export function parseQueueUrl(query: string | URLSearchParams, role: string | nu
   const level = geoLevelFor(role);
   const type = params.get("type")?.trim() ?? "";
   const rawPage = Number(params.get("page"));
-  const rawStatus = params.get("status")?.trim().toUpperCase();
-  const status: RegistrationStatusFilter = rawStatus === "COMPLEMENTS_REQUESTED" || rawStatus === "ACTIVE" || rawStatus === "REJECTED" || rawStatus === "ALL"
-    ? rawStatus
-    : "PENDING_APPROVAL";
-  const rawSort = params.get("sort");
   return {
-    status,
     ownership: owner === "mine" || (owner === null && legacyMine) ? "mine" : owner === "others" ? "others" : "available",
     search: (params.get("search") ?? "").trim(),
     geo: level ? (params.get(level) ?? "").trim() : "",
     type: (REGISTRATION_ENTITY_TYPES as readonly string[]).includes(type) ? type : "",
-    sort: rawSort === "oldest" || rawSort === "newest" ? rawSort : status === "PENDING_APPROVAL" ? "oldest" : "newest",
+    sort: params.get("sort") === "newest" ? "newest" : "oldest",
     page: Number.isInteger(rawPage) && rawPage > 1 ? rawPage : 1,
-    includeArchived: status !== "PENDING_APPROVAL" && params.get("includeArchived") === "true",
-    createdBy: (params.get("createdBy") ?? "").trim(),
   };
 }
 
@@ -89,17 +77,13 @@ export function parseQueueUrl(query: string | URLSearchParams, role: string | nu
 export function queueHref(state: QueueUrlState, role: string | null | undefined): string {
   const params = new URLSearchParams();
   params.set("vue", "queue");
-  if (state.status !== "PENDING_APPROVAL") params.set("status", state.status);
-  if (state.status === "PENDING_APPROVAL" && state.ownership !== "available") params.set("owner", state.ownership);
+  if (state.ownership !== "available") params.set("owner", state.ownership);
   if (state.search) params.set("search", state.search);
   const level = geoLevelFor(role);
   if (level && state.geo) params.set(level, state.geo);
   if (state.type) params.set("type", state.type);
-  const defaultSort: QueueSort = state.status === "PENDING_APPROVAL" ? "oldest" : "newest";
-  if (state.sort !== defaultSort) params.set("sort", state.sort);
+  if (state.sort === "newest") params.set("sort", "newest");
   if (state.page > 1) params.set("page", String(state.page));
-  if (state.status !== "PENDING_APPROVAL" && state.includeArchived) params.set("includeArchived", "true");
-  if (state.createdBy) params.set("createdBy", state.createdBy);
   return `${REGISTRATION_QUEUE_PATH}?${params.toString()}`;
 }
 
@@ -117,12 +101,12 @@ export function oldestPendingHref(
   const level = geoLevelFor(role);
   const geo = level === "region" ? filters.region : level === "department" ? filters.department : undefined;
   const type = filters.entityType && (REGISTRATION_ENTITY_TYPES as readonly string[]).includes(filters.entityType) ? filters.entityType : "";
-  return queueHref({ status: "PENDING_APPROVAL", ownership: "available", search: "", geo: geo ?? "", type, sort: "oldest", page: 1, includeArchived: false, createdBy: "" }, role);
+  return queueHref({ ownership: "available", search: "", geo: geo ?? "", type, sort: "oldest", page: 1 }, role);
 }
 
 /** Search, geography or type narrows the list. Ownership and order do not count. */
-export function hasActiveQueueFilters(state: Pick<QueueUrlState, "status" | "search" | "geo" | "type" | "includeArchived" | "createdBy">): boolean {
-  return state.status !== "PENDING_APPROVAL" || Boolean(state.search || state.geo || state.type || state.includeArchived || state.createdBy);
+export function hasActiveQueueFilters(state: Pick<QueueUrlState, "search" | "geo" | "type">): boolean {
+  return Boolean(state.search || state.geo || state.type);
 }
 
 /** The geography filter as list-request fields. */
@@ -139,28 +123,14 @@ function ownershipRequest(ownership: QueueOwnership): Pick<RegistrationListParam
 
 /** The list request without paging: every filter applies. */
 export function queueListParams(state: QueueUrlState, role: string | null | undefined): RegistrationListParams {
-  const common: RegistrationListParams = {
-    ...geoRequest(geoLevelFor(role), state.geo),
-    ...(state.search ? { search: state.search } : {}),
-    ...(state.type ? { entityType: state.type } : {}),
-    ...(state.createdBy ? { createdBy: state.createdBy } : {}),
-    sortOrder: state.sort,
-  };
-  if (state.status !== "PENDING_APPROVAL") {
-    return {
-      ...common,
-      // Keep the API's existing include-archived contract while the
-      // organisations screen itself is retired.
-      view: "organisations",
-      status: state.status,
-      includeArchived: state.includeArchived,
-    };
-  }
   return {
-    ...common,
     view: "queue",
     status: "PENDING_APPROVAL",
     ...ownershipRequest(state.ownership),
+    ...geoRequest(geoLevelFor(role), state.geo),
+    search: state.search || undefined,
+    entityType: state.type || undefined,
+    sortOrder: state.sort,
   };
 }
 

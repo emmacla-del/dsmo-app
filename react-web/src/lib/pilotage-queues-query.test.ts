@@ -15,23 +15,15 @@ function countRequests(): string[] {
   return urls;
 }
 
-test("screens opening the same archive scope share one request", async () => {
+test("screens opening together share one request", async () => {
   const urls = countRequests();
   const client = new QueryClient();
-  await Promise.all([client.fetchQuery(pilotageQueuesOptions()), client.fetchQuery(pilotageQueuesOptions("queue", false))]);
+  await Promise.all([client.fetchQuery(pilotageQueuesOptions()), client.fetchQuery(pilotageQueuesOptions("queue", true))]);
   assert.equal(urls.length, 1);
-  assert.match(urls[0], /\/pilotage\/queues\?view=queue&includeArchived=false$/);
+  assert.match(urls[0], /\/pilotage\/queues\?view=queue$/);
 });
 
-test("queue figures follow the explicit archive choice", async () => {
-  const urls = countRequests();
-  const client = new QueryClient();
-  await client.fetchQuery(pilotageQueuesOptions("queue", false));
-  await client.fetchQuery(pilotageQueuesOptions("queue", true));
-  assert.deepEqual(urls.map((url) => url.split("?")[1]), ["view=queue&includeArchived=false", "view=queue&includeArchived=true"]);
-});
-
-test("completed status filters keep their own figures, per archive choice", async () => {
+test("the completed tab keeps its own figures, per archive choice", async () => {
   const urls = countRequests();
   const client = new QueryClient();
   await client.fetchQuery(pilotageQueuesOptions("completed", false));

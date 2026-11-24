@@ -18,7 +18,6 @@ import { resolveAndValidateTerritory } from '../territory/territory-resolver';
 import { IgnoredIdentityChange, lockCompanyIdentity } from './company-territory-lock';
 import { Territory, territoryWhere } from '../auth/territory';
 import { formatDoualaDateFr } from '../common/utils/douala-date';
-import { ANY_ARCHIVE_STATE, NOT_ARCHIVED } from '../common/archive-predicate';
 
 /** The entity types a register filter may ask for (OnefopEntityType, minus the retired value). */
 export const REGISTER_ENTITY_TYPES = ['ENTREPRISE', 'COOPERATIVE', 'CTD', 'ONG', 'ADMINISTRATION', 'PROJECT_PROGRAM', 'VOCATIONAL_TRAINING'] as const;
@@ -197,7 +196,7 @@ export class DsmoService {
    * or DOCUMENTS_INCOMPLETE account no bucket at all, so the tiles never added
    * up to the total.
    */
-  async getCompanyStats(territory?: Territory, includeArchived = false) {
+  async getCompanyStats(territory?: Territory) {
     const pendingStatuses: UserStatus[] = [
       UserStatus.PENDING_APPROVAL,
       UserStatus.UNDER_REVIEW,
@@ -212,7 +211,7 @@ export class DsmoService {
     const groups = await this.prisma.user.groupBy({
       by: ['status', 'isActive'],
       where: {
-        ...(includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED),
+        archivedAt: null,
         company: { is: territoryWhere(territory) as Prisma.CompanyWhereInput },
       },
       _count: { _all: true },
@@ -345,12 +344,7 @@ export class DsmoService {
       search?: string;
       status?: string;
       region?: string;
-      department?: string;
       entityType?: string;
-      /** Only approved registrations; account status may still be active or suspended. */
-      registeredOnly?: boolean;
-      /** Includes archived owners without changing their registration or account status. */
-      includeArchived?: boolean;
       sortOrder?: 'oldest' | 'newest';
       year?: number;
       semester?: 1 | 2;
@@ -365,26 +359,19 @@ export class DsmoService {
       params.pageSize && params.pageSize > 0 ? Math.min(params.pageSize, 100) : 20;
 
     const baseWhere: any = territoryWhere(territory);
-    // Company archive state lives on its owner. Ordinary reads exclude it;
-    // the register's explicit archive-management filter includes both states.
-    const accountWhere: Record<string, unknown> = {
-      ...(params.includeArchived ? ANY_ARCHIVE_STATE : NOT_ARCHIVED),
-    };
+    // The establishment register and its stat strip both represent
+    // non-archived entities. Keep the account relation predicate here so
+    // list totals and page rows agree with getCompanyStats().
+    const accountWhere: Record<string, unknown> = { archivedAt: null };
     const where: any = {
-      // Explicit filters must narrow the caller's jurisdiction, never replace
-      // the region/department keys returned by territoryWhere().
-      AND: [baseWhere],
+      ...baseWhere,
       user: { is: accountWhere },
     };
 
 
     // Same reading as getCompanyStats(): « active » and « suspended » are
     // both approved accounts, told apart by User.isActive.
-    if (params.registeredOnly) {
-      accountWhere.status = UserStatus.ACTIVE;
-      if (params.status === 'SUSPENDED') accountWhere.isActive = false;
-      else if (params.status === 'ACTIVE') accountWhere.isActive = true;
-    } else if (params.status === 'SUSPENDED') {
+    if (params.status === 'SUSPENDED') {
       accountWhere.status = UserStatus.ACTIVE;
       accountWhere.isActive = false;
     } else if (params.status === 'ACTIVE') {
@@ -400,10 +387,7 @@ export class DsmoService {
       where.entityType = entityType;
     }
     if (params.region && params.region !== 'Toutes') {
-      where.AND.push({ region: { equals: params.region.trim(), mode: 'insensitive' } });
-    }
-    if (params.department) {
-      where.AND.push({ department: { equals: params.department.trim(), mode: 'insensitive' } });
+      where.region = { equals: params.region.trim(), mode: 'insensitive' };
     }
 
     if (params.year != null || params.semester != null || params.quarter != null) {
@@ -420,7 +404,7 @@ export class DsmoService {
         where.createdAt = ranges[0];
       } else if (ranges.length > 1) {
         where.AND = [
-          ...where.AND,
+          ...(where.AND ?? []),
           { OR: ranges.map((range) => ({ createdAt: range })) },
         ];
       }
@@ -475,17 +459,7 @@ export class DsmoService {
           lastYearTotal: true,
           lastYearMenCount: true,
           lastYearWomenCount: true,
-          user: {
-            select: {
-              id: true,
-              email: true,
-              isActive: true,
-              status: true,
-              archivedAt: true,
-              archivedBy: true,
-              archiveReason: true,
-            },
-          },
+          user: { select: { id: true, email: true, isActive: true, status: true } },
         },
         orderBy: { createdAt: params.sortOrder === 'oldest' ? 'asc' : 'desc' },
         skip: (page - 1) * pageSize,

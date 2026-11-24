@@ -1,5 +1,5 @@
-import { legacyCompletedDossierHref, parseAdminListPage, parseDossierQueueView } from "./admin-url";
-import { legacyOrganisationsDestination } from "./inscriptions";
+import { parseAdminListPage, parseDossierQueueView } from "./admin-url";
+import { normalizeRegistrationStatus } from "./inscriptions";
 
 const DOSSIER_RETURN_FILTERS = [
   ["Status", "status"],
@@ -16,20 +16,19 @@ const DOSSIER_RETURN_FILTERS = [
   ["Assignment", "assignment"],
   ["CompanyId", "companyId"],
   ["Sort", "sort"],
-  ["IncludeArchived", "includeArchived"],
 ] as const;
 
-const ESTABLISHMENT_RETURN_FILTERS = [
-  "search",
+const INSCRIPTIONS_RETURN_FILTERS = [
   "type",
   "region",
   "department",
-  "status",
-  "year",
-  "semester",
-  "quarter",
+  "registrationMethod",
+  "dateRange",
+  "from",
+  "to",
   "sort",
   "includeArchived",
+  "createdBy",
 ] as const;
 
 function setNonEmpty(params: URLSearchParams, key: string, value: string | null): void {
@@ -40,11 +39,11 @@ function setNonEmpty(params: URLSearchParams, key: string, value: string | null)
 export function buildDossierReturnTo(currentQuery: string): string {
   const source = new URLSearchParams(currentQuery);
   const rawView = source.get("vue");
-  if (rawView === "completed") {
-    const migrated = new URL(legacyCompletedDossierHref(source.toString()), "https://camleap.invalid");
-    return buildDossierReturnTo(migrated.searchParams.toString());
-  }
-  const view = rawView === null || rawView === "submissions" || rawView === "dossiers" ? "submissions" : null;
+  const view = rawView === "completed"
+    ? "completed"
+    : rawView === null || rawView === "submissions" || rawView === "dossiers"
+      ? "submissions"
+      : null;
   if (!view) return "/admin/dossiers";
 
   const result = new URLSearchParams();
@@ -57,6 +56,10 @@ export function buildDossierReturnTo(currentQuery: string): string {
     const scopedKey = `${view}${suffix}`;
     setNonEmpty(result, scopedKey, source.get(scopedKey) ?? source.get(legacyKey));
   }
+  if (view === "completed") {
+    setNonEmpty(result, "completedIncludeArchived", source.get("completedIncludeArchived") ?? source.get("includeArchived"));
+  }
+
   const searchKey = `${view}Search`;
   if (!result.has(searchKey)) setNonEmpty(result, searchKey, source.get("search") ?? source.get("q"));
   const page = parseAdminListPage(source.get(`${view}Page`) ?? source.get("page"));
@@ -65,19 +68,21 @@ export function buildDossierReturnTo(currentQuery: string): string {
   return `/admin/dossiers?${result.toString()}`;
 }
 
-/** Safe, allowlisted establishment-register context for a detail return action. */
-export function buildEstablishmentReturnTo(currentQuery: string): string {
+/** Safe, allowlisted Inscriptions Organisations context for an establishment detail return action. */
+export function buildRegistrationReturnTo(currentQuery: string): string {
   const source = new URLSearchParams(currentQuery);
   const result = new URLSearchParams();
-  for (const key of ESTABLISHMENT_RETURN_FILTERS) setNonEmpty(result, key, source.get(key));
-  const status = source.get("status");
-  if (status !== "ACTIVE" && status !== "SUSPENDED") result.delete("status");
-  if (result.get("includeArchived") !== "true") result.delete("includeArchived");
+  result.set("vue", "organisations");
+
+  const search = source.get("search") ?? source.get("organisation");
+  setNonEmpty(result, "search", search);
+  const status = normalizeRegistrationStatus(source.get("status"), "organisations");
+  setNonEmpty(result, "status", status || null);
+  for (const key of INSCRIPTIONS_RETURN_FILTERS) setNonEmpty(result, key, source.get(key));
   const page = parseAdminListPage(source.get("page"));
   if (page > 1) result.set("page", String(page));
 
-  const query = result.toString();
-  return `/admin/etablissements${query ? `?${query}` : ""}`;
+  return `/admin/inscriptions?${result.toString()}`;
 }
 
 function parseLocalAdminUrl(value: string | null): URL | null {
@@ -101,13 +106,13 @@ export function resolveDossierReturnTo(value: string | null): string {
   return buildDossierReturnTo(parsed.searchParams.toString());
 }
 
-/** Establishments return only to a validated, filtered register URL. */
+/** Establishments can return to the filtered Organisations view or its normal directory. */
 export function resolveEstablishmentReturnTo(value: string | null): string {
   const parsed = parseLocalAdminUrl(value);
   if (!parsed) return "/admin/etablissements";
-  if (parsed.pathname === "/admin/inscriptions" && parsed.searchParams.get("vue") === "organisations") {
-    return legacyOrganisationsDestination(parsed.searchParams);
+  if (parsed.pathname === "/admin/etablissements") return "/admin/etablissements";
+  if (parsed.pathname !== "/admin/inscriptions" || parsed.searchParams.get("vue") !== "organisations") {
+    return "/admin/etablissements";
   }
-  if (parsed.pathname !== "/admin/etablissements") return "/admin/etablissements";
-  return buildEstablishmentReturnTo(parsed.searchParams.toString());
+  return buildRegistrationReturnTo(parsed.searchParams.toString());
 }

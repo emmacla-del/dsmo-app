@@ -27,7 +27,7 @@ const isLocalDevelopment =
     window.location.hostname === "127.0.0.1");
 
 const resolvedApiUrl =
-  configuredApiUrl ?? (isLocalDevelopment ? "http://127.0.0.1:3004/api" : undefined);
+  configuredApiUrl ?? (isLocalDevelopment ? "http://localhost:3001/api" : undefined);
 
 if (!resolvedApiUrl) {
   throw new Error(
@@ -1385,5 +1385,3 @@ export interface ExportHistoryItem {
 export function getExportHistory(limit = 20): Promise<ExportHistoryItem[]> {
   return apiFetch<ExportHistoryItem[]>(`/data-management/export/history?limit=${limit}`);
 }
-
-

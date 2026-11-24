@@ -57,16 +57,12 @@ const rowNumberStyle: LayoutStyle = {
 };
 
 /** A column as wide as the answer it expects, and no wider. */
-// Narrowed on 2026-11-11 so the eight columns fit the content column at
-// 1280px (they asked 1055px against 937px, and the page scrolled sideways):
-// the start date shows « MM/AAAA » and opens a picker, so 150px holds it;
-// the three selects show « Choisir » and their headings on two lines.
 const CONTROL_MIN_WIDTH: Record<string, number> = {
-  description: 190,
-  targetPopulation: 135,
-  supportType: 140,
-  scope: 115,
-  startDate: 150,
+  description: 220,
+  targetPopulation: 150,
+  supportType: 160,
+  scope: 130,
+  startDate: 190,
   duration: 90,
 };
 
@@ -259,7 +255,7 @@ export function ActivitiesTableRenderer({
                 <Cell style={tdStyle}>
                   <button
                     type="button"
-                    className="cam-text-button is-danger cam-row-remove"
+                    className="cam-text-button is-danger"
                     onClick={() => removeRow(n)}
                     disabled={shown.length === 1 && started.length === 0}
                     aria-label={isEn ? `Remove line ${i + 1}` : `Supprimer la ligne ${i + 1}`}

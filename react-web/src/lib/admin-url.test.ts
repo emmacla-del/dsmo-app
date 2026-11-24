@@ -10,9 +10,7 @@ import test from "node:test";
 import {
   anomalyRegisterHref,
   clampAdminListPage,
-  dossierStatusRequest,
   hrefWith,
-  legacyCompletedDossierHref,
   normalizeDossierListHref,
   parseAdminListPage,
   parseDossierAssignment,
@@ -24,7 +22,6 @@ import {
   parseDossierQuarter,
   parseDossierSort,
   parseDossierStatus,
-  parseDossierStatusFilter,
   parseDossierVue,
   parseRegistrationVue,
   parseQualiteVue,
@@ -84,7 +81,7 @@ test("Dossiers normalization canonicalizes a valid campaign/quarter conflict and
       "completed",
       ["ENTREPRISE"],
     ),
-    "/admin/dossiers?vue=completed&campaignId=round-1&completedPage=3&context=dashboard&completedIncludeArchived=true",
+    "/admin/dossiers?vue=completed&campaignId=round-1&completedPage=3&context=dashboard",
   );
   assert.equal(
     normalizeDossierListHref(
@@ -92,18 +89,7 @@ test("Dossiers normalization canonicalizes a valid campaign/quarter conflict and
       "completed",
       ["ENTREPRISE"],
     ),
-    "/admin/dossiers?vue=completed&completedQuarterCode=2026-T3&completedIncludeArchived=true",
-  );
-});
-
-test("legacy completed URLs migrate to the unified status-filtered submissions list", () => {
-  assert.equal(
-    legacyCompletedDossierHref("vue=completed&completedStatus=REJECTED&completedSearch=atelier&completedPage=3&completedIncludeArchived=false&campaignId=c1"),
-    "/admin/dossiers?vue=submissions&submissionsSearch=atelier&submissionsPage=3&submissionsStatus=REJECTED&campaignId=c1",
-  );
-  assert.equal(
-    legacyCompletedDossierHref("vue=completed"),
-    "/admin/dossiers?vue=submissions&submissionsStatus=COMPLETED&submissionsIncludeArchived=true",
+    "/admin/dossiers?vue=completed&completedQuarterCode=2026-T3",
   );
 });
 
@@ -166,23 +152,6 @@ test("dossier status: the five statuses (replaced files included), else every st
   for (const s of [null, "", "pending_review", "ALL", "DRAFT"]) {
     assert.equal(parseDossierStatus(s), "");
   }
-  assert.equal(parseDossierStatusFilter("COMPLETED"), "COMPLETED");
-  assert.equal(parseDossierStatusFilter("ALL"), "ALL");
-});
-
-test("dossier status groups map to exact list API populations", () => {
-  assert.deepEqual(dossierStatusRequest(""), {
-    status: undefined, statuses: "PENDING_REVIEW,CORRECTION_REQUESTED", view: "queue", claimableSelection: true,
-  });
-  assert.deepEqual(dossierStatusRequest("COMPLETED"), {
-    status: undefined, statuses: "APPROVED,REJECTED,SUPERSEDED", view: "completed", claimableSelection: false,
-  });
-  assert.deepEqual(dossierStatusRequest("ALL"), {
-    status: undefined, statuses: "PENDING_REVIEW,CORRECTION_REQUESTED,APPROVED,REJECTED,SUPERSEDED", view: "all", claimableSelection: false,
-  });
-  assert.deepEqual(dossierStatusRequest("REJECTED"), {
-    status: "REJECTED", statuses: undefined, view: "completed", claimableSelection: false,
-  });
 });
 
 test("qualité view: known values, else the indicators", () => {

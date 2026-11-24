@@ -12,7 +12,7 @@ test("queue views map onto existing list status and assignment filters", () => {
   assert.deepEqual(dossierQueueViewFilters("corrections"), { status: "CORRECTION_REQUESTED" });
 });
 
-test("completed decisions are a status filter, not an ownership view", () => {
+test("the completed tab is not a queue view", () => {
   assert.equal(parseDossierQueueView("corrections"), "corrections");
   assert.equal(parseDossierQueueView("others"), "others");
   assert.equal(parseDossierQueueView("completed"), "");
@@ -43,8 +43,6 @@ test("links from other screens open the view they meant, never the default", () 
 test("only a bare URL leaves the default to the caller", () => {
   assert.equal(resolveDossierQueueView(bare), null);
   assert.equal(resolveDossierQueueView({ ...bare, readOnly: true }), "pending");
-  // terminal and grouped statuses bypass claim-ownership shortcuts.
+  // completed statuses are redirected to the completed tab by the page
   assert.equal(resolveDossierQueueView({ ...bare, status: "APPROVED" }), null);
-  assert.equal(resolveDossierQueueView({ ...bare, status: "COMPLETED" }), null);
-  assert.equal(resolveDossierQueueView({ ...bare, status: "ALL" }), null);
 });
