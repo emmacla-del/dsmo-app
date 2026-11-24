@@ -5,8 +5,9 @@
 //
 // 1. The flag ribbon.
 // 2. The identity row, white: the ministry in capitals, the ONEFOP emblem
-//    at 72px (never below 56px, brand.md) beside « ONEFOP » and its full
-//    name; on the right the other language, « Nous contacter » (e-mail) and
+//    at 72px (never below 56px, brand.md) beside its full name (the
+//    emblem already reads « ONEFOP », so the acronym is not written again,
+//    owner 2026-11-24); on the right the other language, « Nous contacter » (e-mail) and
 //    the one way in, « Inscrire mon organisation ». The mock-up's search
 //    box is not built: the public site has nothing to search.
 // 3. The navigation bar, official navy, sticky: the CAMLEAP logo as it is,
@@ -74,7 +75,6 @@ export function SiteMasthead() {
                 className={styles.identityEmblem}
               />
               <p className={styles.identityName}>
-                <span className={styles.identityAcronym}>ONEFOP</span>{" "}
                 <span className={styles.identityFull}>{t("officialObservatory")}</span>
               </p>
             </div>

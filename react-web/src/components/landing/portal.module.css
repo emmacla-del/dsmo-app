@@ -1783,18 +1783,11 @@
   min-width: 0;
 }
 
-.identityAcronym {
-  font-size: 26px;
-  font-weight: var(--cam-font-weight-bold);
-  line-height: 1;
-  letter-spacing: 0.02em;
-  color: var(--cam-official);
-}
 
 .identityFull {
-  max-width: 340px;
-  font-size: 14px;
-  font-weight: var(--cam-font-weight-semibold);
+  max-width: 360px;
+  font-size: 17px;
+  font-weight: var(--cam-font-weight-bold);
   line-height: 1.35;
   color: var(--cam-portal-ink);
 }
@@ -1961,12 +1954,9 @@
     width: 56px;
   }
 
-  .identityAcronym {
-    font-size: 20px;
-  }
 
   .identityFull {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .identityActions {
