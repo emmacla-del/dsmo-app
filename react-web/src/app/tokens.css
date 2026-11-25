@@ -378,6 +378,10 @@
      column and their content beside it; running text stops at the measure. */
   --cam-container-portal: 1120px;
   --cam-portal-aside: 240px;
+  /* The public site's page width and side gutter (owner, 2026-11-25:
+     « too narrow »): 1680px at most, a gutter that grows with the window. */
+  --cam-portal-max: 1680px;
+  --cam-portal-gutter: clamp(16px, 2.5vw, 48px);
   --cam-portal-aside-gap: var(--cam-space-8);
   --cam-measure: 68ch;
   --cam-header-height: 72px;

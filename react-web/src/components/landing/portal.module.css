@@ -130,11 +130,13 @@
   top: var(--cam-space-3);
 }
 
+/* The page's width (owner, 2026-11-25: « too narrow, large padding left
+   and right »): --cam-portal-max and --cam-portal-gutter in tokens.css. */
 .container {
   width: 100%;
-  max-width: 1380px;
+  max-width: var(--cam-portal-max);
   margin: 0 auto;
-  padding: 0 var(--cam-space-6);
+  padding: 0 var(--cam-portal-gutter);
 }
 
 /* ── Type helpers ─────────────────────────────────────────────────────── */
@@ -474,9 +476,9 @@
 /* Title in the aside column, content beside it. */
 .sectionGrid {
   width: 100%;
-  max-width: 1380px;
+  max-width: var(--cam-portal-max);
   margin: 0 auto;
-  padding: 0 var(--cam-space-6);
+  padding: 0 var(--cam-portal-gutter);
   display: grid;
   grid-template-columns: var(--cam-portal-aside) minmax(0, 1fr);
   column-gap: var(--cam-portal-aside-gap);
@@ -1464,11 +1466,19 @@
   background: var(--cam-portal-bg);
 }
 
+/* The header runs the full window (owner, 2026-11-25): the lockup at the
+   far left, the tabs and tools pushed to the far right, only the gutter
+   in between them and the edge. */
 .simpleInner {
   display: flex;
   align-items: center;
   gap: 0 var(--cam-space-7);
   min-height: 72px;
+  max-width: none;
+}
+
+.simpleLockup {
+  margin-right: auto;
 }
 
 .simpleLockup {
