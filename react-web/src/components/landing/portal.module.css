@@ -2173,3 +2173,11 @@
     margin-top: var(--cam-space-6);
   }
 }
+
+/* On a wide screen the hero's figure stops at 760px (it reaches that at
+   about 1700px): wider, its 4:3 frame filled the first screen. */
+@media (min-width: 1700px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1fr) 760px;
+  }
+}

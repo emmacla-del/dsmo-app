@@ -379,8 +379,10 @@
   --cam-container-portal: 1120px;
   --cam-portal-aside: 240px;
   /* The public site's page width and side gutter (owner, 2026-11-25:
-     « too narrow »): 1680px at most, a gutter that grows with the window. */
-  --cam-portal-max: 1680px;
+     « too narrow »): no cap, so the content lines up with the header's
+     logo and tabs at every width; the gutter grows with the window.
+     Running text keeps its own measure (--cam-measure). */
+  --cam-portal-max: none;
   --cam-portal-gutter: clamp(16px, 2.5vw, 48px);
   /* The public site's spacing standard (owner, 2026-11-25): a band's
      padding above and below, a card's padding, the gap between cards.
