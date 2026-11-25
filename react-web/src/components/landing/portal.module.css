@@ -202,14 +202,6 @@
 
 /* ── Masthead ─────────────────────────────────────────────────────────── */
 
-.masthead {
-  position: sticky;
-  top: 0;
-  z-index: var(--cam-z-nav);
-  background: color-mix(in srgb, var(--cam-portal-bg) 94%, transparent);
-  backdrop-filter: blur(8px);
-}
-
 /* Cameroon flag ribbon. Flag tokens only, never brand green. */
 .flagRibbon {
   height: 3px;
@@ -221,138 +213,6 @@
   );
 }
 
-.mastheadInner {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-5);
-  min-height: var(--cam-header-height);
-}
-
-.lockup {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-3);
-  margin-right: auto;
-  color: inherit;
-  text-decoration: none;
-  flex-shrink: 0;
-}
-
-.logo {
-  display: block;
-  height: 22px;
-  width: auto;
-}
-
-.endorsement {
-  font-size: var(--cam-font-size-sm);
-  color: var(--cam-text-muted);
-  font-weight: var(--cam-font-weight-semibold);
-  border-left: var(--cam-border-width) solid var(--cam-border);
-  padding-left: var(--cam-space-3);
-}
-
-.nav {
-  display: flex;
-  gap: var(--cam-space-5);
-  font-size: var(--cam-font-size-base);
-  align-self: stretch;
-}
-
-.nav a {
-  display: flex;
-  align-items: center;
-  color: var(--cam-portal-ink);
-  font-size: 15px;
-  font-weight: 500;
-  text-decoration: none;
-  transition: color var(--cam-transition-fast);
-}
-
-.nav a:hover {
-  color: var(--cam-portal-mint-deep);
-}
-
-/* The current tab: teal and heavier, no underline (2026-10-21). The weight
-   keeps it from resting on colour alone. */
-.nav a.navCurrent {
-  color: var(--cam-portal-mint-deep);
-  font-weight: 600;
-}
-
-/* The way in is a small outlined button, the hero's secondary outline at
-   masthead size: in teal text it read as a second current tab beside
-   "Home" (2026-10-21). Teal in the masthead now means "you are here". */
-.signIn {
-  padding: 6px var(--cam-space-4);
-  border: var(--cam-border-width) solid var(--cam-portal-rule);
-  border-radius: var(--cam-radius-full);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--cam-portal-ink);
-  text-decoration: none;
-  white-space: nowrap;
-  transition: border-color var(--cam-transition-fast);
-}
-
-.signIn:hover {
-  border-color: var(--cam-portal-muted);
-}
-
-/* Sign-in and the language switch stay one control. Wrapped as a unit,
-   they never land on different rows. They sit as far apart as the tabs,
-   so "Connexion English" does not read as one phrase. */
-.mastheadTools {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: var(--cam-space-5);
-}
-
-/* The language control is LanguageLink: a plain text link, no ground.
-   In the masthead it drops its underline to sit with the tabs, and shows
-   it on hover. Elsewhere it keeps it. */
-.mastheadTools :global(.cam-language-link) {
-  text-decoration: none;
-  /* Ink, like the tabs: the shared muted grey read as disabled here. */
-  font-size: 15px;
-  color: var(--cam-portal-ink);
-}
-
-.mastheadTools :global(.cam-language-link):hover {
-  text-decoration: underline;
-}
-
-/* The language's name; its two-letter code only once the tabs fold behind
-   Menu (820px block). */
-.mastheadTools :global(.cam-language-link-code) {
-  display: none;
-}
-
-/* The phone's way to the tabs (2026-10-21). Hidden until the tabs no longer
-   fit beside the logo; see the 820px block. */
-.menuToggle {
-  display: none;
-  align-items: center;
-  gap: var(--cam-space-2);
-  padding: var(--cam-space-2) 0;
-  background: none;
-  border: none;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--cam-portal-ink);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.menuToggle:focus-visible {
-  outline: 2px solid var(--cam-focus);
-  outline-offset: 2px;
-  border-radius: var(--cam-radius-sm);
-}
-
 /* A small down-pointing chevron, turned up while the menu is open. */
 .menuChevron {
   width: 7px;
@@ -360,10 +220,6 @@
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: translateY(-2px) rotate(45deg);
-}
-
-.menuToggle[aria-expanded="true"] .menuChevron {
-  transform: translateY(2px) rotate(-135deg);
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
@@ -1227,18 +1083,11 @@
   border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
 }
 
-
 .footerOrg {
   color: var(--cam-portal-ink);
   font-weight: var(--cam-font-weight-bold);
   font-size: var(--cam-font-size-lg);
 }
-
-
-
-
-
-
 
 .footerLegal {
   margin-top: var(--cam-space-5);
@@ -1285,15 +1134,6 @@
    Menu block (820px), in both languages. This replaced a second row of
    tabs that scrolled sideways inside a 128px sticky header (2026-10-21).
    The endorsement is still in the footer. */
-@media (max-width: 1100px) {
-  .endorsement {
-    display: none;
-  }
-
-  .nav a {
-    white-space: nowrap;
-  }
-}
 
 /* On a phone the header is one row: logo, sign-in, language, Menu. The tabs
    wait behind Menu and open as a list under that row, pushing the page down
@@ -1314,63 +1154,13 @@
     scroll-margin-top: calc(var(--cam-header-height) + var(--cam-space-8));
   }
 
-  .mastheadInner {
-    flex-wrap: wrap;
-    gap: 0 var(--cam-space-3);
-  }
-
-  .mastheadTools {
-    gap: var(--cam-space-3);
-  }
-
-  .mastheadTools :global(.cam-language-link-name) {
-    display: none;
-  }
-
-  .mastheadTools :global(.cam-language-link-code) {
-    display: inline;
-  }
-
-  .logo {
-    height: 16px;
-  }
-
   /* The tabs are behind Menu, so nothing teal sits beside it: a plain link
      again, which keeps "Connexion" / "Mon espace" on the one row. */
-  .signIn {
-    padding: 0;
-    border: 0;
-    color: var(--cam-portal-mint-deep);
-  }
-
-  .menuToggle {
-    display: inline-flex;
-  }
 
   /* Opened, the tabs take a row of their own under the logo row. */
-  .nav {
-    display: none;
-    order: 3;
-    flex: 1 0 100%;
-    min-width: 0;
-  }
 
   /* Ruled above and below: without the lower rule the last tab ran into the
      hero's teal kicker and read as a fourth tab (2026-10-21). */
-  .nav.navOpen {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    overflow: visible;
-    padding-bottom: var(--cam-space-3);
-    border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
-    border-bottom: var(--cam-border-width) solid var(--cam-portal-hairline);
-  }
-
-  .nav a {
-    padding: var(--cam-space-3) 0;
-    font-size: 16px;
-  }
 }
 
 @media (max-width: 720px) {
@@ -1461,15 +1251,6 @@
 }
 
 /* The CAMLEAP bar: solid white under a rule, no frosted glass. */
-.masthead {
-  background: var(--cam-portal-bg);
-  backdrop-filter: none;
-  border-bottom: var(--cam-border-width) solid var(--cam-portal-rule);
-}
-
-.logo {
-  height: 24px;
-}
 
 /* The logo's own ground: white, so its navy and greens read as drawn. */
 .logoPlate {
@@ -1480,41 +1261,7 @@
   background: var(--cam-white);
 }
 
-.endorsement {
-  display: flex;
-  flex-direction: column;
-  max-width: 250px;
-  font-size: 12px;
-  line-height: 1.35;
-  font-weight: var(--cam-font-weight-regular);
-  color: var(--cam-portal-muted);
-}
-
-.platformName {
-  color: var(--cam-portal-ink);
-  font-weight: var(--cam-font-weight-medium);
-}
-
 /* The current tab: navy, heavier, and a teal rule along the bar's foot. */
-.nav a.navCurrent {
-  color: var(--cam-official);
-  box-shadow: inset 0 -3px 0 var(--cam-primary);
-}
-
-.signIn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--cam-space-4);
-  border-color: var(--cam-official);
-  border-radius: var(--cam-radius-sm);
-  color: var(--cam-official);
-}
-
-.signIn:hover {
-  border-color: var(--cam-official);
-  background: var(--cam-surface-subtle);
-}
 
 .btn {
   border-radius: var(--cam-radius-sm);
@@ -1671,37 +1418,16 @@
   color: var(--cam-on-official);
 }
 
-
 .footerLegal {
   margin-bottom: var(--cam-space-6);
   color: var(--cam-on-official-muted);
   border-top-color: var(--cam-official-rule);
 }
 
-@media (max-width: 1100px) {
-  .endorsement {
-    display: none;
-  }
-}
-
 @media (max-width: 820px) {
-  .logo {
-    height: 16px;
-  }
 
   .logoPlate {
     padding: 6px var(--cam-space-2);
-  }
-
-  .signIn {
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    color: var(--cam-primary);
-  }
-
-  .signIn:hover {
-    background: none;
   }
 
   .service + .service {
@@ -1722,9 +1448,146 @@
    last on purpose, like the option D block above: each rule here
    re-points one there. */
 
-/* 1. Identity row: the flag ribbon, then the State's owner of the platform. */
-.identityRibbon {
-  height: 6px;
+/* 1. The masthead (owner, 2026-11-25: « this simple masthead »): one white
+   row, sticky, the flag ribbon under it. Left the front-door lockup (the
+   ONEFOP emblem at its 56px floor, a thin rule, the CAMLEAP wordmark in
+   navy); right the tabs, the current one underlined in teal, « Connexion »
+   and the other language as an outlined button. */
+.page {
+  --cam-header-height: 78px;
+}
+
+.simpleHeader {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--cam-portal-bg);
+}
+
+.simpleInner {
+  display: flex;
+  align-items: center;
+  gap: 0 var(--cam-space-7);
+  min-height: 72px;
+}
+
+.simpleLockup {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-4);
+  margin-right: auto;
+  padding: var(--cam-space-2) 0;
+  text-decoration: none;
+}
+
+/* 56px: the emblem's floor (brand.md). */
+.simpleEmblem {
+  display: block;
+  width: 56px;
+  height: auto;
+}
+
+.simpleRule {
+  width: 1px;
+  height: 36px;
+  background: var(--cam-portal-rule);
+}
+
+.simpleLogo {
+  display: block;
+  height: 26px;
+  width: auto;
+}
+
+.simpleNav {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-6);
+}
+
+.simpleNav a {
+  padding: var(--cam-space-2) 0;
+  border-bottom: 2px solid transparent;
+  color: var(--cam-portal-ink);
+  font-size: 15px;
+  font-weight: var(--cam-font-weight-medium);
+  text-decoration: none;
+}
+
+.simpleNav a:hover {
+  border-bottom-color: var(--cam-portal-rule);
+}
+
+/* The current tab: teal, heavier, and underlined, so colour is not the
+   only sign. */
+.simpleNav a.simpleNavCurrent {
+  border-bottom-color: var(--cam-primary);
+  color: var(--cam-primary);
+  font-weight: var(--cam-font-weight-semibold);
+}
+
+.simpleTools {
+  display: flex;
+  align-items: center;
+  gap: var(--cam-space-5);
+}
+
+.simpleSignIn {
+  color: var(--cam-portal-ink);
+  font-size: 15px;
+  font-weight: var(--cam-font-weight-bold);
+  text-decoration: none;
+}
+
+.simpleSignIn:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* The other language, as a small outlined button. */
+.simpleLanguage :global(.cam-language-link) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--cam-space-4);
+  border: 1.5px solid var(--cam-official);
+  border-radius: var(--cam-radius-sm);
+  color: var(--cam-official);
+  font-size: 14px;
+  font-weight: var(--cam-font-weight-semibold);
+  text-decoration: none;
+}
+
+.simpleLanguage :global(.cam-language-link):hover {
+  background: var(--cam-surface-subtle);
+}
+
+.simpleLanguage :global(.cam-language-link-code) {
+  display: none;
+}
+
+.simpleMenuToggle {
+  display: none;
+  align-items: center;
+  gap: var(--cam-space-2);
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cam-portal-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: var(--cam-font-weight-semibold);
+  cursor: pointer;
+}
+
+.simpleMenuToggle[aria-expanded="true"] .menuChevron {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+/* The tricolour under the row, three equal thirds. */
+.simpleRibbon {
+  height: 5px;
   background: linear-gradient(
     90deg,
     var(--cam-flag-green) 0 33.33%,
@@ -1733,270 +1596,109 @@
   );
 }
 
-.identity {
-  background: var(--cam-portal-bg);
-}
-
-.identityInner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cam-space-5) var(--cam-space-7);
-  padding-top: var(--cam-space-5);
-  padding-bottom: var(--cam-space-5);
-}
-
-.identityOwner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cam-space-2);
-  min-width: 0;
-}
-
-.page .identityMinistry {
-  font-size: 13px;
-  font-weight: var(--cam-font-weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--cam-portal-ink);
-}
-
-.identityLockup {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-4);
-}
-
-/* 72px here; never below 56px (brand.md). */
-.identityEmblem {
-  display: block;
-  width: 72px;
-  height: auto;
-  flex: none;
-}
-
-.page .identityName {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-
-.identityFull {
-  max-width: 360px;
-  font-size: 17px;
-  font-weight: var(--cam-font-weight-bold);
-  line-height: 1.35;
-  color: var(--cam-portal-ink);
-}
-
-.identityTools {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-6);
-}
-
-.identityTools :global(.cam-language-link) {
-  font-size: 15px;
-  font-weight: var(--cam-font-weight-semibold);
-  color: var(--cam-portal-ink);
-}
-
-.identityTools :global(.cam-language-link-code) {
-  display: none;
-}
-
-.identityActions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cam-space-2);
-  width: 270px;
-}
-
-/* The mock-up's two square buttons, icon then label. Teal is the one
-   action colour: « Inscrire mon organisation » is teal; « Nous contacter »
-   is the navy outline, as every secondary action on the site. */
-.identityContact,
-.identityRegister {
-  display: flex;
-  align-items: center;
-  gap: var(--cam-space-3);
-  min-height: 44px;
-  padding: 0 var(--cam-space-4);
-  border-radius: var(--cam-radius-sm);
-  font-size: 15px;
-  font-weight: var(--cam-font-weight-semibold);
-  line-height: 1.25;
-  text-decoration: none;
-  transition: background var(--cam-transition-fast), border-color var(--cam-transition-fast);
-}
-
-.identityContact {
-  border: 2px solid var(--cam-official);
-  color: var(--cam-official);
-  background: var(--cam-portal-bg);
-}
-
-.identityContact:hover {
-  background: var(--cam-surface-subtle);
-}
-
-.identityRegister {
-  border: 2px solid var(--cam-primary);
-  background: var(--cam-primary);
-  color: var(--cam-on-dark);
-}
-
-.identityRegister:hover {
-  border-color: var(--cam-primary-dark);
-  background: var(--cam-primary-dark);
-}
-
-/* 2. The navigation bar: official navy, sticky; the CAMLEAP logo in its
-   own colours on a white plate (never recoloured, owner 2026-11-24). It is
-   the only sticky part (the identity row scrolls away), so anchors clear
-   its 72px. */
-.page {
-  --cam-header-height: 72px;
-}
-
-.masthead {
-  background: var(--cam-official);
-  border-bottom: 0;
-  color: var(--cam-on-dark);
-}
-
-.mastheadInner {
-  min-height: 72px;
-  gap: 0 var(--cam-space-6);
-}
-
-.logo {
-  height: 26px;
-}
-
-.endorsement {
-  border-left-color: var(--cam-official-rule);
-  color: var(--cam-on-official-muted);
-}
-
-.platformName {
-  color: var(--cam-on-dark);
-}
-
-.nav {
-  gap: 0;
-}
-
-.nav a {
-  padding: 0 var(--cam-space-5);
-  color: var(--cam-on-dark);
-}
-
-.nav a:hover {
-  color: var(--cam-on-dark);
-  background: var(--cam-official-hover);
-}
-
-/* The current tab: a teal tile the height of the bar (the mock-up's green). */
-.nav a.navCurrent {
-  color: var(--cam-on-dark);
-  background: var(--cam-primary);
-  box-shadow: none;
-  font-weight: var(--cam-font-weight-semibold);
-}
-
-.signIn {
-  border: 2px solid var(--cam-on-dark);
-  border-radius: var(--cam-radius-sm);
-  color: var(--cam-on-dark);
-  background: transparent;
-}
-
-.signIn:hover {
-  border-color: var(--cam-on-dark);
-  background: var(--cam-official-hover);
-}
-
-.menuToggle {
-  color: var(--cam-on-dark);
-}
-
-.masthead :focus-visible,
-.footer :focus-visible {
-  outline-color: var(--cam-official-motto);
-}
-
-@media (max-width: 1100px) {
-  .identityActions {
-    width: auto;
-  }
-}
-
-/* A phone: the identity row keeps the emblem at its 56px floor and the
-   language; the two buttons go (registration is the hero's first button,
-   and the contacts close every page). */
-@media (max-width: 820px) {
-  .identityInner {
-    flex-wrap: nowrap;
-    gap: var(--cam-space-3);
-    padding-top: var(--cam-space-3);
-    padding-bottom: var(--cam-space-3);
+/* Tablet and phone: the tabs fold behind Menu and open as a list under
+   the row; the language shows its code. */
+@media (max-width: 900px) {
+  .simpleInner {
+    flex-wrap: wrap;
+    gap: 0 var(--cam-space-4);
+    min-height: 64px;
   }
 
-  .page .identityMinistry {
+  .simpleMenuToggle {
+    display: inline-flex;
+  }
+
+  .simpleNav {
+    display: none;
+    order: 3;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: var(--cam-space-2) 0 var(--cam-space-3);
+    border-top: var(--cam-border-width) solid var(--cam-portal-hairline);
+  }
+
+  .simpleNav.simpleNavOpen {
+    display: flex;
+  }
+
+  .simpleNav a {
+    padding: var(--cam-space-3) 0;
+    border-bottom: 0;
+  }
+
+  .simpleNav a.simpleNavCurrent {
+    padding-left: var(--cam-space-3);
+    border-bottom: 0;
+    box-shadow: inset 3px 0 0 var(--cam-primary);
+  }
+
+  .simpleLanguage :global(.cam-language-link-name) {
     display: none;
   }
 
-  .identityEmblem {
-    width: 56px;
+  .simpleLanguage :global(.cam-language-link-code) {
+    display: inline;
+  }
+}
+
+/* A phone: two rows, the lockup on the first, « Connexion », the
+   language and Menu on the second (one row would not hold them beside the
+   56px emblem). At that height the header scrolls away instead of
+   staying pinned. */
+@media (max-width: 640px) {
+  .simpleHeader {
+    position: static;
   }
 
+  .simpleLockup {
+    margin-right: 0;
+  }
 
-  .identityFull {
+  .simpleTools {
+    order: 2;
+    flex-basis: 100%;
+    justify-content: flex-end;
+    padding-bottom: var(--cam-space-2);
+  }
+
+  .simpleSignIn {
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .simpleLockup {
+    gap: var(--cam-space-2);
+  }
+
+  .simpleRule {
+    height: 28px;
+  }
+
+  .simpleLogo {
+    height: 16px;
+  }
+
+  .simpleTools {
+    gap: var(--cam-space-3);
+  }
+
+  .simpleSignIn,
+  .simpleMenuToggle {
     font-size: 14px;
   }
 
-  .identityActions {
-    display: none;
+  .simpleLanguage :global(.cam-language-link) {
+    min-height: 32px;
+    padding: 0 var(--cam-space-2);
   }
+}
 
-  .identityTools :global(.cam-language-link-name) {
-    display: none;
-  }
-
-  .identityTools :global(.cam-language-link-code) {
-    display: inline;
-  }
-
-  .mastheadInner {
-    min-height: 60px;
-    gap: 0 var(--cam-space-3);
-  }
-
-  .logo {
-    height: 18px;
-  }
-
-  .signIn {
-    padding: 4px var(--cam-space-3);
-    border: 2px solid var(--cam-on-dark);
-    color: var(--cam-on-dark);
-  }
-
-  .nav.navOpen {
-    border-color: var(--cam-official-rule);
-  }
-
-  .nav a {
-    padding: var(--cam-space-3) 0;
-  }
-
-  .nav a.navCurrent {
-    padding-left: var(--cam-space-3);
-  }
+.footer :focus-visible {
+  outline-color: var(--cam-official-motto);
 }
 
 /* 3. Hero: the journey on a tinted panel, given a little more of the row
@@ -2388,26 +2090,9 @@
   margin-top: var(--cam-space-7);
 }
 
-/* A small phone: the plated logo, sign-in and Menu keep one row. */
+/* A small phone: the footer's plated logo. */
 @media (max-width: 440px) {
-  .mastheadInner {
-    gap: 0 var(--cam-space-2);
-  }
-
   .logoPlate {
     padding: 5px 6px;
-  }
-
-  .logo {
-    height: 14px;
-  }
-
-  .signIn {
-    padding: 4px var(--cam-space-2);
-    font-size: 14px;
-  }
-
-  .menuToggle {
-    font-size: 14px;
   }
 }

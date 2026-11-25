@@ -1,19 +1,13 @@
 "use client";
 
-// The masthead every public page shares (owner, 2026-11-24: the home page
-// redesign, « CAMLEAP homepage » mock-up, in the app's own colours):
+// The masthead every public page shares (owner, 2026-11-25: « this simple
+// masthead »): one white row, the flag ribbon under it.
 //
-// 1. The flag ribbon.
-// 2. The identity row, white: the ministry in capitals, the ONEFOP emblem
-//    at 72px (never below 56px, brand.md) beside its full name (the
-//    emblem already reads « ONEFOP », so the acronym is not written again,
-//    owner 2026-11-24); on the right the other language, « Nous contacter » (e-mail) and
-//    the one way in, « Inscrire mon organisation ». The mock-up's search
-//    box is not built: the public site has nothing to search.
-// 3. The navigation bar, official navy, sticky: the CAMLEAP logo as it is,
-//    on a white plate (owner, 2026-11-24: no recoloured version),
-//    with the platform's full name and « Une plateforme de l'ONEFOP »,
-//    three tabs (the current one on teal), and sign-in.
+// Left, the front-door lockup (brand.md): the ONEFOP emblem at 56px (its
+// floor), a thin rule, the CAMLEAP wordmark in the official navy. Right,
+// the three tabs (the current one underlined in teal), « Connexion » and
+// the other language as an outlined button. Under the row, the tricolour
+// in three equal thirds. The row and its ribbon are sticky.
 //
 // The sign-in family and the staff console keep OfficialBand; this header
 // is the public site's only.
@@ -21,16 +15,15 @@
 // The current tab comes from the pathname. On a phone (2026-10-21) the tabs
 // fold behind a "Menu" button and open as a list under the bar, pushing the
 // page down (the GOV.UK service-navigation pattern, not a side drawer).
-// Sign-in stays in the bar and the language switch in the identity row:
-// the first is how a respondent comes back, the second must be on every page.
+// Sign-in and the language stay in the bar: the first is how a respondent
+// comes back, the second must be on every page.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Building2, Mail } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { LanguageLink } from "@/components/LanguageLink";
-import { SITE_CONTACT, SITE_NAV } from "./site-content";
+import { SITE_NAV } from "./site-content";
 import { usePortalEntry } from "./use-portal-entry";
 import styles from "../portal.module.css";
 
@@ -38,7 +31,6 @@ const NAV_ID = "site-nav";
 
 export function SiteMasthead() {
   const t = useTranslations("site");
-  const tAuth = useTranslations("authShared");
   const pathname = usePathname();
   const entry = usePortalEntry();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,94 +50,59 @@ export function SiteMasthead() {
   }, [open]);
 
   return (
-    <>
-      <div className={styles.identityRibbon} aria-hidden="true" />
-      <div className={styles.identity}>
-        <div className={`${styles.container} ${styles.identityInner}`}>
-          <div className={styles.identityOwner}>
-            <p className={styles.identityMinistry}>{t("officialMinistry")}</p>
-            <div className={styles.identityLockup}>
-              {/* The name is written beside it, so the emblem is not read twice. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/onefop_logo.png"
-                alt=""
-                width={72}
-                height={71}
-                className={styles.identityEmblem}
-              />
-              <p className={styles.identityName}>
-                <span className={styles.identityFull}>{t("officialObservatory")}</span>
-              </p>
-            </div>
-          </div>
-          <div className={styles.identityTools}>
-            <LanguageLink compact />
-            <div className={styles.identityActions}>
-              <a href={`mailto:${SITE_CONTACT.email}`} className={styles.identityContact}>
-                <Mail aria-hidden="true" size={18} />
-                {t("headerContact")}
-              </a>
-              <Link href={entry.actionHref} className={styles.identityRegister}>
-                <Building2 aria-hidden="true" size={18} />
-                {entry.actionLabel(t("homeServiceRegisterTitle"))}
+    <header className={styles.simpleHeader}>
+      <div className={`${styles.container} ${styles.simpleInner}`}>
+        <Link href="/" className={styles.simpleLockup}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/onefop_logo.png" alt={t("officialOnefopAlt")} width={56} height={55} className={styles.simpleEmblem} />
+          <span className={styles.simpleRule} aria-hidden="true" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/camleap-logo-navy.svg" alt="CAMLEAP" width={170} height={24} className={styles.simpleLogo} />
+        </Link>
+
+        <nav
+          id={NAV_ID}
+          className={open ? `${styles.simpleNav} ${styles.simpleNavOpen}` : styles.simpleNav}
+          aria-label={t("navLabel")}
+        >
+          {SITE_NAV.map(({ key, href }) => {
+            const current = pathname === href;
+            return (
+              <Link
+                key={key}
+                href={href}
+                className={current ? styles.simpleNavCurrent : undefined}
+                aria-current={current ? "page" : undefined}
+              >
+                {t(key)}
               </Link>
-            </div>
-          </div>
+            );
+          })}
+        </nav>
+
+        <div className={styles.simpleTools}>
+          <Link href={entry.spaceHref} className={styles.simpleSignIn}>
+            {entry.spaceLabel}
+          </Link>
+          <span className={styles.simpleLanguage}>
+            <LanguageLink compact />
+          </span>
+          <button
+            type="button"
+            className={styles.simpleMenuToggle}
+            aria-expanded={open}
+            aria-controls={NAV_ID}
+            onClick={() => {
+              setOpenedOn(pathname);
+              setMenuOpen(!open);
+            }}
+          >
+            {t("navMenu")}
+            <span className={styles.menuChevron} aria-hidden="true" />
+          </button>
         </div>
       </div>
-      <header className={styles.masthead}>
-        <div className={`${styles.container} ${styles.mastheadInner}`}>
-          <Link href="/" className={styles.lockup}>
-            <span className={styles.logoPlate}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={170} height={24} className={styles.logo} />
-            </span>
-            <span className={styles.endorsement}>
-              <span className={styles.platformName}>{tAuth("subtitle")}</span>
-              <span>{t("platformOf")}</span>
-            </span>
-          </Link>
-          <nav
-            id={NAV_ID}
-            className={open ? `${styles.nav} ${styles.navOpen}` : styles.nav}
-            aria-label={t("navLabel")}
-          >
-            {SITE_NAV.map(({ key, href }) => {
-              const current = pathname === href;
-              return (
-                <Link
-                  key={key}
-                  href={href}
-                  className={current ? styles.navCurrent : undefined}
-                  aria-current={current ? "page" : undefined}
-                >
-                  {t(key)}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className={styles.mastheadTools}>
-            <Link href={entry.spaceHref} className={styles.signIn}>
-              {entry.spaceLabel}
-            </Link>
-            <button
-              type="button"
-              className={styles.menuToggle}
-              aria-expanded={open}
-              aria-controls={NAV_ID}
-              onClick={() => {
-                setOpenedOn(pathname);
-                setMenuOpen(!open);
-              }}
-            >
-              {t("navMenu")}
-              <span className={styles.menuChevron} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </header>
-    </>
+      <div className={styles.simpleRibbon} aria-hidden="true" />
+    </header>
   );
 }
