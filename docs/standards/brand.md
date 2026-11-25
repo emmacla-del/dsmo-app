@@ -17,6 +17,8 @@ The platform's name is written **CAMLEAP**, one word, in capitals, exactly as on
 
 This applies to the interface, the browser tab, emails and user-facing documentation. Code identifiers, file names and the repository may keep their existing spellings.
 
+The full name is **Cameroon Labour and Employment Analytical Platform**, in French « Plateforme camerounaise d'analyse de l'emploi et du travail » (`site.platformName`). It is shown under the wordmark in the public site's header and in its footer (owner, 2026-11-25).
+
 ## The rule
 
 > CAMLEAP where people do the work, ONEFOP where the State speaks, both together only at the front door.
@@ -36,7 +38,7 @@ One band heads the sign-in family (sign-in, registration, password, e-mail, agen
 
 ### The public site's header (owner, 2026-11-25)
 
-The public site (home, programme, help) has one simple header: a white row with, on the left, the front-door lockup (the ONEFOP emblem at its 56px floor, a thin rule, the CAMLEAP wordmark in the official navy) and, on the right, the three tabs (the current one teal and underlined), « Connexion » and the other language as an outlined button; the flag tricolour runs under the row in three equal thirds. It is sticky from 641px; below that it takes two rows (lockup; then « Connexion », language and Menu) and scrolls away. The footer keeps the emblem and the CAMLEAP logo in its own colours, each on its white plate.
+The public site (home, programme, help) has one simple header: a white row with, on the left, the front-door lockup (the ONEFOP emblem at 66px, 60px on a phone, a thin rule, the CAMLEAP wordmark in the official navy and, on two lines under it, its full name) and, on the right, the three tabs (the current one teal and underlined), the other language as a text link and « Connexion » as a navy outlined button; the flag tricolour runs under the row in three equal thirds. It is sticky from 641px; below that it takes two rows (lockup; then « Connexion », language and Menu) and scrolls away. The footer keeps the emblem and the CAMLEAP logo in its own colours, each on its white plate.
 
 **Never:**
 
