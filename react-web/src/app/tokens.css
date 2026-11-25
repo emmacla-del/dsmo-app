@@ -47,7 +47,6 @@
   --cam-portal-mint-bright: var(--cam-primary-tint);
   --cam-portal-teal-dark: var(--cam-primary-dark);
   --cam-portal-bg: #ffffff;
-  --cam-portal-band: #ffffff;
   --cam-portal-panel: #ffffff;
   --cam-portal-ink: #0f172a;
   --cam-portal-muted: #475569;
@@ -377,16 +376,17 @@
      header, hero, sections, footer. Sections put their title in an aside
      column and their content beside it; running text stops at the measure. */
   --cam-container-portal: 1120px;
-  --cam-portal-aside: 240px;
+  --cam-portal-aside: clamp(220px, 21vw, 340px);
   /* The public site's page width and side gutter (owner, 2026-11-25:
      « too narrow »): no cap, so the content lines up with the header's
      logo and tabs at every width; the gutter grows with the window.
      Running text keeps its own measure (--cam-measure). */
   --cam-portal-max: none;
-  --cam-portal-gutter: clamp(16px, 2.5vw, 48px);
+  --cam-portal-gutter: clamp(20px, 4.5vw, 96px);
   /* The public site's spacing standard (owner, 2026-11-25): a band's
      padding above and below, a card's padding, the gap between cards.
      portal.module.css steps them down on tablets and phones. */
+  --cam-portal-hero-pad: var(--cam-space-7);
   --cam-portal-band-pad: var(--cam-space-9);
   --cam-portal-card-pad: var(--cam-space-6);
   --cam-portal-card-gap: var(--cam-space-5);

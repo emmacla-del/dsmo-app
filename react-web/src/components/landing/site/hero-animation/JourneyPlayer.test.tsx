@@ -42,27 +42,38 @@ function renderPlayer() {
   return { player, stepButton, titleCard, sceneClock };
 }
 
-test("each step opens on its title card, then plays its scene, then moves on", () => {
+test("the story opens on its first scene, never on a blank panel", () => {
+  const { player, titleCard } = renderPlayer();
+
+  // The title card fades in from nothing: it may not be the first thing
+  // painted, or the panel is empty until the script runs (2026-11-25).
+  assert.equal(player.dataset.scene, "1");
+  assert.equal(player.dataset.phase, "play");
+  assert.equal(titleCard(), null);
+});
+
+test("each later step opens on its title card, then plays its scene, then moves on", () => {
   const { player, titleCard, sceneClock } = renderPlayer();
 
-  assert.equal(player.dataset.scene, "1");
+  fireEvent.animationEnd(sceneClock()!);
+  assert.equal(player.dataset.scene, "2");
   assert.equal(player.dataset.phase, "title");
-  assert.match(titleCard()?.textContent ?? "", /Étape 1 sur 3.*Titre 1.*Texte 1/);
+  assert.match(titleCard()?.textContent ?? "", /Étape 2 sur 3.*Titre 2.*Texte 2/);
 
   fireEvent.animationEnd(titleCard()!);
   assert.equal(player.dataset.phase, "play");
   assert.equal(titleCard(), null);
 
   fireEvent.animationEnd(sceneClock()!);
-  assert.equal(player.dataset.scene, "2");
-  assert.equal(player.dataset.phase, "title");
+  assert.equal(player.dataset.scene, "3");
 });
 
 test("the story plays once and stops on its last step with « Revoir »", () => {
   const { player, titleCard, sceneClock } = renderPlayer();
 
   for (let i = 0; i < 3; i++) {
-    fireEvent.animationEnd(titleCard()!);
+    // The first step has no card.
+    if (i > 0) fireEvent.animationEnd(titleCard()!);
     fireEvent.animationEnd(sceneClock()!);
   }
   assert.equal(player.dataset.scene, "3");
@@ -77,7 +88,6 @@ test("the story plays once and stops on its last step with « Revoir »", () => 
 
 test("a progress bar takes the viewer back to its step, from the title card", () => {
   const { player, stepButton, titleCard, sceneClock } = renderPlayer();
-  fireEvent.animationEnd(titleCard()!);
   fireEvent.animationEnd(sceneClock()!);
   fireEvent.animationEnd(titleCard()!);
   assert.equal(player.dataset.scene, "2");

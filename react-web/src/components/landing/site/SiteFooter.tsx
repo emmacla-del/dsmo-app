@@ -32,6 +32,9 @@ export function SiteFooter() {
               <img src="/images/camleap-logo.svg" alt="CAMLEAP" width={150} height={21} className={styles.footerLogo} />
             </span>
           </div>
+          <p className={styles.footerName}>
+            <strong>CAMLEAP</strong> · {t("platformName")}
+          </p>
           <p className={styles.footerOrg}>{t("footerOrg")}</p>
           <p>{t("footerMinistry")}</p>
         </div>

@@ -5,7 +5,10 @@
 // is on screen and when it moves on.
 //
 // Each step plays in two phases: a title card naming the step (« Étape 2
-// sur 6 », its title and one line), then the scene itself. Both phases are
+// sur 6 », its title and one line), then the scene itself. The first step
+// alone opens on its scene: the card fades in from nothing, so until the
+// script ran (or if it never did) the panel was an empty white box
+// (2026-11-25). Now the first paint is the questionnaire's page. Both phases are
 // timed by CSS animations, the title card's own and the fill of the current
 // progress bar, and this component only listens for their animationend. So
 // pausing (animation-play-state) pauses the clock as well as the picture,
@@ -67,7 +70,7 @@ export function JourneyPlayer({
 }) {
   const last = steps.length - 1;
   const [scene, setScene] = useState(0);
-  const [phase, setPhase] = useState<Phase>("title");
+  const [phase, setPhase] = useState<Phase>("play");
   const [ended, setEnded] = useState(false);
   const [paused, setPaused] = useState(false);
   // Held until the player is on screen, and while the tab is hidden.
@@ -101,7 +104,7 @@ export function JourneyPlayer({
     }
     const observer = new IntersectionObserver(
       ([entry]) => setOffscreen(!entry.isIntersecting),
-      { threshold: 0.35 },
+      { threshold: 0.2 },
     );
     observer.observe(node);
     return () => observer.disconnect();

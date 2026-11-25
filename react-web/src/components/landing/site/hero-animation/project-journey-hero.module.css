@@ -1,6 +1,6 @@
 /* Home hero visual: the CAMLEAP project journey, in six steps.
 
-   Sequence (2026-11-08): each step opens on a title card for --title, then
+   Sequence (2026-11-08): each step but the first opens on a title card for --title, then
    plays its scene for --step, once through; JourneyPlayer moves on when the
    card's animation, then the current bar's fill, ends. Pausing is
    animation-play-state, so it stops the clock with the picture.
@@ -60,7 +60,7 @@
 }
 
 .kicker {
-  font-size: var(--cam-font-size-sm);
+  font-size: 16px;
   font-weight: 600;
   color: var(--journey-current);
 }
@@ -69,7 +69,7 @@
    mid-scene still knows where they are. */
 .now {
   min-height: 1.4em;
-  font-size: var(--cam-font-size-sm);
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.4;
   transition: opacity 0.3s ease;
@@ -226,13 +226,13 @@
   justify-content: space-between;
   gap: 2px 8px;
   margin: 0;
-  font-size: clamp(11px, 3cqi, 15px);
+  font-size: clamp(11px, 3.4cqi, 20px);
   font-weight: 700;
   line-height: 1.25;
 }
 
 .cardNote {
-  font-size: clamp(10px, 2.4cqi, 12px);
+  font-size: clamp(10px, 2.6cqi, 15px);
   font-weight: 500;
   color: var(--cam-portal-muted);
 }
@@ -410,7 +410,7 @@
 
 .screenBar strong {
   margin-left: auto;
-  font-size: clamp(10px, 2.4cqi, 12px);
+  font-size: clamp(10px, 2.4cqi, 14px);
   letter-spacing: 0.04em;
 }
 
@@ -428,7 +428,7 @@
 }
 
 .fieldLabel {
-  font-size: clamp(10px, 2.4cqi, 12px);
+  font-size: clamp(10px, 2.5cqi, 15px);
   line-height: 1.2;
   color: var(--cam-portal-muted);
 }
@@ -439,7 +439,7 @@
   padding: 1.2cqi 1.8cqi;
   border: 1px solid var(--cam-portal-muted);
   border-radius: 4px;
-  font-size: clamp(11px, 2.7cqi, 14px);
+  font-size: clamp(11px, 2.8cqi, 17px);
   font-weight: 600;
   line-height: 1.3;
   white-space: nowrap;
@@ -476,7 +476,7 @@
   border-radius: 999px;
   background: var(--cam-primary-dark);
   color: var(--cam-white);
-  font-size: clamp(11px, 2.6cqi, 13px);
+  font-size: clamp(11px, 2.7cqi, 16px);
   font-weight: 700;
   animation: press calc(0.33s * var(--pace)) ease-in-out calc(3.5s * var(--pace)) both;
 }
@@ -488,40 +488,43 @@
 }
 
 .toast {
-  font-size: clamp(11px, 2.7cqi, 14px);
+  font-size: clamp(11px, 2.7cqi, 16px);
   font-weight: 700;
   animation: in calc(0.5s * var(--pace)) ease-out calc(var(--i) * var(--pace)) both;
 }
 
 /* ── 3 · Curated data ────────────────────────────────── */
 
+/* Centred in the stage: pinned to its top, the card left the lower third
+   of the panel empty (2026-11-25). */
 .tableCard {
   position: absolute;
-  top: 0;
+  top: 50%;
   left: 0;
   right: 0;
-  padding: 3cqi 3.4cqi;
+  transform: translateY(-50%);
+  padding: 3.4cqi;
 }
 
 .table {
   width: 100%;
   margin-top: 2cqi;
   border-collapse: collapse;
-  font-size: clamp(10px, 2.6cqi, 13px);
+  font-size: clamp(10px, 2.9cqi, 17px);
   line-height: 1.3;
 }
 
 .table th {
   padding: 0 1.2cqi 1cqi 0;
   border-bottom: 1px solid var(--cam-portal-rule);
-  font-size: clamp(9px, 2.2cqi, 11px);
+  font-size: clamp(9px, 2.4cqi, 14px);
   font-weight: 700;
   text-align: left;
   color: var(--cam-portal-muted);
 }
 
 .table td {
-  padding: 1.1cqi 1.2cqi 1.1cqi 0;
+  padding: 1.5cqi 1.2cqi 1.5cqi 0;
   border-bottom: 1px solid var(--cam-portal-hairline);
   white-space: nowrap;
 }
@@ -601,7 +604,7 @@
   margin: 2.4cqi 0 0;
   padding: 0;
   list-style: none;
-  font-size: clamp(10px, 2.5cqi, 13px);
+  font-size: clamp(10px, 2.6cqi, 16px);
   font-weight: 700;
 }
 
@@ -609,15 +612,16 @@
 
 .dashCard {
   position: absolute;
-  top: 12cqi;
+  top: 50%;
   left: 0;
   right: 0;
+  transform: translateY(-50%);
   padding: 3.4cqi;
 }
 
 .chartTitle {
   margin: 4cqi 0 3cqi;
-  font-size: clamp(11px, 2.8cqi, 14px);
+  font-size: clamp(11px, 3cqi, 18px);
   font-weight: 600;
 }
 
@@ -634,7 +638,7 @@
   grid-template-columns: 22cqi 1fr 9cqi;
   align-items: center;
   gap: 2cqi;
-  font-size: clamp(11px, 2.7cqi, 14px);
+  font-size: clamp(11px, 3cqi, 18px);
 }
 
 .barTrack {
@@ -676,11 +680,11 @@
   gap: 0.8cqi;
   padding: 3cqi;
   text-align: center;
-  font-size: clamp(11px, 3cqi, 15px);
+  font-size: clamp(11px, 3.4cqi, 20px);
 }
 
 .bulletinKicker {
-  font-size: clamp(10px, 2.4cqi, 12px);
+  font-size: clamp(10px, 2.6cqi, 15px);
   font-weight: 700;
   color: var(--cam-portal-muted);
 }
@@ -692,20 +696,22 @@
   width: 100%;
   height: 18cqi;
   overflow: visible;
+  animation: draw calc(1s * var(--pace)) ease-out calc(0.8s * var(--pace)) both;
 }
 
 .links path {
   fill: none;
   stroke: var(--journey-fg);
   stroke-width: 2;
-  stroke-dasharray: 1;
   vector-effect: non-scaling-stroke;
-  animation: draw calc(1s * var(--pace)) ease-out calc(var(--i) * var(--pace)) both;
 }
 
+/* Uncovered from the top, not dashed: with non-scaling-stroke a dash is
+   measured on screen, and the side lines stopped short of their cards
+   (2026-11-25). */
 @keyframes draw {
-  0% { stroke-dashoffset: 1; }
-  100% { stroke-dashoffset: 0; }
+  0% { clip-path: inset(0 -4px 100% -4px); }
+  100% { clip-path: inset(0 -4px 0 -4px); }
 }
 
 .nodes {
@@ -727,12 +733,12 @@
   gap: 0.6cqi;
   padding: 2.4cqi 2cqi;
   text-align: center;
-  font-size: clamp(10px, 2.5cqi, 13px);
+  font-size: clamp(10px, 2.7cqi, 16px);
   line-height: 1.3;
 }
 
 .nodes strong {
-  font-size: clamp(11px, 2.9cqi, 15px);
+  font-size: clamp(11px, 3cqi, 18px);
 }
 
 /* ── 6 · The programme ───────────────────────────────── */
@@ -750,7 +756,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 2.4cqi;
-  font-size: clamp(14px, 3.6cqi, 18px);
+  font-size: clamp(14px, 4cqi, 23px);
   line-height: 1.3;
 }
 
@@ -781,7 +787,7 @@
   border-radius: 999px;
   background: var(--journey-current);
   color: var(--cam-white);
-  font-size: clamp(11px, 2.6cqi, 13px);
+  font-size: clamp(11px, 2.7cqi, 15px);
   font-weight: 700;
 }
 
@@ -809,20 +815,20 @@
 }
 
 .titleCounter {
-  font-size: clamp(13px, 3cqi, 15px);
+  font-size: clamp(13px, 3.2cqi, 18px);
   font-weight: 600;
   color: var(--journey-current);
 }
 
 .titleText {
-  font-size: clamp(24px, 7cqi, 36px);
+  font-size: clamp(24px, 7.4cqi, 44px);
   font-weight: 700;
   line-height: 1.2;
 }
 
 .titleBody {
   max-width: 34ch;
-  font-size: clamp(15px, 3.6cqi, 18px);
+  font-size: clamp(15px, 3.8cqi, 21px);
   line-height: 1.45;
 }
 
@@ -870,6 +876,14 @@
   animation-play-state: paused !important;
 }
 
+/* Without motion there is nothing to hold: held at its first frame, a scene
+   would never show its finished one. */
+.player[data-still] .panel *,
+.player[data-still] .panel *::before,
+.player[data-still] .panel *::after {
+  animation-play-state: running !important;
+}
+
 .controls {
   display: flex;
   flex-wrap: wrap;
@@ -886,7 +900,7 @@
   background: none;
   border: 0;
   font: inherit;
-  font-size: var(--cam-font-size-sm);
+  font-size: 15px;
   font-weight: 600;
   color: var(--cam-portal-ink);
   white-space: nowrap;
@@ -916,11 +930,17 @@
   border-radius: var(--cam-radius-sm);
 }
 
-/* On a phone the three controls do not fit on one line: previous and next
-   keep their arrow, their words stay as the buttons' names. */
-@media (max-width: 520px) {
+/* On a phone, and beside the text on a small laptop, the three controls do
+   not fit on one line: previous and next keep their arrow, their words stay
+   as the buttons' names. */
+@media (max-width: 520px), (min-width: 1081px) and (max-width: 1440px) {
   .controls {
     justify-content: space-between;
+    column-gap: var(--cam-space-2);
+  }
+
+  .control {
+    font-size: 14px;
   }
 
   .stepControl {
@@ -949,4 +969,15 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* The narrowest phones, in French. */
+@media (max-width: 380px) {
+  .player .controls {
+    flex-wrap: nowrap;
+  }
+
+  .player .control {
+    white-space: normal;
+  }
 }

@@ -3,10 +3,12 @@
 // The masthead every public page shares (owner, 2026-11-25: « this simple
 // masthead »): one white row, the flag ribbon under it.
 //
-// Left, the front-door lockup (brand.md): the ONEFOP emblem at 56px (its
-// floor), a thin rule, the CAMLEAP wordmark in the official navy. Right,
-// the three tabs (the current one underlined in teal), « Connexion » and
-// the other language as an outlined button. Under the row, the tricolour
+// Left, the front-door lockup (brand.md): the ONEFOP emblem at 66px, a thin
+// rule, the CAMLEAP wordmark in the official navy and, under it, what the
+// acronym stands for, on two lines as wide as the wordmark (owner,
+// 2026-11-25). Right, the three tabs (the current one underlined in teal on
+// the row's foot), the other language as a text link, « Connexion » as a
+// navy outlined button. Under the row, the tricolour
 // in three equal thirds. The row and its ribbon are sticky.
 //
 // The sign-in family and the staff console keep OfficialBand; this header
@@ -54,10 +56,13 @@ export function SiteMasthead() {
       <div className={`${styles.container} ${styles.simpleInner}`}>
         <Link href="/" className={styles.simpleLockup}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/onefop_logo.png" alt={t("officialOnefopAlt")} width={56} height={55} className={styles.simpleEmblem} />
+          <img src="/images/onefop_logo.png" alt={t("officialOnefopAlt")} width={66} height={65} className={styles.simpleEmblem} />
           <span className={styles.simpleRule} aria-hidden="true" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/camleap-logo-navy.svg" alt="CAMLEAP" width={170} height={24} className={styles.simpleLogo} />
+          <span className={styles.simpleBrand}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/camleap-logo-navy.svg" alt="CAMLEAP" width={213} height={30} className={styles.simpleLogo} />
+            <span className={styles.simpleName}>{t("platformName")}</span>
+          </span>
         </Link>
 
         <nav
@@ -81,12 +86,12 @@ export function SiteMasthead() {
         </nav>
 
         <div className={styles.simpleTools}>
-          <Link href={entry.spaceHref} className={styles.simpleSignIn}>
-            {entry.spaceLabel}
-          </Link>
           <span className={styles.simpleLanguage}>
             <LanguageLink compact />
           </span>
+          <Link href={entry.spaceHref} className={styles.simpleSignIn}>
+            {entry.spaceLabel}
+          </Link>
           <button
             type="button"
             className={styles.simpleMenuToggle}

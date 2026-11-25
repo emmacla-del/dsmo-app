@@ -92,7 +92,7 @@ export function HomeView({ visual }: { visual: ReactNode }) {
       </nav>
 
       {/* 02 · Programme stages (4 phases) */}
-      <section id="programme" className={`${styles.section} ${styles.sectionWash}`}>
+      <section id="programme" className={styles.section}>
         <div className={styles.container}>
           <div className={styles.sectionHead}>
             <span className={styles.kicker}>{t("homeProgrammeTitle")}</span>

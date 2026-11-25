@@ -275,17 +275,9 @@ export async function ProjectJourneyHero() {
           viewBox="0 0 300 100"
           preserveAspectRatio="none"
         >
-          <path
-            d="M150 0 C150 50 50 50 50 100"
-            pathLength={1}
-            style={delay(0.8)}
-          />
-          <path d="M150 0 L150 100" pathLength={1} style={delay(1.0)} />
-          <path
-            d="M150 0 C150 50 250 50 250 100"
-            pathLength={1}
-            style={delay(1.2)}
-          />
+          <path d="M150 0 C150 50 50 50 50 100" />
+          <path d="M150 0 L150 100" />
+          <path d="M150 0 C150 50 250 50 250 100" />
         </svg>
         <ul className={styles.nodes}>
           {[1, 2, 3].map((n) => (
