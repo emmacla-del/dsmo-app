@@ -382,6 +382,12 @@
      « too narrow »): 1680px at most, a gutter that grows with the window. */
   --cam-portal-max: 1680px;
   --cam-portal-gutter: clamp(16px, 2.5vw, 48px);
+  /* The public site's spacing standard (owner, 2026-11-25): a band's
+     padding above and below, a card's padding, the gap between cards.
+     portal.module.css steps them down on tablets and phones. */
+  --cam-portal-band-pad: var(--cam-space-9);
+  --cam-portal-card-pad: var(--cam-space-6);
+  --cam-portal-card-gap: var(--cam-space-5);
   --cam-portal-aside-gap: var(--cam-space-8);
   --cam-measure: 68ch;
   --cam-header-height: 72px;

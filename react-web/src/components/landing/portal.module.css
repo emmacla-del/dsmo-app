@@ -2106,3 +2106,70 @@
     padding: 5px 6px;
   }
 }
+
+/* ── Tidy: one spacing standard for the home page (owner, 2026-11-25) ──
+   Every band breathes the same: 80px above and below on a wide screen,
+   64px on a tablet, 48px on a phone. Every row of cards sits 24px apart
+   and every card is padded 32px (24px on a phone). Rules above that
+   said otherwise were written one section at a time. */
+.hero,
+.services,
+.services.sectionWash,
+.section,
+.closing {
+  padding: var(--cam-portal-band-pad) 0;
+}
+
+.servicesGrid,
+.phases,
+.grid2 {
+  gap: var(--cam-portal-card-gap);
+}
+
+.service,
+.phases:not(.phasesVertical) > li,
+.participant {
+  padding: var(--cam-portal-card-pad);
+}
+
+.privacyBand {
+  margin-top: var(--cam-space-7);
+  padding: var(--cam-portal-card-pad) var(--cam-space-7);
+}
+
+/* The footer: the legal line had lost its margin to a reset and sat on
+   the flag ribbon. */
+.footer {
+  padding-top: var(--cam-space-8);
+}
+
+.page .footerLegal {
+  margin: var(--cam-space-7) 0 0;
+  padding: var(--cam-space-5) 0 var(--cam-space-6);
+}
+
+@media (max-width: 900px) {
+  .page {
+    --cam-portal-band-pad: var(--cam-space-8);
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    --cam-portal-band-pad: var(--cam-space-7);
+    --cam-portal-card-pad: var(--cam-space-5);
+    --cam-portal-card-gap: var(--cam-space-4);
+  }
+
+  .privacyBand {
+    padding: var(--cam-portal-card-pad);
+  }
+
+  .footer {
+    padding-top: var(--cam-space-7);
+  }
+
+  .page .footerLegal {
+    margin-top: var(--cam-space-6);
+  }
+}
