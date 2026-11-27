@@ -20,6 +20,7 @@ import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
 import '../../core/focus/utils/table_response_status.dart';
 import '../../core/focus/utils/employer_quiz.dart';
+import '../../core/focus/utils/pp_quiz.dart' show applyPpQuizSemantics;
 import '../../core/focus/utils/vt_quiz.dart';
 import '../../core/focus/renderers/activities_table.dart'
     show kActivitiesTableRowCount, kActivitiesTableFieldSuffixes;
@@ -1601,7 +1602,18 @@ class OnefopFormController extends ChangeNotifier {
     if (entityType != EntityType.projectProgram) {
       return applyEmployerQuizSemantics(_quizTables(), mapped);
     }
-    return mapped;
+    // Projects / Programmes: their own quiz's statuses and zeros, as
+    // react-web's applyProjectProgramQuizSemantics (pp_quiz.dart).
+    final tables = _quizTables();
+    return applyPpQuizSemantics(mapped, (code) {
+      for (final t in tables) {
+        if ((t.paperCode ?? '').toUpperCase() == code.toUpperCase() &&
+            t.sectionId == 'section4_projectProgram') {
+          return t.cellIds;
+        }
+      }
+      return const [];
+    });
   }
 
   List<QuizTable> _quizTables() {

@@ -51,6 +51,22 @@ const _allYesScope = <String, dynamic>{
   },
 };
 
+// The Project / Programme quiz confirmed with every answer « Oui », so the
+// audit reaches its tables.
+const _ppAllYesScope = <String, dynamic>{
+  '_scopeConfig': {
+    'projectProgram': {
+      'completedAt': '2026-11-27T10:00:00Z',
+      'noOutcomes': false,
+      'outcomes': ['employed', 'self_employed', 'jobs_created', 'trained'],
+      'hasPermanentStaff': true,
+      'hasTemporaryStaff': true,
+      'hasRecruitment': true,
+      'recruitmentTypes': ['permanent', 'temporary', 'disability', 'vulnerable'],
+    },
+  },
+};
+
 Future<void> _pumpForm(WidgetTester tester, EntityType type,
     {required bool simple,
     required String lang,
@@ -126,13 +142,26 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
   });
 
+  // The Project / Programme quiz, unanswered: it stands before Section 2.
+  testWidgets('phone audit — project / programme quiz', (tester) async {
+    await _pumpForm(tester, EntityType.projectProgram, simple: false, lang: 'fr');
+    debugLastOnefopFormController!.goto(2, focus: false);
+    await tester.pump();
+    tester.takeException();
+    await tester.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(MaterialApp),
+        matchesGoldenFile('goldens/phone_audit/pp_quiz_p00.png'));
+    await tester.pump(const Duration(seconds: 4));
+  });
+
   testWidgets('phone audit — administration', (tester) async {
     await _auditAllPages(tester, 'administration', EntityType.administration,
         initialData: _allYesScope);
   });
 
   testWidgets('phone audit — project / programme', (tester) async {
-    await _auditAllPages(tester, 'project', EntityType.projectProgram);
+    await _auditAllPages(tester, 'project', EntityType.projectProgram,
+        initialData: _ppAllYesScope);
   });
 
   testWidgets('phone audit — training centre (VT, wizard)', (tester) async {
