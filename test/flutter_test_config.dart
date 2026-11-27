@@ -13,7 +13,33 @@ import 'package:flutter/widgets.dart' show EditableText;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// test/goldens/ is git-ignored (.gitignore): the screenshots are local
+/// visual-audit output, never committed. A fresh checkout therefore has
+/// no reference images, and every golden check used to fail with "could
+/// not be compared against non-existent file". A missing reference is now
+/// written on the first run (as --update-goldens would) and the test
+/// passes; from then on the image is compared as usual, so a later visual
+/// change on the same machine still fails.
+class _BaselineOnFirstRunComparator extends LocalFileComparator {
+  _BaselineOnFirstRunComparator(super.testFile);
+
+  @override
+  Future<bool> compare(Uint8List imageBytes, Uri golden) async {
+    final file = File.fromUri(basedir.resolveUri(golden));
+    if (!file.existsSync()) {
+      await update(golden, imageBytes);
+      return true;
+    }
+    return super.compare(imageBytes, golden);
+  }
+}
+
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  final current = goldenFileComparator;
+  if (current is LocalFileComparator) {
+    goldenFileComparator = _BaselineOnFirstRunComparator(
+        current.basedir.resolve('flutter_test_config.dart'));
+  }
   // The blinking text-caret in any focused field is time-driven, not
   // frame-driven — a golden capture can land on either phase of the blink
   // depending on real wall-clock timing (worse under CPU contention from
@@ -63,6 +89,13 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
         ..addFont(rootBundle.load('assets/fonts/Inter-Italic.ttf'));
       await loader.load();
     }
+    // Manrope (the VT wizard's and polished fields' face) ships as a
+    // pubspec font, which flutter test does not load by itself.
+    final manrope = FontLoader('Manrope');
+    for (final w in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
+      manrope.addFont(rootBundle.load('assets/fonts/Manrope-$w.ttf'));
+    }
+    await manrope.load();
     // Icon widgets (chevron_right, expand_more, ...) render a single glyph
     // from the "MaterialIcons" font — bundled inside the Flutter SDK itself,
     // not declared as a pubspec asset, so it's absent from the test asset

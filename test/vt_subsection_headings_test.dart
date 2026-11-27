@@ -133,7 +133,7 @@ void main() {
     expect(
       units[1].subsectionLabel,
       '6.2 Informations sur le suivi post-formation des sortants des '
-          'centres de formation professionnelles du minefop',
+          'centres de formation professionnelles du MINEFOP',
     );
     // Same story: VT6_8 (dependsOn VT6_7) is hidden until VT6_7 = Oui.
     expect(units[1].fieldIds, ['VT6_7', 'VT6_10', 'VT6_11', 'VT6_12']);

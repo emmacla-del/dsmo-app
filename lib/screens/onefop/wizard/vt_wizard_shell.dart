@@ -27,7 +27,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/i18n/l10n_ext.dart';
 import '../../../core/i18n/localized_text.dart';
@@ -109,7 +108,6 @@ class _VtWizardShellState extends State<VtWizardShell> {
   @override
   void initState() {
     super.initState();
-    GoogleFonts.manrope();
     widget.ctrl.addListener(_handleCtrlChange);
   }
 

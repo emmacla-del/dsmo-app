@@ -38,6 +38,39 @@ const _kFilledRespondentAndEntite = <String, dynamic>{
   'S1Q12': 'PE/ Small enterprise',
 };
 
+// Every preliminary-quiz question answered « Oui » with every option
+// ticked, so the phone stepper opens the Section 2 tables instead of the
+// quiz that now stands before them (same answers as phone_audit_test).
+const _allYesScope = <String, dynamic>{
+  '_scopeConfig': {
+    'applications': true,
+    'application_csp': ['cadres', 'maitrise', 'execution'],
+    'application_age': ['15_24', '25_34', '35_plus'],
+    'recruit': true,
+    'recruit_types': ['permanent', 'temporaire'],
+    'recruit_csp': ['cadres', 'maitrise', 'execution'],
+    'recruit_age': ['15_24', '25_34', '35_plus'],
+    'recruit_diploma': ['cep', 'bepc', 'probatoire', 'bac', 'bts', 'licence',
+        'maitrise', 'master', 'dqp', 'cqp', 'autres', 'sans_diplome'],
+    'disability': true,
+    'vulnerable': true,
+    'primo_seekers': true,
+    'primo_seekers_csp': ['cadres', 'maitrise', 'execution'],
+    'primo_seekers_age': ['15_24', '25_34', '35_plus'],
+    'primo_workers': true,
+    'primo_workers_types': ['permanent', 'temporaire'],
+    'primo_workers_csp': ['cadres', 'maitrise', 'execution'],
+    'primo_workers_age': ['15_24', '25_34', '35_plus'],
+    'departures': true,
+    'departure_reasons': ['licenciement', 'demission', 'retraite', 'autre'],
+    'dismissal_technical': true,
+    'interns': true,
+    'intern_types': ['vacance', 'academique', 'professionnel', 'preemploi'],
+    'skills_needs': true,
+    'training_needs': true,
+  },
+};
+
 Future<void> _capture(WidgetTester tester, String name,
     {Size size = const Size(1440, 1000),
     List<Override> overrides = const [],
@@ -50,6 +83,7 @@ Future<void> _capture(WidgetTester tester, String name,
     // Suivant taps to reach a later table/subsection within it.
     int unitAdvances = 0,
     bool prefillRespondentAndEntite = false,
+    bool quizAnswered = false,
     DateTime? campaignPeriodStart,
     DateTime? campaignPeriodEnd}) async {
   tester.view.physicalSize = size;
@@ -66,7 +100,10 @@ Future<void> _capture(WidgetTester tester, String name,
         supportedLocales: AppLocalizations.supportedLocales,
         home: OnefopUnifiedFormScreenV4(
           entityType: EntityType.enterprise,
-          initialData: prefillRespondentAndEntite ? _kFilledRespondentAndEntite : const {},
+          initialData: {
+            if (prefillRespondentAndEntite) ..._kFilledRespondentAndEntite,
+            if (quizAnswered) ..._allYesScope,
+          },
           campaignPeriodStart: campaignPeriodStart,
           campaignPeriodEnd: campaignPeriodEnd,
           onSave: (_) {},
@@ -185,6 +222,7 @@ void main() {
         size: const Size(390, 844),
         navigateToSection: 'Emploi',
         prefillRespondentAndEntite: true,
+        quizAnswered: true,
         campaignPeriodStart: DateTime(2026, 1, 1),
         campaignPeriodEnd: DateTime(2026, 6, 30));
   });
@@ -199,7 +237,8 @@ void main() {
         size: const Size(390, 844),
         navigateToSection: 'Emploi',
         unitAdvances: 1,
-        prefillRespondentAndEntite: true);
+        prefillRespondentAndEntite: true,
+        quizAnswered: true);
   });
 
   // S3Q02 (reasons_table) has 3 hybrid row-label text fields

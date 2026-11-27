@@ -19,6 +19,8 @@ import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
 import '../../core/focus/utils/table_response_status.dart';
+import '../../core/focus/utils/employer_quiz.dart';
+import '../../core/focus/utils/pp_quiz.dart' show applyPpQuizSemantics;
 import '../../core/focus/utils/vt_quiz.dart';
 import '../../core/focus/renderers/activities_table.dart'
     show kActivitiesTableRowCount, kActivitiesTableFieldSuffixes;
@@ -38,11 +40,18 @@ class PreviewResult {
   final Uint8List? bytes;
   final String? fileName;
   final String? error;
+
+  /// True when the preview failed only because the server could not be
+  /// reached (no response at all), not because it refused the form. The
+  /// PDF preview is built server-side, so offline it can never succeed;
+  /// the screen then offers to send without it, through the outbox.
+  final bool offline;
   const PreviewResult({
     required this.success,
     this.bytes,
     this.fileName,
     this.error,
+    this.offline = false,
   });
 }
 
@@ -1585,9 +1594,44 @@ class OnefopFormController extends ChangeNotifier {
     final mapped = applyBackendMappers(Map.from(_data));
     // Training centres: table statuses, zeros and the quiz, exactly as the
     // web form submits them (vt_quiz.dart).
-    return entityType == EntityType.vocationalTraining
-        ? applyVtSubmissionSemantics(_schema?.fields ?? const [], mapped)
-        : mapped;
+    if (entityType == EntityType.vocationalTraining) {
+      return applyVtSubmissionSemantics(_schema?.fields ?? const [], mapped);
+    }
+    // Employer forms: the preliminary quiz's statuses and zeros, as
+    // react-web's applyQuizDerivedTableSemantics (employer_quiz.dart).
+    if (entityType != EntityType.projectProgram) {
+      return applyEmployerQuizSemantics(_quizTables(), mapped);
+    }
+    // Projects / Programmes: their own quiz's statuses and zeros, as
+    // react-web's applyProjectProgramQuizSemantics (pp_quiz.dart).
+    final tables = _quizTables();
+    return applyPpQuizSemantics(mapped, (code) {
+      for (final t in tables) {
+        if ((t.paperCode ?? '').toUpperCase() == code.toUpperCase() &&
+            t.sectionId == 'section4_projectProgram') {
+          return t.cellIds;
+        }
+      }
+      return const [];
+    });
+  }
+
+  List<QuizTable> _quizTables() {
+    final schema = _schema;
+    if (schema == null) return const [];
+    return [
+      for (final sec in schema.sections)
+        for (final id in sec.fieldIds)
+          if (schema.getField(id) case final f?
+              when f.type == 'table' && f.tableSpec != null)
+            QuizTable(
+              f.id,
+              f.paperCode,
+              sec.id,
+              ((f.tableSpec!['prefix'] as String?) ?? f.id).toLowerCase(),
+              TableCellEngine.cellIds(f),
+            ),
+    ];
   }
 
   Map<String, dynamic> applyBackendMappers(Map<String, dynamic> d) {
@@ -1654,6 +1698,12 @@ class OnefopFormController extends ChangeNotifier {
       final fn = 'onefop_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
       return PreviewResult(
           success: true, bytes: Uint8List.fromList(pdfBytes), fileName: fn);
+    } on ApiException catch (e) {
+      debugPrint('❌ Preview error: $e');
+      return PreviewResult(
+          success: false,
+          error: friendlySubmitError(e, l10n),
+          offline: e.statusCode == null);
     } catch (e) {
       debugPrint('❌ Preview error: $e');
       return PreviewResult(success: false, error: friendlySubmitError(e, l10n));

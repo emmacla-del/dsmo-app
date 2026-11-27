@@ -8,6 +8,7 @@ import '../unified_focus_manager_v2.dart';
 import 'age_band_switch_table.dart';
 import 'category_mini_grids.dart';
 import 'generic_spreadsheet_table.dart';
+import 'guided_table_entry.dart';
 import 'grid_render_spec.dart';
 import 'leading_group_switch_table.dart';
 import 'leading_group_tabs.dart';
@@ -61,6 +62,7 @@ class TableRenderer {
     void Function(String categoryKey, bool value, List<String> cellIds)? onCategorySkipChanged,
     Map<String, int>? enteredValues,
     bool tableClosed = false,
+    bool Function(String cellId)? keepCell,
   }) {
     final spec = field.tableSpec;
     if (spec == null) {
@@ -314,7 +316,23 @@ class TableRenderer {
     // CategoryGridGroupsView's own full-width cards) just no-ops under
     // Center, so this is safe to apply once here rather than threading a
     // "needs centering" flag through every branch above.
-    Widget displayTable = Center(child: table);
+    // On a phone, Mode Guidé is the only mode for the tables it can ask,
+    // as on the React web app (guided_table_entry.dart).
+    final Widget shown = mobile
+        ? GuidedOrCards(
+            spec: renderSpec,
+            cards: table,
+            numberValues: gridValues,
+            enteredValues: enteredValues,
+            onNumberChanged: onCellChanged,
+            textController: hybridController,
+            tableId: prefix,
+            locale: locale,
+            disabled: tableClosed,
+            keepCell: keepCell,
+          )
+        : table;
+    Widget displayTable = Center(child: shown);
     if (enteredValues != null) {
       displayTable = TableEnteredScope(values: enteredValues, child: displayTable);
     }
@@ -380,6 +398,20 @@ class TableRenderer {
         textWidthBasis: TextWidthBasis.parent,
       ),
     );
+  }
+
+  /// The render spec a table field is drawn from, for tests.
+  @visibleForTesting
+  static GridRenderSpec debugRenderSpecFor(FieldSchema field, Locale locale,
+          {String entityType = ''}) =>
+      _buildRenderSpec(field, locale, entityType: entityType);
+
+  /// Whether [field] is asked in Mode Guidé on a screen this wide.
+  static bool isGuided(FieldSchema field, Locale locale, double width) {
+    if (field.tableSpec == null || width >= kGuidedEntryMaxWidth) return false;
+    return GuidedTableModel.from(
+            _buildRenderSpec(field, locale), _prefixFor(field), locale) !=
+        null;
   }
 
   static String _prefixFor(FieldSchema field) =>
