@@ -15,9 +15,8 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 
 // ── Core schema imports ──────────────────────────────────────
@@ -25,7 +24,10 @@ import '../../core/i18n/l10n_ext.dart';
 import '../../core/i18n/localized_text.dart';
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/section_schema.dart';
+import '../../core/focus/renderers/guided_table_entry.dart';
 import '../../core/focus/renderers/onefop_layout_constants.dart';
+import '../../core/focus/renderers/table_renderer.dart';
+import '../../core/focus/utils/table_response_status.dart';
 import '../../core/focus/renderers/onefop_section_renderer.dart';
 import '../../core/focus/renderers/vt_routing.dart';
 import '../../core/focus/renderers/vt_row_editor.dart';
@@ -115,6 +117,12 @@ const _kPolishedSimpleFieldEntities = {
   EntityType.ong,
 };
 
+/// The controller of the most recently built form screen, so a test can
+/// jump straight to any page (`goto`) without filling every required
+/// field first. Test-only; never read from app code.
+@visibleForTesting
+OnefopFormController? debugLastOnefopFormController;
+
 class _State extends State<OnefopUnifiedFormScreenV4> {
   late final OnefopFormController _ctrl;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -122,12 +130,6 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // Reset per section build; staggers each table field's reveal so a
   // heavy page (many big tables) doesn't build them all in one frame.
   int _tableStagger = 0;
-
-  // Set the first time _buildField actually needs vtWizardBuildField (see
-  // there) — guards the one-time GoogleFonts.manrope() warm-up so it fires
-  // at most once per screen instance instead of on every polished field's
-  // build.
-  bool _manropeWarmedUp = false;
 
   @override
   void initState() {
@@ -145,6 +147,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       userId: widget.userId,
       onSubmitSuccess: widget.onSubmitSuccess,
     );
+    debugLastOnefopFormController = _ctrl;
     _ctrl.initialize();
     _ctrl.addListener(_onControllerChange);
     if (_ctrl.resumedFromSavedPosition) {
@@ -747,21 +750,32 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                 // it has to keep rendering all the way through the very
                 // last unit of the very last section instead of hiding
                 // once this section's own units run out.
+                // Mode Guidé (phone): Suivant / Précédent step through the
+                // table's questions first, as React's GuidedReviewGate, and
+                // Suivant stays available there — the table itself says
+                // what is missing on the question shown.
                 UnitNavRow(
                   showBack: !isFirst || _ctrl.currentPage > 0,
-                  onBack: () => isFirst
-                      ? retreatToPreviousSection(_ctrl)
-                      : retreatToUnit(_ctrl, sec, units, currentIdx),
+                  onBack: () {
+                    if (_guidedHandle(unit)?.retreat() ?? false) return;
+                    isFirst
+                        ? retreatToPreviousSection(_ctrl)
+                        : retreatToUnit(_ctrl, sec, units, currentIdx);
+                  },
                   showNext: true,
                   isSubmit: isFormEnd,
-                  nextEnabled: isFormEnd
-                      ? _ctrl.validateAllPages()
-                      : unit.canAdvance(_ctrl),
-                  onNext: () => isFormEnd
-                      ? _previewSubmit()
-                      : isLast
-                          ? advanceToNextSection(_ctrl)
-                          : advanceToUnit(_ctrl, sec, units, currentIdx),
+                  nextEnabled: _hasGuided(unit, context) ||
+                      (isFormEnd
+                          ? _ctrl.validateAllPages()
+                          : unit.canAdvance(_ctrl)),
+                  onNext: () {
+                    if (_guidedHandle(unit)?.advance() ?? false) return;
+                    isFormEnd
+                        ? _previewSubmit()
+                        : isLast
+                            ? advanceToNextSection(_ctrl)
+                            : advanceToUnit(_ctrl, sec, units, currentIdx);
+                  },
                 ),
               ],
             ),
@@ -769,6 +783,32 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         ],
       ),
     );
+  }
+
+  /// The guided table shown in [unit], if any (Mode Guidé, phone).
+  GuidedHandle? _guidedHandle(SectionUnit unit) {
+    for (final id in unit.fieldIds) {
+      final f = _ctrl.schema!.getField(id);
+      if (f == null || f.type != 'table' || f.tableSpec == null) continue;
+      final prefix = ((f.tableSpec!['prefix'] as String?) ?? f.id).toLowerCase();
+      final h = GuidedRegistry.handles[prefix];
+      if (h != null) return h;
+    }
+    return null;
+  }
+
+  bool _hasGuided(SectionUnit unit, BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    for (final id in unit.fieldIds) {
+      final f = _ctrl.schema!.getField(id);
+      if (f == null || f.type != 'table') continue;
+      final status = f.paperCode != null
+          ? _ctrl.data[TableResponseStatus.fieldId(f.paperCode!)]?.toString()
+          : null;
+      if (TableResponseStatus.isClosed(status)) continue;
+      if (TableRenderer.isGuided(f, context.loc, width)) return true;
+    }
+    return false;
   }
 
   List<Widget> _sectionSlivers() {
@@ -944,21 +984,8 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
 
     Widget field;
     if (wantsPolishedSimpleFields) {
-      // Fires only when a polished field is actually about to render (i.e.
-      // only on section0/section1_* — never on these entities' Emploi/
-      // Départs/Formation table sections) — see vtWizardBuildField's
-      // fontFamily: 'Manrope' doc comment in vt_wizard_fields.dart for why
-      // this warm-up is needed at all. Scoping it this tightly (rather
-      // than once in initState, regardless of which section the user is
-      // on) matters offline: this is a real network fetch, and it was
-      // previously firing on every page of these entities' forms —
-      // including table-only sections that never call vtWizardBuildField —
-      // which surfaced as spurious font-load exceptions in an offline
-      // widget test that never visits section0/1 at all.
-      if (!_manropeWarmedUp) {
-        _manropeWarmedUp = true;
-        GoogleFonts.manrope();
-      }
+      // Manrope ships with the app (pubspec fonts, 2026-11-27): it used to
+      // be fetched from Google at runtime here, which failed offline.
       field = vtWizardBuildField(_ctrl, f);
     } else {
       switch (f.type) {
@@ -1068,12 +1095,86 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
               ),
             ));
       }
+    } else if (result.offline) {
+      // The preview is rendered by the server, so with no connection the
+      // respondent could never reach the send button — and so never the
+      // outbox submit() already falls back to. Offer to send without it.
+      _confirmOfflineSubmit();
     } else {
       _snack(result.error!);
     }
   }
 
-  Future<void> _submitForm() async {
+  /// Offline, the form can still be sent: it waits in the phone's outbox
+  /// (SyncQueueService) and goes out when the connection returns.
+  Future<void> _confirmOfflineSubmit() async {
+    final loc = context.loc;
+    final send = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        icon: const Icon(Icons.cloud_off, color: kWarning, size: 32),
+        title: Text(
+          const LocalizedText(
+            fr: 'Pas de connexion',
+            en: 'No connection',
+          ).of(loc),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              fontSize: 18, fontWeight: FontWeight.w700, color: kInk),
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Text(
+            const LocalizedText(
+              fr: 'L\'aperçu PDF a besoin d\'Internet. Vous pouvez envoyer '
+                  'le questionnaire maintenant : il reste sur ce téléphone et '
+                  'part automatiquement dès le retour de la connexion.',
+              en: 'The PDF preview needs the internet. You can send the '
+                  'questionnaire now: it stays on this phone and goes out '
+                  'automatically as soon as the connection returns.',
+            ).of(loc),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: kInkSoft, height: 1.45),
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actionsOverflowAlignment: OverflowBarAlignment.center,
+        actionsOverflowDirection: VerticalDirection.up,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+            child: Text(const LocalizedText(
+              fr: 'Plus tard',
+              en: 'Not now',
+            ).of(loc)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kAccent,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(48, 48),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(kRadiusSm)),
+            ),
+            child: Text(const LocalizedText(
+              fr: 'Envoyer dès la reconnexion',
+              en: 'Send when back online',
+            ).of(loc)),
+          ),
+        ],
+      ),
+    );
+    if (send == true && mounted) await _submitForm(fromViewer: false);
+  }
+
+  /// [fromViewer] is false when sent offline without a preview: there is
+  /// then no PdfViewerScreen above the form to close first.
+  Future<void> _submitForm({bool fromViewer = true}) async {
     final l10n = context.l10n;
     _showProgress(l10n.submittingInProgress);
     final result = await _ctrl.submit(l10n);
@@ -1104,7 +1205,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
       // Pop the PdfViewerScreen before showing the dialog — on Flutter Web,
       // HtmlElementView renders above the Flutter canvas so the iframe would
       // intercept all taps on the dialog if the viewer screen stays alive.
-      Navigator.of(context).pop();
+      if (fromViewer) Navigator.of(context).pop();
       _successDialog(wasQueued: result.wasQueued);
     } else {
       _snack(result.error!);

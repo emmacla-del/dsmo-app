@@ -38,11 +38,18 @@ class PreviewResult {
   final Uint8List? bytes;
   final String? fileName;
   final String? error;
+
+  /// True when the preview failed only because the server could not be
+  /// reached (no response at all), not because it refused the form. The
+  /// PDF preview is built server-side, so offline it can never succeed;
+  /// the screen then offers to send without it, through the outbox.
+  final bool offline;
   const PreviewResult({
     required this.success,
     this.bytes,
     this.fileName,
     this.error,
+    this.offline = false,
   });
 }
 
@@ -1654,6 +1661,12 @@ class OnefopFormController extends ChangeNotifier {
       final fn = 'onefop_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
       return PreviewResult(
           success: true, bytes: Uint8List.fromList(pdfBytes), fileName: fn);
+    } on ApiException catch (e) {
+      debugPrint('❌ Preview error: $e');
+      return PreviewResult(
+          success: false,
+          error: friendlySubmitError(e, l10n),
+          offline: e.statusCode == null);
     } catch (e) {
       debugPrint('❌ Preview error: $e');
       return PreviewResult(success: false, error: friendlySubmitError(e, l10n));
