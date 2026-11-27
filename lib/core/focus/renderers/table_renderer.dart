@@ -62,6 +62,7 @@ class TableRenderer {
     void Function(String categoryKey, bool value, List<String> cellIds)? onCategorySkipChanged,
     Map<String, int>? enteredValues,
     bool tableClosed = false,
+    bool Function(String cellId)? keepCell,
   }) {
     final spec = field.tableSpec;
     if (spec == null) {
@@ -328,6 +329,7 @@ class TableRenderer {
             tableId: prefix,
             locale: locale,
             disabled: tableClosed,
+            keepCell: keepCell,
           )
         : table;
     Widget displayTable = Center(child: shown);

@@ -219,8 +219,12 @@ class GuidedTableModel {
 
   /// Null when the table has a cell that is not a number (the phone cards
   /// then stay): React guides its statistical tables only.
+  ///
+  /// [keepCell]: the cells the preliminary quiz still asks (react-web
+  /// resolveTableScope); a question with a cell it drops is not asked.
   static GuidedTableModel? from(
-      GridRenderSpec spec, String tableId, Locale locale) {
+      GridRenderSpec spec, String tableId, Locale locale,
+      {bool Function(String cellId)? keepCell}) {
     final en = locale.languageCode == 'en';
     final tid = tableId.toLowerCase();
     final raw = <_RawQ>[];
@@ -294,6 +298,7 @@ class GuidedTableModel {
     final questions = <GuidedQuestion>[];
     for (final key in order) {
       for (final q in byRow[key]!) {
+        if (keepCell != null && !q.breakdowns.every(keepCell)) continue;
         final p = buildConversationalPrompt(tid, q.row, q.dim, en: en);
         questions.add(GuidedQuestion(
           id: q.breakdowns.join('|'),
@@ -770,6 +775,7 @@ class GuidedOrCards extends StatelessWidget {
   final String tableId;
   final Locale locale;
   final bool disabled;
+  final bool Function(String cellId)? keepCell;
 
   const GuidedOrCards({
     super.key,
@@ -782,13 +788,15 @@ class GuidedOrCards extends StatelessWidget {
     this.enteredValues,
     this.textController,
     this.disabled = false,
+    this.keepCell,
   });
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     if (width >= kGuidedEntryMaxWidth) return cards;
-    final model = GuidedTableModel.from(spec, tableId, locale);
+    final model =
+        GuidedTableModel.from(spec, tableId, locale, keepCell: keepCell);
     if (model == null) return cards;
     return GuidedStatisticalEntry(
       key: ValueKey('guided_$tableId'),

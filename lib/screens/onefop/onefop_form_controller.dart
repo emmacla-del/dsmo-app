@@ -19,6 +19,7 @@ import '../../core/focus/unified_focus_manager_v2.dart';
 import '../../core/focus/compiler/section_title_lookup.dart';
 import '../../core/focus/utils/field_validator.dart';
 import '../../core/focus/utils/table_response_status.dart';
+import '../../core/focus/utils/employer_quiz.dart';
 import '../../core/focus/utils/vt_quiz.dart';
 import '../../core/focus/renderers/activities_table.dart'
     show kActivitiesTableRowCount, kActivitiesTableFieldSuffixes;
@@ -1592,9 +1593,33 @@ class OnefopFormController extends ChangeNotifier {
     final mapped = applyBackendMappers(Map.from(_data));
     // Training centres: table statuses, zeros and the quiz, exactly as the
     // web form submits them (vt_quiz.dart).
-    return entityType == EntityType.vocationalTraining
-        ? applyVtSubmissionSemantics(_schema?.fields ?? const [], mapped)
-        : mapped;
+    if (entityType == EntityType.vocationalTraining) {
+      return applyVtSubmissionSemantics(_schema?.fields ?? const [], mapped);
+    }
+    // Employer forms: the preliminary quiz's statuses and zeros, as
+    // react-web's applyQuizDerivedTableSemantics (employer_quiz.dart).
+    if (entityType != EntityType.projectProgram) {
+      return applyEmployerQuizSemantics(_quizTables(), mapped);
+    }
+    return mapped;
+  }
+
+  List<QuizTable> _quizTables() {
+    final schema = _schema;
+    if (schema == null) return const [];
+    return [
+      for (final sec in schema.sections)
+        for (final id in sec.fieldIds)
+          if (schema.getField(id) case final f?
+              when f.type == 'table' && f.tableSpec != null)
+            QuizTable(
+              f.id,
+              f.paperCode,
+              sec.id,
+              ((f.tableSpec!['prefix'] as String?) ?? f.id).toLowerCase(),
+              TableCellEngine.cellIds(f),
+            ),
+    ];
   }
 
   Map<String, dynamic> applyBackendMappers(Map<String, dynamic> d) {

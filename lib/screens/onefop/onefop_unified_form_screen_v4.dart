@@ -47,6 +47,7 @@ import '../dashboards/company_workspace_dashboard.dart'
 
 // ── Screen-local modules ─────────────────────────────────────
 import '../../providers/onefop_mode_provider.dart';
+import 'employer_scope_quiz.dart';
 import 'onefop_form_constants.dart';
 import 'onefop_form_controller.dart';
 import 'onefop_form_widgets.dart';
@@ -525,7 +526,65 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
     );
   }
 
+  /// Reopened from the first table (Précédent), as React's quiz step.
+  bool _quizReopened = false;
+
+  /// The page the employer quiz stands before: the first one after
+  /// Section 1 (react-web preliminaryQuizSlot), or null when this form has
+  /// no such quiz.
+  int? _quizSlotPage() {
+    if (!isEmployerQuizGoverned(_ctrl)) return null;
+    for (var p = 0; p < _ctrl.pageCount; p++) {
+      final id = _ctrl.primarySection(p)?.id ?? '';
+      if (id != 'section0' && !id.startsWith('section1_')) return p;
+    }
+    return null;
+  }
+
+  /// The tables after the quiz stay closed until it is answered (React's
+  /// gated quiz step).
+  bool _showQuiz() {
+    final slot = _quizSlotPage();
+    if (slot == null || _ctrl.currentPage < slot) return false;
+    return _quizReopened || !isEmployerQuizComplete(_ctrl);
+  }
+
+  Widget _quizStage() {
+    final slot = _quizSlotPage()!;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+          kOnefopMobilePagePadding, 20, kOnefopMobilePagePadding, 40),
+      child: EmployerScopeQuiz(
+        key: const ValueKey('employer_scope_quiz'),
+        ctrl: _ctrl,
+        onComplete: () {
+          setState(() => _quizReopened = false);
+          final sec = _ctrl.primarySection(_ctrl.currentPage);
+          if (sec != null) _ctrl.setUnitCursor(sec.id, 0);
+        },
+        onBack: () {
+          setState(() => _quizReopened = false);
+          _ctrl.goto(slot - 1, focus: false);
+          final prev = _ctrl.primarySection(slot - 1);
+          if (prev != null) _ctrl.setUnitCursor(prev.id, 1 << 30);
+        },
+      ),
+    );
+  }
+
   Widget _mobileLayout() {
+    if (_showQuiz()) {
+      return Column(children: [
+        Container(
+          decoration: const BoxDecoration(
+            color: kSurface,
+            border: Border(bottom: BorderSide(color: kBorder, width: 1)),
+          ),
+          child: MobileContextHeader(ctrl: _ctrl),
+        ),
+        Expanded(child: _quizStage()),
+      ]);
+    }
     return Column(children: [
       Container(
         decoration: const BoxDecoration(
@@ -663,6 +722,7 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
   // shared unit model + advance/retreat/scroll-into-view logic.
   Widget _sectionUnitBody(SectionSchema sec) {
     final locale = context.loc;
+    final quizGoverned = _quizSlotPage() != null;
     final units = buildTableGroupUnits(
       _ctrl,
       sec,
@@ -680,8 +740,31 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
         ],
       ),
       mobile: true,
+      skipTable: quizGoverned
+          ? (f) =>
+              f.paperCode != null &&
+              TableResponseStatus.isClosed(
+                  _ctrl.data[TableResponseStatus.fieldId(f.paperCode!)]?.toString())
+          : null,
+      hideStatusFields: quizGoverned,
     );
-    if (units.isEmpty) return const SizedBox.shrink();
+    if (units.isEmpty) {
+      // Every table of this section recorded as nothing to report by the
+      // quiz: the section has nothing to show but its Précédent / Suivant.
+      if (!quizGoverned) return const SizedBox.shrink();
+      final isFormEnd = _ctrl.currentPage == _ctrl.pageCount - 1;
+      return UnitNavRow(
+        showBack: true,
+        onBack: () => _ctrl.currentPage == _quizSlotPage()
+            ? setState(() => _quizReopened = true)
+            : retreatToPreviousSection(_ctrl),
+        showNext: true,
+        isSubmit: isFormEnd,
+        nextEnabled: isFormEnd ? _ctrl.validateAllPages() : true,
+        onNext: () =>
+            isFormEnd ? _previewSubmit() : advanceToNextSection(_ctrl),
+      );
+    }
 
     final currentIdx =
         (_ctrl.unitCursor(sec.id) ?? currentUnitIndex(_ctrl, units))
@@ -758,6 +841,11 @@ class _State extends State<OnefopUnifiedFormScreenV4> {
                   showBack: !isFirst || _ctrl.currentPage > 0,
                   onBack: () {
                     if (_guidedHandle(unit)?.retreat() ?? false) return;
+                    // Précédent from the first table goes back to the quiz.
+                    if (isFirst && _ctrl.currentPage == _quizSlotPage()) {
+                      setState(() => _quizReopened = true);
+                      return;
+                    }
                     isFirst
                         ? retreatToPreviousSection(_ctrl)
                         : retreatToUnit(_ctrl, sec, units, currentIdx);

@@ -19,8 +19,42 @@ import 'package:dsmo_app/screens/onefop/onefop_unified_form_screen_v4.dart';
 const _width = 360.0;
 const _height = 1800.0;
 
+/// Every quiz question answered « Oui » with every choice ticked, so the
+/// tables after the employer quiz open in full.
+const _allYesScope = <String, dynamic>{
+  '_scopeConfig': {
+    'applications': true,
+    'application_csp': ['cadres', 'maitrise', 'execution'],
+    'application_age': ['15_24', '25_34', '35_plus'],
+    'recruit': true,
+    'recruit_types': ['permanent', 'temporaire'],
+    'recruit_csp': ['cadres', 'maitrise', 'execution'],
+    'recruit_age': ['15_24', '25_34', '35_plus'],
+    'recruit_diploma': ['cep', 'bepc', 'probatoire', 'bac', 'bts', 'licence',
+        'maitrise', 'master', 'dqp', 'cqp', 'autres', 'sans_diplome'],
+    'disability': true,
+    'vulnerable': true,
+    'primo_seekers': true,
+    'primo_seekers_csp': ['cadres', 'maitrise', 'execution'],
+    'primo_seekers_age': ['15_24', '25_34', '35_plus'],
+    'primo_workers': true,
+    'primo_workers_types': ['permanent', 'temporaire'],
+    'primo_workers_csp': ['cadres', 'maitrise', 'execution'],
+    'primo_workers_age': ['15_24', '25_34', '35_plus'],
+    'departures': true,
+    'departure_reasons': ['licenciement', 'demission', 'retraite', 'autre'],
+    'dismissal_technical': true,
+    'interns': true,
+    'intern_types': ['vacance', 'academique', 'professionnel', 'preemploi'],
+    'skills_needs': true,
+    'training_needs': true,
+  },
+};
+
 Future<void> _pumpForm(WidgetTester tester, EntityType type,
-    {required bool simple, required String lang}) async {
+    {required bool simple,
+    required String lang,
+    Map<String, dynamic> initialData = const {}}) async {
   tester.view.physicalSize = const Size(_width, _height);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -33,7 +67,7 @@ Future<void> _pumpForm(WidgetTester tester, EntityType type,
         supportedLocales: AppLocalizations.supportedLocales,
         home: OnefopUnifiedFormScreenV4(
           entityType: type,
-          initialData: const {},
+          initialData: initialData,
           forceSimpleMode: simple,
           campaignPeriodStart: DateTime(2026, 1, 1),
           campaignPeriodEnd: DateTime(2026, 6, 30),
@@ -49,8 +83,11 @@ Future<void> _pumpForm(WidgetTester tester, EntityType type,
 }
 
 Future<void> _auditAllPages(WidgetTester tester, String name, EntityType type,
-    {bool simple = false, String lang = 'fr'}) async {
-  await _pumpForm(tester, type, simple: simple, lang: lang);
+    {bool simple = false,
+    String lang = 'fr',
+    Map<String, dynamic> initialData = const {}}) async {
+  await _pumpForm(tester, type,
+      simple: simple, lang: lang, initialData: initialData);
   final ctrl = debugLastOnefopFormController!;
   final pages = ctrl.pageCount;
   for (var p = 0; p < pages; p++) {
@@ -69,11 +106,29 @@ Future<void> _auditAllPages(WidgetTester tester, String name, EntityType type,
 
 void main() {
   testWidgets('phone audit — employer (enterprise)', (tester) async {
-    await _auditAllPages(tester, 'enterprise', EntityType.enterprise);
+    await _auditAllPages(tester, 'enterprise', EntityType.enterprise,
+        initialData: _allYesScope);
+  });
+
+  // The employer preliminary quiz, unanswered: it stands before Section 2.
+  testWidgets('phone audit — employer quiz', (tester) async {
+    await _pumpForm(tester, EntityType.enterprise, simple: false, lang: 'fr');
+    debugLastOnefopFormController!.goto(2, focus: false);
+    await tester.pump();
+    tester.takeException();
+    await tester.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(MaterialApp),
+        matchesGoldenFile('goldens/phone_audit/quiz_p00.png'));
+    await tester.tap(find.text('Oui'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(MaterialApp),
+        matchesGoldenFile('goldens/phone_audit/quiz_p01.png'));
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('phone audit — administration', (tester) async {
-    await _auditAllPages(tester, 'administration', EntityType.administration);
+    await _auditAllPages(tester, 'administration', EntityType.administration,
+        initialData: _allYesScope);
   });
 
   testWidgets('phone audit — project / programme', (tester) async {
@@ -87,6 +142,6 @@ void main() {
 
   testWidgets('phone audit — employer, English', (tester) async {
     await _auditAllPages(tester, 'enterprise_en', EntityType.enterprise,
-        lang: 'en');
+        lang: 'en', initialData: _allYesScope);
   });
 }

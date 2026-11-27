@@ -16,6 +16,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../core/focus/utils/employer_quiz.dart' show quizKeepsCell;
+
 import '../../core/focus/schema/field_schema.dart';
 import '../../core/focus/schema/section_schema.dart';
 import '../../core/focus/renderers/table_renderer.dart';
@@ -147,6 +149,12 @@ List<SectionUnit> buildTableGroupUnits(
   // today, pinning the question/subsection above the scrolling content
   // rather than letting it scroll away with it.
   bool separateHeader = false,
+  // Employer preliminary quiz (employer_scope_quiz.dart, as react-web's
+  // SectionRenderer): a table the quiz recorded as nothing to report is not
+  // shown, and the tables' own « Statut de réponse » fields are not either —
+  // the quiz answers set them.
+  bool Function(FieldSchema table)? skipTable,
+  bool hideStatusFields = false,
 }) {
   // Hybrid row-label fields (S3Q02_REASON_*_TEXT, S4Q02_DOMAIN_*_TEXT,
   // S4Q03_DOMAIN_*_TEXT, ...) are already rendered as editable cells
@@ -208,8 +216,9 @@ List<SectionUnit> buildTableGroupUnits(
       final prefix = ((f.tableSpec?['prefix'] as String?) ?? f.id).toLowerCase();
       final startRow = rowNum + 1;
       rowNum += attached.length;
-      final statusFields =
-          attached.where((a) => TableResponseStatus.isFieldId(a.id)).toList();
+      final statusFields = hideStatusFields
+          ? <FieldSchema>[]
+          : attached.where((a) => TableResponseStatus.isFieldId(a.id)).toList();
       final otherAttached =
           attached.where((a) => !TableResponseStatus.isFieldId(a.id)).toList();
       final statusId = statusFields.isNotEmpty
@@ -273,6 +282,7 @@ List<SectionUnit> buildTableGroupUnits(
                 isCategorySkipped: ctrl.isCategorySkipped,
                 onCategorySkipChanged: ctrl.setCategorySkipped,
                 enteredValues: ctrl.uGrid,
+                keepCell: (id) => quizKeepsCell(prefix, id, ctrl.data),
                 tableClosed: TableResponseStatus.isClosed(
                     ctrl.data[statusId]?.toString()),
                 onExitTable: () => ctrl.exitTable(f.id),
@@ -345,7 +355,7 @@ List<SectionUnit> buildTableGroupUnits(
           attached.add(groupFieldsList[j]);
           j++;
         }
-        addTableUnit(f, attached);
+        if (!(skipTable?.call(f) ?? false)) addTableUnit(f, attached);
         i = j;
       } else if (isVtTable) {
         // VT-UI/UX-02 P0: every VT table (both `type: table`, caught
