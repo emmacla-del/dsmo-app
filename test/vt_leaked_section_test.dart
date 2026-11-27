@@ -92,7 +92,9 @@ void main() {
     final section2 =
         ctrl.schema!.sections.firstWhere((s) => s.id == 'section2');
     expect(section2.fieldIds, contains('S21Q01'));
-    expect(section2.fieldIds, contains('S22Q01'));
+    // Renumbered 2026-09-28: the recruitment table S22Q01 is S21Q02 here.
+    expect(section2.fieldIds, contains('S21Q02'));
+    expect(section2.fieldIds, isNot(contains('S22Q01')));
     // S23Q02 ("primo demandeur") is enterprise-family only — Administration
     // has no such question (see its own "no Primo demandeur section" note
     // in onefop_ast.dart).

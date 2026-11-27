@@ -110,6 +110,9 @@ void main() {
           'cfpType': 'Centre de Formation Professionnelle Rapide (CFPR)',
           'educationSystem': 'Public',
           'functionalStatus': 'Fonctionnelle',
+          // Required since the §2.1.13 authorization fields (53e1aab9); the
+          // year / order number / date follow it only on « Oui ».
+          'authorizationStatus': 'Non/ No',
           'yearOfCreation': '2010',
           'address': 'Yaounde',
           'phone': '699000000',

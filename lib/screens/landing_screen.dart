@@ -732,8 +732,13 @@ class _ExplainerSubCard extends StatelessWidget {
           Text(body,
               style: const TextStyle(fontSize: 15, height: 1.6, color: PublicColors.gray700)),
           const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Wraps on a phone: the badge and « En savoir plus » did not fit
+          // one line at 360px in French (overflowed by up to 62px).
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -920,9 +925,16 @@ class _CamleapFooter extends StatelessWidget {
         children: [
           mobile
               ? Column(children: [access, const SizedBox(height: 32), admin])
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [access, const Spacer(), admin],
+              // A tablet just above the phone breakpoint had no room for
+              // both blocks on one line (overflowed by 282px): they wrap.
+              : SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 32,
+                    runSpacing: 32,
+                    children: [access, admin],
+                  ),
                 ),
           const SizedBox(height: 48),
           Container(

@@ -116,8 +116,8 @@ void main() {
   });
 
   test(
-      'DraftService.saveDraft strips explicit zeros (pre-existing, '
-      'documented limitation — not fixed by VtFixedRowGrid)', () async {
+      'DraftService.saveDraft keeps an explicit zero apart from an '
+      'untouched cell', () async {
     SharedPreferences.setMockInitialValues({});
     const untouchedKey = 's4q1_someDiploma_female';
     const zeroKey = 's4q1_someDiploma_male';
@@ -133,14 +133,11 @@ void main() {
     final reloaded =
         await DraftService.loadDraft(userId: 'test-user', entityType: 'vocational_training');
 
-    // Documented limitation (finding #4 of the approved plan): the explicit
-    // 0 does not survive the round trip — DraftService.saveDraft strips
-    // any int value equal to 0 before persisting, so a real save/reload
-    // cycle makes an explicitly-zeroed cell indistinguishable from one
-    // nobody ever touched. This assertion exists to keep that behavior
-    // visible and intentional, not to endorse it as correct.
+    // The explicit 0 now survives the round trip: DraftService.saveDraft
+    // only drops null and blank values, so a confirmed zero stays apart
+    // from a cell nobody touched — which an offline draft depends on.
     expect(reloaded, isNotNull);
-    expect(reloaded!.containsKey(zeroKey), isFalse);
+    expect(reloaded![zeroKey], 0);
     expect(reloaded.containsKey(untouchedKey), isFalse);
     // A genuinely non-zero value survives normally.
     expect(reloaded[nonZeroKey], 12);

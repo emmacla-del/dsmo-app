@@ -30,8 +30,11 @@ void main() {
     return schema.fields.firstWhere((f) => f.id == id);
   }
 
-  group('Administration S21Q01/S22Q01/S3Q01 — TableCellEngine.cellIds', () {
-    for (final id in ['S21Q01', 'S22Q01', 'S3Q01']) {
+  // Administration section 2 was renumbered on 2026-09-28 (onefop_ast.dart):
+  // its recruitment table S22Q01 became S21Q02, the disability table S22Q04
+  // became S21Q03 and now uses the civil-service categories too.
+  group('Administration S21Q01/S21Q02/S3Q01 — TableCellEngine.cellIds', () {
+    for (final id in ['S21Q01', 'S21Q02', 'S3Q01']) {
       test('$id produces fonctionnaire/decisionnaire/contractuelle cell IDs, '
           'not cadres/foremen/workers', () {
         final field = fieldFor(EntityType.administration, id);
@@ -48,10 +51,12 @@ void main() {
       });
     }
 
-    test('S22Q04 (disability) is unaffected — still CSP rows', () {
-      final field = fieldFor(EntityType.administration, 'S22Q04');
+    test('S21Q03 (disability) uses the civil-service categories', () {
+      final field = fieldFor(EntityType.administration, 'S21Q03');
       final ids = TableCellEngine.cellIds(field);
-      expect(ids.any((c) => c.contains('_cadres_')), isTrue);
+      expect(ids.any((c) => c.contains('_fonctionnaire')), isTrue,
+          reason: 'S21Q03 cells: $ids');
+      expect(ids.any((c) => c.contains('_cadres_')), isFalse);
     });
   });
 
@@ -70,8 +75,8 @@ void main() {
     }
   });
 
-  group('Administration S21Q01/S22Q01/S3Q01 — TableSpecBuilder.build', () {
-    for (final id in ['S21Q01', 'S22Q01', 'S3Q01']) {
+  group('Administration S21Q01/S21Q02/S3Q01 — TableSpecBuilder.build', () {
+    for (final id in ['S21Q01', 'S21Q02', 'S3Q01']) {
       test('$id renders Fonctionnaire/Décisionnaire/Contractuelle row '
           'labels and rowKeys, not Cadres/Agents de Maîtrise/…', () {
         final field = fieldFor(EntityType.administration, id);
